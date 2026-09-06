@@ -43,7 +43,7 @@ dysk 44 GB. Maszyna dzielona z HA (~1,8 GB), PostgreSQL, Grafaną i TeslaMate.
 | Szczegóły bez logowania | **tak, pełne** (blok Alpine) | **tak, pełne** | tak | **tak, ale bez ofert** |
 | Cena aktualna | **tak** (netto, brutto, EUR) | **tak** | tylko „Cena:" (stała) | **tak** |
 | Liczba ofert | **tak** (`offers_count`, `bidders_count`) | **tak (`Ofert: N`)** | nie znaleziono | **NIE — dopiero po zalogowaniu** |
-| Historia ofert | `lastOffers` w HTML / `topoffers` w API | **inline w HTML, jawna** | nie znaleziono | **SignalR `getAuctionOffers`** |
+| Historia ofert | **pełna w HTML, bez logowania** | **inline w HTML, jawna** | nie znaleziono | **SignalR `getAuctionOffers`** |
 | Min. postąpienie | **`instep_price` wprost** | z regulaminu (10/100/200 zł) | nie znaleziono | **2% ostatniej oferty** |
 | Render | dane serwerowe, JS tylko odświeża | **statyczny** | statyczny | dane serwerowe + push |
 | API JSON | **`POST /pl/auctions/bid-details/<id>`** | brak | brak (jQuery ajax, nieustalone) | **SignalR (WebSocket)** |
@@ -333,9 +333,35 @@ auction: { secure_conn: true, current_price: '40 500',
 Czyli bez logowania mamy: cenę netto/brutto/EUR, **minimalne postąpienie
 (`instep_price`)**, **minimalną kolejną ofertę (`min_offer_price`, liczbowo)**,
 **liczbę ofert i licytujących**, flagę osiągnięcia ceny minimalnej,
-**absolutną datę końca z jawną strefą `Europe/Warsaw`** oraz listę ofert
-`lastOffers` (pustą przy zerowej liczbie ofert — kształt niepotwierdzony).
+**absolutną datę końca z jawną strefą `Europe/Warsaw`** oraz `lastOffers`.
 VIN jest w HTML (`TMBJH7NP0P7055920`).
+
+**`lastOffers` jest wypełniona bez logowania — potwierdzone.** Na aukcji
+`9ooxn4x9` (`offers_count: 2`, `fixtures/poleasingowe/szczegoly-9ooxn4x9.html`):
+
+```json
+[{"id":896162,"bd_name":"d...6","op":"32 100 PLN",
+  "dt":"niedziela 6 wrzesień 2026 11:56:26"},
+ {"id":896147,"bd_name":"i...k","op":"32 000 PLN",
+  "dt":"sobota 5 wrzesień 2026 14:38:25"}]
+```
+
+Liczba wpisów zgadza się z `offers_count`, każdy ma identyfikator, kwotę
+i znacznik czasu co do sekundy. **Dla §11.8 oznacza to, że historia ofert
+jest dostępna anonimowo** — dokładnie tak jak w EFL, tylko w innym opakowaniu.
+
+Otwarte zostaje jedno: **czy `lastOffers` ucina się przy większej liczbie
+ofert** (nazwa sugeruje „ostatnie N"). W dniu rekonesansu żadna aukcja
+w kategorii nie miała więcej niż 2 ofert — cała partia kończy się dopiero
+2026-09-07 o 12:00, a licytacja skupia się w końcówce. **Pomiar 0b odpowie
+na to sam**: w końcówce wystarczy porównać długość `lastOffers`
+z `offers_count`.
+
+**Uwaga na dane osobowe (§10.2).** Obiekt zawiera `winner: 'dreamcars26'`
+— **pełny, niezamaskowany login zwycięzcy** — obok zamaskowanego
+`winner_formated: 'd...6'`. W `lastOffers` loginy są maskowane (`d...6`),
+ale `winner` nie. To login osoby trzeciej i **nie może trafiać do `raw_json`
+ani do zrzutów debug**; filtr redakcyjny z §10.2 musi go obejmować.
 
 To zmienia werdykt: **logowanie nie jest potrzebne do odczytu.** API
 `bid-details` pozostaje przydatne do odświeżania na żywo i do `topoffers`,
@@ -630,11 +656,12 @@ interwał.
 
 ## 7. Otwarte pytania
 
-1. **`Disallow` na panelu zalogowanym poleasingowe.pl.** Pełna historia
-   ofert (`.../all_offers`) leży pod `/pl/bidder-panel/*`, objętym
-   `Disallow`. Odczyt podstawowy działa bez tego, więc pytanie jest węższe:
-   czy sięgamy po pełną historię ofert (lepsza jakość §11.8), czy zostajemy
-   na `lastOffers` + różnicach `offers_count`?
+1. **`Disallow` na panelu zalogowanym poleasingowe.pl.** Po ustaleniu, że
+   `lastOffers` jest wypełniona anonimowo (§4.2), pytanie skurczyło się do
+   jednego: **czy `lastOffers` ucina się przy dużej liczbie ofert.** Jeśli
+   nie — panel zalogowany nie daje nic, czego nie mamy, i sprawa odpada.
+   Jeśli tak — dopiero wtedy warto rozważać sesję i `.../all_offers`.
+   Rozstrzyga to pomiar 0b, więc **decyzję można odłożyć do jutra**.
 2. **Paginacja leasygroup.** `robots.txt` dopuszcza tylko `strona-1`.
    Trzymamy się tego (jedna strona na kategorię), czy uznajemy źródło za
    niewarte zachodu i wypada z §3?
