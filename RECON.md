@@ -52,7 +52,7 @@ dysk 44 GB. Maszyna dzielona z HA (~1,8 GB), PostgreSQL, Grafaną i TeslaMate.
 | Limit tempa w nagłówkach | **`x-ratelimit-limit` 60–120** | brak | brak | nie sprawdzone |
 | Paginacja | serwerowa | serwerowa `?page=N` | `strona-N`, **robots blokuje > 1** | nie sprawdzone |
 | **Dogrywka** | **+30 s, okno 30 s, max +30 min** | **BRAK — twardy koniec** | **+2 min, okno 2 min** | nie sprawdzone |
-| Czas do końca | JS countdown + API `end_date` | **absolutny timestamp w HTML** | nie znaleziono | nie sprawdzone |
+| Czas do końca | **absolutny `endDate` w HTML** + strefa jawnie | **absolutny timestamp w HTML** | nie znaleziono | nie sprawdzone |
 | Czas serwera | **`sdt.date` w API, bez logowania** | brak | brak | nie sprawdzone |
 | VIN publiczny | **tak** | **tak** | **tak** | nie sprawdzone |
 | Werdykt | **`httpx`, bez logowania do odczytu** | **`httpx`, bez przeglądarki** | `httpx`, ale mało danych | nie sprawdzone |
