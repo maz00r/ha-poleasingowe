@@ -241,8 +241,25 @@ aktywnego widgetu** — nierozstrzygnięte, do sprawdzenia przy logowaniu.
 Logowanie jest potrzebne do składania ofert, nie do odczytu.
 
 **robots.txt**: `User-agent: *` / `Allow: /`, plus `Sitemap`.
-Sitemap zawiera wpisy z `lastmod` (od 2015 r.) — potencjalnie tani sposób
-na wykrywanie nowych aukcji, **niezweryfikowany**.
+
+**Sitemap — sprawdzony i odrzucony.** `sitemap.xml` ma **64 MB**
+i **435 841 wpisów `<loc>`** (435 837 z `lastmod`): to pełna historia serwisu
+od 2015 r., nie lista aktywnych aukcji. Rozkład lat jest równomierny
+(ok. 40–60 tys. wpisów rocznie), a najnowsze `lastmod` są bieżące, więc plik
+jest żywy — tylko bezużyteczny dla nas.
+
+Pobranie 64 MB i sparsowanie prawie pół miliona wpisów, żeby znaleźć kilkaset
+aktywnych aukcji, jest **o cztery rzędy wielkości droższe** niż pięć żądań
+z `perPage=64` (§2.1) i wprost łamie budżet z §1.1 na maszynie z 6 GB RAM
+dzielonej z TeslaMate. **Nie używać.** Zapisane tutaj, żeby nie wracać do tego
+pomysłu jako „optymalizacji".
+
+Uboczna obserwacja: identyfikatory aukcji są globalne i w przybliżeniu
+sekwencyjne w całym serwisie (najwyższe w sitemapie: 435846, przy bieżących
+aukcjach w okolicy 435500). Sitemap pozostaje jedynym znanym źródłem URL-i
+aukcji **zakończonych** — gdyby kiedyś powstał pomysł backfillu historii,
+to jest to miejsce, ale jako jednorazowa operacja offline, nie element
+przebiegu.
 
 **Werdykt: `httpx`, bez przeglądarki.** Rekomendacja na §14 pkt 5.
 
