@@ -41,9 +41,9 @@ dysk 44 GB. Maszyna dzielona z HA (~1,8 GB), PostgreSQL, Grafaną i TeslaMate.
 | Stack | Laravel + openresty | ASP.NET MVC | PHP + WAF F5 | ASP.NET MVC + Cloudflare |
 | Lista bez logowania | **tak, z ceną i liczbą ofert** | **tak, z ceną** | tak | **tak, z ceną i VIN** |
 | Szczegóły bez logowania | **tak, pełne** (blok Alpine) | **tak, pełne** | tak | **tak, ale bez ofert** |
-| Cena aktualna | **tak** (netto, brutto, EUR) | **tak** | tylko „Cena:" (stała) | **tak** |
+| Cena aktualna | **tak** (netto, brutto, EUR) | **tak** | netto; nie wiadomo, czy bieżąca | **tak** |
 | Liczba ofert | **tak** (`offers_count`, `bidders_count`) | **tak (`Ofert: N`)** | nie znaleziono | **NIE — dopiero po zalogowaniu** |
-| Historia ofert | **pełna w HTML, bez logowania** | **inline w HTML, jawna** | nie znaleziono | **SignalR `getAuctionOffers`** |
+| Historia ofert | **pełna w HTML, bez logowania** | **inline w HTML, jawna** | **NIE — zapewne po zalogowaniu** | **SignalR `getAuctionOffers`** |
 | Min. postąpienie | **`instep_price` wprost** | z regulaminu (10/100/200 zł) | nie znaleziono | **2% ostatniej oferty** |
 | Render | dane serwerowe, JS tylko odświeża | **statyczny** | statyczny | dane serwerowe + push |
 | API JSON | **`POST /pl/auctions/bid-details/<id>`** | brak | brak (jQuery ajax, nieustalone) | **SignalR (WebSocket)** |
@@ -52,7 +52,7 @@ dysk 44 GB. Maszyna dzielona z HA (~1,8 GB), PostgreSQL, Grafaną i TeslaMate.
 | Limit tempa w nagłówkach | **`x-ratelimit-limit` 60–120** | brak | brak | brak |
 | Paginacja | serwerowa | serwerowa `?page=N` | `strona-N`, **robots blokuje > 1** | serwerowa `?page=N` |
 | **Dogrywka** | **+30 s, okno 30 s, max +30 min** | **BRAK — twardy koniec** | **+2 min, okno 2 min** | **+120 s, okno 2 min, bez sufitu** |
-| Czas do końca | **absolutny `endDate` w HTML** + strefa jawnie | **absolutny timestamp w HTML** | nie znaleziono | **ukryty input `auctionEndDate`** |
+| Czas do końca | **absolutny `endDate` w HTML** + strefa jawnie | **absolutny timestamp w HTML** | **w szczegółach, „Koniec aukcji”** | **ukryty input `auctionEndDate`** |
 | Czas serwera | **`sdt.date` w API, bez logowania** | brak | brak | brak |
 | VIN publiczny | **tak** | **tak** | **tak** | **tak, już na liście** |
 | Werdykt | **`httpx`, bez logowania do odczytu** | **`httpx`, bez przeglądarki** | `httpx`, ale mało danych | **`httpx`; oferty wymagają sesji lub SignalR** |
