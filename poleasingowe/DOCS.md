@@ -59,3 +59,76 @@ zawieszonej blokady na współdzielonym serwerze.
 
 Definicja w kodzie: `app/infrastructure/persistence/migrations.py`,
 stała `KLUCZ_BLOKADY_MIGRACJI`.
+
+## Grafana — drugie źródło danych
+
+Analityka jest w Grafanie; add-on obsługuje operacje. Grafana ma już źródło
+danych do innej bazy na tym samym serwerze — dokładamy **drugie**, do bazy
+`poleasingowe`, na roli tylko do odczytu.
+
+**Grafana nigdy nie odpytuje tabel bazowych — wyłącznie widoki z `reporting`.**
+Gdyby dashboardy podpięły się pod `app.auction`, schemat byłby zamrożony
+i każda migracja po cichu psułaby wykresy. Rola `grafana_ro` ma uprawnienia
+wyłącznie do widoków i nie odczyta tabel, nawet gdyby ktoś spróbował.
+
+### Konfiguracja
+
+W Grafanie: **Connections → Data sources → Add new → PostgreSQL**
+
+| Pole | Wartość |
+|---|---|
+| Name | `poleasingowe` |
+| Host | `db21ed7f-postgres-latest:5432` |
+| Database | `poleasingowe` |
+| User | `grafana_ro` |
+| TLS/SSL Mode | `disable` (ruch nie wychodzi poza sieć dodatków) |
+| Version | 17 |
+
+Hasło roli `grafana_ro` jest ustawione poza add-onem — add-on nie zarządza
+rolami ani hasłami.
+
+### Weryfikacja przed pierwszymi danymi
+
+Zrób to **zanim pojawią się aukcje**. Pusty widok, który działa, jest lepszy
+niż dashboard budowany na danych produkcyjnych.
+
+1. **Save & test** — musi zwrócić „Database Connection OK".
+2. W **Explore** wybierz źródło `poleasingowe` i wykonaj:
+
+   ```sql
+   SELECT * FROM reporting.v_source_health;
+   ```
+
+   Ma zwrócić zero wierszy **bez błędu**. Zero wierszy jest tu poprawnym
+   wynikiem — źródeł jeszcze nie ma.
+
+3. Powtórz dla `reporting.v_auction_current`, `reporting.v_price_history`
+   i `reporting.v_market_stats`.
+
+4. **Sprawdź, że kontrakt działa** — to zapytanie ma się **nie udać**:
+
+   ```sql
+   SELECT * FROM app.auction;
+   ```
+
+   Oczekiwany błąd: `permission denied for table auction`. Jeśli przejdzie,
+   uprawnienia są za szerokie i trzeba je zawęzić, zanim powstaną dashboardy.
+
+### Widoki
+
+| Widok | Do czego |
+|---|---|
+| `v_price_history` | historia cen jednej aukcji; `bid_gap` mówi, ile ofert przegapiono |
+| `v_auction_current` | bieżący stan aukcji plus flaga obserwowania |
+| `v_market_stats` | mediany cen per marka/model/rocznik |
+| `v_source_health` | stan źródeł, ostatni przebieg, RSS, rozmiar bazy |
+
+**Uwaga do `v_market_stats`.** Widok podaje **dwie mediany osobno**:
+`median_confirmed` (cena odczytana ze strony po zakończeniu) oraz
+`median_last_seen` (ostatnia obserwacja przed zamknięciem — dolne
+oszacowanie). Kolumna `median_lead_seconds` mówi, jak daleko przed
+faktycznym końcem urwał się pomiar.
+
+**Dashboard musi pokazywać je rozdzielnie.** Zmieszanie ich w jedną liczbę
+zaniża obraz rynku, a `n_confirmed` i `n_last_seen` mówią, na ilu
+obserwacjach każda z nich stoi.

@@ -35,13 +35,7 @@ from app.domain.value_objects import Mileage, Money, Vin
 # SQL
 # --------------------------------------------------------------------------
 
-_SOURCE_KOLUMNY = """
-    id, key, name, enabled, sweep_interval_seconds, rate_limit_per_minute,
-    floor_seconds, auth_state, consecutive_auth_failures,
-    overtime_window_seconds, overtime_extension_seconds, overtime_cap_seconds
-"""
-
-SQL_SOURCE_UPSERT = f"""
+SQL_SOURCE_UPSERT = """
 INSERT INTO app.source (
     key, name, enabled, sweep_interval_seconds, rate_limit_per_minute,
     floor_seconds, auth_state, consecutive_auth_failures,
@@ -61,24 +55,27 @@ ON CONFLICT (key) DO UPDATE SET
     overtime_window_seconds = EXCLUDED.overtime_window_seconds,
     overtime_extension_seconds = EXCLUDED.overtime_extension_seconds,
     overtime_cap_seconds = EXCLUDED.overtime_cap_seconds
-RETURNING {_SOURCE_KOLUMNY}
+RETURNING id, key, name, enabled, sweep_interval_seconds, rate_limit_per_minute,
+    floor_seconds, auth_state, consecutive_auth_failures,
+    overtime_window_seconds, overtime_extension_seconds, overtime_cap_seconds
 """
 
-SQL_SOURCE_PO_KLUCZU = f"SELECT {_SOURCE_KOLUMNY} FROM app.source WHERE key = %s"
-SQL_SOURCE_WLACZONE = (
-    f"SELECT {_SOURCE_KOLUMNY} FROM app.source WHERE enabled ORDER BY key"
-)
-
-_AUCTION_KOLUMNY = """
-    id, source_id, external_id, url, make, model, variant, year, mileage_km,
-    fuel, gearbox, engine_ccm, engine_hp, vin, body, color, location, seller,
-    price_start, price_current, currency, bid_count, bid_increment_raw,
-    ends_at, status, first_seen_at, last_seen_at, content_hash, raw_json,
-    next_poll_at, poll_tier, consecutive_failures, final_price_state,
-    last_price_lead_seconds, duplicate_of
+SQL_SOURCE_PO_KLUCZU = """
+SELECT
+    id, key, name, enabled, sweep_interval_seconds, rate_limit_per_minute,
+    floor_seconds, auth_state, consecutive_auth_failures, overtime_window_seconds,
+    overtime_extension_seconds, overtime_cap_seconds
+FROM app.source WHERE key = %s
+"""
+SQL_SOURCE_WLACZONE = """
+SELECT
+    id, key, name, enabled, sweep_interval_seconds, rate_limit_per_minute,
+    floor_seconds, auth_state, consecutive_auth_failures, overtime_window_seconds,
+    overtime_extension_seconds, overtime_cap_seconds
+FROM app.source WHERE enabled ORDER BY key
 """
 
-SQL_AUCTION_UPSERT = f"""
+SQL_AUCTION_UPSERT = """
 INSERT INTO app.auction (
     source_id, external_id, url, make, model, variant, year, mileage_km,
     fuel, gearbox, engine_ccm, engine_hp, vin, body, color, location, seller,
@@ -115,45 +112,68 @@ ON CONFLICT (source_id, external_id) DO UPDATE SET
     final_price_state = EXCLUDED.final_price_state,
     last_price_lead_seconds = EXCLUDED.last_price_lead_seconds,
     duplicate_of = EXCLUDED.duplicate_of
-RETURNING {_AUCTION_KOLUMNY}
+RETURNING id, source_id, external_id, url, make, model, variant, year, mileage_km,
+    fuel, gearbox, engine_ccm, engine_hp, vin, body, color, location, seller,
+    price_start, price_current, currency, bid_count, bid_increment_raw,
+    ends_at, status, first_seen_at, last_seen_at, content_hash, raw_json,
+    next_poll_at, poll_tier, consecutive_failures, final_price_state,
+    last_price_lead_seconds, duplicate_of
 """
 
-SQL_AUCTION_PO_KLUCZU = (
-    f"SELECT {_AUCTION_KOLUMNY} FROM app.auction "
-    "WHERE source_id = %s AND external_id = %s"
-)
+SQL_AUCTION_PO_KLUCZU = """
+SELECT
+    id, source_id, external_id, url, make, model, variant, year, mileage_km, fuel,
+    gearbox, engine_ccm, engine_hp, vin, body, color, location, seller, price_start,
+    price_current, currency, bid_count, bid_increment_raw, ends_at, status,
+    first_seen_at, last_seen_at, content_hash, raw_json, next_poll_at, poll_tier,
+    consecutive_failures, final_price_state, last_price_lead_seconds, duplicate_of
+FROM app.auction WHERE source_id = %s AND external_id = %s
+"""
 
 # Zapytanie wykonywane najczesciej w calym systemie — musi trafiac w indeks
 # czesciowy auction_next_poll_active_idx (SPEC.md §8.3).
-SQL_AUCTION_DO_ODPYTU = f"""
-SELECT {_AUCTION_KOLUMNY} FROM app.auction
+SQL_AUCTION_DO_ODPYTU = """
+SELECT id, source_id, external_id, url, make, model, variant, year, mileage_km,
+    fuel, gearbox, engine_ccm, engine_hp, vin, body, color, location, seller,
+    price_start, price_current, currency, bid_count, bid_increment_raw,
+    ends_at, status, first_seen_at, last_seen_at, content_hash, raw_json,
+    next_poll_at, poll_tier, consecutive_failures, final_price_state,
+    last_price_lead_seconds, duplicate_of FROM app.auction
 WHERE status = 'ACTIVE' AND next_poll_at IS NOT NULL AND next_poll_at <= %s
 ORDER BY ends_at NULLS LAST
 LIMIT %s
 """
 
-SQL_AUCTION_PO_VIN = (
-    f"SELECT {_AUCTION_KOLUMNY} FROM app.auction WHERE vin = %s ORDER BY id"
-)
+SQL_AUCTION_PO_VIN = """
+SELECT
+    id, source_id, external_id, url, make, model, variant, year, mileage_km, fuel,
+    gearbox, engine_ccm, engine_hp, vin, body, color, location, seller, price_start,
+    price_current, currency, bid_count, bid_increment_raw, ends_at, status,
+    first_seen_at, last_seen_at, content_hash, raw_json, next_poll_at, poll_tier,
+    consecutive_failures, final_price_state, last_price_lead_seconds, duplicate_of
+FROM app.auction WHERE vin = %s ORDER BY id
+"""
 
 SQL_AUCTION_ODNOTUJ_WIDZIANA = "UPDATE app.auction SET last_seen_at = %s WHERE id = %s"
 
-_SNAPSHOT_KOLUMNY = "id, auction_id, ts, price, currency, bid_count, ends_at, bid_gap"
-
-SQL_SNAPSHOT_OSTATNI = f"""
-SELECT {_SNAPSHOT_KOLUMNY} FROM app.price_snapshot
+SQL_SNAPSHOT_OSTATNI = """
+SELECT
+    id, auction_id, ts, price, currency, bid_count, ends_at, bid_gap
+FROM app.price_snapshot
 WHERE auction_id = %s ORDER BY ts DESC, id DESC LIMIT 1
 """
 
-SQL_SNAPSHOT_INSERT = f"""
+SQL_SNAPSHOT_INSERT = """
 INSERT INTO app.price_snapshot
     (auction_id, ts, price, currency, bid_count, ends_at, bid_gap)
 VALUES (%s, %s, %s, %s, %s, %s, %s)
-RETURNING {_SNAPSHOT_KOLUMNY}
+RETURNING id, auction_id, ts, price, currency, bid_count, ends_at, bid_gap
 """
 
-SQL_SNAPSHOT_HISTORIA = f"""
-SELECT {_SNAPSHOT_KOLUMNY} FROM app.price_snapshot
+SQL_SNAPSHOT_HISTORIA = """
+SELECT
+    id, auction_id, ts, price, currency, bid_count, ends_at, bid_gap
+FROM app.price_snapshot
 WHERE auction_id = %s ORDER BY ts, id
 """
 

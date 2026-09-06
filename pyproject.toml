@@ -56,6 +56,9 @@ select = [
   "SIM",         # uproszczenia
   "PTH",         # pathlib zamiast os.path
   "RUF",
+  # SPEC.md §5: zapytania jako stale modulowe, NIGDY sklejane f-stringami.
+  # Bez tej reguly pilnuje tego wylacznie dyscyplina autora.
+  "S608",
 ]
 ignore = [
   # N818 zada sufiksu `Error` w nazwach wyjatkow. SPEC.md §6.2 nazywa je
@@ -69,7 +72,9 @@ ignore = [
 [tool.ruff.lint.per-file-ignores]
 # tools/ to skrypty rekonesansu — print() jest tam interfejsem, nie niechlujstwem.
 "tools/*" = ["T20"]
-"poleasingowe/tests/*" = ["T20"]
+# W testach nazwy widokow i tabel pochodza z literalnej listy w parametryzacji,
+# a nie z danych — tam sklejanie jest czytelniejsze niz obchodzenie go.
+"poleasingowe/tests/*" = ["T20", "S608"]
 
 [tool.ruff.lint.flake8-builtins]
 builtins-allowed-modules = ["types"]

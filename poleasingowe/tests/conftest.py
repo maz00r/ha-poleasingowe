@@ -69,10 +69,16 @@ def nazwa_bazy_testowej() -> Iterator[str]:
     with psycopg.connect(_dsn("postgres"), autocommit=True) as conn:
         conn.execute(f'CREATE DATABASE "{nazwa}"')
     try:
-        # Schematy powstaja POZA migracja, tak jak na produkcji (SPEC.md §0).
         with psycopg.connect(_dsn(nazwa), autocommit=True) as conn:
+            # Schematy powstaja POZA migracja, tak jak na produkcji (SPEC.md §0).
             conn.execute("CREATE SCHEMA app")
             conn.execute("CREATE SCHEMA reporting")
+            # Odwzorowanie uprawnien z §0: PUBLIC odebrane na bazie i na
+            # schemacie public, grafana_ro ma WYLACZNIE CONNECT. Dzieki temu
+            # test "Grafana nie widzi tabel bazowych" cos naprawde sprawdza.
+            conn.execute(f'REVOKE ALL ON DATABASE "{nazwa}" FROM PUBLIC')
+            conn.execute("REVOKE ALL ON SCHEMA public FROM PUBLIC")
+            conn.execute(f'GRANT CONNECT ON DATABASE "{nazwa}" TO grafana_ro')
         yield nazwa
     finally:
         with psycopg.connect(_dsn("postgres"), autocommit=True) as conn:
@@ -92,6 +98,16 @@ async def polaczenie(
     async with await psycopg.AsyncConnection.connect(_dsn(nazwa_bazy_testowej)) as conn:
         yield conn
         await conn.rollback()
+
+
+@pytest_asyncio.fixture
+async def polaczenie_grafany(
+    nazwa_bazy_testowej: str,
+) -> AsyncIterator[psycopg.AsyncConnection]:
+    """Połączenie jako `grafana_ro` — do sprawdzania kontraktu z §9."""
+    dsn = f"postgresql://grafana_ro:{HASLO}@{HOST}:{PORT}/{nazwa_bazy_testowej}"
+    async with await psycopg.AsyncConnection.connect(dsn) as conn:
+        yield conn
 
 
 @pytest_asyncio.fixture

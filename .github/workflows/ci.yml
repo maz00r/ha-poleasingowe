@@ -79,6 +79,15 @@ jobs:
         run: |
           psql -h localhost -U poleasingowe_app -d postgres \
             -c "ALTER ROLE poleasingowe_app CREATEDB"
+          # Migracja 002 nadaje grafana_ro dostep do widokow (SPEC.md §9)
+          # i bez tej roli wywala sie glosno. Na serwerze docelowym rola
+          # istnieje (§0); w CI trzeba ja utworzyc.
+          psql -h localhost -U poleasingowe_app -d postgres -c \
+            "DO \$\$ BEGIN
+               IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname='grafana_ro')
+               THEN CREATE ROLE grafana_ro LOGIN PASSWORD 'poleasingowe_test';
+               END IF;
+             END \$\$;"
 
       - name: pytest
         run: .venv/bin/pytest

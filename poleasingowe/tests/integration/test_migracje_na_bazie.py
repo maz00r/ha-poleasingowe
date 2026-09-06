@@ -23,15 +23,24 @@ pytestmark = wymaga_postgresa
 async def test_migracje_stosuja_sie_i_sa_idempotentne(
     polaczenie: psycopg.AsyncConnection,
 ) -> None:
+    # Bez sztywnej listy — test nie ma wymagac aktualizacji przy kazdej
+    # nowej migracji, tylko sprawdzac, ze stosuje sie dokladnie to, co lezy
+    # na dysku, i ze drugie przejscie nie robi nic.
+    na_dysku = wczytaj_migracje(MIGRACJE)
+    assert na_dysku, "brak plikow migracji — test nie mialby czego sprawdzac"
+
     pierwsze = await zastosuj_migracje(polaczenie, MIGRACJE)
-    assert [m.version for m in pierwsze] == [1]
+    assert [m.version for m in pierwsze] == [m.version for m in na_dysku]
 
     drugie = await zastosuj_migracje(polaczenie, MIGRACJE)
     assert drugie == [], "druga próba nie ma prawa niczego zastosować ponownie"
 
     async with polaczenie.cursor() as cur:
-        await cur.execute("SELECT version, name FROM app.schema_migration")
-        assert await cur.fetchall() == [(1, "init")]
+        await cur.execute(
+            "SELECT version, name FROM app.schema_migration ORDER BY version"
+        )
+        zapisane = await cur.fetchall()
+    assert zapisane == [(m.version, m.name) for m in na_dysku]
 
 
 async def test_powstaly_wszystkie_tabele_i_indeksy(

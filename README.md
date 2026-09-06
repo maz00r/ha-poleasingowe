@@ -21,12 +21,14 @@ Kolejność etapów jest w `SPEC.md` §14. Zrobione:
   Pomiary czasowe (0b) w toku.
 - **ETAP 2** — szkielet warstw, import-linter, ruff, mypy, CI.
 - **ETAP 3** — `domain/`, `persistence/`, migracja `001_init.sql`, repozytoria
-  i testy na lokalnym PostgreSQL 17. ← tutaj jesteśmy.
+  i testy na lokalnym PostgreSQL 17.
+- **ETAP 4** — migracja `002_reporting.sql`: cztery widoki i `GRANT SELECT`
+  dla `grafana_ro`. ← tutaj jesteśmy. Zostaje ręczne dodanie drugiego źródła
+  danych w Grafanie — instrukcja w [`poleasingowe/DOCS.md`](poleasingowe/DOCS.md).
 
-Następny: **ETAP 4** — schemat `reporting`: widoki i `GRANT SELECT` dla
-`grafana_ro`, plus drugie źródło danych w Grafanie. Robione **zanim powstaną
-dane** — pusty widok, który działa, jest lepszy niż dashboard budowany na
-danych produkcyjnych.
+Następny: **ETAP 5** — jeden adapter end-to-end. Wg `RECON.md` §5.1 zaczynamy
+od EFL, bo jest najprostszy: statyczny HTML, komplet danych bez logowania,
+jawna tabela ofert i brak dogrywki.
 
 ## Środowisko
 
