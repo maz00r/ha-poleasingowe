@@ -57,6 +57,34 @@ dysk 44 GB. Maszyna dzielona z HA (~1,8 GB), PostgreSQL, Grafaną i TeslaMate.
 | VIN publiczny | **tak** | **tak** | **tak** | nie sprawdzone |
 | Werdykt | **`httpx`, bez logowania do odczytu** | **`httpx`, bez przeglądarki** | `httpx`, ale mało danych | nie sprawdzone |
 
+### 2.1 Wolumeny i koszt przemiatu listy (punkt h)
+
+Liczebności wyprowadzone z zasięgu paginacji, nie z licznika — żaden serwis
+nie podaje sumy wyników w tekście.
+
+| Serwis | Pozycji | Stron × na stronę | Koszt pełnego przemiatu |
+|---|---|---|---|
+| poleasingowe.pl (`vehicles`) | **~721** | 73 × 10 (ostatnia: 1) | **73 żądania** |
+| aukcje.efl.com.pl (Carefleet/Osobowe) | **~280** | 35 × 8 | **5 żądań** przy `perPage=64` |
+| aukcje.leasygroup.pl (pojazdy) | ~96 | 8 × 12 | nieweryfikowalne — robots |
+
+Metoda: dla poleasingowe wyszukiwanie binarne ostatniej niepustej strony
+(`?page=N`) — 73 zwraca 1 pozycję, 74 zwraca 0. Paginator jest okienkowy
+(bieżąca ±5) i **nie zdradza sumy**, więc liczbę stron trzeba wykryć sondą.
+Dla EFL najwyższy numer strony (`page=34`) jest w paginatorze wprost.
+Dla leasygroup `robots.txt` zabrania stron poza `strona-1`, więc liczba
+8 pochodzi z linków w paginatorze i **nie została potwierdzona pobraniem**.
+
+Wniosek dla §11.2: przemiat poleasingowe kosztuje 73 żądania, ale przy jego
+limicie 120/min mieści się w minucie i przy interwale „raz na kilka godzin"
+jest pomijalny. **EFL jest tańszy o rząd wielkości** dzięki `perPage=64` —
+pięć żądań na całą kategorię.
+
+**VIN (druga część punktu h): publikowany przez wszystkie trzy serwisy**
+na stronie szczegółów, bez logowania — EFL `WAUZZZGY2PA052888`,
+poleasingowe `TMBJH7NP0P7055920`, leasygroup `W1NFF3DE0RB112081`.
+Deduplikacja międzyserwisowa z §8.4 ma więc na czym się oprzeć.
+
 ---
 
 ## 3. Rozbieżności ze SPEC.md — do decyzji
@@ -513,8 +541,8 @@ Zaplanowane, niewykonane, wymaga aukcji kończącej się w trakcie obserwacji:
 - **(e) AJAX w końcówce** — dla poleasingowe.pl endpoint znany
   (`bid-details`, 1000 ms); dla EFL i leasygroup nie sprawdzone w końcówce.
 - **(f) czas życia sesji** — wymaga zalogowania, czyli Twojej obecności.
-- **(h) liczba aktywnych ofert** — policzona zgrubnie tylko dla EFL
-  (34 strony × 10 pozycji w kategorii Carefleet/Osobowe). Dla pozostałych
-  nie policzone.
+- ~~**(h) liczba aktywnych ofert i VIN**~~ — **zrobione**, patrz §2.1.
+  Zostaje tylko potwierdzenie liczebności leasygroup, zablokowane przez
+  `robots.txt`.
 - **leasygroup**: znaleźć realną aukcję w trybie licytacji.
 - **autoprzetarg.pl**: całość, po dostarczeniu fixtures przez Ciebie.
