@@ -1,0 +1,81 @@
+{
+  "pobrano_utc": "2026-09-06T17:19:32+00:00",
+  "user_agent": "Chrome/126 (desktop UA)",
+  "zalogowany": false,
+  "pliki": {
+    "lista-01.html": {
+      "status": "HTTP/2 200",
+      "bytes": 101464,
+      "redirects": 0,
+      "headers": {
+        "content-type": "text/html; charset=utf-8",
+        "cache-control": "private",
+        "server": "cloudflare",
+        "cf-cache-status": "DYNAMIC"
+      }
+    },
+    "lista-02.html": {
+      "status": "HTTP/2 200",
+      "bytes": 101534,
+      "redirects": 0,
+      "headers": {
+        "content-type": "text/html; charset=utf-8",
+        "cache-control": "private",
+        "server": "cloudflare",
+        "cf-cache-status": "DYNAMIC"
+      }
+    },
+    "logowanie.html": {
+      "status": "HTTP/2 200",
+      "bytes": 19419,
+      "redirects": 0,
+      "headers": {
+        "content-type": "text/html; charset=utf-8",
+        "cache-control": "private",
+        "server": "cloudflare",
+        "cf-cache-status": "DYNAMIC"
+      }
+    },
+    "regulamin.html": {
+      "status": "HTTP/2 200",
+      "bytes": 50040,
+      "redirects": 0,
+      "headers": {
+        "content-type": "text/html; charset=utf-8",
+        "cache-control": "private",
+        "server": "cloudflare",
+        "cf-cache-status": "DYNAMIC"
+      }
+    },
+    "robots.txt": {
+      "status": "HTTP/2 200",
+      "bytes": 1889,
+      "redirects": 0,
+      "headers": {
+        "content-type": "text/plain; charset=utf-8",
+        "server": "cloudflare",
+        "cache-control": "max-age=14400",
+        "cf-cache-status": "REVALIDATED",
+        "vary": "accept-encoding"
+      }
+    },
+    "szczegoly-bFhGo2gH3wg.html": {
+      "status": "HTTP/2 200",
+      "bytes": 48419,
+      "redirects": 0,
+      "headers": {
+        "content-type": "text/html; charset=utf-8",
+        "cache-control": "private",
+        "server": "cloudflare",
+        "cf-cache-status": "DYNAMIC"
+      }
+    },
+    "xhr-signalr-hubs.js": {
+      "status": "HTTP/2 200",
+      "bytes": 9184,
+      "redirects": 0,
+      "headers": {},
+      "uwaga": "proxy hubow SignalR, pobrane osobno"
+    }
+  }
+}

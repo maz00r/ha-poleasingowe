@@ -39,23 +39,23 @@ dysk 44 GB. Maszyna dzielona z HA (~1,8 GB), PostgreSQL, Grafaną i TeslaMate.
 | | poleasingowe.pl | aukcje.efl.com.pl | aukcje.leasygroup.pl | autoprzetarg.pl |
 |---|---|---|---|---|
 | Stack | Laravel + openresty | ASP.NET MVC | PHP + WAF F5 | ASP.NET MVC + Cloudflare |
-| Lista bez logowania | **tak, z ceną i liczbą ofert** | **tak, z ceną** | tak | nie sprawdzone |
-| Szczegóły bez logowania | **tak, pełne** (blok Alpine) | **tak, pełne** | tak | nie sprawdzone |
-| Cena aktualna | **tak** (netto, brutto, EUR) | **tak** | tylko „Cena:" (stała) | nie sprawdzone |
-| Liczba ofert | **tak** (`offers_count`, `bidders_count`) | **tak (`Ofert: N`)** | nie znaleziono | nie sprawdzone |
-| Historia ofert | `lastOffers` w HTML / `topoffers` w API | **inline w HTML, jawna** | nie znaleziono | nie sprawdzone |
-| Min. postąpienie | **`instep_price` wprost** | z regulaminu (10/100/200 zł) | nie znaleziono | nie sprawdzone |
-| Render | dane serwerowe, JS tylko odświeża | **statyczny** | statyczny | nie sprawdzone |
-| API JSON | **`POST /pl/auctions/bid-details/<id>`** | brak | brak (jQuery ajax, nieustalone) | nie sprawdzone |
-| `ETag`/`Last-Modified` | **brak** | **brak** | **brak** | nie sprawdzone |
-| `If-Modified-Since` → 304 | **nie, 200** | **nie, 200** | **nie, 200** | nie sprawdzone |
-| Limit tempa w nagłówkach | **`x-ratelimit-limit` 60–120** | brak | brak | nie sprawdzone |
-| Paginacja | serwerowa | serwerowa `?page=N` | `strona-N`, **robots blokuje > 1** | nie sprawdzone |
-| **Dogrywka** | **+30 s, okno 30 s, max +30 min** | **BRAK — twardy koniec** | **+2 min, okno 2 min** | nie sprawdzone |
-| Czas do końca | **absolutny `endDate` w HTML** + strefa jawnie | **absolutny timestamp w HTML** | nie znaleziono | nie sprawdzone |
-| Czas serwera | **`sdt.date` w API, bez logowania** | brak | brak | nie sprawdzone |
-| VIN publiczny | **tak** | **tak** | **tak** | nie sprawdzone |
-| Werdykt | **`httpx`, bez logowania do odczytu** | **`httpx`, bez przeglądarki** | `httpx`, ale mało danych | nie sprawdzone |
+| Lista bez logowania | **tak, z ceną i liczbą ofert** | **tak, z ceną** | tak | **tak, z ceną i VIN** |
+| Szczegóły bez logowania | **tak, pełne** (blok Alpine) | **tak, pełne** | tak | **tak, ale bez ofert** |
+| Cena aktualna | **tak** (netto, brutto, EUR) | **tak** | tylko „Cena:" (stała) | **tak** |
+| Liczba ofert | **tak** (`offers_count`, `bidders_count`) | **tak (`Ofert: N`)** | nie znaleziono | **NIE — dopiero po zalogowaniu** |
+| Historia ofert | `lastOffers` w HTML / `topoffers` w API | **inline w HTML, jawna** | nie znaleziono | **SignalR `getAuctionOffers`** |
+| Min. postąpienie | **`instep_price` wprost** | z regulaminu (10/100/200 zł) | nie znaleziono | **2% ostatniej oferty** |
+| Render | dane serwerowe, JS tylko odświeża | **statyczny** | statyczny | dane serwerowe + push |
+| API JSON | **`POST /pl/auctions/bid-details/<id>`** | brak | brak (jQuery ajax, nieustalone) | **SignalR (WebSocket)** |
+| `ETag`/`Last-Modified` | **brak** | **brak** | **brak** | **brak** |
+| `If-Modified-Since` → 304 | **nie, 200** | **nie, 200** | **nie, 200** | **nie, 200** |
+| Limit tempa w nagłówkach | **`x-ratelimit-limit` 60–120** | brak | brak | brak |
+| Paginacja | serwerowa | serwerowa `?page=N` | `strona-N`, **robots blokuje > 1** | serwerowa `?page=N` |
+| **Dogrywka** | **+30 s, okno 30 s, max +30 min** | **BRAK — twardy koniec** | **+2 min, okno 2 min** | **+120 s, okno 2 min, bez sufitu** |
+| Czas do końca | **absolutny `endDate` w HTML** + strefa jawnie | **absolutny timestamp w HTML** | nie znaleziono | **ukryty input `auctionEndDate`** |
+| Czas serwera | **`sdt.date` w API, bez logowania** | brak | brak | brak |
+| VIN publiczny | **tak** | **tak** | **tak** | **tak, już na liście** |
+| Werdykt | **`httpx`, bez logowania do odczytu** | **`httpx`, bez przeglądarki** | `httpx`, ale mało danych | **`httpx`; oferty wymagają sesji lub SignalR** |
 
 ### 2.1 Wolumeny i koszt przemiatu listy (punkt h)
 
@@ -67,6 +67,7 @@ nie podaje sumy wyników w tekście.
 | poleasingowe.pl (`vehicles`) | **~721** | 73 × 10 (ostatnia: 1) | **73 żądania** |
 | aukcje.efl.com.pl (Carefleet/Osobowe) | **~280** | 35 × 8 | **5 żądań** przy `perPage=64` |
 | aukcje.leasygroup.pl (pojazdy) | ~96 | 8 × 12 | nieweryfikowalne — robots |
+| autoprzetarg.pl (`Pojazdy1`) | **244** (licznik na stronie) | ~21 × 12 | ~21 żądań |
 
 Metoda: dla poleasingowe wyszukiwanie binarne ostatniej niepustej strony
 (`?page=N`) — 73 zwraca 1 pozycję, 74 zwraca 0. Paginator jest okienkowy
@@ -91,10 +92,11 @@ Deduplikacja międzyserwisowa z §8.4 ma więc na czym się oprzeć.
 
 ### 3.1 Krok 1 „taniego odpytu" (§11.3) jest martwy
 
-Żadna dynamiczna strona w żadnym z trzech zbadanych serwisów nie zwraca
-`ETag` ani `Last-Modified`. `If-Modified-Since` z datą z przeszłości dostaje
-**HTTP 200**, nie 304, we wszystkich trzech. ETagi widoczne w nagłówkach
-dotyczą wyłącznie plików statycznych (`robots.txt`).
+Żadna dynamiczna strona w **żadnym z czterech** serwisów nie zwraca `ETag`
+ani `Last-Modified`. `If-Modified-Since` z datą z przeszłości dostaje
+**HTTP 200**, nie 304, we wszystkich czterech. ETagi widoczne w nagłówkach
+dotyczą wyłącznie plików statycznych (`robots.txt`). Wynik jest jednomyślny,
+więc to nie przypadek doboru próbki.
 
 Konsekwencja: cała oszczędność z §11.3 spada na krok 2 — `content_hash`.
 Krok 1 należy zostawić w kodzie jako tani no-op (koszt zerowy, gdyby serwis
@@ -104,12 +106,13 @@ Dowód: `fixtures/*/meta.json`, pola `headers`.
 
 ### 3.2 §11.5 i §11.2 zakładają dogrywkę ~60 s. Żaden serwis jej nie ma.
 
-Trzy serwisy, trzy różne reguły — i **żadna nie jest 60-sekundowa**:
+Cztery serwisy, cztery różne reguły — i **żadna nie jest 60-sekundowa**:
 
 | Serwis | Okno wyzwalające | Przedłużenie | Limit |
 |---|---|---|---|
 | poleasingowe.pl | **30 s** | **+30 s** | **max +30 min** |
 | aukcje.leasygroup.pl | **2 min** | **+2 min** | brak limitu w regulaminie |
+| **autoprzetarg.pl** | **2 min** | **+120 s** | **brak sufitu w regulaminie** |
 | aukcje.efl.com.pl | — | **brak dogrywki** | — |
 
 To obala dwa świeżo wprowadzone zapisy:
@@ -444,34 +447,130 @@ Patrz §7.
 **Werdykt: `httpx` wystarczy**, ale wartość źródła jest wątpliwa dopóki
 nie zobaczymy realnej aukcji i nie rozstrzygniemy kwestii paginacji.
 
-### 4.4 autoprzetarg.pl — nie pobierano
+### 4.4 autoprzetarg.pl
 
-Zgodnie z Twoją decyzją nie pobierałem z tego serwisu **żadnych** stron.
-Fixtures dostarczasz sam do `fixtures/autoprzetarg/` (katalog utworzony,
-pusty).
+Zbadany normalnie, tak jak pozostałe (decyzja z 2026-09-06). Uwaga
+o `robots.txt` — patrz koniec sekcji.
 
-Co wiadomo z samego `robots.txt` (pobranego przed decyzją) i z nagłówków
-strony głównej:
+**URL-e.** Lista: `/kategoria/Pojazdy1`, paginacja `?page=N` (od 1),
+12 pozycji na stronę. Szczegóły: `/aukcja/<TYTUL>,<ID>,<Kategoria>` —
+**kategoria jest zaszyta w URL-u** (`Samochody-osobowe`,
+`Samochody-dostawcze`, `Motocykle`, `Naczepy-i-przyczepy`), więc zawężenie
+do aut osobowych nie kosztuje ani jednego dodatkowego żądania.
 
-- ASP.NET MVC + jQuery, `__RequestVerificationToken` w ciasteczku,
-  za Cloudflare (`cf-ray`, `cf-cache-status: DYNAMIC`).
-- Kategorie: `/kategoria/Pojazdy1`. Logowanie: `/uzytkownik/logowanie`,
-  rejestracja `/uzytkownik/rejestracja`. Regulamin: `/regulamin`.
-- `robots.txt`: `User-agent: *` → `Allow: /` z `Content-Signal:
-  search=yes,ai-train=no,use=reference`. Osobne `Disallow: /` dla
-  ClaudeBot, GPTBot, CCBot, Google-Extended, Applebot-Extended, Amazonbot,
-  Bytespider, meta-externalagent.
+**`external_id`** — token alfanumeryczny w środkowym segmencie URL-a
+(`bFhGo2gH3wg`, `T8MPEc0I3wg`, `AGAJpQkI3wg`). Nie liczba, nie sekwencyjny.
 
-**Nie zmierzone dla tego serwisu**: wszystko z checklisty (a)–(h).
-Punktu (b) — okna widoczności ceny po wygaśnięciu — **nie zmierzę moimi
-środkami**, bo wymaga odpytywania strony w sekundowych odstępach. Albo
-zmierzysz go sam, albo zostanie niewiadomą.
+**Pola na liście** (`fixtures/autoprzetarg/lista-01.html`) — najbogatsza
+lista z całej czwórki: rok produkcji, pojemność i moc, nr rejestracyjny,
+**VIN**, przebieg, paliwo, sprzedający (np. „Poczta Polska"), lokalizacja,
+„Aktualna cena aukcji", licznik „Do końca aukcji" oraz licznik wyników
+(„Wyszukano 244 ofert"). **To jedyny serwis podający VIN już na liście** —
+deduplikacja z §8.4 może działać bez wchodzenia w szczegóły.
 
----
+**Czas do końca (punkt d) — najczystszy przypadek z czterech.** Widoczny
+`<div>` jest pusty i wypełnia go licznik JS, ale obok stoi ukryte pole
+z absolutnym znacznikiem, renderowane serwerowo, **per pozycja listy**:
+
+```html
+<input id="auctionEndDate" name="auctionEndDate" type="hidden"
+       value="2026-09-07 08:10:00" />
+```
+
+Do parsowania wystarczy odczyt tego pola. Strefa nie jest podana — zakładam
+Europe/Warsaw, **do potwierdzenia**.
+
+**Szczegóły** (`fixtures/autoprzetarg/szczegoly-bFhGo2gH3wg.html`): „Data
+zakończenia: 2026-09-07 08:10:00", „Aktualna cena aukcji: 11579,31 zł", VIN,
+nr rejestracyjny, lokalizacja, stawka VAT, opis, status
+„OFERTA WYMAGA AKCEPTACJI" oraz **gotowy marker zalogowania** (§10.2):
+„Zaloguj się, aby złożyć ofertę".
+
+**Historia i liczba ofert — nie ma ich w HTML bez logowania.** To wyróżnia
+ten serwis in minus: strona szczegółów **nie podaje nawet liczby ofert**.
+Regulamin § o przebiegu aukcji mówi co innego:
+
+> „Wszystkie ceny oferowane przez Uczestnika są jawne oraz zostają
+> uwidocznione w Serwisie Auto Przetarg w czasie trwania Aukcji. Podczas
+> trwania Aukcji widoczne są również niepełne Loginy Uczestników, którzy
+> złożyli Ofertę zakupu podczas trwania danej Aukcji."
+
+Czyli oferty są jawne **po zalogowaniu**. Konsekwencja dla §11.8 jest ostra:
+bez sesji nie da się policzyć nawet `bid_gap`, bo nie ma `bid_count`,
+z którego liczy się przyrost. **Dla tego źródła §11.8 jest bez logowania
+niewykonalne.**
+
+Uwaga na §10.2: widoczne „niepełne Loginy Uczestników" to dane
+pseudonimizujące osoby trzecie. Nie powinny trafiać do `raw_json`
+ani do zrzutów debug.
+
+**SignalR — punkt (e), znalezisko z zakładki Network.** Strona aukcji ładuje
+`jquery.signalR-2.4.2.min.js` i pobiera `/signalr/hubs`. Serwis **wypycha**
+aktualizacje kanałem WebSocket zamiast być odpytywanym. Proxy hubów
+(`fixtures/autoprzetarg/xhr-signalr-hubs.js`) deklaruje dwa huby:
+
+| Hub | Metody |
+|---|---|
+| `auctionHub` | `auctionNewOffer`, `getAuctionOffers`, `getNextOffer`, `getCommisionForAuction`, `refreshUsersPage`, `revertLastOffer`, `revertLastOfferFromAdmin` |
+| `chatHub` | (proxy bez metod w tym pliku) |
+
+`getAuctionOffers` to programistyczny dostęp do historii ofert, a
+`auctionNewOffer` to zdarzenie push przy każdej nowej ofercie. **Nie
+sprawdzałem, czy działają bez zalogowania — i nie wywoływałem żadnej
+metody**, bo w tym samym hubie siedzą `revertLastOffer`
+i `revertLastOfferFromAdmin`, czyli operacje mutujące. Aplikacja jest
+wyłącznie do odczytu (SPEC.md, nagłówek), więc do tego huba podchodzimy
+ostrożnie albo wcale — patrz pytanie 6 w §7.
+
+**Dogrywka (punkt a).** Regulamin, § o przebiegu Aukcji, ust. 8:
+
+> „Aukcja kończy się z upływem terminu na jaki została ogłoszona, chyba że
+> w ostatnich dwóch minutach trwania Aukcji zostanie złożona kolejna Oferta
+> zakupu. Wówczas Aukcja zostaje wydłuża równo na 120 sekund do czasu kiedy
+> żaden z Uczestników nie zdecyduje się na złożenie kolejnej, wyższej Oferty
+> zakupu przez ostatnie 120 sekund trwania Aukcji."
+
+Okno 2 min, przedłużenie równo 120 s, powtarzalne, **bez sufitu**
+(w odróżnieniu od poleasingowe, gdzie sufit to +30 min).
+
+**Postąpienie — jedyny serwis z regułą procentową:** „Kwota postąpienia […]
+wynosi **2% wartości ostatniej złożonej Oferty zakupu**". EFL ma progi
+kwotowe (10/100/200 zł), poleasingowe podaje `instep_price` wprost. Model
+domenowy musi umieć oba kształty — stały krok i procent.
+
+Jest też „automat", czyli licytacja proxy z własną ofertą maksymalną,
+analogicznie do EFL.
+
+**Logowanie.** `/uzytkownik/logowanie`, pola `Login`, `Password`,
+`RememberMe` oraz ukryte `__RequestVerificationToken` (CSRF, zmienny).
+**Brak markerów captchy i 2FA** — sprawdzone pod kątem reCAPTCHA, hCaptcha,
+Turnstile i kodów jednorazowych; jedyne trafienie na „2fa" okazało się
+fragmentem hasha, nie polem formularza. Automatyczne logowanie wygląda więc
+na wykonalne, ale to potwierdzi dopiero próba.
+
+**Nagłówki.** Brak `ETag` i `Last-Modified`, `If-Modified-Since` → 200,
+`cache-control: private`, `cf-cache-status: DYNAMIC`. Żadnych nagłówków
+limitu tempa. Cloudflare przed aplikacją.
+
+**robots.txt.** `User-agent: *` → `Allow: /` z `Content-Signal:
+search=yes,ai-train=no,use=reference`. Osobne `Disallow: /` dla ClaudeBot,
+GPTBot, CCBot, Google-Extended, Applebot-Extended, Amazonbot, Bytespider
+i meta-externalagent. Reguła dla `*` nie blokuje więc add-onu działającego
+pod własnym UA, natomiast wpisy botowe są adresowane do crawlerów AI.
+Zebranie tych fixtures odbyło się na wyraźne polecenie właściciela repo.
+
+**Werdykt: `httpx` wystarczy do ceny, daty końca, VIN-u i całej reszty pól
+opisowych.** Liczba i historia ofert są poza zasięgiem `httpx` — wymagają
+sesji, a docelowo kanału SignalR. Adapter da się więc napisać w dwóch
+poziomach: podstawowy bez sesji, wzbogacony z sesją.
+
+**Nie zmierzone:** punkt (b) — okno widoczności ceny po wygaśnięciu;
+punkt (g) — zrzut aukcji zakończonej (serwis nie ma widocznego archiwum ani
+filtra statusu na liście); punkt (f) — czas życia sesji.
 
 ## 5. Które serwisy obsłuży sam `httpx` (§4 pkt 3)
 
-**Wszystkie trzy zbadane. Playwright nie jest potrzebny.**
+**Wszystkie cztery. Playwright nie jest potrzebny.**
 
 - **EFL** — statyczny HTML, komplet danych. Bez zastrzeżeń.
 - **poleasingowe.pl** — mimo Alpine.js komplet danych jest serwerowo
@@ -480,6 +579,9 @@ zmierzysz go sam, albo zostanie niewiadomą.
   przepisane do nagłówka `X-XSRF-Token`) jest opcją na odświeżanie na żywo
   i `topoffers`, nie warunkiem odczytu.
 - **leasygroup** — statyczny HTML.
+- **autoprzetarg.pl** — statyczny HTML wystarcza do ceny, daty końca i VIN-u.
+  Zastrzeżenie: historia i liczba ofert idą kanałem SignalR (WebSocket), a nie
+  HTTP-em — `httpx` ich nie dosięgnie. Patrz §4.4 i pytanie 6 w §7.
 
 Warunek z §5 SPEC („jeśli okaże się wymagany przez wszystkie serwisy —
 zatrzymaj się i zgłoś") **nie zachodzi**.
@@ -493,6 +595,7 @@ zatrzymaj się i zgłoś") **nie zachodzi**.
 | poleasingowe.pl | `x-ratelimit-limit: 60–120` per trasa | patrz niżej |
 | aukcje.efl.com.pl | brak nagłówków | 60 s, ale **endgame zbędny** (brak dogrywki) |
 | aukcje.leasygroup.pl | brak nagłówków | 60 s — okno dogrywki 2 min, dwie próbki mieszczą się z zapasem |
+| autoprzetarg.pl | brak nagłówków | 60 s — okno 2 min, jak wyżej; **albo 0 s, jeśli użyjemy SignalR** |
 
 **poleasingowe.pl wymaga decyzji, nie rekomendacji.** Jako jedyny ma
 udokumentowany limit, więc formalnie spełnia warunek z §11.2 na tryb 30 s.
@@ -540,6 +643,19 @@ interwał.
 4. **Długość drabinki w §11.5** — 79 s nie pokrywa 30-minutowego sufitu
    przedłużeń poleasingowe.pl. Proponuję parametryzację per źródło (§3.2).
 5. **WAF F5 na leasygroup** — czy ryzyko blokady jest akceptowalne.
+6. **SignalR w autoprzetarg.pl.** Kanał push dawałby historię ofert
+   i natychmiastowe zdarzenia bez odpytywania — najtańsza możliwa końcówka.
+   Ale: (a) SPEC.md §5 przewiduje wyłącznie `httpx`, więc doszłaby zależność
+   od klienta SignalR; (b) trwałe połączenie WebSocket kłóci się z §11.1
+   („dispatcher śpi do najbliższego terminu, CPU w spoczynku ~0%");
+   (c) ten sam hub wystawia metody mutujące (`revertLastOffer`), więc
+   podłączenie się do niego wymaga dyscypliny, żeby aplikacja pozostała
+   wyłącznie do odczytu. Wchodzimy w to, czy zostajemy przy odpytywaniu
+   HTML i akceptujemy brak liczby ofert bez sesji?
+7. **Postąpienie procentowe.** autoprzetarg liczy 2% ostatniej oferty, EFL
+   ma progi kwotowe, poleasingowe podaje `instep_price` liczbowo. Model
+   domenowy musi obsłużyć oba kształty — to drobna, ale realna zmiana
+   w stosunku do §8, który o postąpieniu nie wspomina wcale.
 
 ---
 
@@ -555,11 +671,16 @@ Zaplanowane, niewykonane, wymaga aukcji kończącej się w trakcie obserwacji:
 - **(c) domknięcie** — panel ofert EFL potwierdzony w stanie pustym
   **i niepustym** (pełna tabela z czasami). Zostaje sprawdzić, czy panel
   przeżywa zamknięcie aukcji.
-- **(e) AJAX w końcówce** — dla poleasingowe.pl endpoint znany
-  (`bid-details`, 1000 ms); dla EFL i leasygroup nie sprawdzone w końcówce.
+- ~~**(e) AJAX w końcówce**~~ — **zrobione dla trzech z czterech**:
+  poleasingowe ma `bid-details` odpytywany co 1000 ms, autoprzetarg ma push
+  przez SignalR, EFL nie ma nic (strona statyczna). Zostaje leasygroup.
 - **(f) czas życia sesji** — wymaga zalogowania, czyli Twojej obecności.
 - ~~**(h) liczba aktywnych ofert i VIN**~~ — **zrobione**, patrz §2.1.
   Zostaje tylko potwierdzenie liczebności leasygroup, zablokowane przez
   `robots.txt`.
 - **leasygroup**: znaleźć realną aukcję w trybie licytacji.
-- **autoprzetarg.pl**: całość, po dostarczeniu fixtures przez Ciebie.
+- **autoprzetarg.pl**: punkty (b), (f), (g). Serwis nie ma widocznego
+  archiwum ani filtra statusu, więc zrzut aukcji zakończonej trzeba złapać
+  w locie — aukcja z próbki kończy się 2026-09-07 08:10:00, czyli **przed**
+  celami zaplanowanego pomiaru 0b (EFL 10:47, poleasingowe 12:00).
+  Jeśli ma być objęta, pomiar trzeba przesunąć wcześniej.
