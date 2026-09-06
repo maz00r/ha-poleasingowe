@@ -53,7 +53,9 @@ def test_szczegoly_niosa_vin_cene_liczbe_ofert_i_absolutny_koniec() -> None:
     d = parser.sparsuj_szczegoly(
         wczytaj("szczegoly-435508.html"), "435508", "https://x"
     )
-    assert d.pola["VIN"] == "TMBAH7NP1P7041752"
+    # Fixtures sa zredagowane przed publikacja repo (tools/redakcja_fixtures.py),
+    # wiec VIN jest syntetyczny — zachowuje ksztalt, nie identyfikuje pojazdu.
+    assert d.pola["VIN"] == "TMBC0XXT1S7Y8X23F"
     assert d.pola["cena"] == "48\xa0600,00"
     assert d.pola["liczba_ofert"] == "1"
     # RECON.md §4.1: obok zgrubnego "22 godz." stoi absolutny znacznik.

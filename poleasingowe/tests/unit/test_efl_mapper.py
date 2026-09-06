@@ -29,7 +29,7 @@ def test_szczegoly_mapuja_sie_na_komplet_pol() -> None:
     assert a.gearbox == "Automatyczna"
     assert a.body == "Liftback"
     assert a.color == "czarny"
-    assert a.vin is not None and a.vin.value == "TMBAH7NP1P7041752"
+    assert a.vin is not None and a.vin.value == "TMBC0XXT1S7Y8X23F"
     assert a.price_current == Money(Decimal("48600.00"), Currency.PLN)
     assert a.bid_count == 1
 
