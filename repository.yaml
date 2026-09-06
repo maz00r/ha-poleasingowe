@@ -1,0 +1,6 @@
+# Repozytorium add-onow Home Assistant.
+# Dodaje sie je w HA: Ustawienia -> Dodatki -> Sklep -> menu (3 kropki)
+# -> Repozytoria -> https://github.com/maz00r/ha-poleasingowe
+name: Aukcje poleasingowe
+url: https://github.com/maz00r/ha-poleasingowe
+maintainer: maz00r <mazurowskip@yahoo.com>
