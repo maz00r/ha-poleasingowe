@@ -133,6 +133,12 @@ frameworka JS, komplet danych bez logowania.
 od 0**, `fc` = rozmiar strony, w próbce 34 strony. Szczegóły:
 `/Auction/<slug>-id<ID>`.
 
+**Sortowanie serwerowe** (`select#sort`) — bezpośrednio użyteczne
+dla dispatchera i dla rekonesansu: `Title-asc|desc`,
+`CurrentPrice-asc|desc`, **`EndDate-asc|desc`**, **`BidsCount-asc|desc`**.
+Rozmiar strony (`perPage`): 4 / 8 / 16 / 32 / **64** — jeden przemiat listy
+przy 64 pozycjach na stronę to kilkanaście żądań na całą kategorię.
+
 **`external_id`** — liczba na końcu slugu (`...-id435587`), potwierdzona
 też jako `<input name="id" value="435383">` na stronie szczegółów.
 Uwaga na slug: zawiera przecinki kodowane niespójnie (`,c` obok `%2c`)
@@ -154,16 +160,34 @@ HTML. Brak licznika JS, brak atrybutu `data-*`. Parsuje się trywialnie.
 Strefa nie jest podana jawnie — zakładam Europe/Warsaw, **do potwierdzenia
 w 0b**.
 
-**Historia ofert (punkt c).** Panel `<div class="hidden" data-tabs="bidders">`
-jest **inline w HTML**, przełączany CSS-em — żadnego AJAX-a. W obu pobranych
-aukcjach zawiera „Brak ofert kupna." (obie mają `Ofert: 0`). Regulamin §4 ust. 4:
+**Historia ofert (punkt c) — POTWIERDZONA.** Panel
+`<div class="hidden" data-tabs="bidders">` jest **inline w HTML**, przełączany
+CSS-em, bez AJAX-a, i **nie wymaga logowania**. Przy `Ofert: 0` zawiera
+„Brak ofert kupna."; przy aukcji z ofertami — pełną tabelę
+(`fixtures/efl/szczegoly-435508.html`, `Ofert: 1`):
 
-> „Wszystkie oferowane przez Uczestników ceny są jawne oraz zostają
-> uwidocznione w Serwisie Aukcyjnym EFL w trakcie trwania Aukcji."
+```html
+<table class="data-table">
+  <thead><tr><th>Kod oferty</th><th>Oferta</th><th>Data</th></tr></thead>
+  <tbody><tr>
+    <td>106125</td>
+    <td class="Currency">48 600,00 zł</td>
+    <td class="Date">2026.09.04 13:00:52.2194</td>
+  </tr></tbody>
+</table>
+```
 
-Czyli przy aukcji z ofertami panel powinien zawierać pełną listę — **to
-zaspokaja §11.8 bez ani jednego dodatkowego żądania**. Wymaga potwierdzenia
-na aukcji z `Ofert > 0` (brak w próbce).
+Znacznik czasu ma rozdzielczość poniżej milisekundy, kwota jest sformatowana,
+a licytujący zanonimizowany do „kodu oferty" — **brak danych osobowych**.
+Zgodne z regulaminem §4 ust. 4: „Wszystkie oferowane przez Uczestników ceny
+są jawne oraz zostają uwidocznione w Serwisie Aukcyjnym EFL w trakcie
+trwania Aukcji."
+
+**Konsekwencja dla §11.8: dla EFL problem kompletności historii ofert
+nie istnieje.** Każdy odpyt strony szczegółów zwraca pełną listę ofert
+z dokładnymi czasami, więc `bid_gap` jest tu zawsze 0 z definicji i nie ma
+potrzeby zgadywania z różnic snapshotów. Pozostaje otwarte, czy panel
+przeżywa zamknięcie aukcji — punkt (c) drugiej części, do 0b.
 
 **Dogrywka (punkt a): BRAK.** Regulamin §4 ust. 3:
 
@@ -332,6 +356,19 @@ w aukcji 3%", „Aukcja skierowana do podmiotów gospodarczych".
 **Nie mam w próbce ani jednej realnej aukcji z tego serwisu**, więc nie
 umiem opisać jego pól licytacyjnych. To luka do domknięcia.
 
+Próba jej domknięcia się nie powiodła. Lista ma filtr
+`auctionType[]` (`1` = Licytacja, `2` = Kup teraz) jako checkboxy.
+Żądanie `…/strona-1?auctionType%5B%5D=1` zwraca HTTP 200 i treść **różną**
+od niefiltrowanej (choć identycznej długości), ale wypisane pozycje są te
+same, a druga pobrana pozycja (`26780`, `fixtures/leasygroup/szczegoly-26780.html`)
+znów jest ofertą „Kup teraz" w cenie stałej — 567 800 PLN netto, bez pola
+`Ofert`, bez daty zakończenia, bez śladu licytacji. Filtr działa więc
+prawdopodobnie po stronie JS, nie serwera.
+
+**Status: nie potwierdziłem, że w kategorii pojazdów są obecnie jakiekolwiek
+aukcje w trybie licytacji.** Dopóki to się nie zmieni, adapter dla tego
+źródła nie ma czego parsować w zakresie, dla którego powstaje ta aplikacja.
+
 **Dogrywka (punkt a).** Regulamin § 2 ust. 3:
 
 > „W przypadku aukcji prowadzonych w trybie licytacji, złożenie przez
@@ -470,9 +507,9 @@ Zaplanowane, niewykonane, wymaga aukcji kończącej się w trakcie obserwacji:
   wejście do drabinki z §11.5 i bez tego drabinka pozostaje zgadywaniem.
 - **(g) zrzut aukcji zakończonej** — brak dla wszystkich serwisów. Bez tego
   nie da się napisać wykrywania stanu końcowego.
-- **(c) domknięcie** — panel ofert EFL potwierdzony jako inline, ale tylko
-  w stanie pustym; potrzebna aukcja z `Ofert > 0` oraz sprawdzenie, czy
-  panel przeżywa zamknięcie aukcji.
+- **(c) domknięcie** — panel ofert EFL potwierdzony w stanie pustym
+  **i niepustym** (pełna tabela z czasami). Zostaje sprawdzić, czy panel
+  przeżywa zamknięcie aukcji.
 - **(e) AJAX w końcówce** — dla poleasingowe.pl endpoint znany
   (`bid-details`, 1000 ms); dla EFL i leasygroup nie sprawdzone w końcówce.
 - **(f) czas życia sesji** — wymaga zalogowania, czyli Twojej obecności.
