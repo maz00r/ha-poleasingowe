@@ -224,6 +224,20 @@ wariant obrazu, przeglądarka jako **subprocess uruchamiany na żądanie
 i zamykany natychmiast po pobraniu**. Nigdy trwale działająca instancja.
 Jeśli okaże się wymagany przez wszystkie serwisy — zatrzymaj się i zgłoś.
 
+**SignalR — wyjątek dla jednego źródła.** Rekonesans wykazał, że
+autoprzetarg.pl nie podaje liczby ani historii ofert w HTML bez zalogowania,
+a wystawia je przez hub SignalR (`RECON.md` §4.4). Dopuszczamy klienta
+SignalR **na tych samych zasadach co przeglądarkę**: połączenie otwierane
+**na żądanie, wyłącznie na czas końcówki obserwowanej aukcji, i zamykane
+natychmiast po domknięciu**. Nigdy trwale działające gniazdo — inaczej §11.1
+(„dispatcher śpi do najbliższego terminu, CPU w spoczynku ~0%") przestaje
+być prawdą.
+
+Klient jest **wyłącznie do odczytu**: `getAuctionOffers` i nasłuch
+`auctionNewOffer`. Ten sam hub wystawia metody mutujące (`revertLastOffer`,
+`revertLastOfferFromAdmin`) — adapter **nie może ich wywoływać** i ma to być
+egzekwowane listą dozwolonych metod, nie dyscypliną autora.
+
 **Alpine vs Debian.** Bazowy obraz HA jest alpine'owy. Jeśli którakolwiek
 zależność nie ma koła `musllinux`, przełącz się na wariant Debian zamiast
 kompilować w obrazie — kompilacja na J5005 trwa nieakceptowalnie długo.
@@ -361,7 +375,11 @@ Baza `poleasingowe`. Tabele w schemacie `app`, widoki w `reporting`.
 ### 8.1 Tabele
 
 - **`source`** — key, nazwa, włączone, interwał przemiatu listy, limit tempa,
-  floor interwału, stan uwierzytelnienia, `consecutive_auth_failures`.
+  floor interwału, stan uwierzytelnienia, `consecutive_auth_failures`,
+  oraz parametry dogrywki (§11.2, §11.5): `overtime_window_seconds` — okno,
+  w którym oferta przedłuża aukcję; `overtime_extension_seconds` — o ile
+  przedłuża; `overtime_cap_seconds` — sufit łącznego przedłużenia, `NULL`
+  gdy serwis go nie deklaruje. Zera oznaczają serwis bez dogrywki.
 - **`auction`** — `source_id`, `external_id`, url, marka, model, wersja,
   rocznik, przebieg, paliwo, skrzynia, pojemność, moc, VIN, nadwozie, kolor,
   lokalizacja, sprzedający, `price_start`, `price_current`, `currency`,
@@ -369,7 +387,8 @@ Baza `poleasingowe`. Tabele w schemacie `app`, widoki w `reporting`.
   `content_hash`, `raw_json`, `next_poll_at`, `poll_tier`,
   `consecutive_failures`, `final_price_state`, `duplicate_of`,
   `last_price_lead_seconds` — sekundy między ostatnią obserwacją z ceną
-  a faktycznym końcem; miara jakości pomiaru.
+  a faktycznym końcem; miara jakości pomiaru — oraz `bid_increment_raw`:
+  minimalne postąpienie **w postaci, w jakiej podał je serwis** (§8.2).
 - **`price_snapshot`** — `auction_id`, `ts`, `price`, `bid_count`, `ends_at`,
   `bid_gap` — ile ofert przegapiono przed tym snapshotem (0 = komplet).
 - **`watchlist`** — `auction_id`, notatka, cena docelowa, `added_at`.
@@ -387,6 +406,13 @@ Baza `poleasingowe`. Tabele w schemacie `app`, widoki w `reporting`.
 - `last_price_lead_seconds` i `bid_gap`: `integer`, `NULL` dopuszczalny
   i **znaczący** — `last_price_lead_seconds` jest `NULL` dla `CONFIRMED`,
   `bid_gap` jest `NULL` dla pierwszego snapshotu aukcji (§11.8)
+- `bid_increment_raw`: `text`, **pole informacyjne, bez logiki domenowej**.
+  Serwisy podają postąpienie w niezgodnych kształtach — kwotowo
+  (`instep_price`), progami zależnymi od ceny wywoławczej, albo procentowo
+  (2% ostatniej oferty). Zapisujemy to, co podał serwis, i pokazujemy
+  w UI. **Nie liczymy z tego niczego** — w szczególności nie szacujemy
+  przegapionych ofert z przyrostu ceny; `bid_gap` liczy się wyłącznie
+  z `bid_count` (§11.8)
 
 ### 8.3 Ograniczenia i indeksy
 
@@ -564,30 +590,40 @@ zmieniać.
 | 6–24 h | 1 h |
 | 1–6 h | 15 min |
 | 15–60 min | 3 min |
-| < 15 min | 60 s |
+| < 15 min | floor źródła (patrz niżej) |
 
-Progi i interwały konfigurowalne, z **domyślną dolną granicą 60 s**,
-możliwością podniesienia floora per źródło i jednym wyjątkiem w dół — trybem
-30 s opisanym niżej, dopuszczalnym wyłącznie dla źródła z udowodnionym
-limitem tempa. Przy pięciu aukcjach kończących się równocześnie na jednym
-serwisie 60 s to już kilkanaście żądań na minutę z zalogowanej sesji. Niżej
-schodzimy tylko wtedy, gdy rekonesans wykaże, że serwis to toleruje.
+Progi i interwały konfigurowalne. **Floora nie ustala się stałą liczbą,
+tylko regułą wyprowadzoną z dogrywki danego serwisu** (§11.4):
 
-Endgame ma dwa tryby:
+> **W endgame odpytuj tak, żeby w okno dogrywki serwisu mieściły się dwie
+> próbki.** Floor = połowa okna dogrywki, nie mniej niż 10 s.
 
-- `< 15 min do ends_at` → 60 s (floor domyślny)
-- `< 3 min do ends_at` → 30 s, ale **wyłącznie** dla źródła, dla którego
-  rekonesans wykazał nagłówki limitu tempa dopuszczające to z zapasem
-  (np. poleasingowe.pl: `x-ratelimit-limit: 60`). Bez takiego dowodu
-  zostaje 60 s.
+Uzasadnienie: jedna próbka na okno nie gwarantuje wykrycia przedłużenia,
+zanim aukcja się domknie. Dwie gwarantują. Stała liczba tego nie zapewnia,
+bo okna dogrywki różnią się między serwisami o rząd wielkości.
 
-Uzasadnienie zejścia do 30 s: okno dogrywki to ~60 s, więc dwie próbki
-w oknie gwarantują wykrycie przedłużenia, zanim aukcja się domknie. Jedna
-próbka na okno tego nie gwarantuje.
+Wartości wynikające z tej reguły dla źródeł z rekonesansu (`RECON.md` §3.2):
 
-Tryb 30 s podwaja szczytowe tempo żądań wobec scenariusza z §1.1 (20
-obserwowanych w dogrywce). Budżet z §1.1 dotyczy RAM, nie liczby żądań, więc
-formalnie nie pęka — ale ma to być zmierzone przy wdrożeniu, nie założone.
+| Serwis | Okno dogrywki | Floor z reguły |
+|---|---|---|
+| poleasingowe.pl | 30 s | **15 s** |
+| aukcje.leasygroup.pl | 2 min | 60 s |
+| autoprzetarg.pl | 2 min | 60 s |
+| aukcje.efl.com.pl | brak dogrywki | endgame się nie uruchamia |
+
+Okno dogrywki, długość przedłużenia i sufit łącznego przedłużenia są
+**kolumnami w `source`** (§8.1), nie stałymi w kodzie. Serwis bez dogrywki
+ma je zerowe i wtedy `ends_at` jest twardy, a faza czujki z §11.5 odpada.
+
+Floor **wolno podnieść** per źródło ponad wartość z reguły — tak robimy dla
+serwisu za zaporą aplikacyjną (`RECON.md` §4.3). Zejście **poniżej** reguły
+wymaga dowodu z nagłówków limitu tempa.
+
+Zejście do 15 s przy poleasingowe.pl podnosi szczytowe tempo żądań wobec
+scenariusza z §1.1 (20 obserwowanych w dogrywce). Budżet z §1.1 dotyczy RAM,
+nie liczby żądań, więc formalnie nie pęka — ale ma to być zmierzone przy
+wdrożeniu, nie założone. Odpytywanie jest anonimowe (`RECON.md` §4.2), więc
+ryzyko z §10 nie dotyczy tej ścieżki.
 
 W endgame `ends_at` po każdym odpycie jest odczytywany na nowo — wartość
 z bazy jest tylko wskazówką, nie prawdą.
@@ -618,29 +654,58 @@ nowego czasu. **Nie traktuj przesunięcia jako błędu parsowania.**
 
 ### 11.5 Domknięcie aukcji
 
-Serwisy stosują dogrywkę (§11.4): oferta w ostatnich chwilach przedłuża
-`ends_at`, zwykle o 60 s. Aukcja kończy się dopiero po pełnym oknie
-dogrywki bez nowej oferty. Cena końcowa jest widoczna kilka sekund po
-wygaśnięciu, potem oferta znika.
+Domknięcie to **dwa różne zadania** i mylenie ich jest źródłem błędów:
 
-Dlatego po `ends_at` nie stosuje się stałego interwału, tylko celowanie
-w moment:
+- **(a) ustalić, kiedy aukcja naprawdę się skończyła** — przy dogrywce
+  `ends_at` z listy jest tylko terminem wstępnym;
+- **(b) złapać cenę końcową** w tych kilku sekundach, przez które jest
+  widoczna po faktycznym końcu.
 
-1. `ends_at + 2 s` — pierwszy odpyt.
-2. Jeśli oferta wciąż aktywna i `ends_at` się przesunął → dogrywka,
-   wracamy do endgame.
-3. Jeśli oferta zakończona z widoczną ceną → `CONFIRMED`, koniec.
-4. Jeśli oferta zakończona bez ceny albo zniknęła → `LAST_SEEN`
-   z ostatnim snapshotem, koniec.
-5. Jeśli nierozstrzygnięte → ponów po 2 s, 5 s, 10 s, 20 s, 40 s.
-   Maksymalnie 6 prób, potem `LAST_SEEN`.
+Dlatego są dwie fazy, wykonywane po kolei.
 
-Te ponowienia są zwolnione z token bucketa źródła — to najwyżej sześć
-żądań na aukcję, raz w jej życiu. Odnotuj je w `run_log` osobno.
+#### Faza 1 — czujka dogrywki
+
+Zaczyna się w `ends_at`. Odpytuj co **pół okna dogrywki serwisu**
+(ta sama reguła co floor z §11.2), za każdym razem odczytując `ends_at`
+na nowo.
+
+- `ends_at` przesunął się w przyszłość → dogrywka trwa. Zapisz zmianę
+  w `price_snapshot` (§11.4), przelicz i odpytuj dalej.
+- minęło pełne okno dogrywki bez przesunięcia → aukcja skończyła się
+  naprawdę. **Ten moment, nie pierwotny `ends_at`, jest punktem zerowym
+  fazy 2.**
+- osiągnięto sufit przedłużeń serwisu (`source`, §8.1) → traktuj jak koniec.
+
+Faza 1 ma **twardy limit czasu**: sufit przedłużeń serwisu, a gdy serwis go
+nie deklaruje — 30 minut od pierwotnego `ends_at`. Po przekroczeniu przejdź
+do fazy 2 i zaloguj to w `run_log` jako domknięcie po limicie.
+
+Serwis bez dogrywki (zerowe parametry w `source`) **pomija fazę 1**
+w całości: punktem zerowym jest `ends_at`.
+
+#### Faza 2 — złapanie ceny końcowej
+
+Liczona od punktu zerowego ustalonego w fazie 1:
+
+1. `+2 s` — pierwszy odpyt.
+2. Oferta zakończona z widoczną ceną → `CONFIRMED`, koniec.
+3. Oferta zakończona bez ceny albo zniknęła → `LAST_SEEN` z ostatnim
+   snapshotem, koniec.
+4. `ends_at` mimo wszystko znów się przesunął → wróć do fazy 1.
+5. Nierozstrzygnięte → ponów po 5 s, 10 s, 20 s, 40 s. Maksymalnie 5 prób,
+   potem `LAST_SEEN`.
+
+Żądania fazy 2 są zwolnione z token bucketa źródła — to najwyżej pięć żądań
+na aukcję, raz w jej życiu. Odnotuj je w `run_log` osobno. Żądania fazy 1
+**nie są zwolnione**: mogą trwać minutami i muszą podlegać limitowi tempa.
+
+Długości drabinki z fazy 2 są wstępne. Mają zostać skalibrowane pomiarem,
+jak długo cena faktycznie jest widoczna po końcu (§4 pkt b) — a nie
+utrzymywane dlatego, że raz je zapisano.
 
 `CONFIRMED` oznacza cenę odczytaną ze strony po zakończeniu.
-`LAST_SEEN` oznacza ostatnią obserwację przed zamknięciem i jest
-dolnym oszacowaniem — zapisz wtedy `last_price_lead_seconds`.
+`LAST_SEEN` oznacza ostatnią obserwację przed zamknięciem i jest dolnym
+oszacowaniem — zapisz wtedy `last_price_lead_seconds`.
 
 ### 11.6 Kolizje
 
@@ -653,9 +718,15 @@ tempa.
 ### 11.7 Czas
 
 Preferuj czas pozostały raportowany przez serwis nad różnicą
-`ends_at - now()`. Zegar VM-ki potrafi dryfować, a przy interwale 60 s
-30 sekund dryfu to różnica między złapaniem ceny końcowej a jej przegapieniem.
-Sprawdzaj dryf przy starcie i ostrzegaj w logu.
+`ends_at - now()`. Zegar VM-ki potrafi dryfować, a przy floorze rzędu
+kilkunastu sekund (§11.2) nawet kilkanaście sekund dryfu to różnica między
+złapaniem ceny końcowej a jej przegapieniem. Sprawdzaj dryf przy starcie
+i ostrzegaj w logu.
+
+poleasingowe.pl zwraca czas serwera w każdej odpowiedzi endpointu
+`bid-details` (`sdt.date`), i to **bez logowania** (`RECON.md` §4.2) — to
+darmowe, autorytatywne źródło odniesienia do wykrywania dryfu. Pozostałe
+serwisy nie dają nic takiego.
 
 ### 11.8 Kompletność historii ofert
 
