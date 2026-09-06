@@ -1,0 +1,138 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "poleasingowe"
+version = "0.1.0"
+description = "Add-on Home Assistant zbierający oferty z aukcji poleasingowych"
+# Obraz bazowy HA to python:3.12-alpine (SPEC.md §7), wiec 3.12 jest dolna
+# granica i celem sprawdzen. Lokalnie deweloperka idzie na nowszym Pythonie —
+# ruff i mypy i tak weryfikuja zgodnosc z 3.12.
+requires-python = ">=3.12"
+dependencies = []
+
+[project.optional-dependencies]
+# Runtime doinstalowujemy dopiero w kroku, ktory go potrzebuje (SPEC.md §14).
+# Tu jest wylacznie to, co potrzebne do egzekwowania jakosci.
+dev = [
+  "ruff==0.6.9",
+  "mypy==1.11.2",
+  "import-linter==2.1",
+  "pytest==8.3.3",
+  "pytest-asyncio==1.4.0",
+]
+
+[tool.setuptools]
+package-dir = { "" = "poleasingowe" }
+
+[tool.setuptools.packages.find]
+where = ["poleasingowe"]
+include = ["app*"]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 88
+src = ["poleasingowe", "tools"]
+
+[tool.ruff.lint]
+select = [
+  "E", "W",      # pycodestyle
+  "F",           # pyflakes
+  "I",           # isort
+  "N",           # pep8-naming
+  "UP",          # pyupgrade
+  "B",           # bugbear
+  "A",           # builtins shadowing
+  "C4",          # comprehensions
+  "DTZ",         # naiwne datetime — §8.2 wymaga timestamptz w UTC
+  "T20",         # print() poza narzedziami
+  "SIM",         # uproszczenia
+  "PTH",         # pathlib zamiast os.path
+  "RUF",
+]
+ignore = [
+  # N818 zada sufiksu `Error` w nazwach wyjatkow. SPEC.md §6.2 nazywa je
+  # wprost: SourceUnavailable, ParseFailed, AuthenticationFailed,
+  # SessionExpired, DatabaseUnavailable. Nazwy ze spec wygrywaja.
+  # Wylaczamy regule w konfiguracji, zeby nie wstawiac `# noqa` do kodu
+  # aplikacji — §13 zabrania wyjatkow w kodzie, nie strojenia zestawu regul.
+  "N818",
+]
+
+[tool.ruff.lint.per-file-ignores]
+# tools/ to skrypty rekonesansu — print() jest tam interfejsem, nie niechlujstwem.
+"tools/*" = ["T20"]
+"poleasingowe/tests/*" = ["T20"]
+
+[tool.ruff.lint.flake8-builtins]
+builtins-allowed-modules = ["types"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+warn_unreachable = true
+warn_no_return = true
+disallow_any_explicit = false
+mypy_path = "poleasingowe"
+files = ["poleasingowe/app", "poleasingowe/tests", "tools"]
+
+[[tool.mypy.overrides]]
+# Skrypty rekonesansu z tools/ nie sa czescia add-onu i nie musza przechodzic
+# --strict; maja dzialac i byc czytelne.
+module = "recon_0b"
+disallow_untyped_defs = false
+strict = false
+
+[tool.pytest.ini_options]
+pythonpath = ["poleasingowe"]
+testpaths = ["poleasingowe/tests"]
+asyncio_mode = "auto"
+addopts = "-q --strict-markers"
+
+[tool.importlinter]
+root_packages = ["app"]
+include_external_packages = true
+
+[[tool.importlinter.contracts]]
+name = "Warstwy — zaleznosci wylacznie do wewnatrz (SPEC.md §6)"
+type = "layers"
+layers = [
+  "app.interfaces",
+  "app.application",
+  "app.domain",
+]
+# `infrastructure` celowo NIE jest w tej liscie: implementuje porty
+# z `application`, wiec musi je importowac, ale nie wolno mu byc importowanym
+# przez `domain` ani `application`. Pilnuja tego kontrakty ponizej.
+
+[[tool.importlinter.contracts]]
+name = "domain/ nie wie o zadnej innej warstwie"
+type = "forbidden"
+source_modules = ["app.domain"]
+forbidden_modules = [
+  "app.application",
+  "app.infrastructure",
+  "app.interfaces",
+]
+
+[[tool.importlinter.contracts]]
+name = "application/ nie siega po adaptery"
+type = "forbidden"
+source_modules = ["app.application"]
+forbidden_modules = ["app.infrastructure", "app.interfaces"]
+
+[[tool.importlinter.contracts]]
+name = "domain/ stoi na samej bibliotece standardowej (SPEC.md §6)"
+type = "forbidden"
+source_modules = ["app.domain"]
+forbidden_modules = [
+  "httpx", "psycopg", "psycopg_pool", "fastapi", "starlette",
+  "jinja2", "selectolax", "pydantic",
+]
+
+[[tool.importlinter.contracts]]
+name = "interfaces/ nie dotyka bazy ani sieci bezposrednio (SPEC.md §6.3)"
+type = "forbidden"
+source_modules = ["app.interfaces"]
+forbidden_modules = ["httpx", "psycopg", "psycopg_pool"]

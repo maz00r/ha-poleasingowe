@@ -1,0 +1,66 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# SPEC.md §7: add-on celuje w obraz ghcr.io/home-assistant/amd64-base-python:3.12-alpine,
+# wiec CI chodzi na 3.12 nawet jesli deweloperka lokalnie idzie na nowszym Pythonie.
+env:
+  PYTHON_VERSION: "3.12"
+
+jobs:
+  jakosc:
+    name: ruff / mypy / import-linter / pytest
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Zainstaluj uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+
+      - name: Python ${{ env.PYTHON_VERSION }}
+        run: uv python install ${{ env.PYTHON_VERSION }}
+
+      - name: Srodowisko
+        run: |
+          uv venv --python ${{ env.PYTHON_VERSION }}
+          uv pip install -e ".[dev]"
+
+      - name: ruff (lint)
+        run: .venv/bin/ruff check .
+
+      - name: ruff (format)
+        run: .venv/bin/ruff format --check .
+
+      - name: mypy --strict
+        run: .venv/bin/mypy
+
+      - name: import-linter — kontrakt warstw
+        # SPEC.md §6.1: naruszenie warstwy wywala build. To jedyny mechanizm,
+        # ktory realnie powstrzymuje rozjazd architektury.
+        run: .venv/bin/lint-imports
+
+      - name: pytest
+        run: .venv/bin/pytest
+
+  dane-osobowe:
+    name: brak fixtures z sesji zalogowanej
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Zaden plik *-auth-* nie moze byc w repo
+        # SPEC.md §10.2: strony po zalogowaniu zawieraja dane osobowe
+        # wlasciciela. .gitignore je wyklucza, ale regula moze zostac
+        # obeszla przez `git add -f` — to jest siatka bezpieczenstwa.
+        run: |
+          znalezione=$(git ls-files | grep -- '-auth-' || true)
+          if [ -n "$znalezione" ]; then
+            echo "STOP: w repo sa fixtures z sesji zalogowanej:"
+            echo "$znalezione"
+            exit 1
+          fi
+          echo "OK — brak plikow -auth-"

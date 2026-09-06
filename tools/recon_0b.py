@@ -14,6 +14,7 @@ Uzycie:
 Bez --dry-run skrypt czeka do konca aukcji, probkuje ja gesto w koncowce,
 a po wygasnieciu odpytuje wg drabinki z §11.5 i zapisuje kazda odpowiedz.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -27,8 +28,10 @@ import time
 import zoneinfo
 
 TZ = zoneinfo.ZoneInfo("Europe/Warsaw")
-UA = ("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
-      "(KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36")
+UA = (
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
+    "(KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
+)
 
 # gesta faza przed koncem: co ile sekund probkowac, zaczynajac T-180 s
 RUNUP_FROM_S = 180
@@ -48,16 +51,31 @@ def fetch(url: str) -> tuple[int, dict[str, str], str]:
     sie tylko transport, ten sam, ktorym zebrano fixtures.
     """
     proc = subprocess.run(
-        ["curl", "-sS", "-m", "30", "-L", "--compressed", "-D", "-",
-         "-A", UA,
-         "-H", "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-         "-H", "Accept-Language: pl-PL,pl;q=0.9",
-         url],
-        capture_output=True, timeout=60,
+        [
+            "curl",
+            "-sS",
+            "-m",
+            "30",
+            "-L",
+            "--compressed",
+            "-D",
+            "-",
+            "-A",
+            UA,
+            "-H",
+            "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "-H",
+            "Accept-Language: pl-PL,pl;q=0.9",
+            url,
+        ],
+        capture_output=True,
+        timeout=60,
     )
     if proc.returncode != 0:
-        raise RuntimeError(f"curl zwrocil {proc.returncode}: "
-                           f"{proc.stderr.decode('utf-8', 'replace')[:200]}")
+        raise RuntimeError(
+            f"curl zwrocil {proc.returncode}: "
+            f"{proc.stderr.decode('utf-8', 'replace')[:200]}"
+        )
     raw = proc.stdout.decode("utf-8", "replace")
     # przy -L naglowki kazdego przeskoku poprzedzaja cialo; bierzemy ostatni blok
     parts = re.split(r"\r\n\r\n", raw)
@@ -70,7 +88,7 @@ def fetch(url: str) -> tuple[int, dict[str, str], str]:
                 if ":" in line:
                     k, v = line.split(":", 1)
                     headers[k.strip().lower()] = v.strip()
-            body = "\r\n\r\n".join(parts[i + 1:])
+            body = "\r\n\r\n".join(parts[i + 1 :])
     m = re.match(r"HTTP/[\d.]+ (\d{3})", parts[0] if parts else "")
     for part in parts:
         if part.startswith("HTTP/"):
@@ -102,17 +120,25 @@ def parse_poleasingowe(html: str) -> dict[str, object]:
 
 def parse_efl(html: str) -> dict[str, object]:
     out: dict[str, object] = {}
-    m = re.search(r"Do zakończenia:.{0,400}?(\d{2}\.\d{2}\.\d{4})\s*godzina\s*(\d{2}:\d{2}:\d{2})",
-                  html, re.S)
+    m = re.search(
+        r"Do zakończenia:.{0,400}?"
+        r"(\d{2}\.\d{2}\.\d{4})\s*godzina\s*(\d{2}:\d{2}:\d{2})",
+        html,
+        re.S,
+    )
     out["end_date"] = f"{m.group(1)} {m.group(2)}" if m else None
     m = re.search(r"Ofert:\s*(?:<[^>]*>\s*)*(\d+)", html)
     out["offers_count"] = m.group(1) if m else None
-    m = re.search(r"Aktualna cena[^<]*(?:<[^>]*>\s*)*([\d\s &#;]+,\d{2})\s*zł", html)
-    out["current_price"] = re.sub(r"&#160;| ", " ", m.group(1)).strip() if m else None
+    m = re.search(r"Aktualna cena[^<]*(?:<[^>]*>\s*)*([\d\s\xa0&#;]+,\d{2})\s*zł", html)
+    out["current_price"] = (
+        re.sub(r"&#160;|\xa0", " ", m.group(1)).strip() if m else None
+    )
     # panel ofert: liczba wierszy tabeli
     m = re.search(r'<div class="hidden" data-tabs="bidders">(.*?)</div>', html, re.S)
     panel = m.group(1) if m else ""
-    out["offers_rows"] = len(re.findall(r"<tr>", panel)) - (1 if "<thead" in panel else 0)
+    out["offers_rows"] = len(re.findall(r"<tr>", panel)) - (
+        1 if "<thead" in panel else 0
+    )
     out["offers_panel_empty"] = "Brak ofert" in panel
     # Swiadomie NIE zgadujemy markera zakonczenia: nie mamy jeszcze zrzutu
     # aukcji zakonczonej (SPEC.md §4 pkt g), a naiwne szukanie "zakoncz" lapie
@@ -150,8 +176,10 @@ def parse_leasygroup(html: str) -> dict[str, object]:
     out: dict[str, object] = {}
     flat = re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", html))
 
-    m = re.search(r'class="[^"]*\bto_end\b[^"]*"[^>]*>\s*([\d]+)\s*:\s*([\d]+)\s*:\s*([\d]+)',
-                  html)
+    m = re.search(
+        r'class="[^"]*\bto_end\b[^"]*"[^>]*>\s*([\d]+)\s*:\s*([\d]+)\s*:\s*([\d]+)',
+        html,
+    )
     if m:
         hh, mm, ss = (int(x) for x in m.groups())
         out["is_auction"] = True
@@ -161,7 +189,9 @@ def parse_leasygroup(html: str) -> dict[str, object]:
         out["end_date_source"] = "wyliczony z odliczania"
     else:
         out["is_auction"] = False
-        m2 = re.search(r"Koniec aukcji:\s*(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}(?::\d{2})?)", flat)
+        m2 = re.search(
+            r"Koniec aukcji:\s*(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}(?::\d{2})?)", flat
+        )
         out["end_date"] = m2.group(1).strip() if m2 else None
         out["end_date_source"] = "absolutny ze strony" if m2 else None
 
@@ -200,14 +230,15 @@ PARSERS = {
 
 def sample(url: str, source: str, outdir: pathlib.Path, tag: str) -> dict[str, object]:
     now = dt.datetime.now(TZ)
+    rec: dict[str, object]
     try:
         status, headers, body = fetch(url)
-    except Exception as exc:                      # noqa: BLE001 - raport, nie crash
+    except Exception as exc:  # raport, nie crash — patrz docstring modulu
         rec = {"tag": tag, "ts": now.isoformat(), "error": repr(exc)}
         print(json.dumps(rec, ensure_ascii=False), flush=True)
         return rec
     (outdir / f"domkniecie-{tag}.html").write_text(body, encoding="utf-8")
-    rec: dict[str, object] = {
+    rec = {
         "tag": tag,
         "ts": now.isoformat(),
         "http": status,
@@ -239,8 +270,11 @@ def main() -> int:
     ap.add_argument("--url", required=True)
     ap.add_argument("--source", required=True, choices=sorted(PARSERS))
     ap.add_argument("--outdir", default=None)
-    ap.add_argument("--dry-run", action="store_true",
-                    help="jedna probka i wyjscie — do sprawdzenia parsera")
+    ap.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="jedna probka i wyjscie — do sprawdzenia parsera",
+    )
     args = ap.parse_args()
 
     outdir = pathlib.Path(args.outdir or f"fixtures/{args.source}")
@@ -258,8 +292,10 @@ def main() -> int:
 
     end = parse_end(args.source, first)
     if end is None:
-        print("STOP: nie udalo sie odczytac daty konca — parser albo strona sie zmienily",
-              file=sys.stderr)
+        print(
+            "STOP: nie udalo sie odczytac daty konca — parser albo strona sie zmienily",
+            file=sys.stderr,
+        )
         return 1
     print(f"# koniec aukcji wg strony: {end.isoformat()}", flush=True)
 
@@ -273,8 +309,12 @@ def main() -> int:
             time.sleep(min(left - RUNUP_FROM_S, 60))
             continue
         time.sleep(min(RUNUP_STEP_S, max(left, 1)))
-        rec = sample(args.url, args.source, outdir,
-                     f"pre-{int(max((end - dt.datetime.now(TZ)).total_seconds(), 0))}s")
+        rec = sample(
+            args.url,
+            args.source,
+            outdir,
+            f"pre-{int(max((end - dt.datetime.now(TZ)).total_seconds(), 0))}s",
+        )
         write(rec)
         new_end = parse_end(args.source, rec)
         # Tolerancja: leasygroup nie podaje absolutnego konca, wiec ends_at
@@ -282,8 +322,11 @@ def main() -> int:
         # dalby wtedy falszywa "dogrywke". Realne przedluzenie to co najmniej
         # jedno okno dogrywki, wiec 15 s progu odsiewa szum, nie sygnal.
         if new_end and (new_end - end).total_seconds() > DOGRYWKA_TOLERANCE_S:
-            print(f"# DOGRYWKA: ends_at {end.isoformat()} -> {new_end.isoformat()} "
-                  f"(+{(new_end - end).total_seconds():.0f}s)", flush=True)
+            print(
+                f"# DOGRYWKA: ends_at {end.isoformat()} -> {new_end.isoformat()} "
+                f"(+{(new_end - end).total_seconds():.0f}s)",
+                flush=True,
+            )
             rec["dogrywka_shift_s"] = (new_end - end).total_seconds()
             end = new_end
         elif new_end and new_end > end:

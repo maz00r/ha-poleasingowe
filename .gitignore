@@ -5,3 +5,7 @@ __pycache__/
 .DS_Store
 fixtures/**/*-auth-*
 fixtures/**/recon-0b.jsonl
+*.egg-info/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/

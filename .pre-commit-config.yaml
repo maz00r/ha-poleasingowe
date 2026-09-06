@@ -1,0 +1,50 @@
+# Bramki jakosci uruchamiane lokalnie przed commitem (SPEC.md §6.1).
+# Ten sam zestaw chodzi w CI — patrz .github/workflows/ci.yml.
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+      - id: check-yaml
+      - id: check-toml
+      - id: check-merge-conflict
+      - id: check-added-large-files
+        args: ["--maxkb=1024"]
+        # Fixtures bywaja duze (regulamin leasygroup ma ~370 KB), ale plik
+        # powyzej 1 MB w repo to prawie na pewno pomylka.
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.6.9
+    hooks:
+      - id: ruff
+        args: ["--fix"]
+      - id: ruff-format
+
+  - repo: local
+    hooks:
+      # mypy i import-linter jako hooki lokalne, zeby chodzily na dokladnie
+      # tych wersjach, ktore sa w .venv i w CI — nie na wlasnych, rownoleglych.
+      - id: mypy
+        name: mypy --strict
+        entry: .venv/bin/mypy
+        language: system
+        pass_filenames: false
+        types: [python]
+
+      - id: import-linter
+        name: import-linter (kontrakt warstw)
+        entry: .venv/bin/lint-imports
+        language: system
+        pass_filenames: false
+        types: [python]
+
+      # SPEC.md §10.2: strony po zalogowaniu zawieraja dane osobowe wlasciciela.
+      # .gitignore je wyklucza, ale `git add -f` obchodzi regule — to jest
+      # siatka bezpieczenstwa na taki wypadek.
+      - id: brak-fixtures-auth
+        name: zaden plik *-auth-* nie moze trafic do commita
+        entry: scripts/sprawdz-brak-auth.sh
+        language: script
+        pass_filenames: false
+        always_run: true
