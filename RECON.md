@@ -41,9 +41,9 @@ dysk 44 GB. Maszyna dzielona z HA (~1,8 GB), PostgreSQL, Grafaną i TeslaMate.
 | Stack | Laravel + openresty | ASP.NET MVC | PHP + WAF F5 | ASP.NET MVC + Cloudflare |
 | Lista bez logowania | **tak, z ceną i liczbą ofert** | **tak, z ceną** | tak | **tak, z ceną i VIN** |
 | Szczegóły bez logowania | **tak, pełne** (blok Alpine) | **tak, pełne** | tak | **tak, ale bez ofert** |
-| Cena aktualna | **tak** (netto, brutto, EUR) | **tak** | netto; nie wiadomo, czy bieżąca | **tak** |
+| Cena aktualna | **tak** (netto, brutto, EUR) | **tak** | **tak, obok wywoławczej** | **tak** |
 | Liczba ofert | **tak** (`offers_count`, `bidders_count`) | **tak (`Ofert: N`)** | nie znaleziono | **NIE — dopiero po zalogowaniu** |
-| Historia ofert | **pełna w HTML, bez logowania** | **inline w HTML, jawna** | **NIE — zapewne po zalogowaniu** | **SignalR `getAuctionOffers`** |
+| Historia ofert | **pełna w HTML, bez logowania** | **inline w HTML, jawna** | **tabela inline, bez logowania** | **SignalR `getAuctionOffers`** |
 | Min. postąpienie | **`instep_price` wprost** | z regulaminu (10/100/200 zł) | nie znaleziono | **2% ostatniej oferty** |
 | Render | dane serwerowe, JS tylko odświeża | **statyczny** | statyczny | dane serwerowe + push |
 | API JSON | **`POST /pl/auctions/bid-details/<id>`** | brak | brak (jQuery ajax, nieustalone) | **SignalR (WebSocket)** |
@@ -52,7 +52,7 @@ dysk 44 GB. Maszyna dzielona z HA (~1,8 GB), PostgreSQL, Grafaną i TeslaMate.
 | Limit tempa w nagłówkach | **`x-ratelimit-limit` 60–120** | brak | brak | brak |
 | Paginacja | serwerowa | serwerowa `?page=N` | `strona-N`, **robots blokuje > 1** | serwerowa `?page=N` |
 | **Dogrywka** | **+30 s, okno 30 s, max +30 min** | **BRAK — twardy koniec** | **+2 min, okno 2 min** | **+120 s, okno 2 min, bez sufitu** |
-| Czas do końca | **absolutny `endDate` w HTML** + strefa jawnie | **absolutny timestamp w HTML** | **w szczegółach, „Koniec aukcji”** | **ukryty input `auctionEndDate`** |
+| Czas do końca | **absolutny `endDate` w HTML** + strefa jawnie | **absolutny timestamp w HTML** | **tylko odliczanie względne** | **ukryty input `auctionEndDate`** |
 | Czas serwera | **`sdt.date` w API, bez logowania** | brak | brak | brak |
 | VIN publiczny | **tak** | **tak** | **tak** | **tak, już na liście** |
 | Werdykt | **`httpx`, bez logowania do odczytu** | **`httpx`, bez przeglądarki** | `httpx`, ale mało danych | **`httpx`; oferty wymagają sesji lub SignalR** |
@@ -413,53 +413,73 @@ Adapter implementuje samo `AuctionSource`. Sesja zalogowana jest opcjonalnym
 rozszerzeniem — daje `topoffers` przez API i pełną historię ofert — ale
 nie jest warunkiem działania.
 
-### 4.3 aukcje.leasygroup.pl — najsłabszy, ale nie z powodów, które podałem najpierw
+### 4.3 aukcje.leasygroup.pl
 
-**Korekta.** Pierwsza wersja tej sekcji twierdziła, że obie pobrane pozycje
-to oferty w cenie stałej „bez daty zakończenia i bez śladu licytacji".
-**To było błędne** i wynikało z szukania niewłaściwych fraz („zakończ",
-„do końca") zamiast tej, której serwis faktycznie używa: **„Koniec aukcji"**.
+**Druga korekta tej sekcji.** Pierwsza wersja twierdziła, że pozycje nie mają
+daty zakończenia; druga — że nie umiem odróżnić licytacji od ceny stałej.
+**Oba twierdzenia były błędne.** Serwis oznacza typ oferty wyraźnie, tylko
+szukałem nie tych fraz, a wyświetlając wyłącznie pierwsze trafienie grepa
+przeoczyłem właściwe. Poniżej stan ustalony na fixtures i na DOM-ie strony.
 
-**URL-e.** Lista: `/aukcje/pojazdy-samochodowe-i-motocykle/widok-siatka/strona-N`
-(adres z §3 SPEC potwierdzony, HTTP 200). Szczegóły:
-`/aukcja/<id>/<slug>/`.
+**Dwa rodzaje pozycji, rozróżnialne w surowym HTML.** Kafelek listy to
+`<div class="single_offer" data-id="<numer>">`. Licytacja ma w środku:
 
-**Dwa identyfikatory.** W URL-u stoi jeden (`28143`, `26780`), a na stronie
-szczegółów drugi: **„Numer aukcji: 326056"**, odpowiednio `326083`. Nie wiem,
-który jest stabilny — `external_id` powinien brać ten z URL-a, bo tylko on
-jest potrzebny do zbudowania adresu, ale rozbieżność trzeba odnotować
-w mapperze.
+```html
+<div class="time_label f_14 center">Do końca
+  <br><span class="semibold to_end">3 : 15 : 48</span></div>
+```
 
-**Pola na liście** (`fixtures/leasygroup/lista-01.html`): tytuł, rocznik,
-paliwo, przebieg, skrzynia, kolor, cena netto. **Daty zakończenia na liście
-nie ma** — tak samo jak w poleasingowe, czas końca wymaga wejścia
-w szczegóły.
+Oferta „Kup teraz" tego elementu **nie ma** (na stronie szczegółów ma pusty
+`time_label_x` z `&nbsp;`). To jest marker typu i jest **renderowany
+serwerowo** — `httpx` wystarczy. Drugi, niezależny sygnał: licytacje podają
+cenę **brutto**, oferty „Kup teraz" **netto**.
 
-**Pola w szczegółach** (`szczegoly-28143.html`, `szczegoly-26780.html`):
-„Numer aukcji", **„Koniec aukcji: 2026-09-07 12:00"** (absolutny, bez strefy),
-marka, model, rocznik, nr rejestracyjny, **VIN** (`W1NFF3DE0RB112081`),
-data pierwszej rejestracji, paliwo, skrzynia, nadwozie, kolor, pełna lista
-wyposażenia, „Cena: 323 000 PLN netto", **„Prowizja za udział w aukcji 3%"**,
-„Aukcja skierowana do podmiotów gospodarczych", opinia rzeczoznawcy do
-pobrania, dane sprzedającego.
+W pobranej siatce pojazdów **licytacja była jedna na dwanaście pozycji**.
+Reszta to sprzedaż w cenie stałej. To wyjaśnia, dlaczego pierwsze dwie
+pobrane przeze mnie pozycje nie miały pól licytacyjnych — obie były
+przypadkowo z tej większości.
 
-**Czego nie ma bez logowania:** liczby ofert, historii ofert, minimalnego
-postąpienia ani jakiegokolwiek elementu licytacyjnego („Twoja oferta",
-„Licytuj", „postąpienie" — żadnego trafienia). Nagłówek pokazuje „Zaloguj
-się", więc najprawdopodobniej cały interfejs licytacji jest za sesją,
-podobnie jak w autoprzetarg.pl. **Nie zweryfikowane** — wymagałoby konta.
+**Dwa identyfikatory — rozwiązane.** `data-id` na kafelku listy (`326196`)
+to ten sam numer, który strona szczegółów pokazuje jako **„Numer aukcji"**,
+i ten sam, którego używa link obserwowania `/aukcje/obserwuj/326196/`.
+Identyfikator w URL-u aukcji (`28163`) jest inny. Do zbudowania adresu
+potrzebny jest ten z URL-a; `data-id` warto zapisać jako drugi klucz, bo to
+on identyfikuje aukcję w funkcjach serwisu.
 
-Konsekwencja dla §11.8 jest taka sama jak w autoprzetarg: bez sesji nie ma
-`bid_count`, więc nie ma z czego liczyć `bid_gap`.
+**Strona licytacji — pełna** (`fixtures/leasygroup/szczegoly-28163-licytacja.html`,
+Honda NSX). Bez logowania widać:
 
-**Dwa tryby sprzedaży.** Lista ma filtr `auctionType[]` (`1` = Licytacja,
-`2` = Kup teraz), a regulamin mówi „w przypadku aukcji prowadzonych w trybie
-licytacji", co potwierdza, że serwis prowadzi oba. Żądanie
-`…/strona-1?auctionType%5B%5D=1` zwraca HTTP 200 i treść różną od
-niefiltrowanej, ale **wypisane pozycje są te same** — filtr działa więc po
-stronie JS, nie serwera. **Nie umiem z HTML odróżnić pozycji licytacyjnej od
-oferty w cenie stałej**; obie pobrane wyglądają identycznie i obie mają
-„Kup teraz" oraz „Koniec aukcji". To jest realna luka.
+- **„Cena aktualna: 878 900 PLN brutto"** oraz osobno
+  **„Cena wywoławcza: 878 900 PLN brutto"** — jedyne źródło podające obie
+  wprost;
+- **„Najwyższa oferta"**;
+- **„Historia licytacji"** — tabela `table.offers-history` z kolumnami
+  **Użytkownik / Cena / Data**, inline w HTML, **bez logowania**. W próbce
+  pusta, bo licytacja jeszcze się nie zaczęła (cena aktualna = wywoławcza,
+  najwyższa oferta „-"). Struktura jest ta sama co w EFL;
+- interfejs licytacji („Twoja oferta", „Licytuj") — samo złożenie oferty
+  wymaga konta, ale pola są w HTML;
+- „Prowizja za udział w aukcji 3%", VIN, nr rejestracyjny, rocznik, paliwo,
+  skrzynia, wyposażenie, opinia rzeczoznawcy.
+
+**To unieważnia moje wcześniejsze twierdzenie, że §11.8 nie działa dla tego
+źródła bez sesji.** Tabela historii licytacji jest dostępna anonimowo.
+Pozostaje potwierdzić jej kształt na aukcji z realnymi ofertami — pomiar
+0b na tej aukcji jest w toku.
+
+**Czas do końca (punkt d) — najgorszy przypadek z czterech.** Strona
+licytacji **nie podaje absolutnego czasu zakończenia w żadnej postaci**:
+ani tekstem, ani w `data-*`, ani w JSON. Jest wyłącznie odliczanie względne
+`span.to_end` w formacie `H : MM : SS`, renderowane serwerowo. `ends_at`
+trzeba więc **wyliczać** jako `teraz + odliczanie`, co jest dokładnie tym
+przypadkiem, przed którym ostrzega §11.7: przy dryfie zegara VM-ki błąd
+wchodzi wprost do wyznaczonego terminu końca. Paradoksalnie oferty „Kup
+teraz" mają absolutne „Koniec aukcji: 2026-09-07 12:00" — czyli serwis
+podaje absolutny czas tam, gdzie jest najmniej potrzebny.
+
+**Pola na liście**: tytuł (**ucięty wielokropkiem**), rocznik, paliwo,
+przebieg, skrzynia, kolor, cena, oraz `time_label` przy licytacjach.
+Daty zakończenia na liście nie ma w żadnej postaci.
 
 **Dogrywka (punkt a).** Regulamin § 2 ust. 3:
 
@@ -468,27 +488,30 @@ oferty w cenie stałej**; obie pobrane wyglądają identycznie i obie mają
 > zakończenia aukcji, automatycznie przedłuża czas jej trwania o kolejne
 > 2 minuty."
 
-**Logowanie.** `/zaloguj-sie/` (przekierowanie z `/logowanie/`). Formularz ma
-pole `mail`, checkbox `rules` i **ukryte pole o losowej nazwie**:
-`name="Tzd5UWsvaU9kQlMzbWhuNzIwMk9TQT09"` z wartością
-`"Kzh0VWpqS0ltaU9hVlVxR0prSlpCUT09"` — obie w base64. Nazwa pola rotuje,
-więc adapter musi wyciągać **parę nazwa+wartość** ze strony, nie samą wartość.
-Captcha: nie znaleziono markerów (`recaptcha`/`hcaptcha`/`turnstile`).
+**Filtr typu oferty.** Lista ma `auctionType[]` (`1` = Licytacja,
+`2` = Kup teraz), ale żądanie `…/strona-1?auctionType%5B%5D=1` zwraca te same
+pozycje — filtr działa po stronie JS. **Nie szkodzi**, bo typ da się
+rozpoznać z obecności `time_label` w każdym kafelku.
 
-**Ochrona przed botami.** Ciasteczko `TS014acf5b` = F5 BIG-IP ASM.
-Nie napotkałem blokady przy kilkunastu żądaniach, ale to WAF i przy
-regularnym odpytywaniu może zareagować.
+**Logowanie.** `/zaloguj-sie/` (przekierowanie z `/logowanie/`). Pole `mail`,
+checkbox `rules` i **ukryte pole o losowej nazwie**
+(`Tzd5UWsvaU9kQlMzbWhuNzIwMk9TQT09` = `Kzh0VWpqS0ltaU9hVlVxR0prSlpCUT09`,
+obie w base64) — nazwa rotuje, więc adapter musi wyciągać **parę
+nazwa+wartość**. Brak markerów captchy.
 
-**robots.txt — nadal główny problem.** Blokuje `widok-lista/*`
-i `widok-siatka/*` dla wszystkich kategorii, z jawnym `Allow` **wyłącznie dla
-`strona-1`**. Przy ścisłym przestrzeganiu widzimy 12 z ~96 pozycji
-w kategorii pojazdów.
+**Ochrona przed botami.** Ciasteczko `TS014acf5b` = F5 BIG-IP ASM. Decyzja:
+akceptujemy z ostrożnością — floor wyższy niż z reguły §11.2 i szybszy
+circuit breaker niż przy pozostałych źródłach.
 
-**Werdykt: `httpx` wystarczy technicznie.** Ale to najsłabsze z czterech
-źródeł, z trzech konkretnych powodów: paginacja odcięta przez robots, brak
-liczby i historii ofert bez sesji, oraz brak sposobu na odróżnienie licytacji
-od ceny stałej. Żaden z nich nie jest nierozwiązywalny — pierwszy to decyzja,
-drugi wymaga konta, trzeci prawdopodobnie też.
+**robots.txt — pozostaje głównym ograniczeniem.** `Allow` wyłącznie dla
+`widok-siatka/strona-1`; `widok-lista/*` i dalsze strony siatki objęte
+`Disallow`. Przy ścisłym przestrzeganiu widzimy 12 z ~96 pozycji kategorii,
+a skoro licytacje to mniejszość, realny zasięg jest jeszcze mniejszy.
+
+**Werdykt: `httpx` wystarcza, bez logowania, z pełną historią licytacji.**
+Źródło jest lepsze, niż wynikało z dwóch poprzednich wersji tej sekcji.
+Zostają dwa realne minusy: odcięta paginacja (robots) i brak absolutnego
+czasu końca.
 
 ### 4.4 autoprzetarg.pl
 

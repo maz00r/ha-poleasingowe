@@ -35,6 +35,8 @@ RUNUP_FROM_S = 180
 RUNUP_STEP_S = 10
 # drabinka po wygasnieciu, sekundy od zaobserwowanego konca (§4 pkt b)
 AFTER_END_S = [2, 5, 15, 60, 300]
+# Prog uznania przesuniecia ends_at za dogrywke, nie za szum pomiaru.
+DOGRYWKA_TOLERANCE_S = 15
 
 
 def fetch(url: str) -> tuple[int, dict[str, str], str]:
@@ -137,22 +139,54 @@ def parse_autoprzetarg(html: str) -> dict[str, object]:
 
 
 def parse_leasygroup(html: str) -> dict[str, object]:
+    """leasygroup rozroznia dwa rodzaje pozycji (RECON.md §4.3).
+
+    Licytacja ma <div class="time_label"> z ODLICZANIEM WZGLEDNYM (span.to_end,
+    format "H : MM : SS") i NIE podaje absolutnego czasu konca. Oferta "Kup
+    teraz" ma zamiast tego "Koniec aukcji: <timestamp>" i pusty time_label_x.
+    Dlatego ends_at dla licytacji wyliczamy z odliczania — co jest dokladnie
+    tym przypadkiem, przed ktorym ostrzega SPEC.md §11.7 (dryf zegara).
+    """
     out: dict[str, object] = {}
-    flat = re.sub(r"<[^>]+>", " ", html)
-    flat = re.sub(r"\s+", " ", flat)
-    m = re.search(r"Koniec aukcji:\s*(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}(?::\d{2})?)", flat)
-    out["end_date"] = m.group(1).strip() if m else None
+    flat = re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", html))
+
+    m = re.search(r'class="[^"]*\bto_end\b[^"]*"[^>]*>\s*([\d]+)\s*:\s*([\d]+)\s*:\s*([\d]+)',
+                  html)
+    if m:
+        hh, mm, ss = (int(x) for x in m.groups())
+        out["is_auction"] = True
+        out["countdown_raw"] = f"{hh}:{mm:02d}:{ss:02d}"
+        left = dt.timedelta(hours=hh, minutes=mm, seconds=ss)
+        out["end_date"] = (dt.datetime.now(TZ) + left).strftime("%Y-%m-%d %H:%M:%S")
+        out["end_date_source"] = "wyliczony z odliczania"
+    else:
+        out["is_auction"] = False
+        m2 = re.search(r"Koniec aukcji:\s*(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}(?::\d{2})?)", flat)
+        out["end_date"] = m2.group(1).strip() if m2 else None
+        out["end_date_source"] = "absolutny ze strony" if m2 else None
+
     m = re.search(r"Numer aukcji:\s*(\d+)", flat)
     out["auction_number"] = m.group(1) if m else None
-    m = re.search(r"Cena:\s*([\d\s]+)\s*PLN", flat)
+    m = re.search(r"Cena aktualna:\s*([\d\s]+)\s*PLN", flat)
     out["current_price"] = m.group(1).strip() if m else None
-    # Interfejs licytacji jest prawdopodobnie za sesja (RECON.md §4.3);
-    # notujemy sygnaly, ktore moga sie zmienic po zakonczeniu aukcji.
-    out["has_buy_now"] = "Kup teraz" in flat
-    out["has_commission"] = "Prowizja za udział" in flat
-    out["bid_ui_markers"] = sorted(
-        k for k in ("Twoja oferta", "Licytuj", "postąpienie", "Ofert") if k in flat
-    )
+    m = re.search(r"Cena wywoławcza:\s*([\d\s]+)\s*PLN", flat)
+    out["start_price"] = m.group(1).strip() if m else None
+    if out["current_price"] is None:
+        m = re.search(r"Cena:\s*([\d\s]+)\s*PLN", flat)
+        out["current_price"] = m.group(1).strip() if m else None
+
+    # "Historia licytacji" — tabela inline, bez logowania; wiersz naglowka odpada
+    m = re.search(r'<table class="offers-history">(.*?)</table>', html, re.S)
+    if m:
+        rows = len(re.findall(r"<tr>", m.group(1)))
+        out["offers_rows"] = max(rows - 1, 0)
+        out["has_offers_table"] = True
+    else:
+        out["offers_rows"] = None
+        out["has_offers_table"] = False
+    m = re.search(r"Najwyższa oferta\s+(-|[\d\s]+PLN|[\d\s]+)(?=\s+Aktualna)", flat)
+    out["highest_offer"] = m.group(1).strip() if m else None
+    out["has_bid_ui"] = "Licytuj" in flat
     return out
 
 
@@ -243,11 +277,17 @@ def main() -> int:
                      f"pre-{int(max((end - dt.datetime.now(TZ)).total_seconds(), 0))}s")
         write(rec)
         new_end = parse_end(args.source, rec)
-        if new_end and new_end > end:
+        # Tolerancja: leasygroup nie podaje absolutnego konca, wiec ends_at
+        # wyliczamy z odliczania (teraz + pozostalo). Jitter sieciowy o sekunde
+        # dalby wtedy falszywa "dogrywke". Realne przedluzenie to co najmniej
+        # jedno okno dogrywki, wiec 15 s progu odsiewa szum, nie sygnal.
+        if new_end and (new_end - end).total_seconds() > DOGRYWKA_TOLERANCE_S:
             print(f"# DOGRYWKA: ends_at {end.isoformat()} -> {new_end.isoformat()} "
                   f"(+{(new_end - end).total_seconds():.0f}s)", flush=True)
             rec["dogrywka_shift_s"] = (new_end - end).total_seconds()
             end = new_end
+        elif new_end and new_end > end:
+            end = new_end  # drobna korekta, bez raportowania dogrywki
 
     # faza 2: drabinka po wygasnieciu — sedno punktu (b)
     zero = end
@@ -259,7 +299,7 @@ def main() -> int:
         rec = sample(args.url, args.source, outdir, f"post+{offset}s")
         write(rec)
         new_end = parse_end(args.source, rec)
-        if new_end and new_end > zero:
+        if new_end and (new_end - zero).total_seconds() > DOGRYWKA_TOLERANCE_S:
             print(f"# DOGRYWKA po wygasnieciu: -> {new_end.isoformat()}", flush=True)
 
     print(f"# gotowe, log: {log}", flush=True)
