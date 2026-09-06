@@ -413,35 +413,53 @@ Adapter implementuje samo `AuctionSource`. Sesja zalogowana jest opcjonalnym
 rozszerzeniem — daje `topoffers` przez API i pełną historię ofert — ale
 nie jest warunkiem działania.
 
-### 4.3 aukcje.leasygroup.pl — najsłabszy kandydat
+### 4.3 aukcje.leasygroup.pl — najsłabszy, ale nie z powodów, które podałem najpierw
+
+**Korekta.** Pierwsza wersja tej sekcji twierdziła, że obie pobrane pozycje
+to oferty w cenie stałej „bez daty zakończenia i bez śladu licytacji".
+**To było błędne** i wynikało z szukania niewłaściwych fraz („zakończ",
+„do końca") zamiast tej, której serwis faktycznie używa: **„Koniec aukcji"**.
 
 **URL-e.** Lista: `/aukcje/pojazdy-samochodowe-i-motocykle/widok-siatka/strona-N`
 (adres z §3 SPEC potwierdzony, HTTP 200). Szczegóły:
-`/aukcja/<id-liczbowy>/<slug>/`. `external_id` — liczba (`28143`).
+`/aukcja/<id>/<slug>/`.
 
-**Zawartość.** Kategoria „pojazdy samochodowe i motocykle" miesza samochody
-osobowe z ciężarówkami i betoniarkami. Pobrana pozycja 28143
-(Mercedes GLS 450 d) ma VIN (`W1NFF3DE0RB112081`), rok, nr rejestracyjny,
-paliwo, wyposażenie i **„Cena: 323 000 PLN netto"** — ale **nie ma ani
-`Ofert`, ani daty zakończenia, ani licznika, ani śladu licytacji**.
-Wygląda na ofertę w cenie stałej, nie aukcję. Dodatkowo: „Prowizja za udział
-w aukcji 3%", „Aukcja skierowana do podmiotów gospodarczych".
+**Dwa identyfikatory.** W URL-u stoi jeden (`28143`, `26780`), a na stronie
+szczegółów drugi: **„Numer aukcji: 326056"**, odpowiednio `326083`. Nie wiem,
+który jest stabilny — `external_id` powinien brać ten z URL-a, bo tylko on
+jest potrzebny do zbudowania adresu, ale rozbieżność trzeba odnotować
+w mapperze.
 
-**Nie mam w próbce ani jednej realnej aukcji z tego serwisu**, więc nie
-umiem opisać jego pól licytacyjnych. To luka do domknięcia.
+**Pola na liście** (`fixtures/leasygroup/lista-01.html`): tytuł, rocznik,
+paliwo, przebieg, skrzynia, kolor, cena netto. **Daty zakończenia na liście
+nie ma** — tak samo jak w poleasingowe, czas końca wymaga wejścia
+w szczegóły.
 
-Próba jej domknięcia się nie powiodła. Lista ma filtr
-`auctionType[]` (`1` = Licytacja, `2` = Kup teraz) jako checkboxy.
-Żądanie `…/strona-1?auctionType%5B%5D=1` zwraca HTTP 200 i treść **różną**
-od niefiltrowanej (choć identycznej długości), ale wypisane pozycje są te
-same, a druga pobrana pozycja (`26780`, `fixtures/leasygroup/szczegoly-26780.html`)
-znów jest ofertą „Kup teraz" w cenie stałej — 567 800 PLN netto, bez pola
-`Ofert`, bez daty zakończenia, bez śladu licytacji. Filtr działa więc
-prawdopodobnie po stronie JS, nie serwera.
+**Pola w szczegółach** (`szczegoly-28143.html`, `szczegoly-26780.html`):
+„Numer aukcji", **„Koniec aukcji: 2026-09-07 12:00"** (absolutny, bez strefy),
+marka, model, rocznik, nr rejestracyjny, **VIN** (`W1NFF3DE0RB112081`),
+data pierwszej rejestracji, paliwo, skrzynia, nadwozie, kolor, pełna lista
+wyposażenia, „Cena: 323 000 PLN netto", **„Prowizja za udział w aukcji 3%"**,
+„Aukcja skierowana do podmiotów gospodarczych", opinia rzeczoznawcy do
+pobrania, dane sprzedającego.
 
-**Status: nie potwierdziłem, że w kategorii pojazdów są obecnie jakiekolwiek
-aukcje w trybie licytacji.** Dopóki to się nie zmieni, adapter dla tego
-źródła nie ma czego parsować w zakresie, dla którego powstaje ta aplikacja.
+**Czego nie ma bez logowania:** liczby ofert, historii ofert, minimalnego
+postąpienia ani jakiegokolwiek elementu licytacyjnego („Twoja oferta",
+„Licytuj", „postąpienie" — żadnego trafienia). Nagłówek pokazuje „Zaloguj
+się", więc najprawdopodobniej cały interfejs licytacji jest za sesją,
+podobnie jak w autoprzetarg.pl. **Nie zweryfikowane** — wymagałoby konta.
+
+Konsekwencja dla §11.8 jest taka sama jak w autoprzetarg: bez sesji nie ma
+`bid_count`, więc nie ma z czego liczyć `bid_gap`.
+
+**Dwa tryby sprzedaży.** Lista ma filtr `auctionType[]` (`1` = Licytacja,
+`2` = Kup teraz), a regulamin mówi „w przypadku aukcji prowadzonych w trybie
+licytacji", co potwierdza, że serwis prowadzi oba. Żądanie
+`…/strona-1?auctionType%5B%5D=1` zwraca HTTP 200 i treść różną od
+niefiltrowanej, ale **wypisane pozycje są te same** — filtr działa więc po
+stronie JS, nie serwera. **Nie umiem z HTML odróżnić pozycji licytacyjnej od
+oferty w cenie stałej**; obie pobrane wyglądają identycznie i obie mają
+„Kup teraz" oraz „Koniec aukcji". To jest realna luka.
 
 **Dogrywka (punkt a).** Regulamin § 2 ust. 3:
 
@@ -449,10 +467,6 @@ aukcje w trybie licytacji.** Dopóki to się nie zmieni, adapter dla tego
 > oferenta oferty na nie więcej niż 2 minuty przed planowanym terminem
 > zakończenia aukcji, automatycznie przedłuża czas jej trwania o kolejne
 > 2 minuty."
-
-Sformułowanie „w przypadku aukcji prowadzonych w trybie licytacji"
-potwierdza, że serwis ma **dwa tryby** — licytację i sprzedaż w cenie stałej.
-Adapter musi je rozróżniać.
 
 **Logowanie.** `/zaloguj-sie/` (przekierowanie z `/logowanie/`). Formularz ma
 pole `mail`, checkbox `rules` i **ukryte pole o losowej nazwie**:
@@ -462,16 +476,19 @@ więc adapter musi wyciągać **parę nazwa+wartość** ze strony, nie samą war
 Captcha: nie znaleziono markerów (`recaptcha`/`hcaptcha`/`turnstile`).
 
 **Ochrona przed botami.** Ciasteczko `TS014acf5b` = F5 BIG-IP ASM.
-Nie napotkałem blokady przy ~8 żądaniach, ale to WAF i przy regularnym
-odpytywaniu może zareagować. Ryzyko do monitorowania.
+Nie napotkałem blokady przy kilkunastu żądaniach, ale to WAF i przy
+regularnym odpytywaniu może zareagować.
 
-**robots.txt — problem.** Blokuje `widok-lista/*` i `widok-siatka/*` dla
-wszystkich kategorii, z jawnym `Allow` **wyłącznie dla `strona-1`**.
-Przy ścisłym przestrzeganiu robots widzimy jedną stronę wyników na kategorię.
-Patrz §7.
+**robots.txt — nadal główny problem.** Blokuje `widok-lista/*`
+i `widok-siatka/*` dla wszystkich kategorii, z jawnym `Allow` **wyłącznie dla
+`strona-1`**. Przy ścisłym przestrzeganiu widzimy 12 z ~96 pozycji
+w kategorii pojazdów.
 
-**Werdykt: `httpx` wystarczy**, ale wartość źródła jest wątpliwa dopóki
-nie zobaczymy realnej aukcji i nie rozstrzygniemy kwestii paginacji.
+**Werdykt: `httpx` wystarczy technicznie.** Ale to najsłabsze z czterech
+źródeł, z trzech konkretnych powodów: paginacja odcięta przez robots, brak
+liczby i historii ofert bez sesji, oraz brak sposobu na odróżnienie licytacji
+od ceny stałej. Żaden z nich nie jest nierozwiązywalny — pierwszy to decyzja,
+drugi wymaga konta, trzeci prawdopodobnie też.
 
 ### 4.4 autoprzetarg.pl
 
