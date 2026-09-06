@@ -21,9 +21,9 @@ import datetime as dt
 import json
 import pathlib
 import re
+import subprocess
 import sys
 import time
-import urllib.request
 import zoneinfo
 
 TZ = zoneinfo.ZoneInfo("Europe/Warsaw")
@@ -38,14 +38,43 @@ AFTER_END_S = [2, 5, 15, 60, 300]
 
 
 def fetch(url: str) -> tuple[int, dict[str, str], str]:
-    req = urllib.request.Request(url, headers={
-        "User-Agent": UA,
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-        "Accept-Language": "pl-PL,pl;q=0.9",
-    })
-    with urllib.request.urlopen(req, timeout=30) as r:
-        body = r.read().decode("utf-8", "replace")
-        return r.status, {k.lower(): v for k, v in r.headers.items()}, body
+    """Pobiera przez curl, nie przez urllib.
+
+    Powod: aukcje.leasygroup.pl serwuje niepelny lancuch certyfikatow i
+    domyslny magazyn CA Pythona go nie domyka (SSLCertVerificationError),
+    podczas gdy curl tak. Weryfikacja certyfikatu zostaje WLACZONA — zmienia
+    sie tylko transport, ten sam, ktorym zebrano fixtures.
+    """
+    proc = subprocess.run(
+        ["curl", "-sS", "-m", "30", "-L", "--compressed", "-D", "-",
+         "-A", UA,
+         "-H", "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+         "-H", "Accept-Language: pl-PL,pl;q=0.9",
+         url],
+        capture_output=True, timeout=60,
+    )
+    if proc.returncode != 0:
+        raise RuntimeError(f"curl zwrocil {proc.returncode}: "
+                           f"{proc.stderr.decode('utf-8', 'replace')[:200]}")
+    raw = proc.stdout.decode("utf-8", "replace")
+    # przy -L naglowki kazdego przeskoku poprzedzaja cialo; bierzemy ostatni blok
+    parts = re.split(r"\r\n\r\n", raw)
+    headers: dict[str, str] = {}
+    body = raw
+    for i, part in enumerate(parts):
+        if part.startswith("HTTP/"):
+            headers = {}
+            for line in part.splitlines()[1:]:
+                if ":" in line:
+                    k, v = line.split(":", 1)
+                    headers[k.strip().lower()] = v.strip()
+            body = "\r\n\r\n".join(parts[i + 1:])
+    m = re.match(r"HTTP/[\d.]+ (\d{3})", parts[0] if parts else "")
+    for part in parts:
+        if part.startswith("HTTP/"):
+            m = re.match(r"HTTP/[\d.]+ (\d{3})", part)
+    status = int(m.group(1)) if m else 0
+    return status, headers, body
 
 
 def parse_poleasingowe(html: str) -> dict[str, object]:
@@ -107,10 +136,31 @@ def parse_autoprzetarg(html: str) -> dict[str, object]:
     return out
 
 
+def parse_leasygroup(html: str) -> dict[str, object]:
+    out: dict[str, object] = {}
+    flat = re.sub(r"<[^>]+>", " ", html)
+    flat = re.sub(r"\s+", " ", flat)
+    m = re.search(r"Koniec aukcji:\s*(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}(?::\d{2})?)", flat)
+    out["end_date"] = m.group(1).strip() if m else None
+    m = re.search(r"Numer aukcji:\s*(\d+)", flat)
+    out["auction_number"] = m.group(1) if m else None
+    m = re.search(r"Cena:\s*([\d\s]+)\s*PLN", flat)
+    out["current_price"] = m.group(1).strip() if m else None
+    # Interfejs licytacji jest prawdopodobnie za sesja (RECON.md §4.3);
+    # notujemy sygnaly, ktore moga sie zmienic po zakonczeniu aukcji.
+    out["has_buy_now"] = "Kup teraz" in flat
+    out["has_commission"] = "Prowizja za udział" in flat
+    out["bid_ui_markers"] = sorted(
+        k for k in ("Twoja oferta", "Licytuj", "postąpienie", "Ofert") if k in flat
+    )
+    return out
+
+
 PARSERS = {
     "poleasingowe": parse_poleasingowe,
     "efl": parse_efl,
     "autoprzetarg": parse_autoprzetarg,
+    "leasygroup": parse_leasygroup,
 }
 
 
