@@ -1,0 +1,1527 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD XHTML 1.1//EN" "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
+<html lang="pl">
+<head>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge"/>
+    <!-- Version: 2025.12.19.1 -->
+    <title>Regulamin - Aukcje EFL</title>
+    <meta name="title" content="Regulamin - Aukcje EFL"/>
+    <meta name="description" content="Regulamin - w serwisie Aukcje EFL, kt&#243;ry oferuje poleasingowe aukcje: samochod&#243;w osobowych i ciężarowych, sprzętu biurowego, maszyn budowlanych i innych urządzeń. Sprawdź aktualne aukcje na stronie."/>
+    <meta name="google-site-verification" content="CZ4PfmZvF7HxKpZqkX8vUeuinl9aWE3PP7-BaFxM4P4"/>
+    <meta name="robots" content="noarchive"/>
+    <meta name="googlebot" content="noarchive"/>
+    
+
+<link href="/Scripts/qTip/jquery.qtip.css" rel="stylesheet" type="text/css" />
+<link href="/Content/style.css" rel="stylesheet" type="text/css" />
+<link href="/Content/themes/base/jquery-ui.css" rel="stylesheet" type="text/css" />
+
+<script src="/Scripts/minified.js" type="text/javascript"></script>   <script src="/Scripts/tinymce/tinymce.min.js" type="text/javascript"></script>
+   <script src="/Scripts/Custom/tinymce-textarea.js" type="text/javascript"></script>
+<script src="/Scripts/Custom/eflfunction.js" type="text/javascript"></script><base href="https://aukcje.efl.com.pl/" />
+<!--[if IE]>
+<style type="text/css">
+   .clearfix {
+      zoom: 1;     /* triggers hasLayout */
+      display: block;     /* resets display for IE/Win */
+      }
+</style>
+<![endif]-->
+</head>
+<!-- Hotjar Tracking Code for https://aukcje.efl.com.pl/ -->
+<script>
+        (function(h,o,t,j,a,r){
+            h.hj=h.hj||function(){(h.hj.q=h.hj.q||[]).push(arguments)};
+            h._hjSettings={hjid:1059899,hjsv:6};
+            a=o.getElementsByTagName('head')[0];
+            r=o.createElement('script');r.async=1;
+            r.src=t+h._hjSettings.hjid+j+h._hjSettings.hjsv;
+            a.appendChild(r);
+        })(window,document,'https://static.hotjar.com/c/hotjar-','.js?sv=');
+</script>
+   <!-- Global site tag (gtag.js) - Google Analytics -->
+   <script async src="https://www.googletagmanager.com/gtag/js?id=G-XBV2NR413K"></script>
+   <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag()
+
+         {dataLayer.push(arguments);}
+      gtag('js', new Date());
+
+      gtag('config', 'G-XBV2NR413K');
+   </script>
+<body>
+<div id="blockui" style="display: none;">
+    <div><img src="/Content/images/ajax-loader.gif" alt="Loader"/>
+        <div>Proszę czekać... </div>
+    </div>
+</div>
+<div style="width: 0; height: 0; overflow: hidden; position: absolute;">
+    <div class="input_search_clearable"></div>
+    <div class="input_search_default"></div>
+    <div class="input_search_selected"></div>
+</div>
+<div id="wrapper">
+    <div id="content">
+        <div id="header">
+            <div class="hotLinks">
+                <div class="infoline">Infolinia: (71) 3-777-500</div>
+                <div><a href="http://www.efl.pl/">EFL</a>
+                </div>
+                <div><a href="http://www.autoefl.pl/">Auto EFL</a>
+                </div>
+                <div><a href="http://www.carefleet.pl/">Carefleet</a>
+                </div>
+<div id="login-panel">
+       <div class="lp-label">
+           <a class="lp-link" href="/Account/LogOn">Zaloguj się</a>
+       </div>
+           <div class="lp-label">
+               <a class="lp-link" href="/Administration">Zaloguj EFL</a>
+           </div>                
+       <div class="lp-text">
+       <a class="lp-link" href="/Registration">Rejestracja</a>
+      </div>
+</div>
+
+            </div>
+            <div itemscope itemtype="http://schema.org/Organization">
+               <a itemprop="url" href="">
+                  <img itemprop="logo" src="/Content/images/logo-left.png" style="height: 50px;image-rendering: auto" alt="logoLeft" />
+                  <img itemprop="logo" src="/Content/images/logo-right.png" alt="logoRight" />
+                  <meta itemprop="name" content="Europejski Fundusz Leasingowy" />
+               </a>
+            </div>
+            <div id="search-bar">
+<form action="/AuctionList" method="get">                    <input type="text" class="input_search input_search_default" name="search" maxlength="128"/>
+                    <input type="submit" class="button_search" value="Szukaj"/>
+</form>                
+            </div>
+        </div>
+        <div id="top-panel">
+
+<div id="categories-bar">
+
+    <ul class="clean">
+        <input data-val="true" data-val-required="The IsSystemUser field is required." id="IsSystemUser" name="IsSystemUser" type="hidden" value="False" />
+            <li class="cat-pojazdy" id="root-category-3">
+                <a class="root-category" href="/AuctionList/Pojazdy"><span>Pojazdy</span></a>
+                <div class="hidden">
+<a href="/AuctionList/Pojazdy/Osobowe">Osobowe</a><a href="/AuctionList/Pojazdy/Dostawcze">Dostawcze</a><a href="/AuctionList/Pojazdy/Ciezarowe">Ciężarowe</a><a href="/AuctionList/Pojazdy/Naczepy-i-przyczepy">Naczepy i przyczepy</a><a href="/AuctionList/Pojazdy/Motocykle-i-quady">Motocykle i quady</a><a href="/AuctionList/Pojazdy/Pozostale">Pozostałe</a>                </div>
+            </li>
+            <li class="cat-pojazdyCarefleet" id="root-category-4">
+                <a class="root-category" href="/AuctionList/Carefleet"><span>Pojazdy Carefleet</span></a>
+                <div class="hidden">
+<a href="/AuctionList/Carefleet/Osobowe">Osobowe</a><a href="/AuctionList/Carefleet/Dostawcze">Dostawcze</a><a href="/AuctionList/Carefleet/Pozostale">Pozostałe</a>                </div>
+            </li>
+            <li class="cat-komputeryBiuroTelekomunikacja" id="root-category-5">
+                <a class="root-category" href="/AuctionList/Komputery-biuro-telekomunikacja"><span>Komputery, biuro, telekomunikacja</span></a>
+                <div class="hidden">
+<a href="/AuctionList/Komputery-biuro-telekomunikacja/Komputery-przenosne">Komputery przenośne</a><a href="/AuctionList/Komputery-biuro-telekomunikacja/Komputery-stacjonarne">Komputery stacjonarne</a><a href="/AuctionList/Komputery-biuro-telekomunikacja/Monitory">Monitory</a><a href="/AuctionList/Komputery-biuro-telekomunikacja/Oprogramowanie">Oprogramowanie</a><a href="/AuctionList/Komputery-biuro-telekomunikacja/Pozostale">Pozostałe</a><a href="/AuctionList/Komputery-biuro-telekomunikacja/Serwery">Serwery</a>                </div>
+            </li>
+            <li class="cat-maszynyIUrzadzenia" id="root-category-2">
+                <a class="root-category" href="/AuctionList/Maszyny-i-urzadzenia"><span>Maszyny i urządzenia</span></a>
+                <div class="hidden">
+<a href="/AuctionList/Maszyny-i-urzadzenia/Chlodnictwo-klimatyzacja-wentylacja">Chłodnictwo, klimatyzacja, wentylacja</a><a href="/AuctionList/Maszyny-i-urzadzenia/Maszyny-i-sprzet-budowlany">Maszyny i sprzęt budowlany</a><a href="/AuctionList/Maszyny-i-urzadzenia/Maszyny-rolnicze-i-lesne">Maszyny rolnicze i leśne</a><a href="/AuctionList/Maszyny-i-urzadzenia/Meble">Meble</a><a href="/AuctionList/Maszyny-i-urzadzenia/Naprawa-i-diagnostyka-pojazdow">Naprawa i diagnostyka pojazdów</a><a href="/AuctionList/Maszyny-i-urzadzenia/Obrobka-drewna">Obróbka drewna</a><a href="/AuctionList/Maszyny-i-urzadzenia/Obrobka-metalu">Obróbka metalu</a><a href="/AuctionList/Maszyny-i-urzadzenia/Obrobka-tworzyw-sztucznych">Obróbka tworzyw sztucznych</a><a href="/AuctionList/Maszyny-i-urzadzenia/Pakowanie">Pakowanie</a><a href="/AuctionList/Maszyny-i-urzadzenia/Poligrafia-i-maszyny-papiernicze">Poligrafia i maszyny papiernicze</a><a href="/AuctionList/Maszyny-i-urzadzenia/Przetworstwo-i-produkcja-spozywcza">Przetwórstwo i produkcja spożywcza</a><a href="/AuctionList/Maszyny-i-urzadzenia/Sprzet-gastronomiczny-i-piekarniczy">Sprzęt gastronomiczny i piekarniczy</a><a href="/AuctionList/Maszyny-i-urzadzenia/Tkaniny-skora-obuwie">Tkaniny, skóra, obuwie</a><a href="/AuctionList/Maszyny-i-urzadzenia/Transport-wewnetrzny-i-magazynowanie">Transport wewnętrzny i magazynowanie</a><a href="/AuctionList/Maszyny-i-urzadzenia/Zdrowie-i-uroda">Zdrowie i uroda</a><a href="/AuctionList/Maszyny-i-urzadzenia/Pozostale">Pozostałe</a>                </div>
+            </li>
+    </ul>
+</div>
+            <div id="menu">
+<div id="subcategories-bar">
+   
+   <ul class="clean">
+   </ul>
+</div>
+            </div>
+        </div>
+
+
+
+   <div id="navigation">
+<a href="/">Strona gł&#243;wna</a> > <span>Regulamin</span>      
+   </div>
+
+        <div id="body" class="clearfix">
+            <input type="hidden" id="submit-block-message" value="Proszę czekać..."/>
+            <div class="articleListItem">
+   <div class="article-header">Regulamin</div>
+<div class=" PanelTable"><div class=" PanelHeader"><H2>Regulamin</H2></div><div class=" PanelContent">           <div class="date">29.04.2023</div>
+       <div class="description"><p>&nbsp;<!-- [if gte mso 9]><xml>
+ <o:OfficeDocumentSettings>
+  <o:RelyOnVML/>
+  <o:AllowPNG/>
+ </o:OfficeDocumentSettings>
+</xml><![endif]--><!-- [if gte mso 9]><xml>
+ <w:WordDocument>
+  <w:View>Normal</w:View>
+  <w:Zoom>0</w:Zoom>
+  <w:TrackMoves/>
+  <w:TrackFormatting/>
+  <w:HyphenationZone>21</w:HyphenationZone>
+  <w:PunctuationKerning/>
+  <w:ValidateAgainstSchemas/>
+  <w:SaveIfXMLInvalid>false</w:SaveIfXMLInvalid>
+  <w:IgnoreMixedContent>false</w:IgnoreMixedContent>
+  <w:AlwaysShowPlaceholderText>false</w:AlwaysShowPlaceholderText>
+  <w:DoNotPromoteQF/>
+  <w:LidThemeOther>PL</w:LidThemeOther>
+  <w:LidThemeAsian>X-NONE</w:LidThemeAsian>
+  <w:LidThemeComplexScript>X-NONE</w:LidThemeComplexScript>
+  <w:Compatibility>
+   <w:BreakWrappedTables/>
+   <w:SnapToGridInCell/>
+   <w:WrapTextWithPunct/>
+   <w:UseAsianBreakRules/>
+   <w:DontGrowAutofit/>
+   <w:SplitPgBreakAndParaMark/>
+   <w:EnableOpenTypeKerning/>
+   <w:DontFlipMirrorIndents/>
+   <w:OverrideTableStyleHps/>
+  </w:Compatibility>
+  <m:mathPr>
+   <m:mathFont m:val="Cambria Math"/>
+   <m:brkBin m:val="before"/>
+   <m:brkBinSub m:val="&#45;-"/>
+   <m:smallFrac m:val="off"/>
+   <m:dispDef/>
+   <m:lMargin m:val="0"/>
+   <m:rMargin m:val="0"/>
+   <m:defJc m:val="centerGroup"/>
+   <m:wrapIndent m:val="1440"/>
+   <m:intLim m:val="subSup"/>
+   <m:naryLim m:val="undOvr"/>
+  </m:mathPr></w:WordDocument>
+</xml><![endif]--><!-- [if gte mso 9]><xml>
+ <w:LatentStyles DefLockedState="false" DefUnhideWhenUsed="false"
+  DefSemiHidden="false" DefQFormat="false" DefPriority="99"
+  LatentStyleCount="371">
+  <w:LsdException Locked="false" Priority="0" QFormat="true" Name="Normal"/>
+  <w:LsdException Locked="false" Priority="9" QFormat="true" Name="heading 1"/>
+  <w:LsdException Locked="false" Priority="9" SemiHidden="true"
+   UnhideWhenUsed="true" QFormat="true" Name="heading 2"/>
+  <w:LsdException Locked="false" Priority="9" SemiHidden="true"
+   UnhideWhenUsed="true" QFormat="true" Name="heading 3"/>
+  <w:LsdException Locked="false" Priority="9" SemiHidden="true"
+   UnhideWhenUsed="true" QFormat="true" Name="heading 4"/>
+  <w:LsdException Locked="false" Priority="9" SemiHidden="true"
+   UnhideWhenUsed="true" QFormat="true" Name="heading 5"/>
+  <w:LsdException Locked="false" Priority="9" SemiHidden="true"
+   UnhideWhenUsed="true" QFormat="true" Name="heading 6"/>
+  <w:LsdException Locked="false" Priority="9" SemiHidden="true"
+   UnhideWhenUsed="true" QFormat="true" Name="heading 7"/>
+  <w:LsdException Locked="false" Priority="9" SemiHidden="true"
+   UnhideWhenUsed="true" QFormat="true" Name="heading 8"/>
+  <w:LsdException Locked="false" Priority="9" SemiHidden="true"
+   UnhideWhenUsed="true" QFormat="true" Name="heading 9"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="index 1"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="index 2"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="index 3"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="index 4"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="index 5"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="index 6"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="index 7"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="index 8"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="index 9"/>
+  <w:LsdException Locked="false" Priority="39" SemiHidden="true"
+   UnhideWhenUsed="true" Name="toc 1"/>
+  <w:LsdException Locked="false" Priority="39" SemiHidden="true"
+   UnhideWhenUsed="true" Name="toc 2"/>
+  <w:LsdException Locked="false" Priority="39" SemiHidden="true"
+   UnhideWhenUsed="true" Name="toc 3"/>
+  <w:LsdException Locked="false" Priority="39" SemiHidden="true"
+   UnhideWhenUsed="true" Name="toc 4"/>
+  <w:LsdException Locked="false" Priority="39" SemiHidden="true"
+   UnhideWhenUsed="true" Name="toc 5"/>
+  <w:LsdException Locked="false" Priority="39" SemiHidden="true"
+   UnhideWhenUsed="true" Name="toc 6"/>
+  <w:LsdException Locked="false" Priority="39" SemiHidden="true"
+   UnhideWhenUsed="true" Name="toc 7"/>
+  <w:LsdException Locked="false" Priority="39" SemiHidden="true"
+   UnhideWhenUsed="true" Name="toc 8"/>
+  <w:LsdException Locked="false" Priority="39" SemiHidden="true"
+   UnhideWhenUsed="true" Name="toc 9"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="Normal Indent"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="footnote text"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="annotation text"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="header"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="footer"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="index heading"/>
+  <w:LsdException Locked="false" Priority="35" SemiHidden="true"
+   UnhideWhenUsed="true" QFormat="true" Name="caption"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="table of figures"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="envelope address"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="envelope return"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="footnote reference"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="annotation reference"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="line number"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="page number"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="endnote reference"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="endnote text"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="table of authorities"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="macro"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="toa heading"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="List"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="List Bullet"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="List Number"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="List 2"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="List 3"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="List 4"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="List 5"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="List Bullet 2"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="List Bullet 3"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="List Bullet 4"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="List Bullet 5"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="List Number 2"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="List Number 3"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="List Number 4"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="List Number 5"/>
+  <w:LsdException Locked="false" Priority="10" QFormat="true" Name="Title"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="Closing"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="Signature"/>
+  <w:LsdException Locked="false" Priority="1" SemiHidden="true"
+   UnhideWhenUsed="true" Name="Default Paragraph Font"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="Body Text"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="Body Text Indent"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="List Continue"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="List Continue 2"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="List Continue 3"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="List Continue 4"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="List Continue 5"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="Message Header"/>
+  <w:LsdException Locked="false" Priority="11" QFormat="true" Name="Subtitle"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="Salutation"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="Date"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="Body Text First Indent"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="Body Text First Indent 2"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="Note Heading"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="Body Text 2"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="Body Text 3"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="Body Text Indent 2"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="Body Text Indent 3"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="Block Text"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="Hyperlink"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="FollowedHyperlink"/>
+  <w:LsdException Locked="false" Priority="22" QFormat="true" Name="Strong"/>
+  <w:LsdException Locked="false" Priority="20" QFormat="true" Name="Emphasis"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="Document Map"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="Plain Text"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="E-mail Signature"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="HTML Top of Form"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="HTML Bottom of Form"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="Normal (Web)"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="HTML Acronym"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="HTML Address"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="HTML Cite"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="HTML Code"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="HTML Definition"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="HTML Keyboard"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="HTML Preformatted"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="HTML Sample"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="HTML Typewriter"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="HTML Variable"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="Normal Table"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="annotation subject"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="No List"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="Outline List 1"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="Outline List 2"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="Outline List 3"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="Table Simple 1"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="Table Simple 2"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="Table Simple 3"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="Table Classic 1"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="Table Classic 2"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="Table Classic 3"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="Table Classic 4"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="Table Colorful 1"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="Table Colorful 2"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="Table Colorful 3"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="Table Columns 1"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="Table Columns 2"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="Table Columns 3"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="Table Columns 4"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="Table Columns 5"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="Table Grid 1"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="Table Grid 2"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="Table Grid 3"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="Table Grid 4"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="Table Grid 5"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="Table Grid 6"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="Table Grid 7"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="Table Grid 8"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="Table List 1"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="Table List 2"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="Table List 3"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="Table List 4"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="Table List 5"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="Table List 6"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="Table List 7"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="Table List 8"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="Table 3D effects 1"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="Table 3D effects 2"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="Table 3D effects 3"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="Table Contemporary"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="Table Elegant"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="Table Professional"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="Table Subtle 1"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="Table Subtle 2"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="Table Web 1"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="Table Web 2"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="Table Web 3"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="Balloon Text"/>
+  <w:LsdException Locked="false" Priority="39" Name="Table Grid"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="Table Theme"/>
+  <w:LsdException Locked="false" SemiHidden="true" Name="Placeholder Text"/>
+  <w:LsdException Locked="false" Priority="1" QFormat="true" Name="No Spacing"/>
+  <w:LsdException Locked="false" Priority="60" Name="Light Shading"/>
+  <w:LsdException Locked="false" Priority="61" Name="Light List"/>
+  <w:LsdException Locked="false" Priority="62" Name="Light Grid"/>
+  <w:LsdException Locked="false" Priority="63" Name="Medium Shading 1"/>
+  <w:LsdException Locked="false" Priority="64" Name="Medium Shading 2"/>
+  <w:LsdException Locked="false" Priority="65" Name="Medium List 1"/>
+  <w:LsdException Locked="false" Priority="66" Name="Medium List 2"/>
+  <w:LsdException Locked="false" Priority="67" Name="Medium Grid 1"/>
+  <w:LsdException Locked="false" Priority="68" Name="Medium Grid 2"/>
+  <w:LsdException Locked="false" Priority="69" Name="Medium Grid 3"/>
+  <w:LsdException Locked="false" Priority="70" Name="Dark List"/>
+  <w:LsdException Locked="false" Priority="71" Name="Colorful Shading"/>
+  <w:LsdException Locked="false" Priority="72" Name="Colorful List"/>
+  <w:LsdException Locked="false" Priority="73" Name="Colorful Grid"/>
+  <w:LsdException Locked="false" Priority="60" Name="Light Shading Accent 1"/>
+  <w:LsdException Locked="false" Priority="61" Name="Light List Accent 1"/>
+  <w:LsdException Locked="false" Priority="62" Name="Light Grid Accent 1"/>
+  <w:LsdException Locked="false" Priority="63" Name="Medium Shading 1 Accent 1"/>
+  <w:LsdException Locked="false" Priority="64" Name="Medium Shading 2 Accent 1"/>
+  <w:LsdException Locked="false" Priority="65" Name="Medium List 1 Accent 1"/>
+  <w:LsdException Locked="false" SemiHidden="true" Name="Revision"/>
+  <w:LsdException Locked="false" Priority="34" QFormat="true"
+   Name="List Paragraph"/>
+  <w:LsdException Locked="false" Priority="29" QFormat="true" Name="Quote"/>
+  <w:LsdException Locked="false" Priority="30" QFormat="true"
+   Name="Intense Quote"/>
+  <w:LsdException Locked="false" Priority="66" Name="Medium List 2 Accent 1"/>
+  <w:LsdException Locked="false" Priority="67" Name="Medium Grid 1 Accent 1"/>
+  <w:LsdException Locked="false" Priority="68" Name="Medium Grid 2 Accent 1"/>
+  <w:LsdException Locked="false" Priority="69" Name="Medium Grid 3 Accent 1"/>
+  <w:LsdException Locked="false" Priority="70" Name="Dark List Accent 1"/>
+  <w:LsdException Locked="false" Priority="71" Name="Colorful Shading Accent 1"/>
+  <w:LsdException Locked="false" Priority="72" Name="Colorful List Accent 1"/>
+  <w:LsdException Locked="false" Priority="73" Name="Colorful Grid Accent 1"/>
+  <w:LsdException Locked="false" Priority="60" Name="Light Shading Accent 2"/>
+  <w:LsdException Locked="false" Priority="61" Name="Light List Accent 2"/>
+  <w:LsdException Locked="false" Priority="62" Name="Light Grid Accent 2"/>
+  <w:LsdException Locked="false" Priority="63" Name="Medium Shading 1 Accent 2"/>
+  <w:LsdException Locked="false" Priority="64" Name="Medium Shading 2 Accent 2"/>
+  <w:LsdException Locked="false" Priority="65" Name="Medium List 1 Accent 2"/>
+  <w:LsdException Locked="false" Priority="66" Name="Medium List 2 Accent 2"/>
+  <w:LsdException Locked="false" Priority="67" Name="Medium Grid 1 Accent 2"/>
+  <w:LsdException Locked="false" Priority="68" Name="Medium Grid 2 Accent 2"/>
+  <w:LsdException Locked="false" Priority="69" Name="Medium Grid 3 Accent 2"/>
+  <w:LsdException Locked="false" Priority="70" Name="Dark List Accent 2"/>
+  <w:LsdException Locked="false" Priority="71" Name="Colorful Shading Accent 2"/>
+  <w:LsdException Locked="false" Priority="72" Name="Colorful List Accent 2"/>
+  <w:LsdException Locked="false" Priority="73" Name="Colorful Grid Accent 2"/>
+  <w:LsdException Locked="false" Priority="60" Name="Light Shading Accent 3"/>
+  <w:LsdException Locked="false" Priority="61" Name="Light List Accent 3"/>
+  <w:LsdException Locked="false" Priority="62" Name="Light Grid Accent 3"/>
+  <w:LsdException Locked="false" Priority="63" Name="Medium Shading 1 Accent 3"/>
+  <w:LsdException Locked="false" Priority="64" Name="Medium Shading 2 Accent 3"/>
+  <w:LsdException Locked="false" Priority="65" Name="Medium List 1 Accent 3"/>
+  <w:LsdException Locked="false" Priority="66" Name="Medium List 2 Accent 3"/>
+  <w:LsdException Locked="false" Priority="67" Name="Medium Grid 1 Accent 3"/>
+  <w:LsdException Locked="false" Priority="68" Name="Medium Grid 2 Accent 3"/>
+  <w:LsdException Locked="false" Priority="69" Name="Medium Grid 3 Accent 3"/>
+  <w:LsdException Locked="false" Priority="70" Name="Dark List Accent 3"/>
+  <w:LsdException Locked="false" Priority="71" Name="Colorful Shading Accent 3"/>
+  <w:LsdException Locked="false" Priority="72" Name="Colorful List Accent 3"/>
+  <w:LsdException Locked="false" Priority="73" Name="Colorful Grid Accent 3"/>
+  <w:LsdException Locked="false" Priority="60" Name="Light Shading Accent 4"/>
+  <w:LsdException Locked="false" Priority="61" Name="Light List Accent 4"/>
+  <w:LsdException Locked="false" Priority="62" Name="Light Grid Accent 4"/>
+  <w:LsdException Locked="false" Priority="63" Name="Medium Shading 1 Accent 4"/>
+  <w:LsdException Locked="false" Priority="64" Name="Medium Shading 2 Accent 4"/>
+  <w:LsdException Locked="false" Priority="65" Name="Medium List 1 Accent 4"/>
+  <w:LsdException Locked="false" Priority="66" Name="Medium List 2 Accent 4"/>
+  <w:LsdException Locked="false" Priority="67" Name="Medium Grid 1 Accent 4"/>
+  <w:LsdException Locked="false" Priority="68" Name="Medium Grid 2 Accent 4"/>
+  <w:LsdException Locked="false" Priority="69" Name="Medium Grid 3 Accent 4"/>
+  <w:LsdException Locked="false" Priority="70" Name="Dark List Accent 4"/>
+  <w:LsdException Locked="false" Priority="71" Name="Colorful Shading Accent 4"/>
+  <w:LsdException Locked="false" Priority="72" Name="Colorful List Accent 4"/>
+  <w:LsdException Locked="false" Priority="73" Name="Colorful Grid Accent 4"/>
+  <w:LsdException Locked="false" Priority="60" Name="Light Shading Accent 5"/>
+  <w:LsdException Locked="false" Priority="61" Name="Light List Accent 5"/>
+  <w:LsdException Locked="false" Priority="62" Name="Light Grid Accent 5"/>
+  <w:LsdException Locked="false" Priority="63" Name="Medium Shading 1 Accent 5"/>
+  <w:LsdException Locked="false" Priority="64" Name="Medium Shading 2 Accent 5"/>
+  <w:LsdException Locked="false" Priority="65" Name="Medium List 1 Accent 5"/>
+  <w:LsdException Locked="false" Priority="66" Name="Medium List 2 Accent 5"/>
+  <w:LsdException Locked="false" Priority="67" Name="Medium Grid 1 Accent 5"/>
+  <w:LsdException Locked="false" Priority="68" Name="Medium Grid 2 Accent 5"/>
+  <w:LsdException Locked="false" Priority="69" Name="Medium Grid 3 Accent 5"/>
+  <w:LsdException Locked="false" Priority="70" Name="Dark List Accent 5"/>
+  <w:LsdException Locked="false" Priority="71" Name="Colorful Shading Accent 5"/>
+  <w:LsdException Locked="false" Priority="72" Name="Colorful List Accent 5"/>
+  <w:LsdException Locked="false" Priority="73" Name="Colorful Grid Accent 5"/>
+  <w:LsdException Locked="false" Priority="60" Name="Light Shading Accent 6"/>
+  <w:LsdException Locked="false" Priority="61" Name="Light List Accent 6"/>
+  <w:LsdException Locked="false" Priority="62" Name="Light Grid Accent 6"/>
+  <w:LsdException Locked="false" Priority="63" Name="Medium Shading 1 Accent 6"/>
+  <w:LsdException Locked="false" Priority="64" Name="Medium Shading 2 Accent 6"/>
+  <w:LsdException Locked="false" Priority="65" Name="Medium List 1 Accent 6"/>
+  <w:LsdException Locked="false" Priority="66" Name="Medium List 2 Accent 6"/>
+  <w:LsdException Locked="false" Priority="67" Name="Medium Grid 1 Accent 6"/>
+  <w:LsdException Locked="false" Priority="68" Name="Medium Grid 2 Accent 6"/>
+  <w:LsdException Locked="false" Priority="69" Name="Medium Grid 3 Accent 6"/>
+  <w:LsdException Locked="false" Priority="70" Name="Dark List Accent 6"/>
+  <w:LsdException Locked="false" Priority="71" Name="Colorful Shading Accent 6"/>
+  <w:LsdException Locked="false" Priority="72" Name="Colorful List Accent 6"/>
+  <w:LsdException Locked="false" Priority="73" Name="Colorful Grid Accent 6"/>
+  <w:LsdException Locked="false" Priority="19" QFormat="true"
+   Name="Subtle Emphasis"/>
+  <w:LsdException Locked="false" Priority="21" QFormat="true"
+   Name="Intense Emphasis"/>
+  <w:LsdException Locked="false" Priority="31" QFormat="true"
+   Name="Subtle Reference"/>
+  <w:LsdException Locked="false" Priority="32" QFormat="true"
+   Name="Intense Reference"/>
+  <w:LsdException Locked="false" Priority="33" QFormat="true" Name="Book Title"/>
+  <w:LsdException Locked="false" Priority="37" SemiHidden="true"
+   UnhideWhenUsed="true" Name="Bibliography"/>
+  <w:LsdException Locked="false" Priority="39" SemiHidden="true"
+   UnhideWhenUsed="true" QFormat="true" Name="TOC Heading"/>
+  <w:LsdException Locked="false" Priority="41" Name="Plain Table 1"/>
+  <w:LsdException Locked="false" Priority="42" Name="Plain Table 2"/>
+  <w:LsdException Locked="false" Priority="43" Name="Plain Table 3"/>
+  <w:LsdException Locked="false" Priority="44" Name="Plain Table 4"/>
+  <w:LsdException Locked="false" Priority="45" Name="Plain Table 5"/>
+  <w:LsdException Locked="false" Priority="40" Name="Grid Table Light"/>
+  <w:LsdException Locked="false" Priority="46" Name="Grid Table 1 Light"/>
+  <w:LsdException Locked="false" Priority="47" Name="Grid Table 2"/>
+  <w:LsdException Locked="false" Priority="48" Name="Grid Table 3"/>
+  <w:LsdException Locked="false" Priority="49" Name="Grid Table 4"/>
+  <w:LsdException Locked="false" Priority="50" Name="Grid Table 5 Dark"/>
+  <w:LsdException Locked="false" Priority="51" Name="Grid Table 6 Colorful"/>
+  <w:LsdException Locked="false" Priority="52" Name="Grid Table 7 Colorful"/>
+  <w:LsdException Locked="false" Priority="46"
+   Name="Grid Table 1 Light Accent 1"/>
+  <w:LsdException Locked="false" Priority="47" Name="Grid Table 2 Accent 1"/>
+  <w:LsdException Locked="false" Priority="48" Name="Grid Table 3 Accent 1"/>
+  <w:LsdException Locked="false" Priority="49" Name="Grid Table 4 Accent 1"/>
+  <w:LsdException Locked="false" Priority="50" Name="Grid Table 5 Dark Accent 1"/>
+  <w:LsdException Locked="false" Priority="51"
+   Name="Grid Table 6 Colorful Accent 1"/>
+  <w:LsdException Locked="false" Priority="52"
+   Name="Grid Table 7 Colorful Accent 1"/>
+  <w:LsdException Locked="false" Priority="46"
+   Name="Grid Table 1 Light Accent 2"/>
+  <w:LsdException Locked="false" Priority="47" Name="Grid Table 2 Accent 2"/>
+  <w:LsdException Locked="false" Priority="48" Name="Grid Table 3 Accent 2"/>
+  <w:LsdException Locked="false" Priority="49" Name="Grid Table 4 Accent 2"/>
+  <w:LsdException Locked="false" Priority="50" Name="Grid Table 5 Dark Accent 2"/>
+  <w:LsdException Locked="false" Priority="51"
+   Name="Grid Table 6 Colorful Accent 2"/>
+  <w:LsdException Locked="false" Priority="52"
+   Name="Grid Table 7 Colorful Accent 2"/>
+  <w:LsdException Locked="false" Priority="46"
+   Name="Grid Table 1 Light Accent 3"/>
+  <w:LsdException Locked="false" Priority="47" Name="Grid Table 2 Accent 3"/>
+  <w:LsdException Locked="false" Priority="48" Name="Grid Table 3 Accent 3"/>
+  <w:LsdException Locked="false" Priority="49" Name="Grid Table 4 Accent 3"/>
+  <w:LsdException Locked="false" Priority="50" Name="Grid Table 5 Dark Accent 3"/>
+  <w:LsdException Locked="false" Priority="51"
+   Name="Grid Table 6 Colorful Accent 3"/>
+  <w:LsdException Locked="false" Priority="52"
+   Name="Grid Table 7 Colorful Accent 3"/>
+  <w:LsdException Locked="false" Priority="46"
+   Name="Grid Table 1 Light Accent 4"/>
+  <w:LsdException Locked="false" Priority="47" Name="Grid Table 2 Accent 4"/>
+  <w:LsdException Locked="false" Priority="48" Name="Grid Table 3 Accent 4"/>
+  <w:LsdException Locked="false" Priority="49" Name="Grid Table 4 Accent 4"/>
+  <w:LsdException Locked="false" Priority="50" Name="Grid Table 5 Dark Accent 4"/>
+  <w:LsdException Locked="false" Priority="51"
+   Name="Grid Table 6 Colorful Accent 4"/>
+  <w:LsdException Locked="false" Priority="52"
+   Name="Grid Table 7 Colorful Accent 4"/>
+  <w:LsdException Locked="false" Priority="46"
+   Name="Grid Table 1 Light Accent 5"/>
+  <w:LsdException Locked="false" Priority="47" Name="Grid Table 2 Accent 5"/>
+  <w:LsdException Locked="false" Priority="48" Name="Grid Table 3 Accent 5"/>
+  <w:LsdException Locked="false" Priority="49" Name="Grid Table 4 Accent 5"/>
+  <w:LsdException Locked="false" Priority="50" Name="Grid Table 5 Dark Accent 5"/>
+  <w:LsdException Locked="false" Priority="51"
+   Name="Grid Table 6 Colorful Accent 5"/>
+  <w:LsdException Locked="false" Priority="52"
+   Name="Grid Table 7 Colorful Accent 5"/>
+  <w:LsdException Locked="false" Priority="46"
+   Name="Grid Table 1 Light Accent 6"/>
+  <w:LsdException Locked="false" Priority="47" Name="Grid Table 2 Accent 6"/>
+  <w:LsdException Locked="false" Priority="48" Name="Grid Table 3 Accent 6"/>
+  <w:LsdException Locked="false" Priority="49" Name="Grid Table 4 Accent 6"/>
+  <w:LsdException Locked="false" Priority="50" Name="Grid Table 5 Dark Accent 6"/>
+  <w:LsdException Locked="false" Priority="51"
+   Name="Grid Table 6 Colorful Accent 6"/>
+  <w:LsdException Locked="false" Priority="52"
+   Name="Grid Table 7 Colorful Accent 6"/>
+  <w:LsdException Locked="false" Priority="46" Name="List Table 1 Light"/>
+  <w:LsdException Locked="false" Priority="47" Name="List Table 2"/>
+  <w:LsdException Locked="false" Priority="48" Name="List Table 3"/>
+  <w:LsdException Locked="false" Priority="49" Name="List Table 4"/>
+  <w:LsdException Locked="false" Priority="50" Name="List Table 5 Dark"/>
+  <w:LsdException Locked="false" Priority="51" Name="List Table 6 Colorful"/>
+  <w:LsdException Locked="false" Priority="52" Name="List Table 7 Colorful"/>
+  <w:LsdException Locked="false" Priority="46"
+   Name="List Table 1 Light Accent 1"/>
+  <w:LsdException Locked="false" Priority="47" Name="List Table 2 Accent 1"/>
+  <w:LsdException Locked="false" Priority="48" Name="List Table 3 Accent 1"/>
+  <w:LsdException Locked="false" Priority="49" Name="List Table 4 Accent 1"/>
+  <w:LsdException Locked="false" Priority="50" Name="List Table 5 Dark Accent 1"/>
+  <w:LsdException Locked="false" Priority="51"
+   Name="List Table 6 Colorful Accent 1"/>
+  <w:LsdException Locked="false" Priority="52"
+   Name="List Table 7 Colorful Accent 1"/>
+  <w:LsdException Locked="false" Priority="46"
+   Name="List Table 1 Light Accent 2"/>
+  <w:LsdException Locked="false" Priority="47" Name="List Table 2 Accent 2"/>
+  <w:LsdException Locked="false" Priority="48" Name="List Table 3 Accent 2"/>
+  <w:LsdException Locked="false" Priority="49" Name="List Table 4 Accent 2"/>
+  <w:LsdException Locked="false" Priority="50" Name="List Table 5 Dark Accent 2"/>
+  <w:LsdException Locked="false" Priority="51"
+   Name="List Table 6 Colorful Accent 2"/>
+  <w:LsdException Locked="false" Priority="52"
+   Name="List Table 7 Colorful Accent 2"/>
+  <w:LsdException Locked="false" Priority="46"
+   Name="List Table 1 Light Accent 3"/>
+  <w:LsdException Locked="false" Priority="47" Name="List Table 2 Accent 3"/>
+  <w:LsdException Locked="false" Priority="48" Name="List Table 3 Accent 3"/>
+  <w:LsdException Locked="false" Priority="49" Name="List Table 4 Accent 3"/>
+  <w:LsdException Locked="false" Priority="50" Name="List Table 5 Dark Accent 3"/>
+  <w:LsdException Locked="false" Priority="51"
+   Name="List Table 6 Colorful Accent 3"/>
+  <w:LsdException Locked="false" Priority="52"
+   Name="List Table 7 Colorful Accent 3"/>
+  <w:LsdException Locked="false" Priority="46"
+   Name="List Table 1 Light Accent 4"/>
+  <w:LsdException Locked="false" Priority="47" Name="List Table 2 Accent 4"/>
+  <w:LsdException Locked="false" Priority="48" Name="List Table 3 Accent 4"/>
+  <w:LsdException Locked="false" Priority="49" Name="List Table 4 Accent 4"/>
+  <w:LsdException Locked="false" Priority="50" Name="List Table 5 Dark Accent 4"/>
+  <w:LsdException Locked="false" Priority="51"
+   Name="List Table 6 Colorful Accent 4"/>
+  <w:LsdException Locked="false" Priority="52"
+   Name="List Table 7 Colorful Accent 4"/>
+  <w:LsdException Locked="false" Priority="46"
+   Name="List Table 1 Light Accent 5"/>
+  <w:LsdException Locked="false" Priority="47" Name="List Table 2 Accent 5"/>
+  <w:LsdException Locked="false" Priority="48" Name="List Table 3 Accent 5"/>
+  <w:LsdException Locked="false" Priority="49" Name="List Table 4 Accent 5"/>
+  <w:LsdException Locked="false" Priority="50" Name="List Table 5 Dark Accent 5"/>
+  <w:LsdException Locked="false" Priority="51"
+   Name="List Table 6 Colorful Accent 5"/>
+  <w:LsdException Locked="false" Priority="52"
+   Name="List Table 7 Colorful Accent 5"/>
+  <w:LsdException Locked="false" Priority="46"
+   Name="List Table 1 Light Accent 6"/>
+  <w:LsdException Locked="false" Priority="47" Name="List Table 2 Accent 6"/>
+  <w:LsdException Locked="false" Priority="48" Name="List Table 3 Accent 6"/>
+  <w:LsdException Locked="false" Priority="49" Name="List Table 4 Accent 6"/>
+  <w:LsdException Locked="false" Priority="50" Name="List Table 5 Dark Accent 6"/>
+  <w:LsdException Locked="false" Priority="51"
+   Name="List Table 6 Colorful Accent 6"/>
+  <w:LsdException Locked="false" Priority="52"
+   Name="List Table 7 Colorful Accent 6"/>
+ </w:LatentStyles>
+</xml><![endif]--><!-- [if gte mso 10]>
+<style>
+ /* Style Definitions */
+ table.MsoNormalTable
+	{mso-style-name:Standardowy;
+	mso-tstyle-rowband-size:0;
+	mso-tstyle-colband-size:0;
+	mso-style-noshow:yes;
+	mso-style-priority:99;
+	mso-style-parent:"";
+	mso-padding-alt:0cm 5.4pt 0cm 5.4pt;
+	mso-para-margin-top:0cm;
+	mso-para-margin-right:0cm;
+	mso-para-margin-bottom:8.0pt;
+	mso-para-margin-left:0cm;
+	line-height:107%;
+	mso-pagination:widow-orphan;
+	font-size:11.0pt;
+	font-family:"Calibri",sans-serif;
+	mso-ascii-font-family:Calibri;
+	mso-ascii-theme-font:minor-latin;
+	mso-hansi-font-family:Calibri;
+	mso-hansi-theme-font:minor-latin;
+	mso-bidi-font-family:"Times New Roman";
+	mso-bidi-theme-font:minor-bidi;
+	mso-fareast-language:EN-US;}
+</style>
+<![endif]--></p>
+<p style="text-align: center; line-height: 11.25pt;" align="center"><strong><span style="font-size: 9.0pt; font-family: 'Arial',sans-serif;">Regulamin Serwisu Aukcyjnego EFL</span></strong><span style="font-size: 9.0pt; font-family: 'Arial',sans-serif;"><br style="mso-special-character: line-break;" /> <br style="mso-special-character: line-break;" /> </span></p>
+<p style="text-align: center; line-height: 11.25pt;" align="center"><strong><span style="font-size: 9.0pt; font-family: 'Arial',sans-serif;">&sect; 1 [Definicje]</span></strong><span style="font-size: 9.0pt; font-family: 'Arial',sans-serif;"><br style="mso-special-character: line-break;" /> <br style="mso-special-character: line-break;" /> </span></p>
+<p style="line-height: 11.25pt;"><span style="font-size: 9.0pt; font-family: 'Arial',sans-serif;">Użyte w niniejszym Regulaminie wyrażenia mają następujące znaczenie:<br /> &nbsp;<br /> 1) <strong><span style="font-family: 'Arial',sans-serif;">Aukcja</span></strong> &ndash; procedura wyłonienia nabywcy Przedmiotu Aukcji, polegająca na składaniu przez Uczestnik&oacute;w ofert kupna Przedmiot&oacute;w Aukcji, określona w niniejszym Regulaminie;<br /> &nbsp;<br /> 2) <strong><span style="font-family: 'Arial',sans-serif;">Aukcja Raty EFL</span></strong> &ndash; procedura wyłonienia leasingobiorcy do umowy leasingu obejmującej Przedmiot Aukcji, polegająca na licytowaniu przez Uczestnika wysokości rat leasingowych Przedmiot&oacute;w Aukcji, określona w niniejszym Regulaminie. Wszelkie wyrażenia pisane dużą literą, a dotyczące Aukcji stosuje się odpowiednio r&oacute;wnież do Aukcji Raty EFL;<br /> <br /> 3) <strong><span style="font-family: 'Arial',sans-serif;">Cena minimalna</span></strong> &ndash; minimalna cena sprzedaży lub rat leasingowych Przedmiotu Aukcji określona przez EFL;<br /> &nbsp;<br /> 4) <strong><span style="font-family: 'Arial',sans-serif;">EFL</span></strong> &ndash; Europejski Fundusz Leasingowy S.A. z siedzibą we Wrocławiu (54-202), przy ul. Legnickiej 48 bud. C-D, wpisana do Rejestru Przedsiębiorc&oacute;w Krajowego Rejestru Sądowego, prowadzonego przez Sąd Rejonowy dla Wrocławia - Fabrycznej VI Wydział Gospodarczy Krajowego Rejestru Sądowego, pod numerem KRS 0000026609, NIP: 897-001-26-57; kapitał zakładowy w wysokości 674.112.374,73 zł &ndash; wpłacony w całości, właściciel i operator Serwisu Aukcyjnego EFL;<br /> &nbsp;<br /> 5) <strong><span style="font-family: 'Arial',sans-serif;">Konsument</span></strong> &ndash; konsument w rozumieniu ustawy z dnia 23 kwietnia 1964 r. Kodeks cywilny; <br /> &nbsp;<br /> 6) <strong><span style="font-family: 'Arial',sans-serif;">Konsument - Przedsiębiorca</span></strong> &ndash; osoba fizyczna zawierająca wskazaną w Regulaminie umowę sprzedaży lub umowę leasingu, bezpośrednio związaną z jej działalnością gospodarczą, gdy z treści tej umowy wynika, że nie posiada ona dla niej charakteru zawodowego, wynikającego w szczeg&oacute;lności z przedmiotu wykonywanej przez nią działalności gospodarczej, udostępnionego na podstawie przepis&oacute;w o Centralnej Ewidencji i Informacji o Działalności Gospodarczej;<br /> &nbsp;<br /> 7) <strong><span style="font-family: 'Arial',sans-serif;">Przedmiot Aukcji</span></strong> &ndash; rzecz lub prawo, podlegające Aukcji w Serwisie Aukcyjnym EFL; właścicielem Przedmiotu Aukcji może być zar&oacute;wno EFL jak i inny podmiot, kt&oacute;ry upoważnił EFL do jego sprzedaży;<br /> &nbsp;<br /> 8) <strong><span style="font-family: 'Arial',sans-serif;">Przybicie</span></strong> &ndash; akceptacja najkorzystniejszej z ofert złożonych przez Uczestnik&oacute;w, przyznająca danemu Uczestnikowi prawo do nabycia Przedmiotu Aukcji za określoną w drodze Aukcji cenę lub prawo do zawarcia umowy leasingu na Przedmiot Aukcji, kt&oacute;rych wysokość rat leasingowych została określona w drodze Aukcji Raty EFL. Uczestnik przyjmuje do wiadomości, że udzielenie Przybicia wobec Uczestnika będącego Konsumentem &ndash; Przedsiębiorcą oraz w przypadku<span style="mso-spacerun: yes;">&nbsp; </span>Aukcji Raty EFL, nie jest r&oacute;wnoznaczne z zawarciem umowy sprzedaży lub umowy leasingu;<br /> &nbsp;<br /> 9) <strong><span style="font-family: 'Arial',sans-serif;">Opcja &bdquo;Kup Teraz&rdquo;</span></strong> - możliwość zadeklarowania zamiaru natychmiastowego zakupu Przedmiotu Aukcji za cenę sprzedaży określoną przez EFL, bez względu na wynik Aukcji;<br /> &nbsp;<br /> 10) <strong><span style="font-family: 'Arial',sans-serif;">Outlet</span></strong> &ndash; proces zawierania um&oacute;w sprzedaży, polegający na umieszczeniu w Serwisie Aukcyjnym EFL informacji o Przedmiocie Aukcji, stanowiącej zaproszenie do prowadzenia negocjacji i składania ofert dotyczących jego nabycia;<br /> &nbsp;<br /> 11) <strong><span style="font-family: 'Arial',sans-serif;">Regulamin</span></strong> &ndash; niniejszy Regulamin Serwisu Aukcyjnego EFL;<br /> &nbsp;<br /> 12) <strong><span style="font-family: 'Arial',sans-serif;">Serwis Aukcyjny EFL</span></strong> &ndash; system informatyczny, zarządzany przez EFL w języku polskim, przeznaczony do prowadzenia Aukcji oraz sprzedaży w formie Outlet, prowadzony na stronie aukcje.efl.com.pl;<br /> &nbsp;<br /> 13) <strong><span style="font-family: 'Arial',sans-serif;">Uczestnik</span></strong> &ndash; każda pełnoletnia osoba fizyczna nie będąca Konsumentem, posiadająca pełną zdolność do czynności prawnych, osoba prawna oraz jednostka organizacyjna nieposiadająca osobowości prawnej, ale mogąca we własnym imieniu nabywać prawa i zaciągać zobowiązania, kt&oacute;ra bierze udział w Aukcji lub sprzedaży w formie Outlet w imieniu własnym.<br style="mso-special-character: line-break;" /> <br style="mso-special-character: line-break;" /> </span></p>
+<p style="text-align: center; line-height: 11.25pt;" align="center"><strong><span style="font-size: 9.0pt; font-family: 'Arial',sans-serif;">&sect; 2 [Przedmiot Aukcji]</span></strong><span style="font-size: 9.0pt; font-family: 'Arial',sans-serif;"><br style="mso-special-character: line-break;" /> <br style="mso-special-character: line-break;" /> </span></p>
+<p style="line-height: 11.25pt;"><span style="font-size: 9.0pt; font-family: 'Arial',sans-serif;">1. EFL zapewnia możliwość dokonania osobistych oględzin Przedmiotu Aukcji, w miejscu wskazanym przez EFL, przed złożeniem oferty przez Uczestnika. <br /> &nbsp;<br /> 2. Publikowane przez EFL w Serwisie Aukcyjnym EFL zdjęcia, opisy i wyceny poszczeg&oacute;lnych Przedmiot&oacute;w Aukcji mają charakter wyłącznie poglądowy i nie stanowią wiążącego dla Uczestnika elementu oznaczenia lub opisu stanu technicznego i wyposażenia Przedmiotu Aukcji. EFL nie bierze odpowiedzialności za ustalenia poczynione przez Uczestnika w stosunku do Przedmiotu Aukcji, dokonane na podstawie opublikowanych materiał&oacute;w poglądowych, umieszczonych w Serwisie Aukcyjnym EFL. EFL nie bierze odpowiedzialności za ustalenia poczynione przez Uczestnika w stosunku do Przedmiotu Aukcji, dokonane po przeprowadzeniu osobistych oględzin Przedmiotu Aukcji, odmienne od stanu faktycznego Przedmiotu Aukcji.<br /> &nbsp;<br /> 3. Uczestnik ma obowiązek zweryfikować stan techniczny Przedmiotu Aukcji w miejscu wskazanym przez EFL przed złożeniem oferty.<br /> &nbsp;<br /> 4. Złożenie przez Uczestnika oferty jest r&oacute;wnoznaczne z akceptacją bez zastrzeżeń przez tego Uczestnika stanu technicznego Przedmiotu Aukcji oraz jego wyposażenia.<br /> &nbsp;<br /> 5. Z uwagi na fakt, że oferowane w Serwisie Aukcyjnym EFL Przedmioty Aukcji należą w zdecydowanej większości do kategorii sprzęt&oacute;w używanych oraz że Uczestnik w chwili złożenia oferty zaakceptował bez zastrzeżeń stan techniczny Przedmiotu Aukcji oraz jego wyposażenia, Strony wyłączają rękojmię za wady oraz wszelkie roszczenia wynikające z braku zgodności towaru z umową przewidziane w ustawie z dnia 30 maja 2014 r. o prawach konsumenta. Uczestnik nie jest w szczeg&oacute;lności uprawniony do uzupełnienia ewentualnych brak&oacute;w wyposażenia Przedmiot&oacute;w Aukcji. EFL nie jest r&oacute;wnież odpowiedzialny wobec Uczestnika z tytułu wystąpienia w odniesieniu do Przedmiotu Aukcji jakichkolwiek wad fizycznych Przedmiotu Aukcji. Powyższe obejmuje w szczeg&oacute;lności wyłączenie odpowiedzialności odszkodowawczej EFL z tytułu niewykonania lub nienależytego wykonania umowy sprzedaży.<br /> &nbsp;<br /> 6. EFL nie udziela gwarancji na Przedmioty Aukcji. <br /> &nbsp;<br /> 7. EFL nie stosuje środk&oacute;w za pomocą kt&oacute;rych Przedmiotom Aukcji nadawana jest zr&oacute;żnicowana widoczność lub waga w zakresie wynik&oacute;w wyszukiwania internetowego. Przedmioty Aukcji są prezentowane w kolejności alfabetycznej w odniesieniu do ich nazwy. Użytkownik może sortować lub filtrować oferty Przedmioty Aukcji za pomocą kryteri&oacute;w dostępnych Serwisie Aukcyjnym EFL.<br style="mso-special-character: line-break;" /> <br style="mso-special-character: line-break;" /> </span></p>
+<p style="text-align: center; line-height: 11.25pt;" align="center"><strong><span style="font-size: 9.0pt; font-family: 'Arial',sans-serif;">&sect; 3 [Warunki uczestnictwa]</span></strong><span style="font-size: 9.0pt; font-family: 'Arial',sans-serif;"><br style="mso-special-character: line-break;" /> <br style="mso-special-character: line-break;" /> </span></p>
+<p style="line-height: 11.25pt;"><span style="font-size: 9.0pt; font-family: 'Arial',sans-serif;">1. Uczestnik winien posiadać konto poczty elektronicznej.<br /> &nbsp;<br /> 2. Rejestracja Uczestnika odbywa się poprzez przesłanie formularza rejestracyjnego dostępnego w Serwisie Aukcyjnym EFL.<br /> &nbsp;<br /> 3. Podanie przez Uczestnika danych osobowych objętych formularzem rejestracyjnym jest obowiązkowe, a ich brak lub niekompletność uniemożliwi aktywację konta.<br /> &nbsp;<br /> 4.&nbsp;EFL jest uprawniony do przetwarzania i udostępniania innym podmiotom informacji, w tym danych osobowych w zakresie określonym w art. 106d ustawy z dnia 29 sierpnia 1997 r Prawo Bankowe oraz w zakresie bezwzględnie niezbędnym do zapobiegania oszustwom. Na żądanie EFL, Uczestnik udostępni EFL dokumenty i informacje niezbędne do realizacji powyższych uprawnień. <br /> </span>&nbsp;<span style="font-size: 9.0pt; font-family: 'Arial',sans-serif;"><br /> 5. Aktywacji konta dokonuje EFL po przesłaniu przez Uczestnika formularza rejestracyjnego. Warunkiem niezbędnym do aktywowania konta jest ponadto potwierdzenie przez Uczestnika swojego adresu poczty elektronicznej zgodnie z instrukcją zawartą w e-mailu wysyłanym przez Serwis Aukcyjny EFL bezpośrednio po dokonaniu rejestracji. Z chwilą aktywacji konta dochodzi do zawarcia umowy pomiędzy EFL a Uczestnikiem, kt&oacute;rej przedmiotem są usługi świadczone przez EFL w ramach Serwisu Aukcyjnego EFL, na warunkach określonych w Regulaminie (dalej &bdquo;Umowa o świadczenie usług drogą elektroniczną&rdquo;).<br /> &nbsp;<br /> 6. EFL zastrzega sobie prawo do nieaktywowania konta Uczestnika, kt&oacute;ry w terminie 7 dni od przesłania formularza rejestracyjnego nie dokona potwierdzenia adresu poczty elektronicznej, o kt&oacute;rym mowa w ust. 5.<br /> &nbsp;<br /> 7. Udział w Aukcji jest możliwy po dokonaniu aktywacji konta Uczestnika. Aktywacja konta Uczestnika jest r&oacute;wnoznaczna z zawarciem umowy o świadczenie usług drogą elektroniczną.<br /> &nbsp;<br /> 8. Uczestnik może korzystać wyłącznie z własnego konta w Serwisie Aukcyjnym EFL. Zabronione jest posiadanie przez Uczestnika więcej niż jednego konta w Serwisie Aukcyjnym EFL, korzystanie z kont innych Uczestnik&oacute;w oraz udostępnianie swojego konta osobom trzecim.<br /> &nbsp;<br /> 9. EFL zastrzega sobie prawo odmowy ponownej rejestracji Uczestnik&oacute;w, kt&oacute;rych konta zostały usunięte z uwagi na naruszenie Regulaminu Aukcji, w terminie 12 miesięcy od zaistnienia przyczyny odmowy rejestracji lub usunięcia konta.<br /> &nbsp;<br /> 10. Uczestnik może w każdym czasie rozwiązać Umowę o świadczenie usług drogą elektroniczną z EFL (dotyczącą określonego konta) poprzez złożenie stosownego oświadczenia w formie elektronicznej lub na piśmie o rozwiązaniu umowy. Umowa o świadczenie usług drogą elektroniczną ulega rozwiązaniu ze skutkiem natychmiastowym w momencie wpływu oświadczenia do EFL. Uczestnik będący Konsumentem &ndash; Przedsiębiorcą ma r&oacute;wnież prawo do odstąpienia od umowy o świadczenie usług drogą elektroniczną, w terminie 14 dni od dokonania aktywacji konta Uczestnika.<br /> &nbsp;<br /> 11. Umowa o świadczenie usług drogą elektroniczną może zostać rozwiązana przez EFL z zachowaniem siedmiodniowego terminu wypowiedzenia..<br /> &nbsp;<br /> 12. W<span style="mso-spacerun: yes;">&nbsp; </span>przypadku:<br /> &nbsp;<br /> a. łamania kt&oacute;rekolwiek z postanowień niniejszego Regulaminu lub<br /> &nbsp;<br /> b. powzięcia uzasadnionych wątpliwości co do wiarygodności lub prawdziwości podanych przez Uczestnika danych, o kt&oacute;rych mowa w &sect; 3 ust. 2-4 Regulaminu i braku ich wyjaśnienia w terminie wskazanym przez EFL lub<br /> &nbsp;<br /> c. rażącego braku wsp&oacute;łdziałania Uczestnika z EFL lub<br /> &nbsp;<br /> d. zaistnienia sytuacji, o kt&oacute;rej mowa w &sect; 4 ust. 13 Regulaminu lub<br /> &nbsp;<br /> Umowa o świadczenie usług drogą elektroniczną może zostać rozwiązana przez EFL ze skutkiem natychmiastowym. W sytuacji, gdy Uczestnik bierze udział w rozpoczętych przed rozwiązaniem Umowy o świadczenie usług drogą elektroniczną Aukcjach i sprzedaży w formie Outlet, złożona przez Uczestnika oferta zostaje wykluczona w chwili rozwiązania Umowy o świadczenie usług drogą elektroniczną.<br /> &nbsp;<br /> 13. W wyniku rozwiązania Umowy o świadczenie usług drogą elektroniczną, o kt&oacute;rym mowa w ust. 10-12, konto Uczestnika założone w Serwisie Aukcyjnym EFL jest usuwane.<br /> &nbsp;<br /> 14. W każdym przypadku, o kt&oacute;rym mowa w ust. 12 EFL zamiast rozwiązywać Umowę o świadczenie usług drogą elektroniczną ma prawo do zawieszenia konta Uczestnika na czas określony w powiadomieniu przesłanym do Uczestnika na podane przez niego konto poczty elektronicznej. W trakcie zawieszenia konta Uczestnika nie może on uczestniczyć w Aukcjach oraz sprzedaży w formie Outlet.<br style="mso-special-character: line-break;" /> <br style="mso-special-character: line-break;" /> </span></p>
+<p style="text-align: center; line-height: 11.25pt;" align="center"><strong><span style="font-size: 9.0pt; font-family: 'Arial',sans-serif;">&sect;4 [Przebieg Aukcji]</span></strong><span style="font-size: 9.0pt; font-family: 'Arial',sans-serif;"><br style="mso-special-character: line-break;" /> <br style="mso-special-character: line-break;" /> </span></p>
+<p style="line-height: 11.25pt;"><span style="font-size: 9.0pt; font-family: 'Arial',sans-serif;">1. Przedmiot Aukcji wystawiany jest do sprzedaży z oznaczoną ceną wywoławczą, informacją co do nazwy i ilości oraz terminem zakończenia Aukcji.<br /> &nbsp;<br /> 2. Cena wywoławcza ustalana jest przez EFL z uwzględnieniem aktualnej wartości rynkowej Przedmiotu Aukcji i jest kwotą netto wyrażoną w złotych polskich, do kt&oacute;rej należy doliczyć podatek od towar&oacute;w i usług zgodnie z obowiązującymi przepisami.<br /> &nbsp;<br /> 3. Uczestnicy, po zalogowaniu się na swoje konto, mogą składać oferty w danej Aukcji. Uczestnicy w trakcie Aukcji zobowiązani są do składania ofert cenowych w kwotach netto wyrażonych w złotych polskich. Po upływie terminu zakończenia Aukcji nie będą przyjmowane żadne kolejne oferty, bez względu na przyczynę niezamieszczenia oferty w Serwisie Aukcyjnym EFL przed jej zamknięciem.<br /> &nbsp;<br /> 4. Wszystkie oferowane przez Uczestnik&oacute;w ceny są jawne oraz zostają uwidocznione w Serwisie Aukcyjnym EFL w trakcie trwania Aukcji.<br /> &nbsp;<br /> 5. Minimalne postąpienie w czasie Aukcji jest uzależnione od wysokości ceny wywoławczej Przedmiotu Aukcji i wynosi:<br /> &nbsp;<br /> a. 10 zł dla ceny wywoławczej do 1.000 zł włącznie,<br /> &nbsp;<br /> b. 100 zł dla ceny wywoławczej powyżej 1.000 zł, do 10.000 zł włącznie,<br /> &nbsp;<br /> c. 200 zł dla ceny wywoławczej powyżej 10.000 zł.<br /> &nbsp;<br /> 6. Uczestnik w czasie Aukcji oferuje maksymalną cenę, za jaką got&oacute;w jest nabyć Przedmiot Aukcji.<br /> &nbsp;<br /> 7. W czasie trwania Aukcji, Serwis Aukcyjny EFL generuje automatycznie w imieniu Uczestnika oferty cenowe na minimalną kwotę pozwalającą przebić oferty innych Uczestnik&oacute;w (uwzględniając minimalne postąpienie), jednak nieprzekraczające kwoty maksymalnej zadeklarowanej przez Uczestnika. Jeżeli przebicie oferty innego Uczestnika wymagałoby przekroczenia ceny maksymalnej &ndash; System wygeneruje ofertę na kwotę r&oacute;wną zadeklarowanej cenie maksymalnej.<br /> &nbsp;<br /> 8. Pierwsza oferta na danej Aukcji składana jest na kwotę r&oacute;wną cenie wywoławczej. <br /> &nbsp;<br /> 9. W przypadku złożenia przez więcej niż jednego Uczestnika oferty na taką samą wartość, pierwszeństwo ma oferta złożona wcześniej.<br /> &nbsp;<br /> 10. Każda oferta zgłoszona przez Uczestnika, z zastrzeżeniem postanowień &sect;7 ust. 10, jest dla niego wiążąca i nie może być przez niego odwołana. Oferty złożone przez Uczestnik&oacute;w w trakcie trwania Aukcji wiążą w terminie do 30 dni po terminie zakończenia Aukcji.<br /> &nbsp;<br /> 11. W przypadku ustanowienia Ceny minimalnej, EFL poinformuje Uczestnik&oacute;w o ustaleniu Ceny minimalnej bez wskazywania jej wysokości. Uczestnicy zostaną poinformowani o osiągnięciu Ceny minimalnej z chwilą złożenia oferty o wartości r&oacute;wnej lub wyższej od Ceny minimalnej.<br /> &nbsp;<br /> 12. W przypadku ustanowienia Opcji &bdquo;Kup Teraz&rdquo;, Uczestnik ma prawo zadeklarować nabycie Przedmiot Aukcji za cenę wskazaną przez EFL. Uczestnik może skorzystać z Opcji &bdquo;Kup Teraz&rdquo; najp&oacute;źniej do chwili złożenia pierwszej oferty przez innego Uczestnika. W przypadku ustanowienia Ceny minimalnej Uczestnik może skorzystać z Opcji &bdquo;Kup Teraz&rdquo; najp&oacute;źniej do chwili złożenia oferty o wartości r&oacute;wnej lub wyższej od Ceny minimalnej.<br /> &nbsp;<br /> 13. Zabronione są działania mogące manipulować danymi generowanymi przez System Aukcyjny EFL bądź zakł&oacute;cać proces lub przebieg Aukcji. <br /> &nbsp;<br /> 14. Wyłonienie nabywcy i ustalenie ceny nabycia Przedmiotu Aukcji następuje z chwilą udzielenia przez EFL Przybicia. Przybicie dokonywane jest drogą e-mailową lub telefonicznie.<br /> &nbsp;<br /> 15. Przybicie zostaje udzielone Uczestnikowi, kt&oacute;ry zaoferował najwyższą cenę w toku Aukcji, a w przypadku niewywiązania się przez niego z transakcji &ndash; kolejnemu, pod względem najwyższej oferowanej ceny, Uczestnikowi.<br /> &nbsp;<br /> 16. EFL przysługuje prawo do wycofania Przedmiotu Aukcji z Aukcji, zakończenia Aukcji bez dokonania wyboru oferty lub jej odwołania. W takim przypadku Uczestnikom Aukcji nie przysługują żadne roszczenia odszkodowawcze wobec EFL. <br /> &nbsp;<br /> 17. W przypadku zakończenia Aukcji bez wyboru oferty albo niewywiązania się Uczestnika, kt&oacute;remu udzielono Przybicia z wykonania transakcji, EFL ma prawo do swobodnego dysponowania Przedmiotem Aukcji i ewentualnych dodatkowych rokowań cenowych zmierzających do sprzedaży Przedmiotu Aukcji albo dochodzenia wykonania zobowiązania Uczestnika, kt&oacute;ry nie wywiązał się z obowiązku wykonania transakcji.<br style="mso-special-character: line-break;" /> <br style="mso-special-character: line-break;" /> </span></p>
+<p style="text-align: center; line-height: 11.25pt;" align="center"><strong><span style="font-size: 9.0pt; font-family: 'Arial',sans-serif;">&sect; 5 [Przebieg Aukcji Raty EFL]</span></strong><span style="font-size: 9.0pt; font-family: 'Arial',sans-serif;"><br style="mso-special-character: line-break;" /> <br style="mso-special-character: line-break;" /> </span></p>
+<p style="line-height: 11.25pt;"><span style="font-size: 9.0pt; font-family: 'Arial',sans-serif;">1. Przedmiot Aukcji Rata EFL wystawiany jest do licytacji z oznaczoną kwotą wywoławczą poszczeg&oacute;lnych rat leasingowych oraz ilością rat leasingowych, kt&oacute;re składać się będą na cały okres trwania umowy leasingu i terminem zakończenia Aukcji.<br /> &nbsp;<br /> 2. Kwota wywoławcza ustalana jest przez EFL z uwzględnieniem aktualnej wartości rynkowej Przedmiotu Aukcji i jest kwotą netto wyrażoną w walucie Euro.<br /> &nbsp;<br /> 3. Uczestnicy, po zalogowaniu się na swoje konto, mogą składać oferty w danej Aukcji. Uczestnicy w trakcie Aukcji zobowiązani są do składania ofert w kwotach netto wyrażonych w walucie Euro. Po upływie terminu zakończenia Aukcji nie będą przyjmowane żadne kolejne oferty, bez względu na przyczynę niezamieszczenia oferty w Serwisie Aukcyjnym EFL przed jej zamknięciem.<br /> &nbsp;<br /> 4. Wszystkie oferowane przez Uczestnik&oacute;w kwoty są jawne oraz zostają uwidocznione w Serwisie Aukcyjnym EFL w trakcie trwania Aukcji.<br /> &nbsp;<br /> 5. Minimalne postąpienie w czasie Aukcji jest uzależnione od wysokości kwoty wywoławczej Przedmiotu Aukcji i wynosi:<br /> &nbsp;<br /> a. 10 Euro dla kwoty wywoławczej do 1.000 włącznie,<br /> &nbsp;<br /> b. 100 Euro dla kwoty wywoławczej powyżej 1.000 Euro, do 10.000 Euro włącznie,<br /> &nbsp;<br /> c. 200&nbsp; Euro dla kwoty wywoławczej powyżej 10.000 Euro.<br /> &nbsp;<br /> 6. Uczestnik w czasie Aukcji oferuje maksymalną wysokość pojedynczych rat leasingowych. Serwis Aukcyjny EFL generuje automatycznie w imieniu Uczestnika oferty na minimalną kwotę pozwalającą przebić oferty innych Uczestnik&oacute;w (uwzględniając minimalne postąpienie), jednak nieprzekraczające kwoty maksymalnej zadeklarowanej przez Uczestnika. Jeżeli przebicie oferty innego Uczestnika wymagałoby przekroczenia kwoty maksymalnej &ndash; System wygeneruje ofertę na kwotę r&oacute;wną zadeklarowanej kwocie maksymalnej.<br /> &nbsp;<br /> 7. Pierwsza oferta na danej Aukcji składana jest na kwotę r&oacute;wną cenie wywoławczej. <br /> &nbsp;<br /> 8. W przypadku złożenia przez więcej niż jednego Uczestnika oferty na taką samą wartość, pierwszeństwo ma oferta złożona wcześniej.<br /> &nbsp;<br /> 9. Każda oferta zgłoszona przez Uczestnika jest dla niego wiążąca i nie może być przez niego odwołana. Oferty złożone przez Uczestnik&oacute;w w trakcie trwania Aukcji wiążą w terminie do 30 dni po terminie zakończenia Aukcji.<br /> &nbsp;<br /> 10. W przypadku ustanowienia kwoty minimalnej, EFL poinformuje Uczestnik&oacute;w o ustaleniu kwoty minimalnej bez wskazywania jej wysokości. Uczestnicy zostaną poinformowani o osiągnięciu kwoty minimalnej z chwilą złożenia oferty o wartości r&oacute;wnej lub wyższej od kwoty minimalnej.<br /> &nbsp;<br /> 11. Przybicie zostaje udzielone Uczestnikowi, kt&oacute;ry zaoferował najwyższą kwotę w toku Aukcji, a w przypadku wycofania się przez niego z transakcji &ndash; kolejnemu, pod względem najwyższej oferowanej kwoty, Uczestnikowi.<br /> <br /> 12. Zawarcie umowy leasingu na Przedmiot Aukcji następuje po udzieleniu przez EFL Przybicia, dostarczeniu przez Uczestnika wszelkich niezbędnych dokument&oacute;w i informacji oraz pozytywnej ocenie zdolności finansowej Uczestnika. Przybicie dokonywane jest drogą e-mailową lub telefonicznie. Warunkiem zawarcia umowy leasingu jest spełnienie wymog&oacute;w EFL, określonych przy zawieraniu tego rodzaju um&oacute;w - w tym też zakresie udzielenie Przybicia nie stanowi zobowiązania po stronie EFL do zawarcia z Uczestnikiem umowy leasingu. Umowa leasingu powinna być zawarta na piśmie pod rygorem nieważności w terminie nie dłuższym niż 10 dni od dnia udzielenia Przybicia. Negatywna decyzja EFL w sprawie zawarcia umowy leasingu pozwala EFL na złożenie propozycji zawarcia umowy leasingu kolejnemu, pod względem najwyższej oferowanej kwoty, Uczestnikowi.<br /> <br /> 13. EFL przysługuje prawo do wycofania Przedmiotu Aukcji z Aukcji Raty EFL, zakończenia Aukcji Raty EFL bez dokonania wyboru oferty lub jej odwołania. W takim przypadku Uczestnikom Aukcji nie przysługują żadne roszczenia odszkodowawcze wobec EFL.<br /> &nbsp;<br /> 14. W przypadku zakończenia Aukcji bez wyboru oferty albo niezawarcia z Uczestnikiem, kt&oacute;remu udzielono Przybicia umowy leasingu, EFL ma prawo do swobodnego dysponowania Przedmiotem Aukcji.<br style="mso-special-character: line-break;" /> <br style="mso-special-character: line-break;" /> </span></p>
+<p style="text-align: center; line-height: 11.25pt;" align="center"><strong><span style="font-size: 9.0pt; font-family: 'Arial',sans-serif;">&sect; 6 [Sprzedaż w formie Outlet]</span></strong><span style="font-size: 9.0pt; font-family: 'Arial',sans-serif;"><br style="mso-special-character: line-break;" /> <br style="mso-special-character: line-break;" /> </span></p>
+<p style="line-height: 11.25pt;"><span style="font-size: 9.0pt; font-family: 'Arial',sans-serif;">1. EFL ma prawo umieścić w Serwisie Aukcyjnym EFL informację o Przedmiocie Aukcji, kt&oacute;ra stanowi zaproszenie do prowadzenia negocjacji i składania ofert dotyczących jego nabycia.<br /> &nbsp;<br /> 2. Umieszczenie informacji, o kt&oacute;rej mowa w ust. 1 nie stanowi oferty w rozumieniu art. 66 &sect; 1 Kodeksu cywilnego, w tym oferty zawarcia umowy przedwstępnej w rozumieniu art. 389 &sect;1 Kodeksu cywilnego.<br /> &nbsp;<br /> 3. Postanowienia &sect; 7 stosuje się odpowiednio do zwarcia umowy sprzedaży.<br style="mso-special-character: line-break;" /> <br style="mso-special-character: line-break;" /> </span></p>
+<p style="text-align: center; line-height: 11.25pt;" align="center"><strong><span style="font-size: 9.0pt; font-family: 'Arial',sans-serif;">&sect; 7 [Zawarcie umowy sprzedaży]</span></strong><span style="font-size: 9.0pt; font-family: 'Arial',sans-serif;"><br style="mso-special-character: line-break;" /> <br style="mso-special-character: line-break;" /> </span></p>
+<p style="line-height: 11.25pt;"><span style="font-size: 9.0pt; font-family: 'Arial',sans-serif;">1. Uczestnik, kt&oacute;remu EFL udzielił Przybicia, zobowiązany jest do zapłaty ceny nabycia oraz odbioru Przedmiotu Aukcji z miejsca przechowywania wskazanego przez EFL, w terminie nie dłuższym niż 7 dni od dnia poinformowania Uczestnika o udzieleniu Przybicia.<br /> &nbsp;<br /> 2. Wpłaty ceny nabycia należy dokonać na wskazany przez EFL numer rachunku bankowego. Numer rachunku bankowego EFL zostanie przesłany wraz z informacją o udzieleniu Uczestnikowi Przybicia.<br /> &nbsp;<br /> 3. Warunkiem przeniesienia własności i wydania Przedmiotu Aukcji na Uczestnika jest wpływ środk&oacute;w pieniężnych r&oacute;wnych cenie nabycia na konto EFL. <br /> &nbsp;<br /> 4. Zapłata ceny nabycia musi się odbyć przy wykorzystaniu przelewu bankowego.<br /> &nbsp;<br /> 5. Jeśli Przedmiotem Aukcji był pojazd, warunkiem wydania Przedmiotu Aukcji jest podpisanie przez Uczestnika będącego nabywcą oświadczenia o wypowiedzeniu umowy ubezpieczenia OC dotyczącej tego pojazdu. Oświadczenie to zostanie złożone w imieniu Uczestnika przez EFL u odpowiedniego ubezpieczyciela.<br /> &nbsp;<br /> 6. Na wniosek Uczestnika, złożony w terminie 2 dni od udzielenia Przybicia, EFL może zawrzeć umowę leasingu na wylicytowany Przedmiot Aukcji, w kt&oacute;rej cena nabycia będzie jednocześnie wartością ofertową. Warunkiem zawarcia umowy leasingu jest spełnienie wymog&oacute;w EFL, określonych przy zawieraniu tego rodzaju um&oacute;w. Umowa leasingu powinna być zawarta w terminie nie dłuższym niż 10 dni od dnia złożenia wniosku przez Uczestnika. Negatywna decyzja EFL w sprawie zawarcia umowy leasingu nie zwalnia Uczestnika od obowiązku zapłaty ceny nabycia za wylicytowany Przedmiot Aukcji, przy czym w takim przypadku termin określony w &sect; 7 ust. 1 Regulaminu biegnie od dnia powiadomienia Uczestnika przez EFL o odrzuceniu wniosku.<br /> <br /> 7. Na wniosek Uczestnika, złożony w terminie 2 dni od udzielenia Przybicia, Przedmiot Aukcji może zostać nabyty przez wskazaną przez Uczestnika firmę leasingową celem oddania Przedmiotu Aukcji Uczestnikowi do korzystania lub korzystania i pobierania pożytk&oacute;w w drodze umowy leasingu. W takim przypadku sprzedaż Przedmiotu Aukcji na rzecz firmy leasingowej następuje z wyłączeniem wszelkiej odpowiedzialności EFL z tytułu wad Przedmiotu Aukcji. EFL nie uzupełnia także ewentualnych brak&oacute;w wyposażenia nabytych Przedmiot&oacute;w Aukcji. Pozostałe postanowienia &sect;7 stosuje się odpowiednio.<br /> &nbsp;<br /> <br /> &nbsp;8. Wystawiona faktura VAT będzie uwzględniać właściwą stawkę podatku od towar&oacute;w i usług określoną w ustawie z dnia 11 marca 2004 r. o podatku od towar&oacute;w i usług (Dz.U.2011.177.1054 j.t. z p&oacute;źn. zm.). Jeżeli zastosowanie określonej stawki podatku od towar&oacute;w i usług, wymaga dostarczenia przez Uczestnika dodatkowych oświadczeń lub dokument&oacute;w, Uczestnik jest zobowiązany do zapłaty kaucji w wysokości 23% ceny nabycia Przedmiotu Aukcji, płatnej wraz z ceną nabycia. Kaucja zostanie zwr&oacute;cona na rachunek wskazany w pisemnym oświadczeniu Uczestnika, w terminie 14 dni od dnia w kt&oacute;rym Uczestnik doręczył EFL wymagane oświadczenia i dokumenty.<br /> &nbsp;<br /> 9. Uczestnik Aukcji, kt&oacute;remu udzielono Przybicia dokonuje odbioru, załadunku, transportu Przedmiotu Aukcji własnym staraniem i na własny koszt z miejsca wskazanego przez EFL, tym samym od chwili odbioru Przedmiotu Aukcji ponosi pełną odpowiedzialność za ewentualną utratę lub uszkodzenie Przedmiotu Aukcji. <br /> &nbsp;<br /> 10. Umowa sprzedaży z Konsumentem &ndash; Przedsiębiorcą jest zawierana z chwilą osobistego stawiennictwa Uczestnika (lub osoby go reprezentującej) w miejscu przechowywania Przedmiotu Aukcji i podpisania protokołu odbioru Przedmiotu Aukcji. Do chwili podpisania protokołu odbioru, oferta złożona w trakcie Aukcji przez Konsumenta &ndash; Przedsiębiorcę nie będzie wiążąca.<br style="mso-special-character: line-break;" /> <br style="mso-special-character: line-break;" /> </span></p>
+<p style="text-align: center; line-height: 11.25pt;" align="center"><strong><span style="font-size: 9.0pt; font-family: 'Arial',sans-serif;">&sect; 8 [Reklamacje]</span></strong><span style="font-size: 9.0pt; font-family: 'Arial',sans-serif;"><br style="mso-special-character: line-break;" /> <br style="mso-special-character: line-break;" /> </span></p>
+<p style="line-height: 11.25pt;"><span style="font-size: 9.0pt; font-family: 'Arial',sans-serif;">1. Za reklamację uważa się wystąpienie skierowane do EFL przez Uczestnika, w kt&oacute;rym Uczestnik zgłasza zastrzeżenia dotyczące usługi świadczonej przez EFL.<br /> &nbsp;<br /> 2. Reklamacja może być złożona w każdej jednostce EFL obsługującej klient&oacute;w:<br /> &nbsp;<br /> a. w formie elektronicznej na adres: reklamacje@efl.com.pl lub poprzez stronę internetową EFL: www.efl.pl,<br /> &nbsp;<br /> b. przesyłką pocztową w rozumieniu art. 3 pkt 21 ustawy z dnia 23 listopada 2012 r. - Prawo pocztowe (Dz. U. poz. 1529),&nbsp; na adres Centrali EFL: ul. Legnicka 48 bud. C-D, 54-202 Wrocław,<br /> &nbsp;<br /> c. ustnie - telefonicznie pod numerem telefonu: (71) 377-77-77 albo osobiście do protokołu podczas wizyty klienta w miejscach wskazanych powyżej,<br /> &nbsp;<br /> d. w formie pisemnej osobiście, w szczeg&oacute;lności w Centrali EFL, pod adresem: ul. Legnicka 48 bud. C-D, 54-202 Wrocław.<br /> &nbsp;<br /> 3. EFL rozpatruje reklamację i udziela Uczestnikowi odpowiedzi w formie pisemnej&nbsp;&nbsp; bez zbędnej zwłoki, jednak nie p&oacute;źniej niż w terminie 30 dni od dnia otrzymania reklamacji. Do zachowania terminu wystarczy wysłanie odpowiedzi przed jego upływem. Odpowiedź EFL może być dostarczona Uczestnikowi pocztą elektroniczną wyłącznie na wniosek Uczestnika.<br /> &nbsp;<br /> 4. W szczeg&oacute;lnie skomplikowanych przypadkach, uniemożliwiających rozpatrzenie reklamacji i udzielenie odpowiedzi w terminie, o kt&oacute;rym mowa w pkt. 3, EFL przekaże Uczestnikowi informacje, w kt&oacute;rych:<br /> &nbsp;<br /> a. wyjaśni przyczynę op&oacute;źnienia;<br /> &nbsp;<br /> b. wskaże okoliczności, kt&oacute;re muszą zostać ustalone dla rozpatrzenia sprawy;<br /> &nbsp;<br /> c. określi przewidywany termin rozpatrzenia reklamacji i udzielenia odpowiedzi, kt&oacute;ry nie może przekroczyć 60 dni od dnia otrzymania reklamacji.<br style="mso-special-character: line-break;" /> <br style="mso-special-character: line-break;" /> </span></p>
+<p style="text-align: center; line-height: 11.25pt;" align="center"><strong><span style="font-size: 9.0pt; font-family: 'Arial',sans-serif;">&sect; 9 [Postanowienia końcowe]</span></strong><span style="font-size: 9.0pt; font-family: 'Arial',sans-serif;"><br style="mso-special-character: line-break;" /> <br style="mso-special-character: line-break;" /> </span></p>
+<p style="line-height: 11.25pt;"><span style="font-size: 9.0pt; font-family: 'Arial',sans-serif;">1. EFL nie bierze odpowiedzialności za ewentualne utrudnienia uczestnictwa w Aukcji wynikające z przyczyn technicznych, jak r&oacute;wnież za pomyłkowe lub przypadkowe przerwanie, zawieszenie czy też wcześniejsze zakończenie Aukcji. <br /> &nbsp;<br /> 2. EFL nie pokrywa ani nie partycypuje w kosztach poniesionych przez Uczestnika w związku z uczestnictwem w Aukcji lub sprzedaży w formie Outlet, a w szczeg&oacute;lności z dojazdem do miejsca oględzin Przedmiotu Aukcji, zabezpieczeniem transportu lub załadunku Przedmiotu Aukcji. <br /> &nbsp;<br /> 3. EFL zastrzega sobie możliwość zmiany postanowień Regulaminu oraz wprowadzania zmian w funkcjonowaniu Serwisu Aukcyjnego EFL. Informacja o każdorazowej zmianie Regulaminu będzie umieszczana na stronie aukcje.efl.com.pl. Zmiany Regulaminu wchodzą w życie w terminie 7 dni od dnia ogłoszenia i odnoszą się do Aukcji i sprzedaży w formie Outlet, rozpoczętych po wejściu w życie przedmiotowych zmian. Uczestnik przy pierwszym logowaniu w Serwisie Aukcyjnym EFL od dnia wejścia w życie zmian Regulaminu, zostanie powiadomiony o tych zmianach oraz o możliwości ich akceptacji lub odrzucenia. Odrzucenie zmian jest r&oacute;wnoznaczne z rozwiązaniem umowy z EFL ze skutkiem określonym w &sect; 3 ust. 11 Regulaminu.<br /> &nbsp;<br /> 4. Wszelkie spory związane z wykonaniem, niewykonaniem lub nienależytym wykonaniem um&oacute;w sprzedaży zawieranych na podstawie Regulaminu, rozstrzyga sąd właściwy dla siedziby EFL. <br /> &nbsp;<br /> 5. Wszelkie prawa z zakresu własności intelektualnej lub ochrony własności przemysłowej, w tym prawa autorskie do materiał&oacute;w udostępnionych w Serwisie Aukcyjnym EFL, w szczeg&oacute;lności opis&oacute;w, fotografii, schemat&oacute;w lub modeli, przysługują wyłącznie EFL. Korzystanie z takich materiał&oacute;w, a w szczeg&oacute;lności ich utrwalanie i zwielokrotnianie, wprowadzanie do obrotu, publiczne rozpowszechnianie,&nbsp; modyfikowanie całości oraz pojedynczych fragment&oacute;w, łączenie z innymi utworami oraz wprowadzenie do sieci komputerowej jest dopuszczalne wyłącznie za pisemną, pod rygorem nieważności, zgodą EFL. <br /> &nbsp;<br /> 6. Niniejszym EFL oświadcza, że posiada status dużego przedsiębiorcy w rozumieniu art. 4c ustawy o przeciwdziałaniu nadmiernym op&oacute;źnieniom w transakcjach handlowych.</span></p>
+<p>&nbsp;</p>
+<p style="text-align: center;"><a title="Regulamin Serwisu Aukcyjnego EFL" href="../Content/Files/Regulamin_2023-04-29.pdf">Regulamin Serwisu Aukcyjnego EFL</a></p>
+<p>&nbsp;</p>
+<!-- [if gte mso 9]><xml>
+ <o:OfficeDocumentSettings>
+  <o:AllowPNG/>
+ </o:OfficeDocumentSettings>
+</xml><![endif]--><!-- [if gte mso 9]><xml>
+ <w:WordDocument>
+  <w:View>Normal</w:View>
+  <w:Zoom>0</w:Zoom>
+  <w:TrackMoves/>
+  <w:TrackFormatting/>
+  <w:HyphenationZone>21</w:HyphenationZone>
+  <w:PunctuationKerning/>
+  <w:ValidateAgainstSchemas/>
+  <w:SaveIfXMLInvalid>false</w:SaveIfXMLInvalid>
+  <w:IgnoreMixedContent>false</w:IgnoreMixedContent>
+  <w:AlwaysShowPlaceholderText>false</w:AlwaysShowPlaceholderText>
+  <w:DoNotPromoteQF/>
+  <w:LidThemeOther>PL</w:LidThemeOther>
+  <w:LidThemeAsian>X-NONE</w:LidThemeAsian>
+  <w:LidThemeComplexScript>X-NONE</w:LidThemeComplexScript>
+  <w:Compatibility>
+   <w:BreakWrappedTables/>
+   <w:SnapToGridInCell/>
+   <w:WrapTextWithPunct/>
+   <w:UseAsianBreakRules/>
+   <w:DontGrowAutofit/>
+   <w:SplitPgBreakAndParaMark/>
+   <w:EnableOpenTypeKerning/>
+   <w:DontFlipMirrorIndents/>
+   <w:OverrideTableStyleHps/>
+  </w:Compatibility>
+  <m:mathPr>
+   <m:mathFont m:val="Cambria Math"/>
+   <m:brkBin m:val="before"/>
+   <m:brkBinSub m:val="&#45;-"/>
+   <m:smallFrac m:val="off"/>
+   <m:dispDef/>
+   <m:lMargin m:val="0"/>
+   <m:rMargin m:val="0"/>
+   <m:defJc m:val="centerGroup"/>
+   <m:wrapIndent m:val="1440"/>
+   <m:intLim m:val="subSup"/>
+   <m:naryLim m:val="undOvr"/>
+  </m:mathPr></w:WordDocument>
+</xml><![endif]--><!-- [if gte mso 9]><xml>
+ <w:LatentStyles DefLockedState="false" DefUnhideWhenUsed="false"
+  DefSemiHidden="false" DefQFormat="false" DefPriority="99"
+  LatentStyleCount="371">
+  <w:LsdException Locked="false" Priority="0" QFormat="true" Name="Normal"/>
+  <w:LsdException Locked="false" Priority="9" QFormat="true" Name="heading 1"/>
+  <w:LsdException Locked="false" Priority="9" SemiHidden="true"
+   UnhideWhenUsed="true" QFormat="true" Name="heading 2"/>
+  <w:LsdException Locked="false" Priority="9" SemiHidden="true"
+   UnhideWhenUsed="true" QFormat="true" Name="heading 3"/>
+  <w:LsdException Locked="false" Priority="9" SemiHidden="true"
+   UnhideWhenUsed="true" QFormat="true" Name="heading 4"/>
+  <w:LsdException Locked="false" Priority="9" SemiHidden="true"
+   UnhideWhenUsed="true" QFormat="true" Name="heading 5"/>
+  <w:LsdException Locked="false" Priority="9" SemiHidden="true"
+   UnhideWhenUsed="true" QFormat="true" Name="heading 6"/>
+  <w:LsdException Locked="false" Priority="9" SemiHidden="true"
+   UnhideWhenUsed="true" QFormat="true" Name="heading 7"/>
+  <w:LsdException Locked="false" Priority="9" SemiHidden="true"
+   UnhideWhenUsed="true" QFormat="true" Name="heading 8"/>
+  <w:LsdException Locked="false" Priority="9" SemiHidden="true"
+   UnhideWhenUsed="true" QFormat="true" Name="heading 9"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="index 1"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="index 2"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="index 3"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="index 4"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="index 5"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="index 6"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="index 7"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="index 8"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="index 9"/>
+  <w:LsdException Locked="false" Priority="39" SemiHidden="true"
+   UnhideWhenUsed="true" Name="toc 1"/>
+  <w:LsdException Locked="false" Priority="39" SemiHidden="true"
+   UnhideWhenUsed="true" Name="toc 2"/>
+  <w:LsdException Locked="false" Priority="39" SemiHidden="true"
+   UnhideWhenUsed="true" Name="toc 3"/>
+  <w:LsdException Locked="false" Priority="39" SemiHidden="true"
+   UnhideWhenUsed="true" Name="toc 4"/>
+  <w:LsdException Locked="false" Priority="39" SemiHidden="true"
+   UnhideWhenUsed="true" Name="toc 5"/>
+  <w:LsdException Locked="false" Priority="39" SemiHidden="true"
+   UnhideWhenUsed="true" Name="toc 6"/>
+  <w:LsdException Locked="false" Priority="39" SemiHidden="true"
+   UnhideWhenUsed="true" Name="toc 7"/>
+  <w:LsdException Locked="false" Priority="39" SemiHidden="true"
+   UnhideWhenUsed="true" Name="toc 8"/>
+  <w:LsdException Locked="false" Priority="39" SemiHidden="true"
+   UnhideWhenUsed="true" Name="toc 9"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="Normal Indent"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="footnote text"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="annotation text"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="header"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="footer"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="index heading"/>
+  <w:LsdException Locked="false" Priority="35" SemiHidden="true"
+   UnhideWhenUsed="true" QFormat="true" Name="caption"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="table of figures"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="envelope address"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="envelope return"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="footnote reference"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="annotation reference"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="line number"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="page number"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="endnote reference"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="endnote text"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="table of authorities"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="macro"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="toa heading"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="List"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="List Bullet"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="List Number"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="List 2"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="List 3"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="List 4"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="List 5"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="List Bullet 2"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="List Bullet 3"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="List Bullet 4"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="List Bullet 5"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="List Number 2"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="List Number 3"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="List Number 4"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="List Number 5"/>
+  <w:LsdException Locked="false" Priority="10" QFormat="true" Name="Title"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="Closing"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="Signature"/>
+  <w:LsdException Locked="false" Priority="1" SemiHidden="true"
+   UnhideWhenUsed="true" Name="Default Paragraph Font"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="Body Text"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="Body Text Indent"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="List Continue"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="List Continue 2"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="List Continue 3"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="List Continue 4"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="List Continue 5"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="Message Header"/>
+  <w:LsdException Locked="false" Priority="11" QFormat="true" Name="Subtitle"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="Salutation"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="Date"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="Body Text First Indent"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="Body Text First Indent 2"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="Note Heading"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="Body Text 2"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="Body Text 3"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="Body Text Indent 2"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="Body Text Indent 3"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="Block Text"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="Hyperlink"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="FollowedHyperlink"/>
+  <w:LsdException Locked="false" Priority="22" QFormat="true" Name="Strong"/>
+  <w:LsdException Locked="false" Priority="20" QFormat="true" Name="Emphasis"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="Document Map"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="Plain Text"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="E-mail Signature"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="HTML Top of Form"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="HTML Bottom of Form"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="Normal (Web)"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="HTML Acronym"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="HTML Address"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="HTML Cite"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="HTML Code"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="HTML Definition"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="HTML Keyboard"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="HTML Preformatted"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="HTML Sample"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="HTML Typewriter"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="HTML Variable"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="Normal Table"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="annotation subject"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="No List"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="Outline List 1"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="Outline List 2"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="Outline List 3"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="Table Simple 1"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="Table Simple 2"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="Table Simple 3"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="Table Classic 1"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="Table Classic 2"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="Table Classic 3"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="Table Classic 4"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="Table Colorful 1"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="Table Colorful 2"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="Table Colorful 3"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="Table Columns 1"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="Table Columns 2"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="Table Columns 3"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="Table Columns 4"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="Table Columns 5"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="Table Grid 1"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="Table Grid 2"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="Table Grid 3"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="Table Grid 4"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="Table Grid 5"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="Table Grid 6"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="Table Grid 7"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="Table Grid 8"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="Table List 1"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="Table List 2"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="Table List 3"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="Table List 4"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="Table List 5"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="Table List 6"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="Table List 7"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="Table List 8"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="Table 3D effects 1"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="Table 3D effects 2"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="Table 3D effects 3"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="Table Contemporary"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="Table Elegant"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="Table Professional"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="Table Subtle 1"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="Table Subtle 2"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="Table Web 1"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="Table Web 2"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="Table Web 3"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="Balloon Text"/>
+  <w:LsdException Locked="false" Priority="39" Name="Table Grid"/>
+  <w:LsdException Locked="false" SemiHidden="true" UnhideWhenUsed="true"
+   Name="Table Theme"/>
+  <w:LsdException Locked="false" SemiHidden="true" Name="Placeholder Text"/>
+  <w:LsdException Locked="false" Priority="1" QFormat="true" Name="No Spacing"/>
+  <w:LsdException Locked="false" Priority="60" Name="Light Shading"/>
+  <w:LsdException Locked="false" Priority="61" Name="Light List"/>
+  <w:LsdException Locked="false" Priority="62" Name="Light Grid"/>
+  <w:LsdException Locked="false" Priority="63" Name="Medium Shading 1"/>
+  <w:LsdException Locked="false" Priority="64" Name="Medium Shading 2"/>
+  <w:LsdException Locked="false" Priority="65" Name="Medium List 1"/>
+  <w:LsdException Locked="false" Priority="66" Name="Medium List 2"/>
+  <w:LsdException Locked="false" Priority="67" Name="Medium Grid 1"/>
+  <w:LsdException Locked="false" Priority="68" Name="Medium Grid 2"/>
+  <w:LsdException Locked="false" Priority="69" Name="Medium Grid 3"/>
+  <w:LsdException Locked="false" Priority="70" Name="Dark List"/>
+  <w:LsdException Locked="false" Priority="71" Name="Colorful Shading"/>
+  <w:LsdException Locked="false" Priority="72" Name="Colorful List"/>
+  <w:LsdException Locked="false" Priority="73" Name="Colorful Grid"/>
+  <w:LsdException Locked="false" Priority="60" Name="Light Shading Accent 1"/>
+  <w:LsdException Locked="false" Priority="61" Name="Light List Accent 1"/>
+  <w:LsdException Locked="false" Priority="62" Name="Light Grid Accent 1"/>
+  <w:LsdException Locked="false" Priority="63" Name="Medium Shading 1 Accent 1"/>
+  <w:LsdException Locked="false" Priority="64" Name="Medium Shading 2 Accent 1"/>
+  <w:LsdException Locked="false" Priority="65" Name="Medium List 1 Accent 1"/>
+  <w:LsdException Locked="false" SemiHidden="true" Name="Revision"/>
+  <w:LsdException Locked="false" Priority="34" QFormat="true"
+   Name="List Paragraph"/>
+  <w:LsdException Locked="false" Priority="29" QFormat="true" Name="Quote"/>
+  <w:LsdException Locked="false" Priority="30" QFormat="true"
+   Name="Intense Quote"/>
+  <w:LsdException Locked="false" Priority="66" Name="Medium List 2 Accent 1"/>
+  <w:LsdException Locked="false" Priority="67" Name="Medium Grid 1 Accent 1"/>
+  <w:LsdException Locked="false" Priority="68" Name="Medium Grid 2 Accent 1"/>
+  <w:LsdException Locked="false" Priority="69" Name="Medium Grid 3 Accent 1"/>
+  <w:LsdException Locked="false" Priority="70" Name="Dark List Accent 1"/>
+  <w:LsdException Locked="false" Priority="71" Name="Colorful Shading Accent 1"/>
+  <w:LsdException Locked="false" Priority="72" Name="Colorful List Accent 1"/>
+  <w:LsdException Locked="false" Priority="73" Name="Colorful Grid Accent 1"/>
+  <w:LsdException Locked="false" Priority="60" Name="Light Shading Accent 2"/>
+  <w:LsdException Locked="false" Priority="61" Name="Light List Accent 2"/>
+  <w:LsdException Locked="false" Priority="62" Name="Light Grid Accent 2"/>
+  <w:LsdException Locked="false" Priority="63" Name="Medium Shading 1 Accent 2"/>
+  <w:LsdException Locked="false" Priority="64" Name="Medium Shading 2 Accent 2"/>
+  <w:LsdException Locked="false" Priority="65" Name="Medium List 1 Accent 2"/>
+  <w:LsdException Locked="false" Priority="66" Name="Medium List 2 Accent 2"/>
+  <w:LsdException Locked="false" Priority="67" Name="Medium Grid 1 Accent 2"/>
+  <w:LsdException Locked="false" Priority="68" Name="Medium Grid 2 Accent 2"/>
+  <w:LsdException Locked="false" Priority="69" Name="Medium Grid 3 Accent 2"/>
+  <w:LsdException Locked="false" Priority="70" Name="Dark List Accent 2"/>
+  <w:LsdException Locked="false" Priority="71" Name="Colorful Shading Accent 2"/>
+  <w:LsdException Locked="false" Priority="72" Name="Colorful List Accent 2"/>
+  <w:LsdException Locked="false" Priority="73" Name="Colorful Grid Accent 2"/>
+  <w:LsdException Locked="false" Priority="60" Name="Light Shading Accent 3"/>
+  <w:LsdException Locked="false" Priority="61" Name="Light List Accent 3"/>
+  <w:LsdException Locked="false" Priority="62" Name="Light Grid Accent 3"/>
+  <w:LsdException Locked="false" Priority="63" Name="Medium Shading 1 Accent 3"/>
+  <w:LsdException Locked="false" Priority="64" Name="Medium Shading 2 Accent 3"/>
+  <w:LsdException Locked="false" Priority="65" Name="Medium List 1 Accent 3"/>
+  <w:LsdException Locked="false" Priority="66" Name="Medium List 2 Accent 3"/>
+  <w:LsdException Locked="false" Priority="67" Name="Medium Grid 1 Accent 3"/>
+  <w:LsdException Locked="false" Priority="68" Name="Medium Grid 2 Accent 3"/>
+  <w:LsdException Locked="false" Priority="69" Name="Medium Grid 3 Accent 3"/>
+  <w:LsdException Locked="false" Priority="70" Name="Dark List Accent 3"/>
+  <w:LsdException Locked="false" Priority="71" Name="Colorful Shading Accent 3"/>
+  <w:LsdException Locked="false" Priority="72" Name="Colorful List Accent 3"/>
+  <w:LsdException Locked="false" Priority="73" Name="Colorful Grid Accent 3"/>
+  <w:LsdException Locked="false" Priority="60" Name="Light Shading Accent 4"/>
+  <w:LsdException Locked="false" Priority="61" Name="Light List Accent 4"/>
+  <w:LsdException Locked="false" Priority="62" Name="Light Grid Accent 4"/>
+  <w:LsdException Locked="false" Priority="63" Name="Medium Shading 1 Accent 4"/>
+  <w:LsdException Locked="false" Priority="64" Name="Medium Shading 2 Accent 4"/>
+  <w:LsdException Locked="false" Priority="65" Name="Medium List 1 Accent 4"/>
+  <w:LsdException Locked="false" Priority="66" Name="Medium List 2 Accent 4"/>
+  <w:LsdException Locked="false" Priority="67" Name="Medium Grid 1 Accent 4"/>
+  <w:LsdException Locked="false" Priority="68" Name="Medium Grid 2 Accent 4"/>
+  <w:LsdException Locked="false" Priority="69" Name="Medium Grid 3 Accent 4"/>
+  <w:LsdException Locked="false" Priority="70" Name="Dark List Accent 4"/>
+  <w:LsdException Locked="false" Priority="71" Name="Colorful Shading Accent 4"/>
+  <w:LsdException Locked="false" Priority="72" Name="Colorful List Accent 4"/>
+  <w:LsdException Locked="false" Priority="73" Name="Colorful Grid Accent 4"/>
+  <w:LsdException Locked="false" Priority="60" Name="Light Shading Accent 5"/>
+  <w:LsdException Locked="false" Priority="61" Name="Light List Accent 5"/>
+  <w:LsdException Locked="false" Priority="62" Name="Light Grid Accent 5"/>
+  <w:LsdException Locked="false" Priority="63" Name="Medium Shading 1 Accent 5"/>
+  <w:LsdException Locked="false" Priority="64" Name="Medium Shading 2 Accent 5"/>
+  <w:LsdException Locked="false" Priority="65" Name="Medium List 1 Accent 5"/>
+  <w:LsdException Locked="false" Priority="66" Name="Medium List 2 Accent 5"/>
+  <w:LsdException Locked="false" Priority="67" Name="Medium Grid 1 Accent 5"/>
+  <w:LsdException Locked="false" Priority="68" Name="Medium Grid 2 Accent 5"/>
+  <w:LsdException Locked="false" Priority="69" Name="Medium Grid 3 Accent 5"/>
+  <w:LsdException Locked="false" Priority="70" Name="Dark List Accent 5"/>
+  <w:LsdException Locked="false" Priority="71" Name="Colorful Shading Accent 5"/>
+  <w:LsdException Locked="false" Priority="72" Name="Colorful List Accent 5"/>
+  <w:LsdException Locked="false" Priority="73" Name="Colorful Grid Accent 5"/>
+  <w:LsdException Locked="false" Priority="60" Name="Light Shading Accent 6"/>
+  <w:LsdException Locked="false" Priority="61" Name="Light List Accent 6"/>
+  <w:LsdException Locked="false" Priority="62" Name="Light Grid Accent 6"/>
+  <w:LsdException Locked="false" Priority="63" Name="Medium Shading 1 Accent 6"/>
+  <w:LsdException Locked="false" Priority="64" Name="Medium Shading 2 Accent 6"/>
+  <w:LsdException Locked="false" Priority="65" Name="Medium List 1 Accent 6"/>
+  <w:LsdException Locked="false" Priority="66" Name="Medium List 2 Accent 6"/>
+  <w:LsdException Locked="false" Priority="67" Name="Medium Grid 1 Accent 6"/>
+  <w:LsdException Locked="false" Priority="68" Name="Medium Grid 2 Accent 6"/>
+  <w:LsdException Locked="false" Priority="69" Name="Medium Grid 3 Accent 6"/>
+  <w:LsdException Locked="false" Priority="70" Name="Dark List Accent 6"/>
+  <w:LsdException Locked="false" Priority="71" Name="Colorful Shading Accent 6"/>
+  <w:LsdException Locked="false" Priority="72" Name="Colorful List Accent 6"/>
+  <w:LsdException Locked="false" Priority="73" Name="Colorful Grid Accent 6"/>
+  <w:LsdException Locked="false" Priority="19" QFormat="true"
+   Name="Subtle Emphasis"/>
+  <w:LsdException Locked="false" Priority="21" QFormat="true"
+   Name="Intense Emphasis"/>
+  <w:LsdException Locked="false" Priority="31" QFormat="true"
+   Name="Subtle Reference"/>
+  <w:LsdException Locked="false" Priority="32" QFormat="true"
+   Name="Intense Reference"/>
+  <w:LsdException Locked="false" Priority="33" QFormat="true" Name="Book Title"/>
+  <w:LsdException Locked="false" Priority="37" SemiHidden="true"
+   UnhideWhenUsed="true" Name="Bibliography"/>
+  <w:LsdException Locked="false" Priority="39" SemiHidden="true"
+   UnhideWhenUsed="true" QFormat="true" Name="TOC Heading"/>
+  <w:LsdException Locked="false" Priority="41" Name="Plain Table 1"/>
+  <w:LsdException Locked="false" Priority="42" Name="Plain Table 2"/>
+  <w:LsdException Locked="false" Priority="43" Name="Plain Table 3"/>
+  <w:LsdException Locked="false" Priority="44" Name="Plain Table 4"/>
+  <w:LsdException Locked="false" Priority="45" Name="Plain Table 5"/>
+  <w:LsdException Locked="false" Priority="40" Name="Grid Table Light"/>
+  <w:LsdException Locked="false" Priority="46" Name="Grid Table 1 Light"/>
+  <w:LsdException Locked="false" Priority="47" Name="Grid Table 2"/>
+  <w:LsdException Locked="false" Priority="48" Name="Grid Table 3"/>
+  <w:LsdException Locked="false" Priority="49" Name="Grid Table 4"/>
+  <w:LsdException Locked="false" Priority="50" Name="Grid Table 5 Dark"/>
+  <w:LsdException Locked="false" Priority="51" Name="Grid Table 6 Colorful"/>
+  <w:LsdException Locked="false" Priority="52" Name="Grid Table 7 Colorful"/>
+  <w:LsdException Locked="false" Priority="46"
+   Name="Grid Table 1 Light Accent 1"/>
+  <w:LsdException Locked="false" Priority="47" Name="Grid Table 2 Accent 1"/>
+  <w:LsdException Locked="false" Priority="48" Name="Grid Table 3 Accent 1"/>
+  <w:LsdException Locked="false" Priority="49" Name="Grid Table 4 Accent 1"/>
+  <w:LsdException Locked="false" Priority="50" Name="Grid Table 5 Dark Accent 1"/>
+  <w:LsdException Locked="false" Priority="51"
+   Name="Grid Table 6 Colorful Accent 1"/>
+  <w:LsdException Locked="false" Priority="52"
+   Name="Grid Table 7 Colorful Accent 1"/>
+  <w:LsdException Locked="false" Priority="46"
+   Name="Grid Table 1 Light Accent 2"/>
+  <w:LsdException Locked="false" Priority="47" Name="Grid Table 2 Accent 2"/>
+  <w:LsdException Locked="false" Priority="48" Name="Grid Table 3 Accent 2"/>
+  <w:LsdException Locked="false" Priority="49" Name="Grid Table 4 Accent 2"/>
+  <w:LsdException Locked="false" Priority="50" Name="Grid Table 5 Dark Accent 2"/>
+  <w:LsdException Locked="false" Priority="51"
+   Name="Grid Table 6 Colorful Accent 2"/>
+  <w:LsdException Locked="false" Priority="52"
+   Name="Grid Table 7 Colorful Accent 2"/>
+  <w:LsdException Locked="false" Priority="46"
+   Name="Grid Table 1 Light Accent 3"/>
+  <w:LsdException Locked="false" Priority="47" Name="Grid Table 2 Accent 3"/>
+  <w:LsdException Locked="false" Priority="48" Name="Grid Table 3 Accent 3"/>
+  <w:LsdException Locked="false" Priority="49" Name="Grid Table 4 Accent 3"/>
+  <w:LsdException Locked="false" Priority="50" Name="Grid Table 5 Dark Accent 3"/>
+  <w:LsdException Locked="false" Priority="51"
+   Name="Grid Table 6 Colorful Accent 3"/>
+  <w:LsdException Locked="false" Priority="52"
+   Name="Grid Table 7 Colorful Accent 3"/>
+  <w:LsdException Locked="false" Priority="46"
+   Name="Grid Table 1 Light Accent 4"/>
+  <w:LsdException Locked="false" Priority="47" Name="Grid Table 2 Accent 4"/>
+  <w:LsdException Locked="false" Priority="48" Name="Grid Table 3 Accent 4"/>
+  <w:LsdException Locked="false" Priority="49" Name="Grid Table 4 Accent 4"/>
+  <w:LsdException Locked="false" Priority="50" Name="Grid Table 5 Dark Accent 4"/>
+  <w:LsdException Locked="false" Priority="51"
+   Name="Grid Table 6 Colorful Accent 4"/>
+  <w:LsdException Locked="false" Priority="52"
+   Name="Grid Table 7 Colorful Accent 4"/>
+  <w:LsdException Locked="false" Priority="46"
+   Name="Grid Table 1 Light Accent 5"/>
+  <w:LsdException Locked="false" Priority="47" Name="Grid Table 2 Accent 5"/>
+  <w:LsdException Locked="false" Priority="48" Name="Grid Table 3 Accent 5"/>
+  <w:LsdException Locked="false" Priority="49" Name="Grid Table 4 Accent 5"/>
+  <w:LsdException Locked="false" Priority="50" Name="Grid Table 5 Dark Accent 5"/>
+  <w:LsdException Locked="false" Priority="51"
+   Name="Grid Table 6 Colorful Accent 5"/>
+  <w:LsdException Locked="false" Priority="52"
+   Name="Grid Table 7 Colorful Accent 5"/>
+  <w:LsdException Locked="false" Priority="46"
+   Name="Grid Table 1 Light Accent 6"/>
+  <w:LsdException Locked="false" Priority="47" Name="Grid Table 2 Accent 6"/>
+  <w:LsdException Locked="false" Priority="48" Name="Grid Table 3 Accent 6"/>
+  <w:LsdException Locked="false" Priority="49" Name="Grid Table 4 Accent 6"/>
+  <w:LsdException Locked="false" Priority="50" Name="Grid Table 5 Dark Accent 6"/>
+  <w:LsdException Locked="false" Priority="51"
+   Name="Grid Table 6 Colorful Accent 6"/>
+  <w:LsdException Locked="false" Priority="52"
+   Name="Grid Table 7 Colorful Accent 6"/>
+  <w:LsdException Locked="false" Priority="46" Name="List Table 1 Light"/>
+  <w:LsdException Locked="false" Priority="47" Name="List Table 2"/>
+  <w:LsdException Locked="false" Priority="48" Name="List Table 3"/>
+  <w:LsdException Locked="false" Priority="49" Name="List Table 4"/>
+  <w:LsdException Locked="false" Priority="50" Name="List Table 5 Dark"/>
+  <w:LsdException Locked="false" Priority="51" Name="List Table 6 Colorful"/>
+  <w:LsdException Locked="false" Priority="52" Name="List Table 7 Colorful"/>
+  <w:LsdException Locked="false" Priority="46"
+   Name="List Table 1 Light Accent 1"/>
+  <w:LsdException Locked="false" Priority="47" Name="List Table 2 Accent 1"/>
+  <w:LsdException Locked="false" Priority="48" Name="List Table 3 Accent 1"/>
+  <w:LsdException Locked="false" Priority="49" Name="List Table 4 Accent 1"/>
+  <w:LsdException Locked="false" Priority="50" Name="List Table 5 Dark Accent 1"/>
+  <w:LsdException Locked="false" Priority="51"
+   Name="List Table 6 Colorful Accent 1"/>
+  <w:LsdException Locked="false" Priority="52"
+   Name="List Table 7 Colorful Accent 1"/>
+  <w:LsdException Locked="false" Priority="46"
+   Name="List Table 1 Light Accent 2"/>
+  <w:LsdException Locked="false" Priority="47" Name="List Table 2 Accent 2"/>
+  <w:LsdException Locked="false" Priority="48" Name="List Table 3 Accent 2"/>
+  <w:LsdException Locked="false" Priority="49" Name="List Table 4 Accent 2"/>
+  <w:LsdException Locked="false" Priority="50" Name="List Table 5 Dark Accent 2"/>
+  <w:LsdException Locked="false" Priority="51"
+   Name="List Table 6 Colorful Accent 2"/>
+  <w:LsdException Locked="false" Priority="52"
+   Name="List Table 7 Colorful Accent 2"/>
+  <w:LsdException Locked="false" Priority="46"
+   Name="List Table 1 Light Accent 3"/>
+  <w:LsdException Locked="false" Priority="47" Name="List Table 2 Accent 3"/>
+  <w:LsdException Locked="false" Priority="48" Name="List Table 3 Accent 3"/>
+  <w:LsdException Locked="false" Priority="49" Name="List Table 4 Accent 3"/>
+  <w:LsdException Locked="false" Priority="50" Name="List Table 5 Dark Accent 3"/>
+  <w:LsdException Locked="false" Priority="51"
+   Name="List Table 6 Colorful Accent 3"/>
+  <w:LsdException Locked="false" Priority="52"
+   Name="List Table 7 Colorful Accent 3"/>
+  <w:LsdException Locked="false" Priority="46"
+   Name="List Table 1 Light Accent 4"/>
+  <w:LsdException Locked="false" Priority="47" Name="List Table 2 Accent 4"/>
+  <w:LsdException Locked="false" Priority="48" Name="List Table 3 Accent 4"/>
+  <w:LsdException Locked="false" Priority="49" Name="List Table 4 Accent 4"/>
+  <w:LsdException Locked="false" Priority="50" Name="List Table 5 Dark Accent 4"/>
+  <w:LsdException Locked="false" Priority="51"
+   Name="List Table 6 Colorful Accent 4"/>
+  <w:LsdException Locked="false" Priority="52"
+   Name="List Table 7 Colorful Accent 4"/>
+  <w:LsdException Locked="false" Priority="46"
+   Name="List Table 1 Light Accent 5"/>
+  <w:LsdException Locked="false" Priority="47" Name="List Table 2 Accent 5"/>
+  <w:LsdException Locked="false" Priority="48" Name="List Table 3 Accent 5"/>
+  <w:LsdException Locked="false" Priority="49" Name="List Table 4 Accent 5"/>
+  <w:LsdException Locked="false" Priority="50" Name="List Table 5 Dark Accent 5"/>
+  <w:LsdException Locked="false" Priority="51"
+   Name="List Table 6 Colorful Accent 5"/>
+  <w:LsdException Locked="false" Priority="52"
+   Name="List Table 7 Colorful Accent 5"/>
+  <w:LsdException Locked="false" Priority="46"
+   Name="List Table 1 Light Accent 6"/>
+  <w:LsdException Locked="false" Priority="47" Name="List Table 2 Accent 6"/>
+  <w:LsdException Locked="false" Priority="48" Name="List Table 3 Accent 6"/>
+  <w:LsdException Locked="false" Priority="49" Name="List Table 4 Accent 6"/>
+  <w:LsdException Locked="false" Priority="50" Name="List Table 5 Dark Accent 6"/>
+  <w:LsdException Locked="false" Priority="51"
+   Name="List Table 6 Colorful Accent 6"/>
+  <w:LsdException Locked="false" Priority="52"
+   Name="List Table 7 Colorful Accent 6"/>
+ </w:LatentStyles>
+</xml><![endif]--><!-- [if gte mso 10]>
+<style>
+ /* Style Definitions */
+ table.MsoNormalTable
+	{mso-style-name:Standardowy;
+	mso-tstyle-rowband-size:0;
+	mso-tstyle-colband-size:0;
+	mso-style-noshow:yes;
+	mso-style-priority:99;
+	mso-style-parent:"";
+	mso-padding-alt:0cm 5.4pt 0cm 5.4pt;
+	mso-para-margin-top:0cm;
+	mso-para-margin-right:0cm;
+	mso-para-margin-bottom:8.0pt;
+	mso-para-margin-left:0cm;
+	line-height:107%;
+	mso-pagination:widow-orphan;
+	font-size:11.0pt;
+	font-family:"Calibri",sans-serif;
+	mso-ascii-font-family:Calibri;
+	mso-ascii-theme-font:minor-latin;
+	mso-hansi-font-family:Calibri;
+	mso-hansi-theme-font:minor-latin;
+	mso-bidi-font-family:"Times New Roman";
+	mso-bidi-theme-font:minor-bidi;
+	mso-fareast-language:EN-US;}
+</style>
+<![endif]-->
+<p style="text-align: center;">&nbsp;</p>
+<p style="text-align: center;">&nbsp;</p>
+<p>&nbsp;</p></div>
+<div class="ButtonsPanel">           <script type="text/javascript">
+               $(document).ready(function() {
+
+                   $('#back').click(function(e) {
+                       window.open('/'.replace(/&amp;/g, '&'), '_self');
+                   });
+
+               });
+           </script>
+       <input type="button" value="Powr&#243;t" id="back" class="button100bw_L float_L" />
+</div></div></div></div>
+
+        </div>
+        <div id="push"></div>
+    </div>
+    <div id="footer">
+<div class="PanelTable">
+   <div class="PanelHeader">
+      <h2>
+         Pomocne linki
+      </h2>
+   </div>
+   <div class="PanelContent">
+      <div class="PanelContent_Correction PanelHomeLinks">
+         <a class="InfoHomeLinks" href="/Article/CurrentRegulation">
+            <img src="Content/images/ico1.png" alt="HelpIcon" />
+            <div>Regulamin</div>
+         </a>
+         <a class="InfoHomeLinks" href="/Article/CookiesPolicy">
+            <img src="Content/images/ico2.png" alt="HelpIcon" />
+            <div>Polityka cookies</div>
+         </a>
+         <a class="InfoHomeLinks" href="/Article/CurrentHelp">
+            <img src="Content/images/ico3.png" alt="HelpIcon" />
+            <div>ABC Aukcji</div>
+         </a>
+         <a class="InfoHomeLinks" href="/Article/ContactLocalization">
+            <img src="Content/images/ico4.png" alt="HelpIcon" />
+            <div>Kontakt i lokalizacja</div>
+         </a>
+         <a class="InfoHomeLinks" href="/Article/ImportantInformations">
+            <img src="Content/images/ico6.png" alt="HelpIcon" />
+            <div>Ważne informacje</div>
+         </a>
+         <a class="InfoHomeLinks" href="/Article/Security">
+            <img src="Content/images/ico5.png" alt="HelpIcon" />
+            <div>Bezpieczeństwo</div>
+         </a>
+         <a class="InfoHomeLinks LeasingOnlineLink" href="/LeasingOnline">
+            <img src="Content/images/lo-icon-payments.png" alt="HelpIcon" />
+            <div>Leasing Online</div>
+         </a>
+      </div>
+   </div>
+</div>
+<div class="">
+    Serwisy z naszej strony:          
+    <a href="http://www.autoefl.pl">www.autoefl.pl</a>    
+    <a href="http://www.efl.pl">www.efl.pl</a>    
+    <hr style="margin-top: 5px;">
+    <br>
+    <p class="copy">Copyrights &copy; 2026 Europejski Fundusz Leasingowy</p>
+   <p class="version">Aktualna wersja: <strong>2025.12.19.1</strong></p>
+</div>
+
+
+    </div>
+</div>
+</body>
+</html>
+
+

@@ -1,0 +1,81 @@
+{
+  "pobrano_utc": "2026-09-06T14:17:54+00:00",
+  "user_agent": "Chrome/126 (desktop UA)",
+  "zalogowany": false,
+  "pliki": {
+    "abc-aukcji.html": {
+      "status": "HTTP/1.1 200 OK",
+      "bytes": 898886,
+      "redirects": 0,
+      "headers": {
+        "cache-control": "no-cache",
+        "content-type": "text/html; charset=utf-8"
+      }
+    },
+    "lista-01.html": {
+      "status": "HTTP/1.1 200 OK",
+      "bytes": 66371,
+      "redirects": 0,
+      "headers": {
+        "cache-control": "no-cache",
+        "content-type": "text/html; charset=utf-8"
+      }
+    },
+    "lista-02.html": {
+      "status": "HTTP/1.1 200 OK",
+      "bytes": 65776,
+      "redirects": 0,
+      "headers": {
+        "cache-control": "no-cache",
+        "content-type": "text/html; charset=utf-8"
+      }
+    },
+    "logowanie.html": {
+      "status": "HTTP/1.1 200 OK",
+      "bytes": 12654,
+      "redirects": 0,
+      "headers": {
+        "cache-control": "no-cache",
+        "content-type": "text/html; charset=utf-8"
+      }
+    },
+    "regulamin.html": {
+      "status": "HTTP/1.1 200 OK",
+      "bytes": 119252,
+      "redirects": 0,
+      "headers": {
+        "cache-control": "no-cache",
+        "content-type": "text/html; charset=utf-8"
+      }
+    },
+    "robots.txt": {
+      "status": "HTTP/1.1 200 OK",
+      "bytes": 72,
+      "redirects": 0,
+      "headers": {
+        "cache-control": "no-cache",
+        "content-type": "text/plain",
+        "last-modified": "Mon, 10 Aug 2015 08:52:56 GMT",
+        "etag": "\"0a432f349d3d01:0\""
+      }
+    },
+    "szczegoly-435383.html": {
+      "status": "HTTP/1.1 200 OK",
+      "bytes": 38417,
+      "redirects": 0,
+      "headers": {
+        "cache-control": "no-cache",
+        "content-type": "text/html; charset=utf-8"
+      }
+    },
+    "szczegoly-435587.html": {
+      "status": "HTTP/1.1 200 OK",
+      "bytes": 36328,
+      "redirects": 0,
+      "headers": {
+        "cache-control": "no-cache",
+        "content-type": "text/html; charset=utf-8"
+      }
+    }
+  }
+}

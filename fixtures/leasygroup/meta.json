@@ -1,0 +1,62 @@
+{
+  "pobrano_utc": "2026-09-06T14:17:54+00:00",
+  "user_agent": "Chrome/126 (desktop UA)",
+  "zalogowany": false,
+  "pliki": {
+    "faq.html": {
+      "status": "HTTP/1.1 200 OK",
+      "bytes": 107200,
+      "redirects": 0,
+      "headers": {
+        "cache-control": "no-store, no-cache, must-revalidate",
+        "content-type": "text/html; charset=UTF-8"
+      }
+    },
+    "lista-01.html": {
+      "status": "HTTP/1.1 200 OK",
+      "bytes": 86680,
+      "redirects": 0,
+      "headers": {
+        "cache-control": "no-store, no-cache, must-revalidate",
+        "content-type": "text/html; charset=UTF-8"
+      }
+    },
+    "logowanie.html": {
+      "status": "HTTP/1.1 302 Found",
+      "bytes": 24083,
+      "redirects": 0,
+      "headers": {
+        "cache-control": "no-store, no-cache, must-revalidate",
+        "content-type": "text/html; charset=UTF-8"
+      }
+    },
+    "regulamin.html": {
+      "status": "HTTP/1.1 200 OK",
+      "bytes": 369658,
+      "redirects": 0,
+      "headers": {
+        "cache-control": "no-store, no-cache, must-revalidate",
+        "content-type": "text/html; charset=UTF-8"
+      }
+    },
+    "robots.txt": {
+      "status": "HTTP/1.1 200 OK",
+      "bytes": 1409,
+      "redirects": 0,
+      "headers": {
+        "last-modified": "Mon, 25 Sep 2023 08:02:33 GMT",
+        "etag": "\"581-6062a617331bd\"",
+        "content-type": "text/plain; charset=UTF-8"
+      }
+    },
+    "szczegoly-28143.html": {
+      "status": "HTTP/1.1 200 OK",
+      "bytes": 205313,
+      "redirects": 0,
+      "headers": {
+        "cache-control": "no-store, no-cache, must-revalidate",
+        "content-type": "text/html; charset=UTF-8"
+      }
+    }
+  }
+}

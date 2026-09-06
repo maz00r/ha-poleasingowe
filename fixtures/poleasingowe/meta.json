@@ -1,0 +1,71 @@
+{
+  "pobrano_utc": "2026-09-06T14:17:54+00:00",
+  "user_agent": "Chrome/126 (desktop UA)",
+  "zalogowany": false,
+  "pliki": {
+    "lista-01.html": {
+      "status": "HTTP/2 200",
+      "bytes": 340963,
+      "redirects": 0,
+      "headers": {
+        "server": "openresty",
+        "content-type": "text/html; charset=UTF-8",
+        "vary": "Accept-Encoding",
+        "cache-control": "no-cache",
+        "x-ratelimit-limit": "60",
+        "x-ratelimit-remaining": "59"
+      }
+    },
+    "lista-vehicles-01.html": {
+      "status": "HTTP/2 200",
+      "bytes": 265157,
+      "redirects": 0,
+      "headers": {
+        "server": "openresty",
+        "content-type": "text/html; charset=UTF-8",
+        "vary": "Accept-Encoding",
+        "cache-control": "no-cache",
+        "x-ratelimit-limit": "120",
+        "x-ratelimit-remaining": "119"
+      }
+    },
+    "regulamin.html": {
+      "status": "HTTP/2 200",
+      "bytes": 151466,
+      "redirects": 0,
+      "headers": {
+        "server": "openresty",
+        "content-type": "text/html; charset=UTF-8",
+        "vary": "Accept-Encoding",
+        "cache-control": "no-cache",
+        "x-ratelimit-limit": "120",
+        "x-ratelimit-remaining": "119"
+      }
+    },
+    "robots.txt": {
+      "status": "HTTP/2 200",
+      "bytes": 410,
+      "redirects": 0,
+      "headers": {
+        "server": "openresty",
+        "content-type": "text/plain; charset=utf-8",
+        "last-modified": "Tue, 26 Mar 2024 18:59:42 GMT",
+        "etag": "\"66031b1e-19a\""
+      }
+    },
+    "szczegoly-9pmz3459.html": {
+      "status": "HTTP/2 200",
+      "bytes": 228087,
+      "redirects": 0,
+      "headers": {
+        "server": "openresty",
+        "content-type": "text/html; charset=UTF-8",
+        "vary": "Accept-Encoding",
+        "cache-control": "no-cache",
+        "x-ratelimit-limit": "120",
+        "x-ratelimit-remaining": "119"
+      }
+    }
+  },
+  "uwagi": "/pl/login przekierowuje na stronę główną; realny formularz logowania to /pl/bidder-panel/login, objęty Disallow w robots.txt — nie pobrano."
+}

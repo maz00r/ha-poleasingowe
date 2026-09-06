@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="pl">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aukcje | leasyGROUP</title>
+    <meta name="description" content="">
+    <meta name="keywords" content="">
+    
+    <link rel="stylesheet" href="/assets/plugins/slick/slick.css">
+    <link rel="stylesheet" href="/assets/plugins/slick/slick-theme.css">
+    <link rel="stylesheet" href="/assets/css/reset.css">
+    <link rel="stylesheet" href="/assets/css/style.css?v=9">
+    
+    <script>
+        var checkmultiURL = '/aukcja/sprawdz-wiele/';
+        var checkmultiexURL = '/aukcja/sprawdz-wiele-moje-konto/';
+        var isGuest = true;
+        var watchedMY = false;
+    </script>
+
+    <meta property="og:image" content="http://aukcje.leasygroup.pl/assets/images/logo_og.jpg" />
+    <meta property="og:title" content="Aukcje | leasyGROUP" />
+    <meta property="og:url" content="http://aukcje.leasygroup.pl" />
+    <meta property="og:site_name" content="Aukcje | leasyGROUP" />
+    <meta property="og:description" content=""/>
+    <meta property="og:type" content="article" />
+    
+    
+
+    <!-- Global site tag (gtag.js) - Google Analytics -->
+<!--    <script async src="https://www.googletagmanager.com/gtag/js?id=G-3PBMKSMFNP"></script>	-->
+<!--    <script>		-->
+<!--        window.dataLayer = window.dataLayer || [];		-->
+<!--        function gtag(){dataLayer.push(arguments);}		-->
+<!--        gtag('js', new Date());					-->
+<!--									-->
+<!--        gtag('config', 'G-3PBMKSMFNP');				-->
+<!--    </script>							-->
+    <!-- Google Tag Manager -->
+    <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':					
+                new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],			
+            j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=				
+            'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);		
+        })(window,document,'script','dataLayer','GTM-MX44MCNV');</script>					
+    <!-- End Google Tag Manager -->
+    <!-- FB tag -->
+    <meta name="facebook-domain-verification" content="qxm1jo1r6hlqp52hkgrh7rdrw4lnp7" />
+</head>
+<body>
+    <!-- Google Tag Manager (noscript) -->
+    <noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-MX44MCNV" height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+    <!-- End Google Tag Manager (noscript) -->
+
+    <div class="navigation layout_section ">
+    <div class="layout_container">
+        <div class="brand">
+            <a href="/">
+                <img src="/assets/images/logo.png" alt="">
+            </a>
+        </div>
+        <nav>
+            <div class="nav-mobile">
+                <a id="nav-toggle" href="#"><span></span></a>
+                                    <button type="button" class="btn border_btn login_btn">Zaloguj się</button>
+                   
+            </div>
+            <ul class="nav-list">
+                <li>
+                    <a href="#">Oferta</a>
+                    <ul class="nav-dropdown">
+                                                    <li>
+                                <a href="/aukcje/pojazdy-samochodowe-i-motocykle/widok-lista/strona-1">Pojazdy samochodowe i motocykle</a>
+                            </li>
+                                                    <li>
+                                <a href="/aukcje/przyczepy-naczepy/widok-lista/strona-1">Przyczepy, naczepy</a>
+                            </li>
+                                                    <li>
+                                <a href="/aukcje/maszyny-budowlane/widok-lista/strona-1">Maszyny budowlane</a>
+                            </li>
+                                                    <li>
+                                <a href="/aukcje/gastronomia-i-meble/widok-lista/strona-1">Gastronomia i meble</a>
+                            </li>
+                                                    <li>
+                                <a href="/aukcje/maszyny-rolnicze-i-nbsp-lesne/widok-lista/strona-1">Maszyny rolnicze i leśne</a>
+                            </li>
+                                                    <li>
+                                <a href="/aukcje/medycyna-i-kosmetyka/widok-lista/strona-1">Medycyna i kosmetyka</a>
+                            </li>
+                                                    <li>
+                                <a href="/aukcje/maszyny-produkcyjne/widok-lista/strona-1">Maszyny produkcyjne</a>
+                            </li>
+                                                    <li>
+                                <a href="/aukcje/inne-maszyny-i-nbsp-urzadzenia/widok-lista/strona-1">Inne maszyny i urządzenia</a>
+                            </li>
+                                            </ul>
+                </li>
+                <li>
+                    <a href="#">Strefa Klienta</a>
+                    <ul class="nav-dropdown">
+                                                <li>
+                            <a href="/faq">Najczęstsze pytania</a>
+                        </li>
+                        <li>
+                            <a href="/informacje/regulamin-serwisu">Regulamin serwisu</a>
+                        </li>
+                    </ul>
+                </li>
+                <li>
+                    <a href="/informacje/o-leasygroup">O nas</a>
+                </li>
+                <li>
+                    <a href="/kontakt">Kontakt</a>
+                </li>
+                                    <li>
+                        <button type="button" class="btn border_btn desktop_login_btn login_btn">Zaloguj się</button>
+                    </li>
+                            </ul>
+                    </nav>
+
+                    <div class="login_options_container">
+                <div class="box">
+                    <p class="f_16 semibold b_text_color">Zaloguj się</p>
+                    <p class="f_16 b_text_color description">Dla Klientów, którzy mają już konto w serwisie.</p>
+                    <a href="/zaloguj-sie/" class="btn bg_btn center">Zaloguj się</a>
+                </div>
+                <div class="box">
+                    <p class="f_16 semibold b_text_color">Zarejestruj się</p>
+                    <p class="f_16 b_text_color description">Dla Klientów, którzy chcą założyć nowe konto w serwisie.</p>
+                    <a href="/rejestracja/" class="btn bg_btn center">Zarejestruj się</a>
+                </div>
+            </div>
+                <div class="inside_menu_bg"></div>
+    </div>
+</div>
+        
+    
+    <div id="login_page" class="layout_section">
+        <div class="layout_container m_layout_container_padding">
+            <div class="login_page_container">
+                                <h1 class="f_34 semibold center bl_text_color">Zaloguj się</h1>
+                <div class="login_form_container">
+                    <div class="inside_login_form_container">
+                        <form method="post" autocomplete="">
+                            <input type="hidden" name="Tzd5UWsvaU9kQlMzbWhuNzIwMk9TQT09" value="Kzh0VWpqS0ltaU9hVlVxR0prSlpCUT09" />
+                                                                                            <div class="form_group">
+                                    <label for="mail" class="f_13 grey_text_color">Wpisz adres e-mail, który podałeś podczas rejestracji.</label>
+                                    <input type="text" id="mail" name="mail" class="form_input" placeholder="Adres e-mail:*" />                                    <a href="/logowanie/przypomnij-haslo/" class="f_13 r_text_color caret_link" style="margin-left: 0; margin-top: -10px;">
+                                        <svg width="5" height="8" viewBox="0 0 5 8" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <mask id="path-1-inside-1_218_3889" fill="white">
+        <path d="M0 8L-3.49691e-07 0L5 4L0 8Z" />
+    </mask>
+    <path d="M0 8L-5 8L-5 18.4031L3.12348 11.9043L0 8ZM-3.49691e-07 0L3.12347 -3.90434L-5 -10.4031L-5 2.18557e-07L-3.49691e-07 0ZM5 4L8.12348 7.90434L13.0039 4L8.12347 0.0956556L5 4ZM5 8L5 -2.18557e-07L-5 2.18557e-07L-5 8L5 8ZM-3.12348 3.90434L1.87652 7.90434L8.12347 0.0956556L3.12347 -3.90434L-3.12348 3.90434ZM1.87652 0.0956558L-3.12348 4.09566L3.12348 11.9043L8.12348 7.90434L1.87652 0.0956558Z" fill="#DD1846" mask="url(#path-1-inside-1_218_3889)" />
+</svg>
+                                        Przypomnij
+                                    </a>
+                                                                    </div>
+                                                                                                                        <div class="form_group">
+                                    <label for="rules" class="checkbox_container f_12 grey_text_color">Akceptuję <a href="/informacje/regulamin-serwisu" target="_blank">regulamin</a> portalu aukcyjnego Leasy Group SA.
+                                        <input type="checkbox" id="rules" name="rules" value="1" />                                        <span class="checkmark"></span>
+                                    </label>
+                                                                    </div>
+                                                                                    <div class="form_group">
+                                <button class="bg_btn submit_btn">Zaloguj</button>
+                            </div>
+                        </form>
+                        <div class="links_container" style="margin-top: 10px;">
+                            <span class="f_13 grey_text_color">Nie masz konta?</span>
+                            <a href="/rejestracja/" class="f_13 r_text_color caret_link">
+                                <svg width="5" height="8" viewBox="0 0 5 8" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <mask id="path-1-inside-1_218_3889" fill="white">
+        <path d="M0 8L-3.49691e-07 0L5 4L0 8Z" />
+    </mask>
+    <path d="M0 8L-5 8L-5 18.4031L3.12348 11.9043L0 8ZM-3.49691e-07 0L3.12347 -3.90434L-5 -10.4031L-5 2.18557e-07L-3.49691e-07 0ZM5 4L8.12348 7.90434L13.0039 4L8.12347 0.0956556L5 4ZM5 8L5 -2.18557e-07L-5 2.18557e-07L-5 8L5 8ZM-3.12348 3.90434L1.87652 7.90434L8.12347 0.0956556L3.12347 -3.90434L-3.12348 3.90434ZM1.87652 0.0956558L-3.12348 4.09566L3.12348 11.9043L8.12348 7.90434L1.87652 0.0956558Z" fill="#DD1846" mask="url(#path-1-inside-1_218_3889)" />
+</svg>
+                                Zarejestruj się
+                            </a>
+                        </div>
+                        <p class="f_13 light_text_color mt_10">* pole wymagane</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    
+    <div id="footer" class="layout_section">
+    <div class="layout_container m_layout_container_padding">
+        <div class="footer_panel_top">
+            <div class="footer_box">
+                <h3 class="footer_title f_29 semibold">Oferta</h3>
+                <div class="links_box">
+                                            <a href="/aukcje/pojazdy-samochodowe-i-motocykle/widok-lista/strona-1" class="f_14">Pojazdy samochodowe i motocykle</a>
+                                            <a href="/aukcje/przyczepy-naczepy/widok-lista/strona-1" class="f_14">Przyczepy, naczepy</a>
+                                            <a href="/aukcje/maszyny-budowlane/widok-lista/strona-1" class="f_14">Maszyny budowlane</a>
+                                            <a href="/aukcje/gastronomia-i-meble/widok-lista/strona-1" class="f_14">Gastronomia i meble</a>
+                                            <a href="/aukcje/maszyny-rolnicze-i-nbsp-lesne/widok-lista/strona-1" class="f_14">Maszyny rolnicze i leśne</a>
+                                            <a href="/aukcje/medycyna-i-kosmetyka/widok-lista/strona-1" class="f_14">Medycyna i kosmetyka</a>
+                                            <a href="/aukcje/maszyny-produkcyjne/widok-lista/strona-1" class="f_14">Maszyny produkcyjne</a>
+                                            <a href="/aukcje/inne-maszyny-i-nbsp-urzadzenia/widok-lista/strona-1" class="f_14">Inne maszyny i urządzenia</a>
+                                    </div>
+            </div>
+            <div class="footer_box">
+                <h3 class="footer_title f_29 semibold">Strefa Klienta</h3>
+                <div class="links_box">
+                                        <a href="/faq" class="f_14">Najczęstsze pytania</a>
+                    <a href="/informacje/regulamin-serwisu" class="f_14">Regulamin serwisu</a>
+                </div>
+            </div>
+            <div class="footer_box">
+                <h3 class="footer_title f_29 semibold">O nas</h3>
+                <div class="links_box">
+                    <a href="/informacje/o-leasygroup" class="f_14">Sprzedaż poleasingowa <br>leasyGROUP</a>
+                </div>
+            </div>
+            <div class="footer_box">
+                <h3 class="footer_title f_29 semibold">Kontakt</h3>
+                <div class="links_box">
+                    <a href="/kontakt" class="f_14 contact_link">Kontakt</a>
+                    <p class="f_14">Infolinia</p>
+                </div>
+                <p class="f_32">786 859 567</p>
+                <p class="f_32">785 903 149</p>
+                <p class="f_32">665 961 383</p>
+                <p class="footer_description f_14">
+                    Czynna poniedziałek-piątek w godz. <br>8:00 - 17:00 <br>Koszt połączenia wg stawki operatora.
+                </p>
+            </div>
+        </div>
+        <div class="footer_panel_bottom">
+            <div class="footer_box">
+                <div class="footer_bottom_links"> 
+                    <a href="https://leasygroup.pl/ochrona-danych-osobowych" target="_blank" class="text_color f_14">Ochrona danych osobowych</a>
+                    <a href="https://leasygroup.pl/polityka-prywatnosci" target="_blank" class="text_color f_14">Polityka cookies</a>
+                    <a href="https://leasygroup.pl/reklamacje" target="_blank" class="text_color f_14">Reklamacje</a>
+                </div>
+                <p class="f_14 text_color">
+                    <span class="semibold">© 2026 Leasy Group S.A.</span> z siedzibą we Wrocławiu, ul. Fabryczna 6, 53-609 Wrocław. KRS: 0000222133, <br>REGON: 933036760, NIP: 8971699432, kapitał zakładowy: 3.000.000 zł (wpłacony w całości).
+                </p>
+            </div>
+            <div class="footer_box">
+                <div class="footer_bottom_icon_links">
+                    <div class="social_media_container">
+                        <a href="https://www.facebook.com/people/Leasy-Car/61582738637110/" target="_blank">
+                              <svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M20.5596 28.4974V20.9844H23.0942L23.4709 18.0428H20.5596V16.1692C20.5596 15.3203 20.7961 14.7392 22.0143 14.7392H23.558V12.1166C22.8069 12.0361 22.052 11.9972 21.2966 12.0002C19.0563 12.0002 17.5181 13.3678 17.5181 15.8786V18.0373H15V20.9789H17.5236V28.4974H20.5596Z" fill="#484848"/>
+                                <circle cx="20" cy="20" r="19.5" stroke="#484848"/>
+                            </svg>
+                        </a>
+                        <a href="https://www.instagram.com/leasy_group?igsh=MWMyb2w5bDBudTFoaw==" target="_blank">
+                            <svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        	<g transform="translate(7.9,7.9) scale(0.75625)">
+                    		<path d="M22.3,8.4c-0.8,0-1.4,0.6-1.4,1.4c0,0.8,0.6,1.4,1.4,1.4c0.8,0,1.4-0.6,1.4-1.4C23.7,9,23.1,8.4,22.3,8.4z" fill="#484848"/>
+                        	<path d="M16,10.2c-3.3,0-5.9,2.7-5.9,5.9s2.7,5.9,5.9,5.9s5.9-2.7,5.9-5.9S19.3,10.2,16,10.2z M16,19.9c-2.1,0-3.8-1.7-3.8-3.8c0-2.1,1.7-3.8,3.8-3.8c2.1,0,3.8,1.7,3.8,3.8 C19.8,18.2,18.1,19.9,16,19.9z" fill="#484848"/>
+                        	<path d="M20.8,4h-9.5C7.2,4,4,7.2,4,11.2v9.5c0,4,3.2,7.2,7.2,7.2h9.5c4,0,7.2-3.2,7.2-7.2v-9.5 C28,7.2,24.8,4,20.8,4z M25.7,20.8c0,2.7-2.2,5-5,5h-9.5c-2.7,0-5-2.2-5-5v-9.5c0-2.7,2.2-5,5-5h9.5c2.7,0,5,2.2,5,5V20.8z" fill="#484848"/>
+                        	</g>
+                        	<circle cx="20" cy="20" r="19.5" stroke="#484848"/>
+                            </svg>
+                        </a>
+                    </div>
+                    <div class="scroll_to_top_container">
+                        <svg class="scroll_to_top" width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <circle cx="20" cy="20" r="19.5" stroke="#484848"/>
+                            <path d="M25 22L20 17L15 22" stroke="#484848" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="body_bg"></div>
+<div class="open_menu_body_bg"></div>
+
+
+    <script src="/assets/js/jquery.min.js"></script>
+    <script src="/assets/js/scripts.js"></script>
+    
+    
+    <script type="text/javascript">
+        $(document).ready(function() {
+            // $('.inp_log_pass').on('keyup', function(e) {
+            //     var currentIndex  = $(this).attr('tabindex');
+            //     if ((e.keyCode >= 65 && e.keyCode <= 90) || (e.keyCode >= 48 && e.keyCode <= 57)) {
+            //         var nextIndex = parseInt(currentIndex) + 1;
+            //         $("input.inp_log_pass[tabindex='" + nextIndex + "']").focus().select();
+            //     }
+            //
+            //     if (e.keyCode == 8) {
+            //         if (currentIndex > 0) {
+            //             var nextIndex = parseInt(currentIndex) - 1;
+            //             $("input.inp_log_pass[tabindex='" + nextIndex + "']").focus().select();
+            //         }
+            //     }
+            // });
+
+            $('input[name=log]').closest('form').on('submit', function() {
+                $('input[name=log]').val(2);
+            });
+
+            $('input[name=rem]').closest('form').on('submit', function() {
+                $('input[name=rem]').val(2);
+            });
+        });
+    </script>
+
+
+    <script>
+        $(document).on('click', '.popup-btn-save-data', function(e) {
+            e.preventDefault();
+
+            var t = $(this);
+
+            var confirm_n = $(document).find('input[name=confirm_n]:checked');
+            var confirm_nf = $(document).find('input[name=confirm_n]');
+            var confirm_m = $(document).find('input[name=confirm_m]:checked');
+            var confirm_mf = $(document).find('input[name=confirm_m]');
+            var confirm_3 = $(document).find('input[name=confirm3]:checked');
+            var confirm_3f = $(document).find('input[name=confirm3]');
+            var confirm_4 = $(document).find('input[name=confirm4]:checked');
+            var confirm_4f = $(document).find('input[name=confirm4]');
+
+            if (confirm_n.length === 0) {
+                confirm_nf.closest('.form-group').addClass('input-invalid');
+                confirm_nf.closest('.form-group').find('.error_message').html('Prosimy wskazać czy wyrażacie / nie wyrażacie Państwo zgody');
+            } else {
+                confirm_nf.closest('.form-group').removeClass('input-invalid');
+                confirm_nf.closest('.form-group').find('.error_message').empty();
+            }
+
+            if (confirm_m.length === 0) {
+                confirm_mf.closest('.form-group').addClass('input-invalid');
+                confirm_mf.closest('.form-group').find('.error_message').html('Prosimy wskazać czy wyrażacie / nie wyrażacie Państwo zgody');
+            } else {
+                confirm_mf.closest('.form-group').removeClass('input-invalid');
+                confirm_mf.closest('.form-group').find('.error_message').empty();
+            }
+
+            if (confirm_3.length === 0) {
+                confirm_3f.closest('.form-group').addClass('input-invalid');
+                confirm_3f.closest('.form-group').find('.error_message').html('Prosimy wskazać czy wyrażacie / nie wyrażacie Państwo zgody');
+            } else {
+                confirm_3f.closest('.form-group').removeClass('input-invalid');
+                confirm_3f.closest('.form-group').find('.error_message').empty();
+            }
+
+            if (confirm_4.length === 0) {
+                confirm_4f.closest('.form-group').addClass('input-invalid');
+                confirm_4f.closest('.form-group').find('.error_message').html('Prosimy wskazać czy wyrażacie / nie wyrażacie Państwo zgody');
+            } else {
+                confirm_4f.closest('.form-group').removeClass('input-invalid');
+                confirm_4f.closest('.form-group').find('.error_message').empty();
+            }
+
+            if (t.closest('form').find('.input-invalid').length === 0) {
+                t.closest('form').trigger('submit');
+            }
+        });
+
+        var mTO = null;
+        $(document).on('keyup', '#update-mail', function() {
+            if (mTO !== null) {
+                clearTimeout(mTO);
+                mTO = null;
+            }
+
+            var t = $(this);
+
+            mTO = setTimeout(function() {
+                var validator = /^([a-zA-Z0-9_\.\-])+\@(([a-zA-Z0-9\-])+\.)+([a-zA-Z0-9]{2,4})+$/;
+
+                var fg = t.closest('.form-group');
+
+                fg.removeClass('input-invalid');
+                fg.find('.error_message').text('');
+
+                if (validator.test(t.val())) {
+                    if (t.val() !== t.attr('data-curr')) {
+                        $.post('/uzytkownicy/sprawdz-mail/', 'mail=' + t.val(), function(data) {
+                            if (data.success) {
+                                $('.change-mail').show();
+                            } else {
+                                fg.addClass('input-invalid');
+                                fg.find('.error_message').text('Podany adres e-mail istnieje już w systemie');
+                            }
+                        });
+                    } else {
+                        $('.change-mail').hide();
+                    }
+                } else {
+                    $('.change-mail').hide();
+
+                    fg.addClass('input-invalid');
+                    fg.find('.error_message').text('Prosimy podać prawidłowy adres e-mail');
+                }
+            }, 500);
+        });
+
+        var pTO = null;
+        $(document).on('keyup', '#update-phone', function() {
+            if (pTO !== null) {
+                clearTimeout(pTO);
+                pTO = null;
+            }
+
+            var t = $(this);
+
+            pTO = setTimeout(function() {
+                var validator = /^\d+$/;
+
+                var fg = t.closest('.form-group');
+
+                fg.removeClass('input-invalid');
+                fg.find('.error_message').text('');
+
+                if (!validator.test(t.val())) {
+                    fg.addClass('input-invalid');
+                    fg.find('.error_message').text('Prosimy podać prawidłowy nr telefonu (tylko cyfry)');
+                }
+            }, 500);
+        });
+
+        $(document).on('click', '.btn_with_loader', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            e.stopImmediatePropagation();
+        });
+    </script>
+</body>
+</html>

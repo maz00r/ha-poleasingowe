@@ -1,0 +1,15 @@
+# www.robotstxt.org/
+
+# Allow crawling of all content
+User-agent: *
+Disallow:/pl/auctions/calc-commission/*
+Disallow:/en/auctions/calc-commission/*
+Disallow:/pl/bidder-panel/auctions/details/*/all_offers
+Disallow:/en/bidder-panel/auctions/details/*/all_offers
+Disallow:/files/*
+Disallow:/pl/files/*
+Disallow:/en/files/*
+Disallow:/pl/bidder-panel/*
+Disallow:/en/bidder-panel/*
+
+Disallow:/autodna/*
