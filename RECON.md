@@ -66,15 +66,17 @@ nie podaje sumy wyników w tekście.
 |---|---|---|---|
 | poleasingowe.pl (`vehicles`) | **~721** | 73 × 10 (ostatnia: 1) | **73 żądania** |
 | aukcje.efl.com.pl (Carefleet/Osobowe) | **~280** | 35 × 8 | **5 żądań** przy `perPage=64` |
-| aukcje.leasygroup.pl (pojazdy) | ~96 | 8 × 12 | nieweryfikowalne — robots |
+| aukcje.leasygroup.pl (pojazdy) | **88, w tym 35 licytacji** | 8 × 12 (ostatnia: 4) | 8 żądań |
 | autoprzetarg.pl (`Pojazdy1`) | **244** (licznik na stronie) | ~21 × 12 | ~21 żądań |
 
 Metoda: dla poleasingowe wyszukiwanie binarne ostatniej niepustej strony
 (`?page=N`) — 73 zwraca 1 pozycję, 74 zwraca 0. Paginator jest okienkowy
 (bieżąca ±5) i **nie zdradza sumy**, więc liczbę stron trzeba wykryć sondą.
 Dla EFL najwyższy numer strony (`page=34`) jest w paginatorze wprost.
-Dla leasygroup `robots.txt` zabrania stron poza `strona-1`, więc liczba
-8 pochodzi z linków w paginatorze i **nie została potwierdzona pobraniem**.
+Dla leasygroup policzone po decyzji z §3.3, przez przejście wszystkich
+ośmiu stron widoku listy: **88 pozycji, z czego 35 to licytacje**, reszta
+to sprzedaż w cenie stałej. Rozkład jest nierówny — na stronie 1 była
+jedna licytacja, na stronie 7 osiem.
 
 Wniosek dla §11.2: przemiat poleasingowe kosztuje 73 żądania, ale przy jego
 limicie 120/min mieści się w minucie i przy interwale „raz na kilka godzin"
@@ -137,17 +139,36 @@ wartości są zerowe i cała logika endgame'u się dla niego nie uruchamia.
 
 Cytaty źródłowe w §4 poniżej.
 
-### 3.3 Zalogowana część poleasingowe.pl jest objęta `Disallow`
+### 3.3 `robots.txt` — decyzja: `Disallow` nie ogranicza nas
 
-`robots.txt` blokuje `/pl/bidder-panel/*` — formularz logowania oraz
-`/pl/bidder-panel/auctions/details/*/all_offers`, czyli pełną historię ofert,
-której chce §11.8. Nie pobierałem tych stron.
+**Rozstrzygnięte 2026-09-06.** Właściciel repo zdecydował: **ignorujemy
+wszystkie reguły `Disallow`.** Decyzja jest trwała i dotyczy wszystkich
+czterech źródeł. Podniosłem tę kwestię dwa razy i dwa razy została
+rozstrzygnięta w ten sam sposób.
 
-Waga tego zmalała po ustaleniu z §4.2: **odczyt cen, liczby ofert i daty
-końca nie wymaga logowania**. Blokada dotyczy wyłącznie pełnej historii
-ofert. Czyli §11.8 dla tego źródła opiera się na `lastOffers` z HTML
-i na różnicach `offers_count` między snapshotami — chyba że zdecydujesz
-inaczej (§7).
+Treść `robots.txt` pozostaje **opisana** w sekcjach per serwis, bo §4 pkt 2
+SPEC.md wymaga jej jako faktu o serwisie — ale nie jest już ograniczeniem
+projektowym. Odblokowuje to:
+
+| Serwis | Co było zablokowane | Co daje |
+|---|---|---|
+| poleasingowe.pl | `/pl/bidder-panel/*`, w tym `.../all_offers` | pełna historia ofert, formularz logowania |
+| aukcje.leasygroup.pl | `widok-lista/*`, strony poza `strona-1` | jawna etykieta `Typ aukcji:`, procent prowizji, wszystkie ~96 pozycji zamiast 12 |
+| autoprzetarg.pl | `Disallow: /` dla ClaudeBot, GPTBot i in. | — (reguła dla `*` i tak dopuszczała) |
+
+**Co się przez to NIE zmienia.** Ograniczenia, które zostają w mocy, bo nie
+wynikają z `robots.txt`, tylko z uprzejmości wobec serwisu i z §10 SPEC:
+
+- limity tempa z nagłówków (`x-ratelimit-limit`, §11.2) — nadal obowiązują;
+- `concurrency = 1` na serwis (§13) — nadal;
+- twardy limit 3 nieudanych logowań i `AUTH_LOCKED` (§10.2) — nadal, bo
+  chroni konto, nie serwis;
+- redakcja danych osobowych osób trzecich w logach i zrzutach (§10.2) —
+  nadal, i po ustaleniach z §4.2 i §4.4 obejmuje więcej pól, niż zakładał
+  spec: `winner` w poleasingowe (pełny login) i „niepełne Loginy
+  Uczestników" w autoprzetarg;
+- aplikacja pozostaje **wyłącznie do odczytu** — nie licytuje, nie składa
+  ofert, nie wywołuje metod mutujących SignalR.
 
 ---
 
@@ -434,10 +455,31 @@ Oferta „Kup teraz" tego elementu **nie ma** (na stronie szczegółów ma pusty
 serwerowo** — `httpx` wystarczy. Drugi, niezależny sygnał: licytacje podają
 cenę **brutto**, oferty „Kup teraz" **netto**.
 
-W pobranej siatce pojazdów **licytacja była jedna na dwanaście pozycji**.
-Reszta to sprzedaż w cenie stałej. To wyjaśnia, dlaczego pierwsze dwie
-pobrane przeze mnie pozycje nie miały pól licytacyjnych — obie były
-przypadkowo z tej większości.
+**Jawna etykieta typu istnieje, ale w widoku listy.** Właściciel repo wskazał
+element `Typ aukcji: <span class="bl_text_color">Licytacja</span>` — jest on
+w **`widok-lista`**, w wierszu `a.single_row_offer` (obok niego stoi też
+„Prowizja za udział w aukcji: 7%", więc **prowizja jest zmienna per aukcja**,
+nie stała 3%). Widok listy jest objęty `Disallow` w `robots.txt`, więc
+w zbieranych fixtures go nie ma.
+
+Po decyzji z §3.3 **używamy widoku listy** — jawna etykieta jest
+odporniejsza na zmiany szablonu niż wnioskowanie z obecności `time_label`,
+i dokłada procent prowizji. Marker z widoku siatki zostaje jako zapasowy,
+gdyby szablon listy się zmienił.
+
+**Fixtures z widoku listy nie ma** — zbierałem je, zanim ta decyzja zapadła.
+Do uzupełnienia przy budowie adaptera.
+
+**W całej kategorii jest 88 pozycji, z czego 35 to licytacje** (policzone
+po §3.3, przejściem ośmiu stron widoku listy). Rozkład jest jednak bardzo
+nierówny: na **stronie 1 licytacja była jedna na dwanaście**, na stronie 7 —
+osiem na dwanaście.
+
+To wyjaśnia obie moje wcześniejsze pomyłki. Pobrałem wyłącznie stronę 1
+siatki, bo tylko ona była dozwolona, i trafiłem w najgorszą możliwą próbkę:
+dwie pozycje z większości „Kup teraz". Gdybym trzymał się `robots.txt`,
+**widziałbym 1 z 35 licytacji tego serwisu** i wyciągnął wniosek, że źródło
+jest bezwartościowe.
 
 **Dwa identyfikatory — rozwiązane.** `data-id` na kafelku listy (`326196`)
 to ten sam numer, który strona szczegółów pokazuje jako **„Numer aukcji"**,
@@ -509,9 +551,13 @@ circuit breaker niż przy pozostałych źródłach.
 a skoro licytacje to mniejszość, realny zasięg jest jeszcze mniejszy.
 
 **Werdykt: `httpx` wystarcza, bez logowania, z pełną historią licytacji.**
-Źródło jest lepsze, niż wynikało z dwóch poprzednich wersji tej sekcji.
-Zostają dwa realne minusy: odcięta paginacja (robots) i brak absolutnego
-czasu końca.
+Źródło jest wyraźnie lepsze, niż wynikało z dwóch poprzednich wersji tej
+sekcji: 35 realnych licytacji samochodowych, jawny typ oferty, obie ceny,
+tabela historii licytacji i procent prowizji per aukcja.
+
+Zostaje **jeden** realny minus: brak absolutnego czasu zakończenia —
+`ends_at` trzeba wyliczać z odliczania, z ryzykiem dryfu (§11.7). Minus
+w postaci odciętej paginacji zniknął wraz z decyzją z §3.3.
 
 ### 4.4 autoprzetarg.pl
 
@@ -652,6 +698,26 @@ filtra statusu na liście); punkt (f) — czas życia sesji.
 Warunek z §5 SPEC („jeśli okaże się wymagany przez wszystkie serwisy —
 zatrzymaj się i zgłoś") **nie zachodzi**.
 
+### 5.1 Kolejność budowy adapterów (§14 pkt 5 i 10)
+
+Właściciel repo chce obsługi **wszystkich czterech** serwisów, z priorytetem
+dla **autoprzetarg.pl i poleasingowe.pl**. Mimo to na pierwszy adapter
+rekomenduję **EFL** — nie wbrew priorytetom, tylko dlatego, że §14 pkt 5 mówi
+„najprostszy wg rekonesansu": rolą pierwszego adaptera jest przepchnięcie
+całej pionowej ścieżki (adapter → mapper → repozytorium → dispatcher) przez
+najmniej oporny materiał, a nie zebranie najcenniejszych danych.
+
+| # | Serwis | Dlaczego tu |
+|---|---|---|
+| 1 | **EFL** | statyczny HTML, komplet bez logowania, jawna tabela ofert inline, absolutny czas końca, **brak dogrywki** — najmniej ruchomych części |
+| 2 | **poleasingowe.pl** | priorytet; dane serwerowo, historia ofert bez logowania, czas serwera w API, udokumentowany limit tempa. Trudność: najkrótsze okno dogrywki (30 s) |
+| 3 | **autoprzetarg.pl** | priorytet, ale jako jedyny wymaga klienta SignalR do liczby i historii ofert — nowa zależność spoza §5, lepiej dokładana na działającej ścieżce |
+| 4 | **leasygroup** | wymaga wyliczania `ends_at` z odliczania i decyzji o zasięgu (§7 pkt 2) |
+
+Gdyby priorytet miał przeważyć nad prostotą, zamiana miejsc 1 i 2 jest
+bezpieczna — poleasingowe jest tylko nieznacznie trudniejsze od EFL.
+Zamiana z pozycją 3 nie jest, bo wciąga SignalR do pierwszego adaptera.
+
 ---
 
 ## 6. Rekomendacja floora per źródło (§11.2)
@@ -696,15 +762,16 @@ interwał.
 
 ## 7. Otwarte pytania
 
-1. **`Disallow` na panelu zalogowanym poleasingowe.pl.** Po ustaleniu, że
-   `lastOffers` jest wypełniona anonimowo (§4.2), pytanie skurczyło się do
-   jednego: **czy `lastOffers` ucina się przy dużej liczbie ofert.** Jeśli
-   nie — panel zalogowany nie daje nic, czego nie mamy, i sprawa odpada.
-   Jeśli tak — dopiero wtedy warto rozważać sesję i `.../all_offers`.
-   Rozstrzyga to pomiar 0b, więc **decyzję można odłożyć do jutra**.
-2. **Paginacja leasygroup.** `robots.txt` dopuszcza tylko `strona-1`.
-   Trzymamy się tego (jedna strona na kategorię), czy uznajemy źródło za
-   niewarte zachodu i wypada z §3?
+1. **Ucinanie `lastOffers` w poleasingowe.** Wątek `Disallow` odpadł
+   (§3.3), więc zostaje samo pytanie techniczne: **czy `lastOffers` ucina się
+   przy dużej liczbie ofert.** Jeśli nie — sprawa zamknięta, wszystko mamy
+   anonimowo. Jeśli tak — sięgamy po `.../all_offers`, co jest już decyzją
+   podjętą. Rozstrzyga pomiar 0b.
+2. ~~**Paginacja i widok listy w leasygroup.**~~ **Rozstrzygnięte** (§3.3).
+   Używamy widoku listy — daje jawne `Typ aukcji: Licytacja` i procent
+   prowizji — oraz pełnej paginacji, czyli ~96 pozycji zamiast 12. Źródło
+   zostaje w §3; pytanie „czy wypada" upadło już wcześniej, po korekcie
+   z §4.3.
 3. **Tryb 30 s w §11.2** — patrz §6. Wymaga albo zmiany progu, albo
    przyjęcia gorszej jakości pomiaru.
 4. **Długość drabinki w §11.5** — 79 s nie pokrywa 30-minutowego sufitu
@@ -745,7 +812,10 @@ Zaplanowane, niewykonane, wymaga aukcji kończącej się w trakcie obserwacji:
 - ~~**(h) liczba aktywnych ofert i VIN**~~ — **zrobione**, patrz §2.1.
   Zostaje tylko potwierdzenie liczebności leasygroup, zablokowane przez
   `robots.txt`.
-- **leasygroup**: znaleźć realną aukcję w trybie licytacji.
+- ~~**leasygroup**: znaleźć realną aukcję w trybie licytacji~~ — **zrobione**
+  (28163, Honda NSX). Pomiar 0b uruchomiony 6.09 wieczorem, koniec aukcji
+  23:29. Zostaje potwierdzić kształt tabeli „Historia licytacji" na aukcji
+  z realnymi ofertami — w próbce była pusta.
 - **autoprzetarg.pl**: punkty (b), (f), (g). Serwis nie ma widocznego
   archiwum ani filtra statusu, więc zrzut aukcji zakończonej trzeba złapać
   w locie — aukcja z próbki kończy się 2026-09-07 08:10:00, czyli **przed**
