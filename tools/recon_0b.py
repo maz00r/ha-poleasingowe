@@ -93,7 +93,25 @@ def parse_efl(html: str) -> dict[str, object]:
     return out
 
 
-PARSERS = {"poleasingowe": parse_poleasingowe, "efl": parse_efl}
+def parse_autoprzetarg(html: str) -> dict[str, object]:
+    out: dict[str, object] = {}
+    m = re.search(r'id="auctionEndDate"[^>]*value="([^"]*)"', html)
+    out["end_date"] = m.group(1).strip() if m else None
+    m = re.search(r"Aktualna cena aukcji:(?:\s*<[^>]*>)*\s*([\d\s.,]+)\s*zł", html)
+    out["current_price"] = m.group(1).strip() if m else None
+    # Liczba i historia ofert NIE sa dostepne bez zalogowania (RECON.md §4.4);
+    # notujemy wiec sygnaly posrednie, ktore moga sie zmienic po zakonczeniu.
+    out["login_prompt"] = "Zaloguj się, aby złożyć ofertę" in html
+    out["needs_acceptance"] = "OFERTA WYMAGA AKCEPTACJI" in html
+    out["has_signalr"] = "signalR" in html or "signalr" in html
+    return out
+
+
+PARSERS = {
+    "poleasingowe": parse_poleasingowe,
+    "efl": parse_efl,
+    "autoprzetarg": parse_autoprzetarg,
+}
 
 
 def sample(url: str, source: str, outdir: pathlib.Path, tag: str) -> dict[str, object]:
@@ -124,7 +142,7 @@ def parse_end(source: str, rec: dict[str, object]) -> dt.datetime | None:
     raw = rec.get("end_date")
     if not isinstance(raw, str):
         return None
-    for fmt in ("%Y-%m-%d %H:%M:%S", "%d.%m.%Y %H:%M:%S"):
+    for fmt in ("%Y-%m-%d %H:%M:%S", "%d.%m.%Y %H:%M:%S", "%Y-%m-%d %H:%M"):
         try:
             return dt.datetime.strptime(raw, fmt).replace(tzinfo=TZ)
         except ValueError:
