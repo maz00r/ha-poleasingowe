@@ -23,12 +23,13 @@ Kolejność etapów jest w `SPEC.md` §14. Zrobione:
 - **ETAP 3** — `domain/`, `persistence/`, migracja `001_init.sql`, repozytoria
   i testy na lokalnym PostgreSQL 17.
 - **ETAP 4** — migracja `002_reporting.sql`: cztery widoki i `GRANT SELECT`
-  dla `grafana_ro`. ← tutaj jesteśmy. Zostaje ręczne dodanie drugiego źródła
-  danych w Grafanie — instrukcja w [`poleasingowe/DOCS.md`](poleasingowe/DOCS.md).
+  dla `grafana_ro`. Zostaje ręczne dodanie drugiego źródła danych w Grafanie —
+  instrukcja w [`poleasingowe/DOCS.md`](poleasingowe/DOCS.md).
+- **ETAP 5** — adapter EFL: parser, mapper, klient i rejestr, plus testy
+  na fixtures. ← tutaj jesteśmy.
 
-Następny: **ETAP 5** — jeden adapter end-to-end. Wg `RECON.md` §5.1 zaczynamy
-od EFL, bo jest najprostszy: statyczny HTML, komplet danych bez logowania,
-jawna tabela ofert i brak dogrywki.
+Następny: **ETAP 6** — opakowanie add-onu: Dockerfile, `config.yaml`, s6,
+Ingress, AppArmor, i weryfikacja że wstaje na HAOS w budżecie z §1.1.
 
 ## Środowisko
 

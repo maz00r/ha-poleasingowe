@@ -16,6 +16,8 @@ dependencies = [
   # zamiast kompilowac, bierzemy wersje, ktora kolo ma.
   "psycopg[binary]==3.3.5",
   "psycopg-pool==3.3.1",
+  "httpx[http2]==0.28.1",
+  "selectolax==0.4.11",
 ]
 
 [project.optional-dependencies]

@@ -1,14 +1,15 @@
 """Porty — kontrakty, które implementuje `infrastructure` (SPEC.md §6.2).
 
-Porty źródeł (`AuctionSource`, `AuthenticatedSource`) powstaną razem
-z pierwszym adapterem — SPEC.md §6.3 zabrania interfejsów „na wypadek gdyby
-kiedyś", więc nie definiujemy ich, dopóki nie ma implementacji.
+`AuthenticatedSource` powstanie razem z pierwszym adapterem wymagającym
+logowania (SPEC.md §10.1) — §6.3 zabrania interfejsów „na wypadek gdyby
+kiedyś", więc nie definiujemy go, dopóki nie ma implementacji.
 """
 
 from __future__ import annotations
 
 import datetime as dt
 from collections.abc import Sequence
+from dataclasses import dataclass
 from typing import Protocol, runtime_checkable
 
 from app.domain.entities import (
@@ -86,3 +87,41 @@ class UnitOfWork(Protocol):
 
     async def __aenter__(self) -> UnitOfWork: ...
     async def __aexit__(self, *wyjatek: object) -> None: ...
+
+
+@dataclass(slots=True, frozen=True)
+class SurowaOferta:
+    """Surowa pozycja z serwisu, przed tłumaczeniem na model domenowy.
+
+    Warstwa antykorupcyjna (SPEC.md §6.2): dziwactwa serwisu żyją tutaj
+    i w `mapper.py` adaptera, i nie wyciekają dalej.
+    """
+
+    external_id: str
+    url: str
+    pola: dict[str, str]
+    """Pola tak, jak podał je serwis — bez interpretacji i bez konwersji."""
+
+
+class AuctionSource(Protocol):
+    """Port źródła (SPEC.md §6.2 — Strategy + Protocol).
+
+    Adaptery serwisów publicznych implementują tylko to. §10.1 zabrania
+    zmuszania ich do pustego `login()`.
+    """
+
+    key: str
+
+    async def przemiec_liste(self) -> Sequence[SurowaOferta]:
+        """Zbiorczy przemiat listy — główna oszczędność systemu (§11.2)."""
+        ...
+
+    async def pobierz_szczegoly(self, external_id: str) -> SurowaOferta:
+        """Pojedyncza aukcja. Wywoływane tylko dla obserwowanych (§11.2)."""
+        ...
+
+    def na_aukcje(
+        self, surowa: SurowaOferta, source_id: int, teraz: dt.datetime
+    ) -> Auction:
+        """Tłumaczy surowy kształt na model domenowy (anti-corruption layer)."""
+        ...
