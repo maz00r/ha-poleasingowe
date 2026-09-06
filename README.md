@@ -19,10 +19,14 @@ Kolejność etapów jest w `SPEC.md` §14. Zrobione:
 
 - **ETAP 0** — rekonesans czterech źródeł, `RECON.md`, fixtures. Zaakceptowany.
   Pomiary czasowe (0b) w toku.
-- **ETAP 2** — szkielet warstw, import-linter, ruff, mypy, CI. ← tutaj jesteśmy.
+- **ETAP 2** — szkielet warstw, import-linter, ruff, mypy, CI.
+- **ETAP 3** — `domain/`, `persistence/`, migracja `001_init.sql`, repozytoria
+  i testy na lokalnym PostgreSQL 17. ← tutaj jesteśmy.
 
-Następny: **ETAP 3** — `domain/`, `persistence/`, migracje i testy repozytoriów
-na lokalnym PostgreSQL 17.
+Następny: **ETAP 4** — schemat `reporting`: widoki i `GRANT SELECT` dla
+`grafana_ro`, plus drugie źródło danych w Grafanie. Robione **zanim powstaną
+dane** — pusty widok, który działa, jest lepszy niż dashboard budowany na
+danych produkcyjnych.
 
 ## Środowisko
 

@@ -14,6 +14,32 @@ jobs:
   jakosc:
     name: ruff / mypy / import-linter / pytest
     runs-on: ubuntu-latest
+
+    # SPEC.md §13 — testy repozytoriow chodza na PostgreSQL 17 i tworza wlasne
+    # bazy tymczasowe. W CI to kontener uslugowy, nigdy zadna realna instancja.
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: poleasingowe_app
+          POSTGRES_PASSWORD: poleasingowe_test
+          POSTGRES_DB: postgres
+          # Ten sam locale i encoding co na serwerze docelowym (SPEC.md §0),
+          # zeby sortowanie zachowywalo sie w testach jak na produkcji.
+          POSTGRES_INITDB_ARGS: "--locale=en_US.UTF-8 --encoding=UTF8"
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U poleasingowe_app"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      POLEASINGOWE_TEST_HOST: localhost
+      POLEASINGOWE_TEST_USER: poleasingowe_app
+      POLEASINGOWE_TEST_PASSWORD: poleasingowe_test
+
     steps:
       - uses: actions/checkout@v4
 
@@ -44,8 +70,29 @@ jobs:
         # ktory realnie powstrzymuje rozjazd architektury.
         run: .venv/bin/lint-imports
 
+      - name: Rola aplikacji moze tworzyc bazy tymczasowe
+        # Na produkcji tego uprawnienia NIE MA — tam baza jest tworzona recznie,
+        # a add-on nigdy nie tworzy ani nie usuwa baz (SPEC.md §2 pkt 1).
+        # Tutaj jest potrzebne wylacznie testom.
+        env:
+          PGPASSWORD: poleasingowe_test
+        run: |
+          psql -h localhost -U poleasingowe_app -d postgres \
+            -c "ALTER ROLE poleasingowe_app CREATEDB"
+
       - name: pytest
         run: .venv/bin/pytest
+
+      - name: Testy integracyjne faktycznie sie wykonaly
+        # Fixture pomija je po cichu, gdy nie ma bazy. W CI brak bazy to blad,
+        # a nie powod do zielonego builda.
+        run: |
+          .venv/bin/pytest poleasingowe/tests/integration -q \
+            | tee /tmp/wynik.txt
+          if grep -q "skipped" /tmp/wynik.txt; then
+            echo "STOP: testy integracyjne zostaly pominiete — brak bazy w CI"
+            exit 1
+          fi
 
   dane-osobowe:
     name: brak fixtures z sesji zalogowanej

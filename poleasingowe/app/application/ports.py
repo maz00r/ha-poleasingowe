@@ -1,15 +1,24 @@
 """Porty — kontrakty, które implementuje `infrastructure` (SPEC.md §6.2).
 
-Na tym etapie jest tu wyłącznie `Clock`. Porty źródeł (`AuctionSource`,
-`AuthenticatedSource`) i repozytoriów odwołują się do encji domenowych,
-których jeszcze nie ma — powstaną razem z nimi w kroku 3 z SPEC.md §14.
-Zgodnie z §6.3 nie zakładamy tu interfejsów „na wypadek gdyby kiedyś".
+Porty źródeł (`AuctionSource`, `AuthenticatedSource`) powstaną razem
+z pierwszym adapterem — SPEC.md §6.3 zabrania interfejsów „na wypadek gdyby
+kiedyś", więc nie definiujemy ich, dopóki nie ma implementacji.
 """
 
 from __future__ import annotations
 
 import datetime as dt
+from collections.abc import Sequence
 from typing import Protocol, runtime_checkable
+
+from app.domain.entities import (
+    Auction,
+    PriceSnapshot,
+    RunLog,
+    Source,
+    WatchlistEntry,
+)
+from app.domain.value_objects import Vin
 
 
 @runtime_checkable
@@ -25,3 +34,55 @@ class Clock(Protocol):
     """
 
     def now(self) -> dt.datetime: ...
+
+
+class SourceRepository(Protocol):
+    """SPEC.md §6.2 — SQL wyłącznie w `infrastructure/persistence/`."""
+
+    async def zapisz(self, source: Source) -> Source: ...
+    async def po_kluczu(self, key: str) -> Source | None: ...
+    async def wlaczone(self) -> Sequence[Source]: ...
+
+
+class AuctionRepository(Protocol):
+    async def zapisz(self, auction: Auction) -> Auction: ...
+    async def po_kluczu_naturalnym(
+        self, source_id: int, external_id: str
+    ) -> Auction | None: ...
+    async def do_odpytu(self, teraz: dt.datetime, limit: int) -> Sequence[Auction]: ...
+    async def po_vin(self, vin: Vin) -> Sequence[Auction]: ...
+    async def odnotuj_widziana(self, auction_id: int, teraz: dt.datetime) -> None: ...
+
+
+class SnapshotRepository(Protocol):
+    async def zapisz_jesli_zmienil_sie(
+        self, snapshot: PriceSnapshot
+    ) -> PriceSnapshot | None: ...
+    async def historia(self, auction_id: int) -> Sequence[PriceSnapshot]: ...
+
+
+class WatchlistRepository(Protocol):
+    async def dodaj(self, wpis: WatchlistEntry) -> WatchlistEntry: ...
+    async def usun(self, auction_id: int) -> bool: ...
+    async def obserwowana(self, auction_id: int) -> bool: ...
+
+
+class RunLogRepository(Protocol):
+    async def rozpocznij(self, wpis: RunLog) -> RunLog: ...
+    async def zakoncz(self, wpis: RunLog) -> RunLog: ...
+
+
+class UnitOfWork(Protocol):
+    """Jedna transakcja na use case, nie na zapytanie (SPEC.md §6.2).
+
+    Commit na wyjściu, rollback na wyjątku.
+    """
+
+    source: SourceRepository
+    auction: AuctionRepository
+    snapshot: SnapshotRepository
+    watchlist: WatchlistRepository
+    run_log: RunLogRepository
+
+    async def __aenter__(self) -> UnitOfWork: ...
+    async def __aexit__(self, *wyjatek: object) -> None: ...

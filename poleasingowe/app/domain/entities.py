@@ -1,0 +1,195 @@
+"""Encje domenowe (SPEC.md §8.1).
+
+Wszystkie jako `@dataclass(slots=True, frozen=True)` — SPEC.md §5 zabrania
+używania do tego pydantica. Czas zawsze `timestamptz` w UTC; konwersja do
+strefy lokalnej wyłącznie w warstwie widoku (§8.2).
+"""
+
+from __future__ import annotations
+
+import datetime as dt
+from dataclasses import dataclass, field
+from typing import Any
+
+from app.domain.enums import AuctionStatus, AuthState, FinalPriceState, PollTier
+from app.domain.value_objects import Mileage, Money, Vin
+
+
+def _wymagaj_utc(nazwa: str, wartosc: dt.datetime | None) -> None:
+    """SPEC.md §8.2 — wszystko zapisywane w UTC, nigdy naiwnie."""
+    if wartosc is None:
+        return
+    if wartosc.tzinfo is None or wartosc.utcoffset() is None:
+        raise ValueError(f"{nazwa}: czas musi być świadomy strefy (SPEC.md §8.2)")
+
+
+@dataclass(slots=True, frozen=True)
+class Source:
+    """Serwis aukcyjny wraz z jego regułami tempa i dogrywki.
+
+    Parametry dogrywki są **kolumnami, nie stałymi w kodzie** (SPEC.md §11.2),
+    bo cztery zbadane serwisy mają cztery różne reguły, a jeden nie ma
+    dogrywki wcale (RECON.md §3.2).
+    """
+
+    key: str
+    name: str
+    enabled: bool
+    sweep_interval_seconds: int
+    rate_limit_per_minute: int
+    floor_seconds: int
+    auth_state: AuthState
+    consecutive_auth_failures: int
+    overtime_window_seconds: int
+    """Okno, w którym oferta przedłuża aukcję. 0 = serwis bez dogrywki."""
+    overtime_extension_seconds: int
+    """O ile przedłuża. 0 = serwis bez dogrywki."""
+    overtime_cap_seconds: int | None
+    """Sufit łącznego przedłużenia. `None` = serwis go nie deklaruje."""
+    id: int | None = None
+
+    @property
+    def ma_dogrywke(self) -> bool:
+        return self.overtime_window_seconds > 0 and self.overtime_extension_seconds > 0
+
+
+@dataclass(slots=True, frozen=True)
+class Auction:
+    """Pojedyncza aukcja. Klucz naturalny to `(source_id, external_id)` (§8.3)."""
+
+    source_id: int
+    external_id: str
+    url: str
+    status: AuctionStatus
+    first_seen_at: dt.datetime
+    last_seen_at: dt.datetime
+
+    make: str | None = None
+    model: str | None = None
+    variant: str | None = None
+    year: int | None = None
+    mileage: Mileage | None = None
+    fuel: str | None = None
+    gearbox: str | None = None
+    engine_ccm: int | None = None
+    engine_hp: int | None = None
+    vin: Vin | None = None
+    body: str | None = None
+    color: str | None = None
+    location: str | None = None
+    seller: str | None = None
+
+    price_start: Money | None = None
+    price_current: Money | None = None
+    bid_count: int | None = None
+    bid_increment_raw: str | None = None
+    """Minimalne postąpienie w postaci, w jakiej podał je serwis (§8.2).
+
+    Pole **informacyjne**, bez logiki domenowej: EFL ma progi kwotowe,
+    poleasingowe podaje `instep_price`, autoprzetarg liczy 2% ostatniej
+    oferty (RECON.md §4.4). Nie liczymy z tego niczego.
+    """
+
+    ends_at: dt.datetime | None = None
+    next_poll_at: dt.datetime | None = None
+    poll_tier: PollTier = PollTier.IDLE
+    consecutive_failures: int = 0
+
+    final_price_state: FinalPriceState = FinalPriceState.UNKNOWN
+    last_price_lead_seconds: int | None = None
+    """Sekundy między ostatnią obserwacją z ceną a faktycznym końcem.
+
+    `None` dla `CONFIRMED` — tam pomiar jest z definicji dokładny (§8.2).
+    """
+
+    content_hash: str | None = None
+    raw_json: dict[str, Any] | None = None
+    duplicate_of: int | None = None
+    id: int | None = None
+
+    def __post_init__(self) -> None:
+        for nazwa in ("first_seen_at", "last_seen_at", "ends_at", "next_poll_at"):
+            _wymagaj_utc(nazwa, getattr(self, nazwa))
+        if not self.external_id:
+            raise ValueError("external_id nie może być pusty — to klucz naturalny")
+        if (
+            self.final_price_state is FinalPriceState.CONFIRMED
+            and self.last_price_lead_seconds is not None
+        ):
+            raise ValueError(
+                "last_price_lead_seconds ma być NULL dla CONFIRMED (SPEC.md §8.2)"
+            )
+        if self.bid_count is not None and self.bid_count < 0:
+            raise ValueError(f"bid_count ujemny: {self.bid_count}")
+
+
+@dataclass(slots=True, frozen=True)
+class PriceSnapshot:
+    """Zapis stanu ceny w czasie.
+
+    SPEC.md §8.4: zapisywany **wyłącznie** gdy zmieniła się cena, liczba ofert
+    albo `ends_at`. Odpyt bez zmiany aktualizuje tylko `last_seen_at`.
+    """
+
+    auction_id: int
+    ts: dt.datetime
+    price: Money
+    bid_count: int | None = None
+    ends_at: dt.datetime | None = None
+    bid_gap: int | None = None
+    """Ile ofert przegapiono przed tym snapshotem (SPEC.md §11.8).
+
+    `None` dla **pierwszego** snapshotu aukcji — w chwili pierwszej
+    obserwacji aukcja mogła już mieć oferty, więc `0` byłoby kłamstwem.
+    """
+    id: int | None = None
+
+    def __post_init__(self) -> None:
+        _wymagaj_utc("ts", self.ts)
+        _wymagaj_utc("ends_at", self.ends_at)
+        if self.bid_gap is not None and self.bid_gap < 0:
+            raise ValueError(f"bid_gap ujemny: {self.bid_gap}")
+
+
+@dataclass(slots=True, frozen=True)
+class WatchlistEntry:
+    auction_id: int
+    added_at: dt.datetime
+    note: str | None = None
+    target_price: Money | None = None
+    id: int | None = None
+
+    def __post_init__(self) -> None:
+        _wymagaj_utc("added_at", self.added_at)
+
+
+@dataclass(slots=True, frozen=True)
+class SavedFilter:
+    name: str
+    criteria: dict[str, Any]
+    created_at: dt.datetime
+    id: int | None = None
+
+    def __post_init__(self) -> None:
+        _wymagaj_utc("created_at", self.created_at)
+
+
+@dataclass(slots=True, frozen=True)
+class RunLog:
+    """Przebieg odpytu. SPEC.md §13 — budżet z §1.1 ma być mierzalny."""
+
+    source_id: int
+    started_at: dt.datetime
+    finished_at: dt.datetime | None = None
+    new_count: int = 0
+    changed_count: int = 0
+    error_count: int = 0
+    errors: list[str] = field(default_factory=list)
+    rss_bytes: int | None = None
+    database_bytes: int | None = None
+    notes: str | None = None
+    id: int | None = None
+
+    def __post_init__(self) -> None:
+        _wymagaj_utc("started_at", self.started_at)
+        _wymagaj_utc("finished_at", self.finished_at)

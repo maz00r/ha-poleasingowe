@@ -10,7 +10,13 @@ description = "Add-on Home Assistant zbierający oferty z aukcji poleasingowych"
 # granica i celem sprawdzen. Lokalnie deweloperka idzie na nowszym Pythonie —
 # ruff i mypy i tak weryfikuja zgodnosc z 3.12.
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+  # psycopg-binary 3.2.x nie ma kola dla CPython 3.14 (jest tylko do cp313).
+  # To ta sama klasa problemu, o ktorej mowi SPEC.md §5 przy musllinux —
+  # zamiast kompilowac, bierzemy wersje, ktora kolo ma.
+  "psycopg[binary]==3.3.5",
+  "psycopg-pool==3.3.1",
+]
 
 [project.optional-dependencies]
 # Runtime doinstalowujemy dopiero w kroku, ktory go potrzebuje (SPEC.md §14).
