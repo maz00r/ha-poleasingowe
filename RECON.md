@@ -39,12 +39,13 @@ dysk 44 GB. Maszyna dzielona z HA (~1,8 GB), PostgreSQL, Grafaną i TeslaMate.
 | | poleasingowe.pl | aukcje.efl.com.pl | aukcje.leasygroup.pl | autoprzetarg.pl |
 |---|---|---|---|---|
 | Stack | Laravel + openresty | ASP.NET MVC | PHP + WAF F5 | ASP.NET MVC + Cloudflare |
-| Lista bez logowania | **tak, z ceną** | **tak, z ceną** | tak | nie sprawdzone |
-| Szczegóły bez logowania | **cena NIE** (JS z API) | **tak, pełne** | tak | nie sprawdzone |
-| Cena aktualna | lista: tak / detal: po zalogowaniu | **tak** | tylko „Cena:" (stała) | nie sprawdzone |
-| Liczba ofert | sortowanie tak, wartość po zalogowaniu | **tak (`Ofert: N`)** | nie znaleziono | nie sprawdzone |
-| Historia ofert | **`topoffers` w API, po zalogowaniu** | **inline w HTML, jawna** | nie znaleziono | nie sprawdzone |
-| Render | **JS (detal)** | **statyczny** | statyczny | nie sprawdzone |
+| Lista bez logowania | **tak, z ceną i liczbą ofert** | **tak, z ceną** | tak | nie sprawdzone |
+| Szczegóły bez logowania | **tak, pełne** (blok Alpine) | **tak, pełne** | tak | nie sprawdzone |
+| Cena aktualna | **tak** (netto, brutto, EUR) | **tak** | tylko „Cena:" (stała) | nie sprawdzone |
+| Liczba ofert | **tak** (`offers_count`, `bidders_count`) | **tak (`Ofert: N`)** | nie znaleziono | nie sprawdzone |
+| Historia ofert | `lastOffers` w HTML / `topoffers` w API | **inline w HTML, jawna** | nie znaleziono | nie sprawdzone |
+| Min. postąpienie | **`instep_price` wprost** | z regulaminu (10/100/200 zł) | nie znaleziono | nie sprawdzone |
+| Render | dane serwerowe, JS tylko odświeża | **statyczny** | statyczny | nie sprawdzone |
 | API JSON | **`POST /pl/auctions/bid-details/<id>`** | brak | brak (jQuery ajax, nieustalone) | nie sprawdzone |
 | `ETag`/`Last-Modified` | **brak** | **brak** | **brak** | nie sprawdzone |
 | `If-Modified-Since` → 304 | **nie, 200** | **nie, 200** | **nie, 200** | nie sprawdzone |
@@ -54,7 +55,7 @@ dysk 44 GB. Maszyna dzielona z HA (~1,8 GB), PostgreSQL, Grafaną i TeslaMate.
 | Czas do końca | JS countdown + API `end_date` | **absolutny timestamp w HTML** | nie znaleziono | nie sprawdzone |
 | Czas serwera | **`sdt.date` w API, bez logowania** | brak | brak | nie sprawdzone |
 | VIN publiczny | **tak** | **tak** | **tak** | nie sprawdzone |
-| Werdykt | `httpx` + API, logowanie konieczne | **`httpx`, bez przeglądarki** | `httpx`, ale mało danych | nie sprawdzone |
+| Werdykt | **`httpx`, bez logowania do odczytu** | **`httpx`, bez przeglądarki** | `httpx`, ale mało danych | nie sprawdzone |
 
 ---
 
@@ -105,13 +106,17 @@ wartości są zerowe i cała logika endgame'u się dla niego nie uruchamia.
 
 Cytaty źródłowe w §4 poniżej.
 
-### 3.3 Cała zalogowana część poleasingowe.pl jest objęta `Disallow`
+### 3.3 Zalogowana część poleasingowe.pl jest objęta `Disallow`
 
-`robots.txt` blokuje `/pl/bidder-panel/*` — czyli **formularz logowania**
-oraz `/pl/bidder-panel/auctions/details/*/all_offers`, a więc dokładnie
-pełną historię ofert, której potrzebuje §11.8. Nie pobierałem tych stron.
+`robots.txt` blokuje `/pl/bidder-panel/*` — formularz logowania oraz
+`/pl/bidder-panel/auctions/details/*/all_offers`, czyli pełną historię ofert,
+której chce §11.8. Nie pobierałem tych stron.
 
-To wymaga Twojej decyzji przed ETAPEM 0b — patrz §7.
+Waga tego zmalała po ustaleniu z §4.2: **odczyt cen, liczby ofert i daty
+końca nie wymaga logowania**. Blokada dotyczy wyłącznie pełnej historii
+ofert. Czyli §11.8 dla tego źródła opiera się na `lastOffers` z HTML
+i na różnicach `offers_count` między snapshotami — chyba że zdecydujesz
+inaczej (§7).
 
 ---
 
@@ -189,7 +194,7 @@ na wykrywanie nowych aukcji, **niezweryfikowany**.
 
 **Werdykt: `httpx`, bez przeglądarki.** Rekomendacja na §14 pkt 5.
 
-### 4.2 poleasingowe.pl — najbogatsze dane, ale za logowaniem
+### 4.2 poleasingowe.pl — najbogatsze dane, dostępne bez logowania
 
 **URL-e.** Rozdzielnik kategorii: `/pl/auctions`. Lista pojazdów:
 `/pl/auctions/list/pub/all/vehicles` (dalsze podkategorie przez
@@ -232,20 +237,50 @@ odpowiedź z przekierowaniem (`response.redirected`) oznacza martwą sesję lub
 zły CSRF; strona wywołuje wtedy `showSessionExpiredOnce()`. Adapter powinien
 użyć tego samego kryterium plus `auth: false` w JSON-ie.
 
-**Co widać bez logowania.** Lista pokazuje cenę: „Aktualna cena 110 600 PLN"
-(`fixtures/poleasingowe/lista-vehicles-01.html`). Kafelek zawiera też rok,
-paliwo, przebieg i badge „AUKCJA Z PROWIZJĄ". Na stronie szczegółów etykieta
-„Aktualna cena" jest, ale **wartość jest pusta** — dopełnia ją JS z API.
-VIN jest w HTML szczegółów (`TMBJH7NP0P7055920`).
+**Co widać bez logowania — komplet.** Kafelek listy
+(`fixtures/poleasingowe/lista-vehicles-01.html`) zawiera: badge „AUKCJA
+Z PROWIZJĄ", tytuł, rok, paliwo, przebieg, moc, nr rejestracyjny,
+lokalizację, „Aktualna cena 110 600 PLN", „Najniższa cena z 30 dni"
+oraz **„Ilość ofert: 0"**. Daty zakończenia na liście **nie ma w żadnej
+postaci** — ani tekstem, ani w `data-*`, ani jako licznik.
 
-**Liczba ofert.** Na liście dostępna jako **kryterium sortowania**
-(„Liczba ofert rosnąco/malejąco"), ale **nie znalazłem jej jako wartości
-per pozycja** — wcześniejsze trafienia w grep pochodziły z rozwijanej listy
-sortowania, nie z kafelków. Wartość per aukcja: przez API, po zalogowaniu.
+Strona szczegółów renderuje etykietę „Aktualna cena" pustą (dopełnia ją JS),
+ale **komplet danych jest serwerowo w HTML**, w obiekcie inicjalizującym
+Alpine.js (`fixtures/poleasingowe/szczegoly-9pmz3459.html`):
 
-**Sortowanie serwerowe**: data zakończenia rosnąco/malejąco, cena wywoławcza
-rosnąco/malejąco, liczba ofert rosnąco/malejąco. Sortowanie po dacie
-zakończenia jest bezpośrednio użyteczne dla dispatchera.
+```js
+auction: { secure_conn: true, current_price: '40 500',
+  current_price_euro: '9 457', current_price_brutto: '49 815',
+  instep_price: 100.00, bidders_count: 0, offers_count: 0,
+  min_offer_price: 40500.00, winner: ' - ', min_price_exceed: false,
+  tillTheEnd: '19 godzin ', auction_pending: true, from_bn: false,
+  lastOffers: [],
+  endDate: moment('2026-09-07 12:00:00').tz("Europe/Warsaw") }
+```
+
+Czyli bez logowania mamy: cenę netto/brutto/EUR, **minimalne postąpienie
+(`instep_price`)**, **minimalną kolejną ofertę (`min_offer_price`, liczbowo)**,
+**liczbę ofert i licytujących**, flagę osiągnięcia ceny minimalnej,
+**absolutną datę końca z jawną strefą `Europe/Warsaw`** oraz listę ofert
+`lastOffers` (pustą przy zerowej liczbie ofert — kształt niepotwierdzony).
+VIN jest w HTML (`TMBJH7NP0P7055920`).
+
+To zmienia werdykt: **logowanie nie jest potrzebne do odczytu.** API
+`bid-details` pozostaje przydatne do odświeżania na żywo i do `topoffers`,
+ale adapter da się napisać bez sesji.
+
+**Aukcje kończą się partiami.** Obie pobrane pozycje mają identyczne
+`endDate` — `2026-09-07 12:00:00`. Przy sortowaniu domyślnym (`dzr`) sugeruje
+to, że serwis zamyka wiele aukcji w tej samej sekundzie. Jeśli to reguła,
+a nie zbieg okoliczności, **kolizje z §11.6 są strukturalne**, nie
+incydentalne, i przy dogrywce 30 s to najgorszy możliwy scenariusz dla
+jednego bucketa. **Do potwierdzenia w 0b.**
+
+**Sortowanie i paginacja serwerowe.** `select#alist-sort` z wartościami:
+`dzr` / `dzm` (data zakończenia rosnąco/malejąco), `cr` / `cm` (cena
+wywoławcza), `or` / `om` (liczba ofert). **Domyślnie `dzr`** — lista bez
+parametrów jest już posortowana po najbliższym końcu, co jest wprost
+użyteczne dla dispatchera. Paginacja: `?page=N`, liczona od 1.
 
 **Dogrywka (punkt a).** Regulamin, „Zakończenie i rozstrzygnięcie Aukcji":
 
@@ -275,9 +310,10 @@ Nie sprawdzałem limitu na `bid-details` — **do zmierzenia w 0b**.
 `Disallow:/pl/bidder-panel/auctions/details/*/all_offers` (pełna historia
 ofert) i `Disallow:/pl/auctions/calc-commission/*`. Patrz §7.
 
-**Werdykt: `httpx` + API JSON.** Przeglądarka niepotrzebna — mimo że detal
-jest renderowany JS-em, dane pochodzą z endpointu, który wołamy wprost.
-Wymaga jednak sesji zalogowanej, więc adapter jest `AuthenticatedSource`.
+**Werdykt: `httpx`, bez przeglądarki i bez logowania do odczytu.**
+Adapter implementuje samo `AuctionSource`. Sesja zalogowana jest opcjonalnym
+rozszerzeniem — daje `topoffers` przez API i pełną historię ofert — ale
+nie jest warunkiem działania.
 
 ### 4.3 aukcje.leasygroup.pl — najsłabszy kandydat
 
@@ -356,10 +392,11 @@ zmierzysz go sam, albo zostanie niewiadomą.
 **Wszystkie trzy zbadane. Playwright nie jest potrzebny.**
 
 - **EFL** — statyczny HTML, komplet danych. Bez zastrzeżeń.
-- **poleasingowe.pl** — detal renderowany JS-em, ale dane pochodzą
-  z endpointu `POST /pl/auctions/bid-details/<id>`, który wołamy wprost
-  `httpx`-em. Potrzebne: ciasteczko `XSRF-TOKEN` przepisane do nagłówka
-  `X-XSRF-Token` i sesja.
+- **poleasingowe.pl** — mimo Alpine.js komplet danych jest serwerowo
+  w HTML (obiekt `auction: {...}`), więc wystarczy `httpx` + parser.
+  Endpoint `POST /pl/auctions/bid-details/<id>` (ciasteczko `XSRF-TOKEN`
+  przepisane do nagłówka `X-XSRF-Token`) jest opcją na odświeżanie na żywo
+  i `topoffers`, nie warunkiem odczytu.
 - **leasygroup** — statyczny HTML.
 
 Warunek z §5 SPEC („jeśli okaże się wymagany przez wszystkie serwisy —
@@ -379,27 +416,40 @@ zatrzymaj się i zgłoś") **nie zachodzi**.
 udokumentowany limit, więc formalnie spełnia warunek z §11.2 na tryb 30 s.
 Ale jego okno dogrywki to **30 s**, więc nawet 30 s daje jedną próbkę na
 okno — tryb 30 s **nie osiąga celu, dla którego został wprowadzony**.
+Istotna zmiana bilansu: skoro odczyt **nie wymaga logowania** (§4.2), ruch
+jest anonimowy, a nie imienny. Ryzyko z §10 — blokada konta za zbyt
+agresywną pętlę — **dla samego odpytywania nie występuje**. Zostaje ryzyko
+limitu HTTP, który serwis sam deklaruje w nagłówku i który sam przekracza:
+jego frontend odpytuje `bid-details` **co 1000 ms**.
+
 Realne opcje:
 
-1. Zejść do ~10–15 s w ostatnich minutach — mieści się w limicie 120/min
-   nawet przy kilku aukcjach, ale łamie zapis §11.2 i wymaga świadomej
-   zgody, bo to ruch imienny z zalogowanej sesji (§10).
+1. Zejść do ~10–15 s w ostatnich minutach dla aukcji obserwowanych.
+   Przy limicie 120/min i `concurrency = 1` (§13) mieści się z dużym
+   zapasem nawet przy kilkunastu aukcjach. Łamie literę §11.2, więc wymaga
+   zmiany zapisu, ale nie naraża konta.
 2. Zaakceptować, że przy tym serwisie łapiemy `LAST_SEEN` zamiast
-   `CONFIRMED` przy szybkiej końcówce, i uczciwie to raportować przez
+   `CONFIRMED` przy szybkiej końcówce, i uczciwie raportować to przez
    `last_price_lead_seconds`.
 
-Rekomenduję **opcję 1 ograniczoną do aukcji obserwowanych**, ale to Twoja
-decyzja — dotyczy Twojego konta.
+Rekomenduję **opcję 1 ograniczoną do aukcji obserwowanych**.
+
+Zastrzeżenie: jeśli potwierdzi się, że poleasingowe zamyka aukcje partiami
+o tej samej sekundzie (§4.2), to przy oknie 30 s i wielu obserwowanych
+pozycjach jeden bucket nie obsłuży wszystkich na czas — §11.6 przestaje być
+przypadkiem brzegowym i staje się normą. To argument, żeby **liczbę
+obserwowanych na tym serwisie ograniczać świadomie**, a nie tylko skracać
+interwał.
 
 ---
 
 ## 7. Otwarte pytania
 
-1. **`Disallow` na panelu zalogowanym poleasingowe.pl.** Cena, oferty
-   i pełna historia (`.../all_offers`) leżą pod `/pl/bidder-panel/*`, objętym
-   `Disallow`. Bez tego obszaru serwis daje tylko cenę z listy. Honorujemy
-   robots i tracimy §11.8 dla tego źródła, czy traktujemy zalogowaną sesję
-   jako ruch użytkownika, nie crawlera?
+1. **`Disallow` na panelu zalogowanym poleasingowe.pl.** Pełna historia
+   ofert (`.../all_offers`) leży pod `/pl/bidder-panel/*`, objętym
+   `Disallow`. Odczyt podstawowy działa bez tego, więc pytanie jest węższe:
+   czy sięgamy po pełną historię ofert (lepsza jakość §11.8), czy zostajemy
+   na `lastOffers` + różnicach `offers_count`?
 2. **Paginacja leasygroup.** `robots.txt` dopuszcza tylko `strona-1`.
    Trzymamy się tego (jedna strona na kategorię), czy uznajemy źródło za
    niewarte zachodu i wypada z §3?
