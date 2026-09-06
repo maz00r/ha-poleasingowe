@@ -19,7 +19,7 @@ dev = [
   "ruff==0.6.9",
   "mypy==1.11.2",
   "import-linter==2.1",
-  "pytest==8.3.3",
+  "pytest==9.1.1",
   "pytest-asyncio==1.4.0",
 ]
 

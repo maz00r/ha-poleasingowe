@@ -38,6 +38,30 @@ Docelowy runtime to **Python 3.12** — tyle ma obraz bazowy Home Assistant
 Lokalnie można pracować na nowszym; `ruff` i `mypy` i tak sprawdzają zgodność
 z 3.12, a CI chodzi na 3.12, więc rozjazd zostanie wyłapany.
 
+## Lokalny PostgreSQL 17
+
+Testy repozytoriów chodzą **wyłącznie** na lokalnej bazie i tworzą sobie
+własne bazy tymczasowe. Nigdy na instancji w Home Assistant — tam mieszka
+TeslaMate, którego danych nie da się odtworzyć (`SPEC.md` §2, §13).
+
+```bash
+brew install postgresql@17
+brew services start postgresql@17
+./scripts/setup-lokalny-postgres.sh
+```
+
+Klaster Homebrew powstaje z `--locale=en_US.UTF-8 -E UTF-8`, czyli **tak samo
+jak serwer docelowy** (`SPEC.md` §0) — sortowanie zachowa się w testach jak na
+produkcji. Skrypt tworzy role `poleasingowe_app` (bez superusera, z limitami
+z §2 pkt 5) i `grafana_ro`.
+
+Zatrzymanie, gdyby przeszkadzał: `brew services stop postgresql@17`.
+
+**Czego lokalna baza NIE wyegzekwuje:** `poleasingowe_app` jest właścicielem
+bazy, więc może instalować rozszerzenia *trusted* (m.in. `pg_trgm`) mimo braku
+superusera. Zakaz z `SPEC.md` §8.3 pilnuje więc test
+`poleasingowe/tests/unit/test_migracje.py`, a nie serwer.
+
 ## Bramki jakości
 
 Wszystkie cztery chodzą tak samo lokalnie i w CI:

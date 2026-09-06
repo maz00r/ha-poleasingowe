@@ -431,9 +431,20 @@ Indeks częściowy na `next_poll_at` jest kluczowy — to zapytanie wykonuje si�
 najczęściej i musi trafiać wyłącznie w aktywne aukcje.
 
 **Bez rozszerzeń.** Żadnego `pg_trgm`, FTS ani niczego wymagającego
-`CREATE EXTENSION` — rola aplikacji nie ma na to uprawnień, a instalacja
-w instancji dzielonej z TeslaMate to zmiana, której chcę uniknąć. Przy kilku
-tysiącach wierszy `ILIKE` na indeksowanych kolumnach wystarczy.
+`CREATE EXTENSION` — instalacja w instancji dzielonej z TeslaMate to zmiana,
+której chcę uniknąć. Przy kilku tysiącach wierszy `ILIKE` na indeksowanych
+kolumnach wystarczy.
+
+**Uwaga: baza tego nie wyegzekwuje.** Sprawdzone na lokalnym PostgreSQL 17.11:
+`poleasingowe_app` jest **właścicielem** bazy, a właściciel może instalować
+rozszerzenia oznaczone jako *trusted* — w tym `pg_trgm` — bez uprawnień
+superużytkownika. Odmowa przychodzi dopiero przy rozszerzeniu nietrusted
+(`file_fdw` → „Must be superuser to create this extension").
+
+Zakaz zostaje w mocy, ale z **jednego** powodu: nie chcemy zmian w instancji
+dzielonej z TeslaMate. Egzekwuje go
+`poleasingowe/tests/unit/test_migracje.py`, który skanuje pliki migracji
+i wywala build, a nie serwer bazy.
 
 Sortowanie prezentacyjne (marki, modele) z `COLLATE "pl-PL-x-icu"` — locale
 bazy to `en_US.utf8` i bez tego polskie znaki ustawią się nienaturalnie.
