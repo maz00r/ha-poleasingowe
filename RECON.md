@@ -140,6 +140,26 @@ wartości są zerowe i cała logika endgame'u się dla niego nie uruchamia.
 
 Cytaty źródłowe w §4 poniżej.
 
+### 3.4 Drabinka z §11.5 jest za długa dla autoprzetarg.pl
+
+**Zmierzone 2026-09-07** (§4.4): cena znika 15–17 s po `ends_at`, bo aukcja
+przestaje istnieć pod swoim adresem (302 na `/`). Faza 2 z §11.5 ma stopnie
+**2, 5, 10, 20, 40 s** — dwa ostatnie trafiają już w przekierowanie.
+
+Realnie mamy dla tego źródła **trzy próby, nie pięć**, i wszystkie muszą się
+zmieścić w kilkunastu sekundach. Obecny zapis („maksymalnie 5 prób, potem
+`LAST_SEEN`") sugeruje zapas, którego nie ma.
+
+Proponowana zmiana: **siatka fazy 2 jako parametr źródła**, analogicznie do
+parametrów dogrywki z §11.2, które już są kolumnami w `source`. Dla
+autoprzetarg sensowna siatka to np. 2, 5, 8, 11, 14 s.
+
+Nie znam jeszcze tego okna dla EFL ani poleasingowe — pomiar zaplanowany
+na 2026-09-07 10:40. Zanim zmienimy §11.5, warto mieć wszystkie trzy liczby,
+żeby nie poprawiać spec drugi raz.
+
+---
+
 ### 3.3 `robots.txt` — decyzja: `Disallow` nie ogranicza nas
 
 **Rozstrzygnięte 2026-09-06.** Właściciel repo zdecydował: **ignorujemy
@@ -737,12 +757,34 @@ dokładnie punkt 4 drabinki: „oferta zakończona bez ceny albo zniknęła".
 | +60 s | **brak** | 25 216 B (przekierowanie na `/`) |
 | +300 s | brak | 25 217 B |
 
-Okno jest **znacznie szersze, niż zakładała pierwsza wersja drabinki
-z §11.5**. Trzy pierwsze stopnie (2 s, 5 s, 15 s) łapią cenę z zapasem, więc
-**`CONFIRMED` jest dla tego źródła osiągalne bez wyścigu o sekundy** —
-wbrew temu, co sugerowała obserwacja o przekierowaniu.
+Drugi pomiar, gęstszą siatką co 5 s, na aukcji kończącej się 10:20
+(`fixtures/autoprzetarg/pomiar-okna-ceny-P855zV0H3wg.json`), zawęził granicę:
 
-Dowód: `fixtures/autoprzetarg/recon-0b.jsonl` i zrzuty `domkniecie-*.html`.
+| Po `ends_at` | HTTP | Cena |
+|---|---|---|
+| +0 s | 200 | `55898,38` |
+| +5 s | 200 | `55898,38` |
+| +10 s | 200 | `55898,38` |
+| +15 s (realnie +17 s) | **302** | brak |
+| +20 s … +90 s | 302 | brak |
+
+**Okno wynosi 10–15 sekund**, a nie 15–60. Oba pomiary są zgodne: w pierwszym
+próbka „+15 s" trafiła dokładnie w 10:10:15 i cena jeszcze była, w drugim
+wypadła realnie o 10:20:17 i już jej nie było. Granica leży **między 15 a 17
+sekundą** od `ends_at`.
+
+**To unieważnia drabinkę z §11.5 dla tego źródła.** Faza 2 ma stopnie
+2, 5, 10, 20, 40 s — **stopnie +20 s i +40 s trafiają już w przekierowanie**.
+Realnie mamy trzy próby, nie pięć, i wszystkie muszą zmieścić się w pierwszych
+kilkunastu sekundach. Zapis „maksymalnie 5 prób, potem `LAST_SEEN`" sugeruje
+zapas, którego tu nie ma.
+
+Wniosek dla spec: **długość drabinki musi być parametrem źródła**, tak samo
+jak okno dogrywki (§11.2) — dla autoprzetarg sensowna siatka to np.
+2, 5, 8, 11, 14 s, a nie rozciągnięta do 40 s. Patrz §3.4.
+
+Dowód: `fixtures/autoprzetarg/recon-0b.jsonl`, zrzuty `domkniecie-*.html`
+oraz `pomiar-okna-ceny-P855zV0H3wg.json`.
 
 **Czego ten pomiar NIE rozstrzygnął.** W obserwowanej aukcji nie padła ani
 jedna oferta: cena stała na `5975,15` przez wszystkie 17 próbek, a `ends_at`

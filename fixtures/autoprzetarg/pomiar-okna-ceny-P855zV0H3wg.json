@@ -1,0 +1,135 @@
+[
+  {
+    "http": "200",
+    "bajtow": 66488,
+    "cena": "55898,38",
+    "offset_s": 0,
+    "ts": "10:20:00"
+  },
+  {
+    "http": "200",
+    "bajtow": 66488,
+    "cena": "55898,38",
+    "offset_s": 5,
+    "ts": "10:20:05"
+  },
+  {
+    "http": "200",
+    "bajtow": 66488,
+    "cena": "55898,38",
+    "offset_s": 10,
+    "ts": "10:20:10"
+  },
+  {
+    "http": "302",
+    "bajtow": 418,
+    "cena": null,
+    "offset_s": 15,
+    "ts": "10:20:17"
+  },
+  {
+    "http": "302",
+    "bajtow": 418,
+    "cena": null,
+    "offset_s": 20,
+    "ts": "10:20:20"
+  },
+  {
+    "http": "302",
+    "bajtow": 418,
+    "cena": null,
+    "offset_s": 25,
+    "ts": "10:20:25"
+  },
+  {
+    "http": "302",
+    "bajtow": 418,
+    "cena": null,
+    "offset_s": 30,
+    "ts": "10:20:30"
+  },
+  {
+    "http": "302",
+    "bajtow": 418,
+    "cena": null,
+    "offset_s": 35,
+    "ts": "10:20:35"
+  },
+  {
+    "http": "302",
+    "bajtow": 418,
+    "cena": null,
+    "offset_s": 40,
+    "ts": "10:20:40"
+  },
+  {
+    "http": "302",
+    "bajtow": 417,
+    "cena": null,
+    "offset_s": 45,
+    "ts": "10:20:45"
+  },
+  {
+    "http": "302",
+    "bajtow": 418,
+    "cena": null,
+    "offset_s": 50,
+    "ts": "10:20:53"
+  },
+  {
+    "http": "302",
+    "bajtow": 418,
+    "cena": null,
+    "offset_s": 55,
+    "ts": "10:20:58"
+  },
+  {
+    "http": "302",
+    "bajtow": 418,
+    "cena": null,
+    "offset_s": 60,
+    "ts": "10:21:00"
+  },
+  {
+    "http": "302",
+    "bajtow": 417,
+    "cena": null,
+    "offset_s": 65,
+    "ts": "10:21:05"
+  },
+  {
+    "http": "302",
+    "bajtow": 418,
+    "cena": null,
+    "offset_s": 70,
+    "ts": "10:21:10"
+  },
+  {
+    "http": "302",
+    "bajtow": 418,
+    "cena": null,
+    "offset_s": 75,
+    "ts": "10:21:15"
+  },
+  {
+    "http": "302",
+    "bajtow": 416,
+    "cena": null,
+    "offset_s": 80,
+    "ts": "10:21:20"
+  },
+  {
+    "http": "302",
+    "bajtow": 418,
+    "cena": null,
+    "offset_s": 85,
+    "ts": "10:21:25"
+  },
+  {
+    "http": "302",
+    "bajtow": 418,
+    "cena": null,
+    "offset_s": 90,
+    "ts": "10:21:30"
+  }
+]
