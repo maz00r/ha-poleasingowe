@@ -1,7 +1,10 @@
 # RECON.md — rekonesans źródeł (ETAP 0)
 
-Stan: **ETAP 0a zamknięty** (zbieranie statyczne). ETAP 0b — pomiary czasowe —
-otwarty, wymaga aukcji kończącej się w trakcie obserwacji.
+Stan: **ETAP 0a zamknięty** (zbieranie statyczne). **ETAP 0b — pomiary
+czasowe — zrobione dla trzech z czterech serwisów** (autoprzetarg 2026-09-07,
+EFL 2026-09-07, poleasingowe 2026-09-07); leasygroup zaplanowany na
+2026-09-10. Punkty (b), (c), (g) i reguła dogrywki — patrz §3.6, §3.7, §4.1,
+§4.2, §4.4.
 
 Wszystkie twierdzenia w tym dokumencie pochodzą z plików w `fixtures/`
 albo z zapisanych nagłówków w `fixtures/<serwis>/meta.json`. Tam, gdzie
@@ -56,7 +59,9 @@ dysk 44 GB. Maszyna dzielona z HA (~1,8 GB), PostgreSQL, Grafaną i TeslaMate.
 | Czas serwera | **`sdt.date` w API, bez logowania** | brak | brak | brak |
 | VIN publiczny | **tak** | **tak** | **tak** | **tak, już na liście** |
 | Werdykt | **`httpx`, bez logowania do odczytu** | **`httpx`, bez przeglądarki** | `httpx`, ale mało danych | **`httpx`; oferty wymagają sesji lub SignalR** |
-| Stan po zakończeniu | nie zmierzone | nie zmierzone | nie zmierzone | **302 na `/` — aukcja znika** |
+| Stan po zakończeniu | **`auction_pending:false` w bloku Alpine; sekcja „PLIKI DO POBRANIA" znika; brak etykiety tekstowej** | **`<h3>Zakończona</h3>` + pusta wartość przy „Do zakończenia:"; pojawia się ~5–7 min po `ends_at`, nie od razu** | nie zmierzone | **302 na `/` — aukcja znika** |
+| Cena po wygaśnięciu (pkt b) | **bez limitu** — widoczna ≥15 min, nie zaobserwowano zaniku | **bez limitu** — widoczna ≥2 h, strona zamrożona bajt w bajt | nie zmierzone | **10–15 s, potem 302** |
+| Panel/historia ofert po końcu (pkt c) | **`lastOffers` czyszczone do `[]` 2–5 min po końcu; `offers_count`, cena i `winner` zostają** | **pełna tabela ofert zostaje na stałe** (kwoty + czasy co do 0,1 ms) | nie zmierzone | poza zasięgiem `httpx` (SignalR) |
 
 ### 2.1 Wolumeny i koszt przemiatu listy (punkt h)
 
@@ -220,6 +225,37 @@ Wariant 2 jest dokładniejszy i tańszy, ale znaczy, że `bid_gap` przestaje by�
 jedną miarą dla wszystkich źródeł — co samo w sobie jest uczciwsze niż liczba,
 która dla połowy serwisów mierzy coś innego.
 
+### 3.6 Drabinka z §11.5 faza 2 ma trzy różne kształty, nie jeden
+
+**Zmierzone 2026-09-07** dla trzech z czterech źródeł. „Jak długo cena jest
+widoczna po `ends_at`" — wejście do drabinki z §11.5 faza 2 — rozkłada się
+skrajnie:
+
+| Serwis | Okno widoczności ceny po końcu | Co to znaczy dla fazy 2 |
+|---|---|---|
+| autoprzetarg.pl | **10–15 s**, potem 302 na `/` | 3 próby zamiast 5, siatka ≤14 s (§3.4) |
+| aukcje.efl.com.pl | **bez limitu** (≥2 h, strona zamrożona) | drabinka zbędna — dowolnie luźna |
+| poleasingowe.pl | **bez limitu** dla ceny; `lastOffers` ginie po 2–5 min | drabinka luźna dla ceny, ale ogon ofert łapać w pierwszych 2 min |
+| aukcje.leasygroup.pl | nie zmierzone (pomiar 2026-09-10) | — |
+
+Jedna stała siatka `2, 5, 10, 20, 40 s` nie pasuje do żadnego z tych
+przypadków: dla autoprzetarg jest za długa (dwa ostatnie stopnie trafiają
+w 302), dla EFL i poleasingowe niepotrzebnie napięta. **Faza 2 musi być
+parametrem źródła**, tak samo jak parametry dogrywki z §11.2 — potwierdzenie
+wniosku z §3.4, teraz na trzech liczbach zamiast jednej.
+
+Drugi wniosek, węższy: dla poleasingowe „złap cenę końcową" i „złap historię
+ofert" **rozjeżdżają się w czasie** — cena trzyma się bezterminowo, a
+`lastOffers` znika po kilku minutach. To dwa różne deadline'y w jednej fazie.
+
+### 3.7 Reguła dogrywki poleasingowe potwierdzona — spec jej nie zaprzecza
+
+**Zmierzone 2026-09-07** (§4.2). Regulaminowe „+30 s za ofertę w ostatnich
+30 s, sufit +30 min" zadziałało w praktyce: aukcja `9mjrl4k9` przeszła
+z nominalnego `12:00:00` na `12:18:00`. To **nie** jest rozbieżność ze SPEC —
+§11.4 i §11.5 faza 1 opisują dokładnie ten scenariusz. Zapisane tu, bo §3.2
+zostawiało regułę jako „z regulaminu, niezweryfikowaną w praktyce"; już nie.
+
 ---
 
 ## 4. Serwisy
@@ -259,8 +295,9 @@ liczba kluczy, instrukcja, książka przeglądów, masy, lokalizacja,
 **Czas do końca (punkt d).** „Do zakończenia: 22 godz. **07.09.2026 godzina
 14:37:00**" — zgrubny opis **oraz absolutny timestamp** w zwykłym tekście
 HTML. Brak licznika JS, brak atrybutu `data-*`. Parsuje się trywialnie.
-Strefa nie jest podana jawnie — zakładam Europe/Warsaw, **do potwierdzenia
-w 0b**.
+Strefa nie jest podana jawnie — **Europe/Warsaw potwierdzone pomiarem 0b**:
+na aukcji 435508 ostatnia oferta padła 2026.09.07 10:46:58, koniec podany
+jako 10:47:00, a pomiar biegł w CEST — zgodne z czasem lokalnym.
 
 **Historia ofert (punkt c) — POTWIERDZONA.** Panel
 `<div class="hidden" data-tabs="bidders">` jest **inline w HTML**, przełączany
@@ -286,20 +323,32 @@ są jawne oraz zostają uwidocznione w Serwisie Aukcyjnym EFL w trakcie
 trwania Aukcji."
 
 **Panel przeżywa zamknięcie aukcji — ZMIERZONE 2026-09-07** na aukcji 435508
-kończącej się 10:47. Siedem minut po końcu strona nadal podaje cenę
-`51 600,00 zł`, `Ofert: 3` i pełną tabelę ofert. To **odwrotność
-autoprzetarg**, gdzie strona znika po kilkunastu sekundach.
+kończącej się 10:47, próbki od +3 min do **+2 h**. Cena `51 600,00 zł`,
+`Ofert: 3` i pełna tabela ofert były w każdej próbce; od +7 min strona jest
+zamrożona bajt w bajt. To **odwrotność autoprzetarg**, gdzie strona znika
+po kilkunastu sekundach.
 
-**Stan końcowy rozpoznaje się po dwóch rzeczach:**
+**Stan końcowy rozpoznaje się po trzech sygnałach — ale nie od razu:**
 
-| | aukcja aktywna | aukcja zakończona |
-|---|---|---|
-| `Do zakończenia:` | etykieta **z datą** | etykieta **bez wartości** |
-| formularz oferty (`NewPriceProposal`) | jest | **znika** |
-| cena, `Ofert: N`, tabela ofert | są | **nadal są** |
+| | aktywna | zakończona (ustabilizowana) | kiedy się zmienia |
+|---|---|---|---|
+| `<h3>Zakończona</h3>` | brak | **jest** | **~5–7 min po `ends_at`** |
+| wartość przy „Do zakończenia:" | data + „X godz." | **pusta** | „X godz." znika w ≤3 min, data ~5–7 min |
+| formularz oferty (`NewPriceProposal`) | jest (×3–4) | **znika** | najpóźniej +3 min (pierwsza próbka); brak dogrywki ⇒ zapewne w `ends_at` |
+| cena, `Ofert: N`, tabela ofert | są | **nadal są, bezterminowo** | — |
 
-Praktycznie: dla EFL `CONFIRMED` jest osiągalne **bez żadnej presji czasu**.
-Drabinka z §11.5 może tu być dowolnie luźna.
+**Uwaga: `<h3>Zakończona</h3>` ma opóźnienie ~5–7 min.** W pierwszych
+minutach po `ends_at` strona zakończona jest niemal identyczna z aktywną —
+różni ją tylko brak formularza oferty. „Czy aukcja się skończyła" trzeba
+więc opierać na `ends_at` (twardym, bo EFL nie ma dogrywki — §3.2) albo na
+zniknięciu `NewPriceProposal`, nie na markerze `<h3>`.
+
+Praktycznie: dla EFL `CONFIRMED` (odczyt ceny po końcu) jest osiągalne
+**bez żadnej presji czasu**. Drabinka z §11.5 faza 2 może tu być dowolnie
+luźna — patrz §3.6.
+
+Dowód: `fixtures/efl/pomiar-domkniecie-435508.json`, zrzuty
+`fixtures/efl/domkniecie-*.html`, `szczegoly-zakonczona-435508.html`.
 
 **Tabela ofert nie jest tym, na co wygląda — i to zmienia §11.8.**
 Ta sama aukcja 435508, dwa odczyty:
@@ -456,33 +505,44 @@ VIN jest w HTML (`TMBJH7NP0P7055920`).
   "dt":"sobota 5 wrzesień 2026 14:38:25"}]
 ```
 
-Liczba wpisów zgadza się z `offers_count`, każdy ma identyfikator, kwotę
-i znacznik czasu co do sekundy. **Dla §11.8 oznacza to, że historia ofert
-jest dostępna anonimowo** — dokładnie tak jak w EFL, tylko w innym opakowaniu.
+Przy dwóch ofertach liczba wpisów zgadza się z `offers_count`, każdy ma
+identyfikator, kwotę i znacznik czasu co do sekundy.
 
-Otwarte zostaje jedno: **czy `lastOffers` ucina się przy większej liczbie
-ofert** (nazwa sugeruje „ostatnie N"). W dniu rekonesansu żadna aukcja
-w kategorii nie miała więcej niż 2 ofert — cała partia kończy się dopiero
-2026-09-07 o 12:00, a licytacja skupia się w końcówce. **Pomiar 0b odpowie
-na to sam**: w końcówce wystarczy porównać długość `lastOffers`
-z `offers_count`.
+**`lastOffers` UCINA się — ZMIERZONE 2026-09-07 (§7 pkt 1).** Na aukcji
+`9mjrl4k9` (Audi RS6) w trakcie dogrywki, przy `offers_count: 59`
+i `bidders_count: 10`, blok Alpine zawierał **dokładnie 10 wpisów
+`lastOffers`** — dziesięć ostatnich chronologicznie (11:57:27 → 12:00:41),
+nie po jednym na licytującego (login `h...y` powtarza się). Nazwa nie
+kłamała: to „ostatnie N", N ≈ 10.
 
-**Uwaga na dane osobowe (§10.2).** Obiekt zawiera `winner: 'dreamcars26'`
-— **pełny, niezamaskowany login zwycięzcy** — obok zamaskowanego
-`winner_formated: 'd...6'`. W `lastOffers` loginy są maskowane (`d...6`),
-ale `winner` nie. To login osoby trzeciej i **nie może trafiać do `raw_json`
-ani do zrzutów debug**; filtr redakcyjny z §10.2 musi go obejmować.
+**Konsekwencja dla §11.8:** anonimowo z HTML dostajemy tylko ogon historii.
+To **NIE jest** to samo co EFL, gdzie tabela pokazuje bieżący stan wszystkich
+uczestników. Pełna historia poleasingowe wymaga panelu zalogowanego
+(`/pl/bidder-panel/.../all_offers`, objęty `Disallow`, ale §3.3 to znosi)
+albo `topoffers` z API `bid-details` po zalogowaniu. Jeśli między dwoma
+odpytami padnie więcej niż ~10 ofert, środek tracimy bezpowrotnie —
+`bid_gap` z §11.8 jest tu realny, nie tylko teoretyczny.
+
+**Uwaga na dane osobowe (§10.2).** Obiekt zawiera pole `winner` z **pełnym,
+niezamaskowanym loginem zwycięzcy** — obok zamaskowanego `winner_formated`
+(`d...6`). W `lastOffers` loginy są maskowane, ale `winner` nie. To login
+osoby trzeciej i **nie może trafiać do `raw_json` ani do zrzutów debug**;
+filtr redakcyjny z §10.2 musi go obejmować (i obejmuje —
+`tools/redakcja_fixtures.py`).
 
 To zmienia werdykt: **logowanie nie jest potrzebne do odczytu.** API
 `bid-details` pozostaje przydatne do odświeżania na żywo i do `topoffers`,
 ale adapter da się napisać bez sesji.
 
-**Aukcje kończą się partiami.** Obie pobrane pozycje mają identyczne
-`endDate` — `2026-09-07 12:00:00`. Przy sortowaniu domyślnym (`dzr`) sugeruje
-to, że serwis zamyka wiele aukcji w tej samej sekundzie. Jeśli to reguła,
-a nie zbieg okoliczności, **kolizje z §11.6 są strukturalne**, nie
-incydentalne, i przy dogrywce 30 s to najgorszy możliwy scenariusz dla
-jednego bucketa. **Do potwierdzenia w 0b.**
+**Aukcje kończą się partiami — POTWIERDZONE 2026-09-07.** Cała obserwowana
+partia miała `endDate` `2026-09-07 12:00:00`. O 12:00 wiele aukcji zamknęło
+się w tej samej sekundzie, więc **kolizje z §11.6 są strukturalne**, nie
+incydentalne. Ale partia **rozjeżdża się w dogrywce**: aukcja bez ofert
+w końcówce (`9ooxn4x9`) zamknęła się równo 12:00:00, a aukcja z licytacją
+w końcówce (`9mjrl4k9`) została przeciągnięta do **12:18:00** (+18 min).
+Dla dispatchera: jeden bucket na 12:00 obsłuży ciche pozycje, ale każda
+aukcja licytowana w końcówce wychodzi z niego z własnym, przesuwającym się
+`ends_at` i musi być domykana indywidualnie (§11.4, §11.5 faza 1).
 
 **Sortowanie i paginacja serwerowe.** `select#alist-sort` z wartościami:
 `dzr` / `dzm` (data zakończenia rosnąco/malejąco), `cr` / `cm` (cena
@@ -504,6 +564,25 @@ użyteczne dla dispatchera. Paginacja: `?page=N`, liczona od 1.
 Okno 30 s, przedłużenie 30 s, sufit +30 min. Patrz §3.2 — to unieważnia
 uzasadnienie trybu 30 s i długość drabinki z §11.5.
 
+**Reguła dogrywki DZIAŁA w praktyce — ZMIERZONE 2026-09-07.** Aukcja
+`9mjrl4k9` z nominalnym końcem `12:00:00`:
+
+| Odczyt | `endDate` w bloku Alpine | `auction_pending` | `offers_count` |
+|---|---|---|---|
+| ~12:01:18 | `2026-09-07 12:01:30` | `true` | 59 |
+| 12:49:17 | `2026-09-07 12:18:00` | `false` | 106 |
+
+Oferty padały jeszcze o 12:00:32 i 12:00:41 — już po nominalnym końcu.
+Przez kolejne kilkanaście minut licytacji `endDate` był **przesuwany
+w bloku Alpine na żywo** i zatrzymał się na `12:18:00`, czyli **+18 min**
+(w granicy regulaminowego sufitu +30 min). Cena poszła z ~315 tys.
+na 385 tys. zł. Wniosek dla §11.4/§11.5 faza 1: parser `recon_0b` odczytuje
+przesunięty `ends_at` poprawnie, a sygnał „dogrywka trwa" to
+`auction_pending: true` przy rosnącym `endDate`; `auction_pending: false`
+= koniec faktyczny.
+Dowód: `fixtures/poleasingowe/pomiar-dogrywka-9mjrl4k9.json`,
+`szczegoly-9mjrl4k9-59ofert.html`, `szczegoly-9mjrl4k9-dogrywka.html`.
+
 **Limity tempa.** Jedyny serwis, który je publikuje, i **różnicuje per trasę**:
 
 | Trasa | `x-ratelimit-limit` |
@@ -518,10 +597,44 @@ Nie sprawdzałem limitu na `bid-details` — **do zmierzenia w 0b**.
 `Disallow:/pl/bidder-panel/auctions/details/*/all_offers` (pełna historia
 ofert) i `Disallow:/pl/auctions/calc-commission/*`. Patrz §7.
 
+**Stan po zakończeniu (punkty b, c, g) — ZMIERZONE 2026-09-07** na aukcji
+`9ooxn4x9` kończącej się 12:00:00 (bez ofert w końcówce, więc bez dogrywki):
+
+| po `ends_at` | `auction_pending` | cena | `lastOffers` | sekcja „PLIKI DO POBRANIA" |
+|---|---|---|---|---|
+| −11 s | `true` | 32 100 | 2 wpisy | jest |
+| 0 s (12:00:00) | **`false`** | 32 100 | 2 wpisy | **znika** |
+| +2 min | `false` | 32 100 | 2 wpisy | brak |
+| +5 min | `false` | 32 100 | **`[]`** | brak |
+| +15 min | `false` | 32 100 | `[]` | brak |
+
+- **(g) marker stanu końcowego: `auction_pending: false` w bloku Alpine.**
+  Przeskakuje dokładnie na `ends_at`. Serwis **nie dodaje** żadnej etykiety
+  tekstowej („zakończona" itp.), formularz oferty i odwołanie do
+  `bid-details` zostają w HTML (wygaszane po stronie Alpine). Drugi, uboczny
+  sygnał: przy zamknięciu z DOM znika sekcja z linkami do PDF-ów
+  (opinia rzeczoznawcy, raport autoDNA) — strona traci ~22 kB.
+- **(b) cena: widoczna bez limitu.** `current_price` w bloku Alpine trzyma
+  się po zamknięciu bezterminowo (≥15 min, brak zaniku). Dla §11.5 faza 2
+  nie ma tu wyścigu z zegarem — jak w EFL, inaczej niż w autoprzetarg.
+- **(c) historia ofert: przeżywa zamknięcie tylko na chwilę.** `lastOffers`
+  jest czyszczone do `[]` między +2 a +5 min po końcu. `offers_count`,
+  `winner` i `winner_formated` zostają. Żeby złapać ogon ofert, trzeba
+  odpytać stronę przed końcem albo w pierwszych ~2 minutach po nim —
+  potem zostaje tylko panel zalogowany.
+- **`winner` nadal niezamaskowany** na stronie zakończonej (pełny login
+  obok zamaskowanego `winner_formated`) — filtr redakcyjny z §10.2 musi
+  obejmować też zrzuty aukcji zakończonych. W zrzutach 0b pole `winner`
+  zostało zredagowane przez `tools/redakcja_fixtures.py`.
+
+Dowód: `fixtures/poleasingowe/pomiar-domkniecie-9ooxn4x9.json`, zrzuty
+`domkniecie-*.html`, `szczegoly-zakonczona-9ooxn4x9.html`.
+
 **Werdykt: `httpx`, bez przeglądarki i bez logowania do odczytu.**
 Adapter implementuje samo `AuctionSource`. Sesja zalogowana jest opcjonalnym
 rozszerzeniem — daje `topoffers` przez API i pełną historię ofert — ale
-nie jest warunkiem działania.
+nie jest warunkiem działania. Zastrzeżenie po 0b: bez sesji historia ofert
+jest **niepełna** (ostatnie ~10) i **ulotna** (kasowana kilka minut po końcu).
 
 ### 4.3 aukcje.leasygroup.pl
 
@@ -944,11 +1057,17 @@ interwał.
 
 ## 7. Otwarte pytania
 
-1. **Ucinanie `lastOffers` w poleasingowe.** Wątek `Disallow` odpadł
-   (§3.3), więc zostaje samo pytanie techniczne: **czy `lastOffers` ucina się
-   przy dużej liczbie ofert.** Jeśli nie — sprawa zamknięta, wszystko mamy
-   anonimowo. Jeśli tak — sięgamy po `.../all_offers`, co jest już decyzją
-   podjętą. Rozstrzyga pomiar 0b.
+1. ~~**Ucinanie `lastOffers` w poleasingowe.**~~ **Rozstrzygnięte pomiarem
+   2026-09-07 (§4.2): `lastOffers` UCINA się do ostatnich ~10 wpisów.**
+   Na aukcji `9mjrl4k9` przy `offers_count: 59` blok Alpine miał 10 pozycji
+   (dziesięć ostatnich chronologicznie). Anonimowo z HTML mamy więc tylko
+   ogon historii — a dodatkowo znika on `[]` kilka minut po końcu aukcji.
+   Pełna historia ⇒ panel zalogowany `/pl/bidder-panel/.../all_offers`
+   (objęty `Disallow`, ale §3.3 to znosi) albo `topoffers` z API
+   `bid-details` po zalogowaniu. Decyzja o sięgnięciu po `all_offers` była
+   już podjęta warunkowo — teraz warunek się spełnił. Dla §11.8: `bid_gap`
+   na tym źródle jest realny (jeśli między odpytami padnie >10 ofert,
+   środek tracimy).
 2. ~~**Paginacja i widok listy w leasygroup.**~~ **Rozstrzygnięte** (§3.3).
    Używamy widoku listy — daje jawne `Typ aukcji: Licytacja` i procent
    prowizji — oraz pełnej paginacji, czyli ~96 pozycji zamiast 12. Źródło
@@ -958,6 +1077,9 @@ interwał.
    przyjęcia gorszej jakości pomiaru.
 4. **Długość drabinki w §11.5** — 79 s nie pokrywa 30-minutowego sufitu
    przedłużeń poleasingowe.pl. Proponuję parametryzację per źródło (§3.2).
+   Po 0b mamy trzy zmierzone kształty fazy 2 (§3.6): autoprzetarg ≤14 s,
+   EFL i poleasingowe bez limitu. Parametryzacja jest już nie propozycją,
+   tylko koniecznością.
 5. **WAF F5 na leasygroup** — czy ryzyko blokady jest akceptowalne.
 6. **SignalR w autoprzetarg.pl.** Kanał push dawałby historię ofert
    i natychmiastowe zdarzenia bez odpytywania — najtańsza możliwa końcówka.
@@ -979,14 +1101,20 @@ interwał.
 
 Zaplanowane, niewykonane, wymaga aukcji kończącej się w trakcie obserwacji:
 
-- **(b) okno widoczności ceny po wygaśnięciu** — pomiar po 2 s, 5 s, 15 s,
-  60 s i 5 min od `ends_at`. Nie zmierzone dla żadnego serwisu. To jest
-  wejście do drabinki z §11.5 i bez tego drabinka pozostaje zgadywaniem.
-- **(g) zrzut aukcji zakończonej** — brak dla wszystkich serwisów. Bez tego
-  nie da się napisać wykrywania stanu końcowego.
-- **(c) domknięcie** — panel ofert EFL potwierdzony w stanie pustym
-  **i niepustym** (pełna tabela z czasami). Zostaje sprawdzić, czy panel
-  przeżywa zamknięcie aukcji.
+- ~~**(b) okno widoczności ceny po wygaśnięciu**~~ — **zmierzone dla trzech
+  z czterech**: autoprzetarg 10–15 s (§4.4), EFL bez limitu / ≥2 h (§4.1),
+  poleasingowe bez limitu dla ceny (§4.2). Zostaje leasygroup — pomiar
+  zaplanowany na 2026-09-10 (aukcja kończąca się ~12:00). Wnioski dla
+  drabinki §11.5 faza 2: §3.6.
+- ~~**(g) zrzut aukcji zakończonej**~~ — **mamy dla trzech**: autoprzetarg
+  (`naglowki-zakonczona-*`, 302 na `/`), EFL
+  (`fixtures/efl/szczegoly-zakonczona-435508.html`, marker
+  `<h3>Zakończona</h3>` + pusty licznik), poleasingowe
+  (`fixtures/poleasingowe/szczegoly-zakonczona-9ooxn4x9.html`, marker
+  `auction_pending: false`). Zostaje leasygroup (2026-09-10).
+- ~~**(c) domknięcie**~~ — **EFL**: panel ofert przeżywa zamknięcie na stałe
+  (§4.1). **poleasingowe**: `lastOffers` znika `[]` 2–5 min po końcu,
+  `offers_count` zostaje (§4.2). Zostaje leasygroup.
 - ~~**(e) AJAX w końcówce**~~ — **zrobione dla trzech z czterech**:
   poleasingowe ma `bid-details` odpytywany co 1000 ms, autoprzetarg ma push
   przez SignalR, EFL nie ma nic (strona statyczna). Zostaje leasygroup.
@@ -994,12 +1122,13 @@ Zaplanowane, niewykonane, wymaga aukcji kończącej się w trakcie obserwacji:
 - ~~**(h) liczba aktywnych ofert i VIN**~~ — **zrobione**, patrz §2.1.
   Zostaje tylko potwierdzenie liczebności leasygroup, zablokowane przez
   `robots.txt`.
-- ~~**leasygroup**: znaleźć realną aukcję w trybie licytacji~~ — **zrobione**
-  (28163, Honda NSX). Pomiar 0b uruchomiony 6.09 wieczorem, koniec aukcji
-  23:29. Zostaje potwierdzić kształt tabeli „Historia licytacji" na aukcji
-  z realnymi ofertami — w próbce była pusta.
-- **autoprzetarg.pl**: punkty (b), (f), (g). Serwis nie ma widocznego
-  archiwum ani filtra statusu, więc zrzut aukcji zakończonej trzeba złapać
-  w locie — aukcja z próbki kończy się 2026-09-07 08:10:00, czyli **przed**
-  celami zaplanowanego pomiaru 0b (EFL 10:47, poleasingowe 12:00).
-  Jeśli ma być objęta, pomiar trzeba przesunąć wcześniej.
+- **leasygroup: punkty (b), (c), (g) wciąż niezmierzone.** Aukcja 28163
+  (Honda NSX) posłużyła do rozpoznania typu i pól, ale w
+  `fixtures/leasygroup/` **nie ma pliku `recon-0b.jsonl` ani zrzutów
+  `domkniecie-*`** — pomiar z 6.09 nie zostawił danych w repo. Nowy pomiar
+  jest w zaplanowanych zadaniach (`recon-0b-leasygroup`, aukcja kończąca się
+  2026-09-10 ~12:00). Zostaje też potwierdzić kształt tabeli „Historia
+  licytacji" na aukcji z realnymi ofertami — w dotychczasowej próbce pusta.
+- **autoprzetarg.pl**: (b) i (g) **zmierzone 2026-09-07** (§4.4 — okno
+  10–15 s, 302 na `/`). Zostaje **(f) czas życia sesji** — wymaga
+  zalogowania.

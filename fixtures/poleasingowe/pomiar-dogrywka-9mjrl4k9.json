@@ -1,0 +1,24 @@
+{
+ "auction": "audi-rs6-kombi/9mjrl4k9",
+ "nominal_end": "2026-09-07 12:00:00",
+ "observed": [
+  {
+   "ts": "~12:01:18",
+   "endDate_in_alpine": "2026-09-07 12:01:30",
+   "auction_pending": true,
+   "offers_count": 59,
+   "lastOffers_entries": 10,
+   "note": "w dogrywce; oferty 12:00:32 i 12:00:41 juz po nominalnym koncu"
+  },
+  {
+   "ts": "12:49:17",
+   "endDate_in_alpine": "2026-09-07 12:18:00",
+   "auction_pending": false,
+   "offers_count": 106,
+   "current_price": "385 000",
+   "lastOffers_entries": 0,
+   "note": "dogrywka zakonczona; +18 min wzgledem nominalu, w granicy regulaminowego sufitu +30 min"
+  }
+ ],
+ "wniosek": "Regula dogrywki z regulaminu (+30 s za oferte w ostatnich 30 s, sufit +30 min) DZIALA w praktyce. endDate w bloku Alpine jest aktualizowany na zywo przy kazdym przedluzeniu — parser recon_0b odczyta nowy koniec. W tej samej partii 12:00 aukcja 9ooxn4x9 (golf, brak ofert w koncowce) zamknela sie rowno 12:00:00, a 9mjrl4k9 (audi, licytacja w koncowce) zostala przeciagnieta do 12:18."
+}
