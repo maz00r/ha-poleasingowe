@@ -23,8 +23,9 @@ Kolejność etapów jest w `SPEC.md` §14. Zrobione:
 - **ETAP 3** — `domain/`, `persistence/`, migracja `001_init.sql`, repozytoria
   i testy na lokalnym PostgreSQL 17.
 - **ETAP 4** — migracja `002_reporting.sql`: cztery widoki i `GRANT SELECT`
-  dla `grafana_ro`. Zostaje ręczne dodanie drugiego źródła danych w Grafanie —
-  instrukcja w [`poleasingowe/DOCS.md`](poleasingowe/DOCS.md).
+  dla `grafana_ro`. Drugie źródło danych w Grafanie **dodane i sprawdzone na
+  pustych widokach 2026-09-07** — instrukcja w
+  [`poleasingowe/DOCS.md`](poleasingowe/DOCS.md). Etap zamknięty.
 - **ETAP 5** — adapter EFL: parser, mapper, klient i rejestr, plus testy
   na fixtures.
 - **ETAP 6** — opakowanie add-onu: `config.yaml`, Dockerfile, s6, Ingress,
