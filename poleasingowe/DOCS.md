@@ -10,6 +10,41 @@ Home Assistant jest tu wyłącznie nośnikiem: daje kontener, panel w bocznym
 menu i uwierzytelnienie przez Ingress. Add-on **nie wystawia żadnych encji**,
 nie używa MQTT i nie zapisuje się do rejestru urządzeń.
 
+## Instalacja
+
+1. W Home Assistant: **Ustawienia → Dodatki → Sklep z dodatkami**, menu
+   z trzema kropkami w prawym górnym rogu → **Repozytoria**.
+2. Dodaj: `https://github.com/maz00r/ha-poleasingowe`
+3. Odśwież stronę; dodatek **Aukcje poleasingowe** pojawi się na liście.
+4. Zainstaluj, potem przejdź do zakładki **Konfiguracja**.
+
+### Zanim uruchomisz
+
+Dodatek **nie tworzy bazy ani ról** — muszą istnieć wcześniej. Wymagane:
+
+- baza `poleasingowe` na serwerze PostgreSQL,
+- rola `poleasingowe_app` będąca właścicielem tej bazy oraz schematów
+  `app` i `reporting`,
+- rola `grafana_ro` z prawem `CONNECT` — migracja `002` nadaje jej dostęp
+  do widoków i **przerwie się z błędem, jeśli rola nie istnieje**.
+
+Jedyna opcja bez sensownej wartości domyślnej to **hasło** roli aplikacji.
+Reszta jest wypełniona wartościami z tej instalacji.
+
+### Pierwsze uruchomienie
+
+Po starcie dodatek sam zastosuje migracje i utworzy tabele oraz widoki.
+W logu zobaczysz `zastosowano migracje: 001_init, 002_reporting`.
+
+**Brak bazy nie zatrzymuje dodatku.** Interfejs wstaje mimo to i pokazuje
+w panelu diagnostycznym, dlaczego połączenia nie ma, a dodatek ponawia próby
+z rosnącym odstępem do pięciu minut. Restartująca się usługa dobijająca się
+do współdzielonego serwera byłaby gorsza niż usługa wyłączona.
+
+Jedyne, co zatrzymuje dodatek, to **błędna konfiguracja** — wtedy log mówi
+wprost, które pole jest złe. Dodatek nie uruchomi się z wartościami
+domyślnymi, których nie ustawiłeś.
+
 ## Gdzie leżą dane — przeczytaj przed pierwszym backupem
 
 **Dane trwałe nie leżą w `/data` tego add-onu.** Są w bazie PostgreSQL,

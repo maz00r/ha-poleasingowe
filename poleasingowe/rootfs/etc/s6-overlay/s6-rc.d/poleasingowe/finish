@@ -1,0 +1,8 @@
+#!/command/with-contenv bashio
+# Kod 0 i 256 to normalne zatrzymanie. Blad konfiguracji (kod 1) NIE ma
+# powodowac restartu w petli — SPEC.md §7.1 mowi: jasny komunikat i
+# zatrzymanie, a §2 pkt 8 zabrania crash-loopa wobec wspoldzielonej bazy.
+if [[ "${1}" -ne 0 ]] && [[ "${1}" -ne 256 ]]; then
+    bashio::log.warning "Dodatek zakonczyl sie kodem ${1}; nie restartuje w petli"
+fi
+exec /run/s6/basedir/bin/halt

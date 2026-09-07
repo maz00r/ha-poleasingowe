@@ -1,0 +1,6 @@
+# Obraz bazowy Home Assistant. SPEC.md §5: bazowy obraz HA jest alpine'owy;
+# jesli ktorakolwiek zaleznosc nie ma kola musllinux, przechodzimy na wariant
+# Debian zamiast kompilowac w obrazie — kompilacja na Pentium Silver J5005
+# trwa nieakceptowalnie dlugo.
+build_from:
+  amd64: ghcr.io/home-assistant/amd64-base-python:3.12-alpine

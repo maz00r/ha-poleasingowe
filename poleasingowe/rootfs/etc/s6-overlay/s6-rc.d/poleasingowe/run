@@ -1,0 +1,16 @@
+#!/command/with-contenv bashio
+# ==============================================================================
+# Uruchomienie add-onu (SPEC.md §7.1).
+#
+# Jeden proces, jeden event loop: bez uvicorn workers, bez multiprocessingu,
+# bez Redisa, bez Celery. `exec` sprawia, ze Python dostaje PID 1 uslugi,
+# wiec SIGTERM od s6 trafia prosto do niego i zamkniecie jest czyste.
+# ==============================================================================
+bashio::log.info "Start dodatku Aukcje poleasingowe"
+
+# Katalogi na sesje i zrzuty. Sesje z uprawnieniami 0600 — strona po
+# zalogowaniu zawiera dane osobowe wlasciciela (SPEC.md §10.2).
+mkdir -p /data/sessions /data/debug /data/cache
+chmod 700 /data/sessions
+
+exec python3 -m app.interfaces.main

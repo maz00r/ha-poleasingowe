@@ -1,0 +1,52 @@
+configuration:
+  db_host:
+    name: Host bazy
+    description: >-
+      Nazwa hosta dodatku PostgreSQL widziana z innych dodatkow.
+      Domyslnie db21ed7f-postgres-latest.
+  db_port:
+    name: Port bazy
+    description: Port serwera PostgreSQL. Zwykle 5432.
+  db_name:
+    name: Nazwa bazy
+    description: >-
+      Baza uzywana przez ten dodatek. Add-on NIGDY nie tworzy ani nie usuwa
+      baz — musi juz istniec.
+  db_user:
+    name: Uzytkownik bazy
+    description: >-
+      Rola aplikacji. Nigdy superuzytkownik: add-on laczy sie wylacznie jako
+      wlasciciel swojej bazy.
+  db_password:
+    name: Haslo
+    description: Haslo roli aplikacji. Nie pojawia sie w logach ani w zrzutach.
+  grafana_base_url:
+    name: Adres Grafany
+    description: >-
+      Uzywany tylko do budowania linkow do dashboardow. Puste = brak linkow.
+  credentials:
+    name: Poswiadczenia do serwisow
+    description: >-
+      Login i haslo do serwisow wymagajacych zalogowania. Po trzech nieudanych
+      probach zrodlo blokuje sie i wymaga recznego resetu — czesc serwisow
+      blokuje konto po kilku probach.
+  sources:
+    name: Zrodla
+    description: >-
+      Wlaczanie i wylaczanie serwisow oraz ich limity tempa. Floor to dolna
+      granica odstepu miedzy odpytami w koncowce aukcji.
+  log_level:
+    name: Poziom logow
+    description: Domyslnie INFO. DEBUG tylko na czas diagnozy.
+  debug_dumps:
+    name: Zrzuty diagnostyczne
+    description: >-
+      Zapisuje HTML przy bledzie parsowania. Domyslnie wylaczone. Zrzuty
+      przechodza przez filtr redakcji, ale i tak trzymaj to wylaczone
+      na co dzien.
+  notify_on_critical:
+    name: Powiadomienia krytyczne
+    description: >-
+      Powiadomienie w Home Assistant przy zablokowaniu logowania, otwarciu
+      bezpiecznika zrodla albo braku bazy dluzszym niz 10 minut.
+network: {}

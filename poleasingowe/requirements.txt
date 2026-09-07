@@ -1,0 +1,14 @@
+# Zaleznosci runtime add-onu. Wersje przypiete co do lat.
+#
+# Kazda z binarnych ma sprawdzone kolo musllinux x86_64 dla cp312, wiec
+# obraz Alpine nie kompiluje niczego. Dockerfile wymusza to przez
+# --only-binary=:all: — brak kola ma wywalic budowanie, a nie po cichu
+# uruchomic kompilator (SPEC.md §5).
+psycopg[binary]==3.3.5
+psycopg-pool==3.3.1
+httpx[http2]==0.28.1
+selectolax==0.4.11
+pydantic==2.13.5
+fastapi==0.115.0
+uvicorn[standard]==0.52.4
+jinja2==3.1.6

@@ -26,10 +26,16 @@ Kolejność etapów jest w `SPEC.md` §14. Zrobione:
   dla `grafana_ro`. Zostaje ręczne dodanie drugiego źródła danych w Grafanie —
   instrukcja w [`poleasingowe/DOCS.md`](poleasingowe/DOCS.md).
 - **ETAP 5** — adapter EFL: parser, mapper, klient i rejestr, plus testy
-  na fixtures. ← tutaj jesteśmy.
+  na fixtures.
+- **ETAP 6** — opakowanie add-onu: `config.yaml`, Dockerfile, s6, Ingress,
+  AppArmor, walidacja opcji. ← tutaj jesteśmy. Zostaje instalacja na HAOS
+  i pomiar zużycia względem budżetu z §1.1.
 
-Następny: **ETAP 6** — opakowanie add-onu: Dockerfile, `config.yaml`, s6,
-Ingress, AppArmor, i weryfikacja że wstaje na HAOS w budżecie z §1.1.
+Następny: **ETAP 7** — interfejs: lista z filtrami, szczegóły, watchlist,
+panel diagnostyczny.
+
+Repozytorium add-onu: <https://github.com/maz00r/ha-poleasingowe> —
+instrukcja instalacji w [`poleasingowe/DOCS.md`](poleasingowe/DOCS.md).
 
 ## Środowisko
 

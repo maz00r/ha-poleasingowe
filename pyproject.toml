@@ -18,6 +18,9 @@ dependencies = [
   "psycopg-pool==3.3.1",
   "httpx[http2]==0.28.1",
   "selectolax==0.4.11",
+  # SPEC.md §5: pydantic WYLACZNIE do options.json — jedyne miejsce, gdzie
+  # walidacja schematu sie oplaca. Obiekty domenowe to dataclassy.
+  "pydantic==2.13.5",
 ]
 
 [project.optional-dependencies]
@@ -29,6 +32,9 @@ dev = [
   "import-linter==2.1",
   "pytest==9.1.1",
   "pytest-asyncio==1.4.0",
+  # Testy spojnosci opakowania czytaja config.yaml i translations/.
+  "pyyaml==6.0.3",
+  "types-PyYAML==6.0.12.20260906",
 ]
 
 [tool.setuptools]
@@ -149,3 +155,9 @@ name = "interfaces/ nie dotyka bazy ani sieci bezposrednio (SPEC.md §6.3)"
 type = "forbidden"
 source_modules = ["app.interfaces"]
 forbidden_modules = ["httpx", "psycopg", "psycopg_pool"]
+# Tylko importy BEZPOSREDNIE. `interfaces/` jest korzeniem kompozycji: ma
+# prawo wywolac `infrastructure`, a ta w srodku uzywa sterownika bazy —
+# scigac to jako naruszenie znaczyloby zakazac skladania aplikacji w calosc.
+# Zakaz dotyczy siegania po psycopg czy httpx WPROST z warstwy interfejsow,
+# i to wlasnie mowi §6.3.
+allow_indirect_imports = true

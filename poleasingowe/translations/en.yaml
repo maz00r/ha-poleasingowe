@@ -1,0 +1,50 @@
+configuration:
+  db_host:
+    name: Database host
+    description: >-
+      Hostname of the PostgreSQL add-on as seen from other add-ons.
+      Defaults to db21ed7f-postgres-latest.
+  db_port:
+    name: Database port
+    description: PostgreSQL server port. Usually 5432.
+  db_name:
+    name: Database name
+    description: >-
+      Database used by this add-on. The add-on NEVER creates or drops
+      databases — it must already exist.
+  db_user:
+    name: Database user
+    description: >-
+      Application role. Never a superuser: the add-on connects only as the
+      owner of its own database.
+  db_password:
+    name: Password
+    description: Application role password. Never appears in logs or dumps.
+  grafana_base_url:
+    name: Grafana base URL
+    description: Used only to build dashboard links. Empty disables the links.
+  credentials:
+    name: Site credentials
+    description: >-
+      Login and password for sites that require signing in. After three failed
+      attempts the source locks itself and needs a manual reset — some sites
+      lock the account after a few tries.
+  sources:
+    name: Sources
+    description: >-
+      Enable or disable sites and set their rate limits. Floor is the lower
+      bound on the interval between polls during an auction endgame.
+  log_level:
+    name: Log level
+    description: Defaults to INFO. Use DEBUG only while diagnosing.
+  debug_dumps:
+    name: Debug dumps
+    description: >-
+      Saves HTML on parse errors. Off by default. Dumps go through the
+      redaction filter, but keep this off day to day anyway.
+  notify_on_critical:
+    name: Critical notifications
+    description: >-
+      Home Assistant notification when a login locks, a source circuit breaker
+      opens, or the database is unreachable for more than 10 minutes.
+network: {}

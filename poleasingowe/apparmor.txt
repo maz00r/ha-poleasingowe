@@ -1,0 +1,47 @@
+#include <tunables/global>
+
+# Profil AppArmor add-onu (SPEC.md §7.1).
+# Bez `privileged`, bez `host_network`, bez `full_access`.
+profile poleasingowe flags=(attach_disconnected,mediate_deleted) {
+  #include <abstractions/base>
+
+  # Podstawowe operacje procesu i sieci wychodzacej.
+  network,
+  capability net_bind_service,
+  signal (send) set=(kill,term,int,hup,cont),
+
+  # s6-overlay i powloka startowa.
+  /init ix,
+  /bin/** ix,
+  /usr/bin/** ix,
+  /run/{s6,s6-rc*,service}/** ix,
+  /package/** ix,
+  /command/** ix,
+  /etc/s6-overlay/** rix,
+  /run/{,**} rwk,
+  /dev/tty rw,
+
+  # Python i biblioteki — tylko do odczytu i wykonania.
+  /usr/local/bin/** ix,
+  /usr/local/lib/** mr,
+  /opt/poleasingowe/** r,
+
+  # Dane add-onu. W /data mieszkaja WYLACZNIE sesje, zrzuty debug i cache;
+  # dane trwale sa w PostgreSQL (SPEC.md §7.1).
+  /data/** rw,
+  /data rw,
+
+  # Eksporty CSV/XLSX i backup pg_dump (SPEC.md §7.1, §12).
+  /share/poleasingowe/** rw,
+  /share/poleasingowe rw,
+
+  # Konfiguracja rozwiazywania nazw i certyfikaty.
+  /etc/{hosts,hostname,resolv.conf,nsswitch.conf,services} r,
+  /etc/ssl/** r,
+  /usr/local/share/ca-certificates/** r,
+  /proc/sys/net/core/somaxconn r,
+
+  # Wlasne /proc — potrzebne do odczytu RSS do run_log (SPEC.md §13).
+  @{PROC}/@{pid}/{stat,status,statm,cmdline,mounts} r,
+  @{PROC}/sys/vm/overcommit_memory r,
+}
