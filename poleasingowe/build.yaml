@@ -2,5 +2,9 @@
 # jesli ktorakolwiek zaleznosc nie ma kola musllinux, przechodzimy na wariant
 # Debian zamiast kompilowac w obrazie — kompilacja na Pentium Silver J5005
 # trwa nieakceptowalnie dlugo.
+# Tag MUSI miec pelna postac <python>-alpine<X.Y>. Samo `3.12-alpine`
+# wyglada poprawnie, ale takiego tagu w GHCR NIE MA — build wywala sie
+# dopiero na maszynie docelowej, po kilku minutach czekania:
+#   ghcr.io/home-assistant/amd64-base-python:3.12-alpine: not found
 build_from:
-  amd64: ghcr.io/home-assistant/amd64-base-python:3.12-alpine
+  amd64: ghcr.io/home-assistant/amd64-base-python:3.12-alpine3.22

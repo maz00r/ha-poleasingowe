@@ -5,7 +5,7 @@
 # uvloop, watchfiles, httptools. Gdyby ktorakolwiek go nie miala, SPEC.md §5
 # kaze przejsc na wariant Debian, a nie kompilowac w obrazie: kompilacja
 # na Pentium Silver J5005 trwa nieakceptowalnie dlugo.
-ARG BUILD_FROM=ghcr.io/home-assistant/amd64-base-python:3.12-alpine
+ARG BUILD_FROM=ghcr.io/home-assistant/amd64-base-python:3.12-alpine3.22
 
 # --- etap budowania -------------------------------------------------------
 FROM ${BUILD_FROM} AS budowanie

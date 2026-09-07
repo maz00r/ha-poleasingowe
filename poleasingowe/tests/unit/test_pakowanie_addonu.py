@@ -215,3 +215,55 @@ def test_szablony_nie_maja_sciezek_na_sztywno() -> None:
             assert (
                 wzorzec not in tresc
             ), f"{szablon.name} ma adres na sztywno ({wzorzec}) — użyj url_for"
+
+
+OBRAZ_BAZOWY = re.compile(
+    r"^ghcr\.io/home-assistant/(?P<arch>\w+)-base-python:"
+    r"(?P<python>\d+\.\d+)-alpine\d+\.\d+"
+)
+
+
+def _build() -> dict[str, Any]:
+    wczytane: dict[str, Any] = yaml.safe_load(
+        (ADDON / "build.yaml").read_text(encoding="utf-8")
+    )
+    return wczytane
+
+
+def test_tag_obrazu_bazowego_ma_pelna_postac() -> None:
+    """Tag musi mieć wersję Alpine, nie samo `3.12-alpine`.
+
+    Skrócona postać wygląda poprawnie i taki tag po prostu nie istnieje
+    w GHCR. Skutek widać dopiero na maszynie docelowej, po kilku minutach
+    czekania na budowanie:
+    `ghcr.io/home-assistant/amd64-base-python:3.12-alpine: not found`.
+    """
+    obraz = _build()["build_from"]["amd64"]
+    assert OBRAZ_BAZOWY.match(obraz), f"zły tag obrazu bazowego: {obraz}"
+
+
+def test_dockerfile_i_build_yaml_wskazuja_ten_sam_obraz() -> None:
+    """Rozjazd znaczy, że lokalny build testuje co innego niż Supervisor.
+
+    Supervisor przekazuje `BUILD_FROM` z `build.yaml`, a domyślna wartość
+    w Dockerfile obowiązuje tylko przy budowaniu ręcznym.
+    """
+    z_build = _build()["build_from"]["amd64"]
+    dockerfile = (ADDON / "Dockerfile").read_text(encoding="utf-8")
+    assert f"ARG BUILD_FROM={z_build}" in dockerfile
+
+
+def test_python_w_obrazie_zgadza_sie_z_celem_mypy() -> None:
+    """Obraz jest jedynym środowiskiem, w którym ten kod naprawdę działa.
+
+    Gdy mypy sprawdza pod inną wersję niż obraz, przepuszcza składnię
+    i funkcje, których nie ma w środowisku docelowym — tak przeszło kiedyś
+    `Path.read_text(newline=...)`, dostępne dopiero od 3.13.
+    """
+    dopasowanie = OBRAZ_BAZOWY.match(_build()["build_from"]["amd64"])
+    assert dopasowanie is not None
+    dane = tomllib.loads(PYPROJECT.read_text(encoding="utf-8"))
+    cel = dane["tool"]["mypy"]["python_version"]
+    assert dopasowanie.group("python") == cel, (
+        f"obraz ma Pythona {dopasowanie.group('python')}, a mypy celuje w {cel}"
+    )
