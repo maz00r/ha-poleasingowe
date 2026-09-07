@@ -47,6 +47,12 @@ jobs:
         uses: astral-sh/setup-uv@v3
         with:
           enable-cache: true
+          # Domyslnie setup-uv liczy klucz cache z uv.lock, ktorego nie mamy —
+          # zaleznosci sa przypiete wprost w pyproject i w requirements.txt.
+          # Bez tego kroku akcja wywala sie z "No file matched to [**/uv.lock]".
+          cache-dependency-glob: |
+            pyproject.toml
+            poleasingowe/requirements.txt
 
       - name: Python ${{ env.PYTHON_VERSION }}
         run: uv python install ${{ env.PYTHON_VERSION }}
