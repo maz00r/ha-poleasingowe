@@ -1,47 +1,69 @@
 #include <tunables/global>
 
 # Profil AppArmor add-onu (SPEC.md §7.1).
-# Bez `privileged`, bez `host_network`, bez `full_access`.
+#
+# CO TEN PROFIL NAPRAWDE CHRONI. Kontener i tak nie ma podniesionych
+# uprawnien: bez `privileged`, bez `host_network`, bez `full_access`, bez
+# `docker_api`. Wartosc profilu siedzi wiec w ZAPISIE, nie w odczycie —
+# pilnuje, zeby dodatek nie mogl pisac po `/ssl`, `/config`, `/media`,
+# `/addons` ani po katalogach innych dodatkow w `/share`, i zeby nie
+# modyfikowal wlasnego obrazu. Aplikacja jest wylacznie do odczytu, wiec
+# lista miejsc, w ktore wolno jej pisac, jest krotka i zamknieta.
+#
+# Odczyt i mmap sa szerokie celowo. Obraz jest nasz i niezmienny, a proba
+# wyliczania z osobna kazdej biblioteki Pythona i kazdego skryptu s6 daje
+# profil, ktory psuje sie przy kazdej aktualizacji obrazu bazowego —
+# i psuje sie w sposob widoczny dopiero w dzienniku Supervisora.
 profile poleasingowe flags=(attach_disconnected,mediate_deleted) {
   #include <abstractions/base>
 
-  # Podstawowe operacje procesu i sieci wychodzacej.
-  network,
-  capability net_bind_service,
-  signal (send) set=(kill,term,int,hup,cont),
+  # Zestaw uprawnien, ktory Docker i tak juz przyznal kontenerowi. Powtarzanie
+  # tego ograniczenia w AppArmorze nic nie wnosi, a jego zawezenie wywraca
+  # start s6 (chown na /run, setuid uslug) w sposob trudny do zdiagnozowania.
+  capability,
 
-  # s6-overlay i powloka startowa.
-  /init ix,
-  /bin/** ix,
-  /usr/bin/** ix,
-  /run/{s6,s6-rc*,service}/** ix,
-  /package/** ix,
-  /command/** ix,
+  network,
+  signal (send) set=(kill,term,int,hup,cont),
+  signal (receive),
+
+  # ODCZYT: caly obraz. Bez `m` biblioteki wspoldzielone Pythona nie daja
+  # sie zmapowac i interpreter nie wstaje.
+  /** mr,
+
+  # WYKONANIE: wylacznie katalogi systemowe obrazu.
+  #
+  # `rix`, nie `ix`. `/init` w s6-overlay v3 jest SKRYPTEM POWLOKI, wiec
+  # jadro uruchamia `/bin/sh /init`, a powloka musi ten plik ODCZYTAC.
+  # Samo `ix` daje prawo wykonania bez prawa odczytu i konczy sie
+  # komunikatem, ktory nie wskazuje na AppArmora:
+  #   /bin/sh: can't open '/init': Permission denied
+  # Szablon w dokumentacji HA ma tu `ix`, ale ma tez blankietowe `file,`,
+  # ktore przy okazji daje odczyt. My `file,` nie chcemy, wiec piszemy `rix`.
+  /init rix,
+  /bin/** rix,
+  /sbin/** rix,
+  /usr/bin/** rix,
+  /usr/sbin/** rix,
+  /usr/local/bin/** rix,
+  /usr/lib/bashio/** rix,
+  /package/** rix,
+  /command/** rix,
+  /run/{s6,s6-rc*,service}/** rix,
   /etc/s6-overlay/** rix,
+  /etc/{services.d,cont-init.d,cont-finish.d}/** rwix,
+
+  # ZAPIS: tylko to, co naprawde musi byc zapisywalne.
   /run/{,**} rwk,
+  /tmp/{,**} rwk,
+  /var/{run,tmp}/{,**} rwk,
   /dev/tty rw,
 
-  # Python i biblioteki — tylko do odczytu i wykonania.
-  /usr/local/bin/** ix,
-  /usr/local/lib/** mr,
-  /opt/poleasingowe/** r,
+  # W /data mieszkaja WYLACZNIE sesje, zrzuty debug i cache; dane trwale sa
+  # w PostgreSQL (SPEC.md §7.1). Sesje z uprawnieniami 0600 — strona po
+  # zalogowaniu zawiera dane osobowe wlasciciela (§10.2).
+  /data/{,**} rwk,
 
-  # Dane add-onu. W /data mieszkaja WYLACZNIE sesje, zrzuty debug i cache;
-  # dane trwale sa w PostgreSQL (SPEC.md §7.1).
-  /data/** rw,
-  /data rw,
-
-  # Eksporty CSV/XLSX i backup pg_dump (SPEC.md §7.1, §12).
-  /share/poleasingowe/** rw,
-  /share/poleasingowe rw,
-
-  # Konfiguracja rozwiazywania nazw i certyfikaty.
-  /etc/{hosts,hostname,resolv.conf,nsswitch.conf,services} r,
-  /etc/ssl/** r,
-  /usr/local/share/ca-certificates/** r,
-  /proc/sys/net/core/somaxconn r,
-
-  # Wlasne /proc — potrzebne do odczytu RSS do run_log (SPEC.md §13).
-  @{PROC}/@{pid}/{stat,status,statm,cmdline,mounts} r,
-  @{PROC}/sys/vm/overcommit_memory r,
+  # Eksporty CSV/XLSX i backup pg_dump (SPEC.md §7.1, §12). Wlasny
+  # podkatalog, nie cale /share — tam mieszkaja tez inne dodatki.
+  /share/poleasingowe/{,**} rwk,
 }

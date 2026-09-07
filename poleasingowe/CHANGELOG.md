@@ -1,5 +1,19 @@
 # Historia zmian
 
+## 0.2.1 — w przygotowaniu
+
+Poprawka startu kontenera.
+
+- profil AppArmor blokowal `/init`. W s6-overlay v3 `/init` jest skryptem
+  powloki, wiec jadro uruchamia `/bin/sh /init`, a powloka musi ten plik
+  ODCZYTAC — samo `ix` daje wykonanie bez odczytu. Objaw w logu dodatku
+  brzmial `/bin/sh: can't open '/init': Permission denied` i w niczym nie
+  wskazywal na AppArmora.
+- profil przepisany na zasade: odczyt szeroki, ZAPIS waski. Kontener i tak
+  nie ma podniesionych uprawnien, wiec wartosc profilu siedzi w tym, ze
+  dodatek nie moze pisac po `/ssl`, `/config`, `/media`, `/addons` ani po
+  katalogach innych dodatkow w `/share`.
+
 ## 0.2.0 — w przygotowaniu
 
 Interfejs operacyjny (SPEC.md §12).

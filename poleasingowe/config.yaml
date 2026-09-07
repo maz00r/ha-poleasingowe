@@ -1,6 +1,6 @@
 # Konfiguracja add-onu (SPEC.md §7.1).
 name: Aukcje poleasingowe
-version: "0.2.0"
+version: "0.2.1"
 slug: poleasingowe
 description: >-
   Zbiera oferty z polskich serwisow aukcji samochodow poleasingowych,

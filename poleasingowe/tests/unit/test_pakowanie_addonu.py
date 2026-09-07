@@ -267,3 +267,72 @@ def test_python_w_obrazie_zgadza_sie_z_celem_mypy() -> None:
     assert dopasowanie.group("python") == cel, (
         f"obraz ma Pythona {dopasowanie.group('python')}, a mypy celuje w {cel}"
     )
+
+
+def _apparmor() -> str:
+    return (ADDON / "apparmor.txt").read_text(encoding="utf-8")
+
+
+def _reguly_apparmor() -> str:
+    """Sam profil, bez komentarzy — te wymieniają katalogi, których zakazują."""
+    return "\n".join(
+        linia
+        for linia in _apparmor().splitlines()
+        if not linia.lstrip().startswith("#")
+    )
+
+
+def test_profil_apparmor_nazywa_sie_jak_slug(config: dict[str, Any]) -> None:
+    """Supervisor ładuje profil pod slugiem dodatku i sprawdza nazwę w pliku."""
+    assert config["apparmor"] is True, "nazwa profilu idzie z pliku, nie z config.yaml"
+    assert f"profile {config['slug']} flags=" in _apparmor()
+
+
+def test_init_ma_prawo_odczytu_a_nie_samo_wykonanie() -> None:
+    """`/init` w s6-overlay v3 jest skryptem powłoki, nie binarką.
+
+    Jądro uruchamia wtedy `/bin/sh /init`, a powłoka musi ten plik
+    **odczytać**. Samo `ix` daje wykonanie bez odczytu i kończy się
+    komunikatem, który w niczym nie wskazuje na AppArmora:
+    `/bin/sh: can't open '/init': Permission denied`.
+    """
+    tresc = _apparmor()
+    assert re.search(r"^\s*/init\s+rix,", tresc, re.MULTILINE), (
+        "/init potrzebuje `rix`, nie `ix`"
+    )
+
+
+@pytest.mark.parametrize(
+    "sciezka",
+    ["/bin/**", "/usr/bin/**", "/usr/local/bin/**", "/package/**", "/command/**"],
+)
+def test_katalogi_wykonywalne_daja_takze_odczyt(sciezka: str) -> None:
+    """Ten sam problem co z `/init` — s6 i bashio to skrypty, nie binarki."""
+    wzorzec = re.escape(sciezka) + r"\s+r?w?ix,"
+    tresc = _apparmor()
+    assert re.search(rf"^\s*{re.escape(sciezka)}\s+\w*rix,", tresc, re.MULTILINE), (
+        f"{sciezka} musi mieć `rix`, inaczej skrypty się nie wczytają ({wzorzec})"
+    )
+
+
+def test_profil_nie_ma_blankietowego_dostepu_do_plikow() -> None:
+    """`file,` daje wszystko łącznie z zapisem i czyni profil dekoracją.
+
+    Szablon w dokumentacji HA go ma; my nie, bo cała wartość tego profilu
+    siedzi w ograniczeniu ZAPISU (SPEC.md §7.1).
+    """
+    assert not re.search(r"^\s*file,\s*$", _reguly_apparmor(), re.MULTILINE)
+
+
+@pytest.mark.parametrize("katalog", ["/ssl", "/config", "/media", "/addons", "/backup"])
+def test_dodatek_nie_pisze_po_cudzych_katalogach(katalog: str) -> None:
+    """Add-on jest do odczytu i ma własny podkatalog w `/share` (§7.1, §12)."""
+    assert katalog not in _reguly_apparmor()
+
+
+def test_zapis_do_share_ograniczony_do_wlasnego_podkatalogu() -> None:
+    tresc = _reguly_apparmor()
+    assert "/share/poleasingowe/" in tresc
+    assert not re.search(r"^\s*/share/\*\*", tresc, re.MULTILINE), (
+        "w /share mieszkają też inne dodatki"
+    )
