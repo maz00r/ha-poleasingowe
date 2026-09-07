@@ -56,6 +56,7 @@ dysk 44 GB. Maszyna dzielona z HA (~1,8 GB), PostgreSQL, Grafaną i TeslaMate.
 | Czas serwera | **`sdt.date` w API, bez logowania** | brak | brak | brak |
 | VIN publiczny | **tak** | **tak** | **tak** | **tak, już na liście** |
 | Werdykt | **`httpx`, bez logowania do odczytu** | **`httpx`, bez przeglądarki** | `httpx`, ale mało danych | **`httpx`; oferty wymagają sesji lub SignalR** |
+| Stan po zakończeniu | nie zmierzone | nie zmierzone | nie zmierzone | **302 na `/` — aukcja znika** |
 
 ### 2.1 Wolumeny i koszt przemiatu listy (punkt h)
 
@@ -602,12 +603,27 @@ deduplikacja z §8.4 może działać bez wchodzenia w szczegóły.
 z absolutnym znacznikiem, renderowane serwerowo, **per pozycja listy**:
 
 ```html
-<input id="auctionEndDate" name="auctionEndDate" type="hidden"
-       value="2026-09-07 08:10:00" />
+<a href="/aukcja/<slug>,<id>,<kategoria>" class="section-list-auctions-block-item">
+  <input id="auctionEndDate" name="auctionEndDate" type="hidden"
+         value="2026-09-07 10:10:00" />
 ```
 
 Do parsowania wystarczy odczyt tego pola. Strefa nie jest podana — zakładam
 Europe/Warsaw, **do potwierdzenia**.
+
+**Uwaga na kolejność przy parowaniu.** Ukryte pole stoi **po** linku swojego
+kafelka, a nie przed nim. Parowanie „pole → następny link" przypisuje datę
+sąsiedniej aukcji i przesuwa cały wynik o jeden. Złapałem się na tym raz:
+lista dawała 10:05, a strona szczegółów tej samej aukcji 10:10. Poprawny
+wzorzec to `href="/aukcja/…"` **potem** `input#auctionEndDate`. Strona
+szczegółów jest tu źródłem rozstrzygającym.
+
+**Aukcje kończą się gęsto, co kilka minut** — w próbce z 2026-09-07 na jednej
+stronie listy wypadały o 10:00, 10:00, 10:05, 10:10, 10:20, 10:20, 10:30.
+To odwrotność poleasingowe i leasygroup, gdzie cała partia kończy się o tej
+samej sekundzie. Dla dispatchera oznacza to strumień pojedynczych terminów
+zamiast jednego szczytu — łatwiejsze do obsłużenia jednym bucketem, ale
+wymaga, żeby kolejka była stale aktywna.
 
 **Szczegóły** (`fixtures/autoprzetarg/szczegoly-bFhGo2gH3wg.html`): „Data
 zakończenia: 2026-09-07 08:10:00", „Aktualna cena aukcji: 11579,31 zł", VIN,
@@ -693,9 +709,48 @@ opisowych.** Liczba i historia ofert są poza zasięgiem `httpx` — wymagają
 sesji, a docelowo kanału SignalR. Adapter da się więc napisać w dwóch
 poziomach: podstawowy bez sesji, wzbogacony z sesją.
 
-**Nie zmierzone:** punkt (b) — okno widoczności ceny po wygaśnięciu;
-punkt (g) — zrzut aukcji zakończonej (serwis nie ma widocznego archiwum ani
-filtra statusu na liście); punkt (f) — czas życia sesji.
+**Punkt (g) — stan po zakończeniu: ZMIERZONE 2026-09-07.** Aukcja, która
+się skończyła, **przestaje istnieć pod swoim adresem**:
+
+```
+GET /aukcja/<slug>,<id>,<kategoria>   ->  HTTP 302, location: /
+```
+
+Aukcja trwająca zwraca `200`. To najtańszy marker stanu końcowego z całej
+czwórki — widać go po samym nagłówku, bez pobierania i parsowania treści.
+Dowód: `fixtures/autoprzetarg/naglowki-zakonczona-bFhGo2gH3wg.txt` (aukcja
+kończyła się 2026-09-07 08:10, sprawdzona o 09:55).
+
+**Konsekwencja dla §11.5 jest ostra.** Po przekierowaniu **cena końcowa jest
+nie do odzyskania** — strony po prostu nie ma. Dla tego źródła `CONFIRMED`
+jest osiągalne **wyłącznie** wtedy, gdy trafimy w okno między `ends_at`
+a pojawieniem się przekierowania. Poza tym oknem zostaje `LAST_SEEN`, czyli
+dokładnie punkt 4 drabinki: „oferta zakończona bez ceny albo zniknęła".
+
+**Punkt (b) — ZMIERZONE 2026-09-07 na aukcji kończącej się 10:10:**
+
+| Po `ends_at` | Cena | Rozmiar strony |
+|---|---|---|
+| +2 s | `5975,15` | 48 500 B (aukcja) |
+| +5 s | `5975,15` | 48 500 B |
+| +15 s | `5975,15` | 48 500 B |
+| +60 s | **brak** | 25 216 B (przekierowanie na `/`) |
+| +300 s | brak | 25 217 B |
+
+Okno jest **znacznie szersze, niż zakładała pierwsza wersja drabinki
+z §11.5**. Trzy pierwsze stopnie (2 s, 5 s, 15 s) łapią cenę z zapasem, więc
+**`CONFIRMED` jest dla tego źródła osiągalne bez wyścigu o sekundy** —
+wbrew temu, co sugerowała obserwacja o przekierowaniu.
+
+Dowód: `fixtures/autoprzetarg/recon-0b.jsonl` i zrzuty `domkniecie-*.html`.
+
+**Czego ten pomiar NIE rozstrzygnął.** W obserwowanej aukcji nie padła ani
+jedna oferta: cena stała na `5975,15` przez wszystkie 17 próbek, a `ends_at`
+nie drgnął. Regulaminowa reguła dogrywki — „+120 s przy ofercie w ostatnich
+dwóch minutach" — **pozostaje niezweryfikowana w praktyce**. Trafiłem na
+aukcję bez licytacji w końcówce.
+
+**Nie zmierzone:** punkt (f) — czas życia sesji (wymaga zalogowania).
 
 ## 5. Które serwisy obsłuży sam `httpx` (§4 pkt 3)
 

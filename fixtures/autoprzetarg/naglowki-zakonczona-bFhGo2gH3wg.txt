@@ -1,0 +1,16 @@
+HTTP/2 302 
+date: Mon, 07 Sep 2026 07:56:48 GMT
+content-type: text/html; charset=utf-8
+cache-control: private
+location: /
+server: cloudflare
+x-aspnetmvc-version: 5.2
+x-aspnet-version: 4.0.30319
+set-cookie: CookieConsent=asked; path=/
+x-powered-by: ASP.NET
+cf-cache-status: DYNAMIC
+strict-transport-security: max-age=0
+report-to: {"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=7WrPKjXk6SAgP0RUCVi2PenmiJJrwpzJtA9nf6u3j%2BEaFvmFSQ7VnDswLYRLNmf%2BNsr0Psehe19RBus44hbMVpeA410ZOpXkpiKb9V9e5rEyo4ONpPfM%2FaWQqZhQVmsUbw%3D%3D"}]}
+nel: {"report_to":"cf-nel","success_fraction":0.0,"max_age":604800}
+cf-ray: a37428afffb13533-WAW
+

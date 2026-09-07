@@ -281,6 +281,15 @@ def main() -> int:
         action="store_true",
         help="jedna probka i wyjscie — do sprawdzenia parsera",
     )
+    ap.add_argument(
+        "--po-koncu",
+        default=",".join(str(x) for x in AFTER_END_S),
+        help=(
+            "sekundy po wygasnieciu, w ktorych probkowac; domyslnie "
+            f"{','.join(str(x) for x in AFTER_END_S)}. Gestsza siatka, np. "
+            "0,5,10,15,20,25,30,45,60,90, zaweża granice widocznosci ceny"
+        ),
+    )
     args = ap.parse_args()
 
     outdir = pathlib.Path(args.outdir or f"fixtures/{args.source}")
@@ -339,8 +348,15 @@ def main() -> int:
             end = new_end  # drobna korekta, bez raportowania dogrywki
 
     # faza 2: drabinka po wygasnieciu — sedno punktu (b)
+    try:
+        po_koncu = [int(x) for x in args.po_koncu.split(",") if x.strip()]
+    except ValueError:
+        print(
+            f"STOP: --po-koncu ma byc lista liczb: {args.po_koncu!r}", file=sys.stderr
+        )
+        return 1
     zero = end
-    for offset in AFTER_END_S:
+    for offset in po_koncu:
         target = zero + dt.timedelta(seconds=offset)
         delay = (target - dt.datetime.now(TZ)).total_seconds()
         if delay > 0:
