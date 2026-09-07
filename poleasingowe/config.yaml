@@ -28,7 +28,11 @@ map:
 # Domyslnie WYLACZONE — to nie jest encja, to alarm operacyjny.
 homeassistant_api: false
 
-apparmor: poleasingowe
+# BOOLEAN, nie nazwa profilu — Supervisor odrzuca lancuch znakow:
+# "expected boolean for dictionary value @ data['apparmor']". Profil wlasny
+# bierze sie z pliku `apparmor.txt` obok tego config.yaml, a nazwa profilu
+# W SRODKU pliku musi rownac sie slugowi dodatku (`poleasingowe`).
+apparmor: true
 
 options:
   db_host: db21ed7f-postgres-latest

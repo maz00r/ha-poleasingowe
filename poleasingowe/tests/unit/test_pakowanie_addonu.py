@@ -43,7 +43,11 @@ def test_bez_podniesionych_uprawnien(config: dict[str, Any]) -> None:
     """SPEC.md §7.1 — bez `privileged`, `host_network`, `full_access`."""
     for zakazane in ("privileged", "host_network", "full_access", "docker_api"):
         assert zakazane not in config, f"{zakazane} nie ma prawa się tu znaleźć"
-    assert config["apparmor"] == "poleasingowe"
+    # `apparmor` to BOOLEAN. Wpisana tu nazwa profilu wyglada sensownie
+    # i jest tak opisana w dokumentacji, ale Supervisor ja odrzuca — dodatek
+    # znika wtedy ze sklepu bez sladu w interfejsie, z bledem wylacznie
+    # w dzienniku Supervisora. Profil wlasny idzie przez plik apparmor.txt.
+    assert config["apparmor"] is True
     assert config["init"] is False
 
 
