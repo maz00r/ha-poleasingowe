@@ -140,26 +140,6 @@ wartości są zerowe i cała logika endgame'u się dla niego nie uruchamia.
 
 Cytaty źródłowe w §4 poniżej.
 
-### 3.4 Drabinka z §11.5 jest za długa dla autoprzetarg.pl
-
-**Zmierzone 2026-09-07** (§4.4): cena znika 15–17 s po `ends_at`, bo aukcja
-przestaje istnieć pod swoim adresem (302 na `/`). Faza 2 z §11.5 ma stopnie
-**2, 5, 10, 20, 40 s** — dwa ostatnie trafiają już w przekierowanie.
-
-Realnie mamy dla tego źródła **trzy próby, nie pięć**, i wszystkie muszą się
-zmieścić w kilkunastu sekundach. Obecny zapis („maksymalnie 5 prób, potem
-`LAST_SEEN`") sugeruje zapas, którego nie ma.
-
-Proponowana zmiana: **siatka fazy 2 jako parametr źródła**, analogicznie do
-parametrów dogrywki z §11.2, które już są kolumnami w `source`. Dla
-autoprzetarg sensowna siatka to np. 2, 5, 8, 11, 14 s.
-
-Nie znam jeszcze tego okna dla EFL ani poleasingowe — pomiar zaplanowany
-na 2026-09-07 10:40. Zanim zmienimy §11.5, warto mieć wszystkie trzy liczby,
-żeby nie poprawiać spec drugi raz.
-
----
-
 ### 3.3 `robots.txt` — decyzja: `Disallow` nie ogranicza nas
 
 **Rozstrzygnięte 2026-09-06.** Właściciel repo zdecydował: **ignorujemy
@@ -190,6 +170,26 @@ wynikają z `robots.txt`, tylko z uprzejmości wobec serwisu i z §10 SPEC:
   Uczestników" w autoprzetarg;
 - aplikacja pozostaje **wyłącznie do odczytu** — nie licytuje, nie składa
   ofert, nie wywołuje metod mutujących SignalR.
+
+---
+
+### 3.4 Drabinka z §11.5 jest za długa dla autoprzetarg.pl
+
+**Zmierzone 2026-09-07** (§4.4): cena znika 15–17 s po `ends_at`, bo aukcja
+przestaje istnieć pod swoim adresem (302 na `/`). Faza 2 z §11.5 ma stopnie
+**2, 5, 10, 20, 40 s** — dwa ostatnie trafiają już w przekierowanie.
+
+Realnie mamy dla tego źródła **trzy próby, nie pięć**, i wszystkie muszą się
+zmieścić w kilkunastu sekundach. Obecny zapis („maksymalnie 5 prób, potem
+`LAST_SEEN`") sugeruje zapas, którego nie ma.
+
+Proponowana zmiana: **siatka fazy 2 jako parametr źródła**, analogicznie do
+parametrów dogrywki z §11.2, które już są kolumnami w `source`. Dla
+autoprzetarg sensowna siatka to np. 2, 5, 8, 11, 14 s.
+
+Nie znam jeszcze tego okna dla EFL ani poleasingowe — pomiar zaplanowany
+na 2026-09-07 10:40. Zanim zmienimy §11.5, warto mieć wszystkie trzy liczby,
+żeby nie poprawiać spec drugi raz.
 
 ---
 
