@@ -167,3 +167,80 @@ async def test_blokada_doradcza_jest_trzymana_w_trakcie_migracji(
     assert (
         wiersz is not None and wiersz[0] == 0
     ), "blokada nie zwolniła się po transakcji — musi być xact, nie sesyjna"
+
+
+async def _wstaw_zrodlo(
+    baza: psycopg.AsyncConnection, klucz: str, **kolumny: object
+) -> None:
+    nazwy = ", ".join(kolumny)
+    znaki = ", ".join(["%s"] * len(kolumny))
+    # Kolumny sa nazwami z kodu testu, nie z danych — ale sklejanie SQL-a
+    # i tak wolimy trzymac w jednym miejscu, zamiast rozsiewac po testach.
+    sql = f"INSERT INTO app.source (key, name, {nazwy}) VALUES (%s, %s, {znaki})"
+    async with baza.cursor() as cur:
+        await cur.execute(sql, (klucz, klucz, *kolumny.values()))
+
+
+async def test_drabinka_domkniecia_musi_byc_rosnaca_i_dodatnia(
+    pusta_baza: psycopg.AsyncConnection,
+) -> None:
+    """SPEC.md §11.5 — „nastepny element" ma sens tylko przy rosnacej siatce.
+
+    Gdyby baza przyjmowala dowolna tablice, kolejnosc prob fazy 2 zalezalaby
+    od kolejnosci wpisu, a nie od czasu — i drabinka dla autoprzetarg
+    (okno 10-15 s) mogla po cichu trafiac w przekierowanie.
+    """
+    async with pusta_baza.transaction():
+        await _wstaw_zrodlo(pusta_baza, "ok", closing_ladder_seconds=[2, 5, 8, 11, 14])
+
+    for opis, drabinka in [
+        ("malejaca", [5, 2]),
+        ("z powtorzeniem", [2, 2, 5]),
+        ("z zerem", [0, 5]),
+        ("z ujemna", [2, -5]),
+    ]:
+        with pytest.raises(psycopg.errors.CheckViolation):
+            async with pusta_baza.transaction():
+                await _wstaw_zrodlo(
+                    pusta_baza, f"zla-{opis}", closing_ladder_seconds=drabinka
+                )
+
+
+async def test_pusta_drabinka_jest_dozwolona(
+    pusta_baza: psycopg.AsyncConnection,
+) -> None:
+    """Pusta tablica znaczy „jeden odpyt i koniec", a nie blad (§8.2)."""
+    async with pusta_baza.transaction():
+        await _wstaw_zrodlo(pusta_baza, "bez-drabinki", closing_ladder_seconds=[])
+
+
+async def test_semantyka_bid_count_jest_ze_slownika(
+    pusta_baza: psycopg.AsyncConnection,
+) -> None:
+    """SPEC.md §11.8 — od tej wartosci zalezy, czy `bid_gap` cokolwiek znaczy."""
+    async with pusta_baza.transaction():
+        await _wstaw_zrodlo(pusta_baza, "efl", bid_count_semantics="PARTICIPANTS")
+
+    with pytest.raises(psycopg.errors.CheckViolation):
+        async with pusta_baza.transaction():
+            await _wstaw_zrodlo(pusta_baza, "zle", bid_count_semantics="BIDS")
+
+
+async def test_domyslna_semantyka_to_niewiedza_a_nie_zalozenie(
+    pusta_baza: psycopg.AsyncConnection,
+) -> None:
+    """Zrodlo bez dowodu z rekonesansu ma byc UNKNOWN, nie OFFERS.
+
+    Domyslne OFFERS znaczyloby, ze `bid_gap` liczy sie dla kazdego nowego
+    zrodla od razu — i dla serwisu z licytacja proxy (EFL) dawaloby zera
+    czytane jako „komplet historii".
+    """
+    async with pusta_baza.transaction():
+        await _wstaw_zrodlo(pusta_baza, "nowe", enabled=True)
+        async with pusta_baza.cursor() as cur:
+            await cur.execute(
+                "SELECT bid_count_semantics, closing_ladder_seconds,"
+                " bid_history_ttl_seconds FROM app.source WHERE key = 'nowe'"
+            )
+            wiersz = await cur.fetchone()
+    assert wiersz == ("UNKNOWN", [2, 5, 10, 20, 40], None)

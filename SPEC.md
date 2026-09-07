@@ -380,6 +380,11 @@ Baza `poleasingowe`. Tabele w schemacie `app`, widoki w `reporting`.
   w którym oferta przedłuża aukcję; `overtime_extension_seconds` — o ile
   przedłuża; `overtime_cap_seconds` — sufit łącznego przedłużenia, `NULL`
   gdy serwis go nie deklaruje. Zera oznaczają serwis bez dogrywki.
+  Do tego parametry domknięcia (§11.5 faza 2, §11.8):
+  `closing_ladder_seconds` — siatka prób fazy 2;
+  `bid_history_ttl_seconds` — jak długo po końcu widoczna jest historia
+  ofert, `NULL` gdy nie znika; `bid_count_semantics` — co serwis liczy
+  w `bid_count`.
 - **`auction`** — `source_id`, `external_id`, url, marka, model, wersja,
   rocznik, przebieg, paliwo, skrzynia, pojemność, moc, VIN, nadwozie, kolor,
   lokalizacja, sprzedający, `price_start`, `price_current`, `currency`,
@@ -390,7 +395,8 @@ Baza `poleasingowe`. Tabele w schemacie `app`, widoki w `reporting`.
   a faktycznym końcem; miara jakości pomiaru — oraz `bid_increment_raw`:
   minimalne postąpienie **w postaci, w jakiej podał je serwis** (§8.2).
 - **`price_snapshot`** — `auction_id`, `ts`, `price`, `bid_count`, `ends_at`,
-  `bid_gap` — ile ofert przegapiono przed tym snapshotem (0 = komplet).
+  `bid_gap` — ile ofert przegapiono przed tym snapshotem (0 = komplet,
+  `NULL` = nie da się policzyć, §11.8).
 - **`watchlist`** — `auction_id`, notatka, cena docelowa, `added_at`.
 - **`saved_filter`** — nazwa, kryteria `jsonb`, `created_at`.
 - **`run_log`** — źródło, start, koniec, nowe/zmienione, błędy, RSS procesu,
@@ -405,7 +411,17 @@ Baza `poleasingowe`. Tabele w schemacie `app`, widoki w `reporting`.
 - statusy: `text` + `CHECK` — **nie** typy enum Postgresa, bo ich migracje bolą
 - `last_price_lead_seconds` i `bid_gap`: `integer`, `NULL` dopuszczalny
   i **znaczący** — `last_price_lead_seconds` jest `NULL` dla `CONFIRMED`,
-  `bid_gap` jest `NULL` dla pierwszego snapshotu aukcji (§11.8)
+  `bid_gap` jest `NULL` dla pierwszego snapshotu aukcji oraz dla źródeł,
+  w których nie da się go policzyć (§11.8)
+- `closing_ladder_seconds`: `integer[]`, **bezwzględne** przesunięcia prób
+  fazy 2 od punktu zerowego, rosnące. Bezwzględne, nie odstępy, bo wtedy
+  porównują się wprost ze zmierzonym oknem widoczności ceny — bez liczenia
+  sum w głowie i w kodzie
+- `bid_history_ttl_seconds`: `integer`, `NULL` = historia nie znika
+- `bid_count_semantics`: `text` + `CHECK` w (`'OFFERS'`, `'PARTICIPANTS'`,
+  `'UNKNOWN'`). Domyślnie `'UNKNOWN'` — wartość ustala się **dowodem
+  z rekonesansu**, nie założeniem, bo od niej zależy, czy `bid_gap` w ogóle
+  coś znaczy (§11.8)
 - `bid_increment_raw`: `text`, **pole informacyjne, bez logiki domenowej**.
   Serwisy podają postąpienie w niezgodnych kształtach — kwotowo
   (`instep_price`), progami zależnymi od ceny wywoławczej, albo procentowo
@@ -696,23 +712,42 @@ w całości: punktem zerowym jest `ends_at`.
 
 #### Faza 2 — złapanie ceny końcowej
 
-Liczona od punktu zerowego ustalonego w fazie 1:
+Liczona od punktu zerowego ustalonego w fazie 1. Kolejne próby padają
+w chwilach z `closing_ladder_seconds` danego źródła (§8.1):
 
-1. `+2 s` — pierwszy odpyt.
+1. Pierwszy odpyt — pierwszy element drabinki.
 2. Oferta zakończona z widoczną ceną → `CONFIRMED`, koniec.
 3. Oferta zakończona bez ceny albo zniknęła → `LAST_SEEN` z ostatnim
    snapshotem, koniec.
 4. `ends_at` mimo wszystko znów się przesunął → wróć do fazy 1.
-5. Nierozstrzygnięte → ponów po 5 s, 10 s, 20 s, 40 s. Maksymalnie 5 prób,
-   potem `LAST_SEEN`.
+5. Nierozstrzygnięte → następny element drabinki. Po wyczerpaniu drabinki
+   → `LAST_SEEN`.
 
-Żądania fazy 2 są zwolnione z token bucketa źródła — to najwyżej pięć żądań
+Żądania fazy 2 są zwolnione z token bucketa źródła — to kilka żądań
 na aukcję, raz w jej życiu. Odnotuj je w `run_log` osobno. Żądania fazy 1
 **nie są zwolnione**: mogą trwać minutami i muszą podlegać limitowi tempa.
 
-Długości drabinki z fazy 2 są wstępne. Mają zostać skalibrowane pomiarem,
-jak długo cena faktycznie jest widoczna po końcu (§4 pkt b) — a nie
-utrzymywane dlatego, że raz je zapisano.
+**Drabinka jest parametrem źródła, nie stałą.** Pomiar (`RECON.md` §3.6)
+pokazał, że okno widoczności ceny po końcu różni się o trzy rzędy wielkości,
+więc jedna siatka nie mogła pasować do wszystkich:
+
+| Serwis | Okno widoczności ceny | `closing_ladder_seconds` |
+|---|---|---|
+| autoprzetarg.pl | 10–15 s, potem 302 na `/` | `{2,5,8,11,14}` |
+| aukcje.efl.com.pl | bez limitu (≥2 h) | `{2,30}` |
+| poleasingowe.pl | bez limitu dla ceny | `{2,30}` |
+| aukcje.leasygroup.pl | niezmierzone | `{2,5,10,20,40}` — domyślna, do kalibracji |
+
+Domyślna siatka `{2,5,10,20,40}` obowiązuje tylko dla źródeł niezmierzonych.
+Wpisanie jej dla źródła zmierzonego jest błędem konfiguracji, nie
+ostrożnością: dla autoprzetarg dwa ostatnie stopnie trafiają już
+w przekierowanie.
+
+**Cena i historia ofert mają osobne terminy.** W poleasingowe cena trzyma się
+bezterminowo, ale `lastOffers` czyszczone jest 2–5 minut po końcu. Jeśli
+`bid_history_ttl_seconds` jest ustawione, ogon historii trzeba zebrać w tym
+oknie — nawet jeśli cena jest już `CONFIRMED` i faza 2 formalnie się
+skończyła. Domknięcie ceny nie zwalnia z domknięcia historii (§11.8).
 
 `CONFIRMED` oznacza cenę odczytaną ze strony po zakończeniu.
 `LAST_SEEN` oznacza ostatnią obserwację przed zamknięciem i jest dolnym
@@ -742,11 +777,24 @@ serwisy nie dają nic takiego.
 ### 11.8 Kompletność historii ofert
 
 Celem w końcówce jest zalogowanie każdej oferty, nie tylko ostatniej.
-`bid_count` jest miarą kompletności: jeśli między dwoma snapshotami
+`bid_count` **bywa** miarą kompletności: jeśli między dwoma snapshotami
 wzrósł o więcej niż 1, przegapiliśmy oferty pośrednie.
 
 Zapisuj w `price_snapshot` kolumnę `bid_gap` = przyrost `bid_count`
 ponad 1. Suma `bid_gap` per aukcja to liczba ofert, których nie widzieliśmy.
+
+**Ale tylko tam, gdzie `bid_count` liczy oferty.** Rekonesans (`RECON.md`
+§3.5) pokazał, że EFL prowadzi licytację proxy i pokazuje **jeden wiersz na
+uczestnika**, aktualizowany w miejscu: cena poszła z 48 600 zł na 51 600 zł
+przy niezmienionym `bid_count`. Tam `bid_gap` wychodziłby zerowy mimo
+realnych zmian — mierzyłby coś innego, niż nazwa obiecuje.
+
+Dlatego `bid_gap` liczymy **wyłącznie** dla źródeł z
+`bid_count_semantics = 'OFFERS'` (§8.1). Dla `'PARTICIPANTS'` i `'UNKNOWN'`
+zostaje `NULL` — i to jest właściwa odpowiedź, bo „nie wiem" jest uczciwsze
+niż zero, które czyta się jak „komplet". Zapytania raportowe muszą
+odróżniać `NULL` od `0`; sumowanie, które je zrówna, da fałszywy obraz
+kompletności.
 
 `bid_gap` liczony jest przy zapisie snapshotu względem `bid_count`
 z **poprzedniego snapshotu tej aukcji**, nie względem stanu w `auction` —

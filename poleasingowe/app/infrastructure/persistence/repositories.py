@@ -25,6 +25,7 @@ from app.domain.entities import (
 from app.domain.enums import (
     AuctionStatus,
     AuthState,
+    BidCountSemantics,
     Currency,
     FinalPriceState,
     PollTier,
@@ -39,11 +40,14 @@ SQL_SOURCE_UPSERT = """
 INSERT INTO app.source (
     key, name, enabled, sweep_interval_seconds, rate_limit_per_minute,
     floor_seconds, auth_state, consecutive_auth_failures,
-    overtime_window_seconds, overtime_extension_seconds, overtime_cap_seconds
+    overtime_window_seconds, overtime_extension_seconds, overtime_cap_seconds,
+    closing_ladder_seconds, bid_history_ttl_seconds, bid_count_semantics
 ) VALUES (%(key)s, %(name)s, %(enabled)s, %(sweep_interval_seconds)s,
           %(rate_limit_per_minute)s, %(floor_seconds)s, %(auth_state)s,
           %(consecutive_auth_failures)s, %(overtime_window_seconds)s,
-          %(overtime_extension_seconds)s, %(overtime_cap_seconds)s)
+          %(overtime_extension_seconds)s, %(overtime_cap_seconds)s,
+          %(closing_ladder_seconds)s, %(bid_history_ttl_seconds)s,
+          %(bid_count_semantics)s)
 ON CONFLICT (key) DO UPDATE SET
     name = EXCLUDED.name,
     enabled = EXCLUDED.enabled,
@@ -54,24 +58,30 @@ ON CONFLICT (key) DO UPDATE SET
     consecutive_auth_failures = EXCLUDED.consecutive_auth_failures,
     overtime_window_seconds = EXCLUDED.overtime_window_seconds,
     overtime_extension_seconds = EXCLUDED.overtime_extension_seconds,
-    overtime_cap_seconds = EXCLUDED.overtime_cap_seconds
+    overtime_cap_seconds = EXCLUDED.overtime_cap_seconds,
+    closing_ladder_seconds = EXCLUDED.closing_ladder_seconds,
+    bid_history_ttl_seconds = EXCLUDED.bid_history_ttl_seconds,
+    bid_count_semantics = EXCLUDED.bid_count_semantics
 RETURNING id, key, name, enabled, sweep_interval_seconds, rate_limit_per_minute,
     floor_seconds, auth_state, consecutive_auth_failures,
-    overtime_window_seconds, overtime_extension_seconds, overtime_cap_seconds
+    overtime_window_seconds, overtime_extension_seconds, overtime_cap_seconds,
+    closing_ladder_seconds, bid_history_ttl_seconds, bid_count_semantics
 """
 
 SQL_SOURCE_PO_KLUCZU = """
 SELECT
     id, key, name, enabled, sweep_interval_seconds, rate_limit_per_minute,
     floor_seconds, auth_state, consecutive_auth_failures, overtime_window_seconds,
-    overtime_extension_seconds, overtime_cap_seconds
+    overtime_extension_seconds, overtime_cap_seconds, closing_ladder_seconds,
+    bid_history_ttl_seconds, bid_count_semantics
 FROM app.source WHERE key = %s
 """
 SQL_SOURCE_WLACZONE = """
 SELECT
     id, key, name, enabled, sweep_interval_seconds, rate_limit_per_minute,
     floor_seconds, auth_state, consecutive_auth_failures, overtime_window_seconds,
-    overtime_extension_seconds, overtime_cap_seconds
+    overtime_extension_seconds, overtime_cap_seconds, closing_ladder_seconds,
+    bid_history_ttl_seconds, bid_count_semantics
 FROM app.source WHERE enabled ORDER BY key
 """
 
@@ -228,6 +238,11 @@ def _na_source(w: dict[str, Any]) -> Source:
         overtime_window_seconds=w["overtime_window_seconds"],
         overtime_extension_seconds=w["overtime_extension_seconds"],
         overtime_cap_seconds=w["overtime_cap_seconds"],
+        # Postgres oddaje `integer[]` jako liste; encja jest frozen, wiec
+        # trzyma krotke (SPEC.md §5 — encje niemutowalne).
+        closing_ladder_seconds=tuple(w["closing_ladder_seconds"]),
+        bid_history_ttl_seconds=w["bid_history_ttl_seconds"],
+        bid_count_semantics=BidCountSemantics(w["bid_count_semantics"]),
     )
 
 
@@ -307,6 +322,9 @@ class PgSourceRepository:
                     "overtime_window_seconds": source.overtime_window_seconds,
                     "overtime_extension_seconds": source.overtime_extension_seconds,
                     "overtime_cap_seconds": source.overtime_cap_seconds,
+                    "closing_ladder_seconds": list(source.closing_ladder_seconds),
+                    "bid_history_ttl_seconds": source.bid_history_ttl_seconds,
+                    "bid_count_semantics": source.bid_count_semantics.value,
                 },
             )
             wiersz = await cur.fetchone()

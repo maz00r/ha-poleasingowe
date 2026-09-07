@@ -196,6 +196,9 @@ Nie znam jeszcze tego okna dla EFL ani poleasingowe — pomiar zaplanowany
 na 2026-09-07 10:40. Zanim zmienimy §11.5, warto mieć wszystkie trzy liczby,
 żeby nie poprawiać spec drugi raz.
 
+**Domknięte 2026-09-07.** Trzy liczby są (§3.6), SPEC.md §11.5 zmieniony,
+siatka `{2,5,8,11,14}` wpisana jako zmierzona wartość dla tego źródła.
+
 ### 3.5 `bid_count` w EFL liczy uczestników, nie oferty
 
 **Zmierzone 2026-09-07** (§4.1). SPEC.md §11.8 zakłada, że `bid_count` rośnie
@@ -225,6 +228,14 @@ Wariant 2 jest dokładniejszy i tańszy, ale znaczy, że `bid_gap` przestaje by�
 jedną miarą dla wszystkich źródeł — co samo w sobie jest uczciwsze niż liczba,
 która dla połowy serwisów mierzy coś innego.
 
+**Rozstrzygnięte 2026-09-07 — przyjęty wariant 1, z wariantem 2 jako
+uzupełnieniem.** SPEC.md §11.8 liczy `bid_gap` wyłącznie dla źródeł
+z `bid_count_semantics = 'OFFERS'`; dla `'PARTICIPANTS'` (EFL) i `'UNKNOWN'`
+zostaje `NULL`. Domyślną wartością jest `'UNKNOWN'`, więc nowe źródło nie
+dostaje miary kompletności na kredyt — wymaga dowodu z rekonesansu. Wariant 2
+zostaje w mocy jako osobna reguła, która i tak już stała w §11.8: skoro EFL
+podaje pełną tabelę uczestników, parsujemy ją zamiast cokolwiek szacować.
+
 ### 3.6 Drabinka z §11.5 faza 2 ma trzy różne kształty, nie jeden
 
 **Zmierzone 2026-09-07** dla trzech z czterech źródeł. „Jak długo cena jest
@@ -247,6 +258,13 @@ wniosku z §3.4, teraz na trzech liczbach zamiast jednej.
 Drugi wniosek, węższy: dla poleasingowe „złap cenę końcową" i „złap historię
 ofert" **rozjeżdżają się w czasie** — cena trzyma się bezterminowo, a
 `lastOffers` znika po kilku minutach. To dwa różne deadline'y w jednej fazie.
+
+**Wykonane 2026-09-07.** SPEC.md §11.5 i §8.1 zmienione, migracja
+`003_domkniecie.sql` dodaje `closing_ladder_seconds`,
+`bid_history_ttl_seconds` i `bid_count_semantics` do `source`, plus te trzy
+kolumny do `reporting.v_source_health`. Domyślna siatka `{2,5,10,20,40}`
+obowiązuje **tylko** dla źródeł niezmierzonych — wpisanie jej dla
+zmierzonego jest błędem konfiguracji, nie ostrożnością.
 
 ### 3.7 Reguła dogrywki poleasingowe potwierdzona — spec jej nie zaprzecza
 
@@ -1075,11 +1093,14 @@ interwał.
    z §4.3.
 3. **Tryb 30 s w §11.2** — patrz §6. Wymaga albo zmiany progu, albo
    przyjęcia gorszej jakości pomiaru.
-4. **Długość drabinki w §11.5** — 79 s nie pokrywa 30-minutowego sufitu
-   przedłużeń poleasingowe.pl. Proponuję parametryzację per źródło (§3.2).
-   Po 0b mamy trzy zmierzone kształty fazy 2 (§3.6): autoprzetarg ≤14 s,
-   EFL i poleasingowe bez limitu. Parametryzacja jest już nie propozycją,
-   tylko koniecznością.
+4. ~~**Długość drabinki w §11.5.**~~ **Rozstrzygnięte 2026-09-07 — SPEC
+   zmieniony.** Faza 2 jest parametrem źródła: kolumna
+   `source.closing_ladder_seconds` (migracja 003), a §11.5 niesie tabelę
+   zmierzonych siatek. Wartości: autoprzetarg `{2,5,8,11,14}`, EFL
+   i poleasingowe `{2,30}`, leasygroup domyślna `{2,5,10,20,40}` do
+   kalibracji po 2026-09-10. Doszła druga kolumna,
+   `bid_history_ttl_seconds` — bo w poleasingowe cena i historia ofert mają
+   **osobne** terminy (§3.6).
 5. **WAF F5 na leasygroup** — czy ryzyko blokady jest akceptowalne.
 6. **SignalR w autoprzetarg.pl.** Kanał push dawałby historię ofert
    i natychmiastowe zdarzenia bez odpytywania — najtańsza możliwa końcówka.

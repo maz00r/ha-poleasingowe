@@ -153,10 +153,10 @@ niż dashboard budowany na danych produkcyjnych.
 
 | Widok | Do czego |
 |---|---|
-| `v_price_history` | historia cen jednej aukcji; `bid_gap` mówi, ile ofert przegapiono |
+| `v_price_history` | historia cen jednej aukcji; `bid_gap` mówi, ile ofert przegapiono (`NULL` = nie da się policzyć) |
 | `v_auction_current` | bieżący stan aukcji plus flaga obserwowania |
 | `v_market_stats` | mediany cen per marka/model/rocznik |
-| `v_source_health` | stan źródeł, ostatni przebieg, RSS, rozmiar bazy |
+| `v_source_health` | stan źródeł, parametry dogrywki i domknięcia, ostatni przebieg, RSS, rozmiar bazy |
 
 **Uwaga do `v_market_stats`.** Widok podaje **dwie mediany osobno**:
 `median_confirmed` (cena odczytana ze strony po zakończeniu) oraz
@@ -167,3 +167,10 @@ faktycznym końcem urwał się pomiar.
 **Dashboard musi pokazywać je rozdzielnie.** Zmieszanie ich w jedną liczbę
 zaniża obraz rynku, a `n_confirmed` i `n_last_seen` mówią, na ilu
 obserwacjach każda z nich stoi.
+
+**Uwaga do `bid_gap`.** `NULL` to **nie** to samo co `0`. Zero znaczy
+„komplet historii", `NULL` znaczy „nie da się policzyć" — pierwszy snapshot
+aukcji albo źródło, którego licznik zlicza uczestników licytacji proxy,
+a nie oferty (EFL). Panel pokazujący `SUM(bid_gap)` bez rozróżnienia
+zaraportuje takie źródło jako kompletne, choć o kompletności nie wiemy nic.
+Który to przypadek, mówi `bid_count_semantics` w `v_source_health`.

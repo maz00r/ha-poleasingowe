@@ -8,10 +8,17 @@ strefy lokalnej wyłącznie w warstwie widoku (§8.2).
 from __future__ import annotations
 
 import datetime as dt
+import itertools
 from dataclasses import dataclass, field
 from typing import Any
 
-from app.domain.enums import AuctionStatus, AuthState, FinalPriceState, PollTier
+from app.domain.enums import (
+    AuctionStatus,
+    AuthState,
+    BidCountSemantics,
+    FinalPriceState,
+    PollTier,
+)
 from app.domain.value_objects import Mileage, Money, Vin
 
 
@@ -46,11 +53,46 @@ class Source:
     """O ile przedłuża. 0 = serwis bez dogrywki."""
     overtime_cap_seconds: int | None
     """Sufit łącznego przedłużenia. `None` = serwis go nie deklaruje."""
+    closing_ladder_seconds: tuple[int, ...] = (2, 5, 10, 20, 40)
+    """Przesunięcia prób fazy 2 od punktu zerowego (SPEC.md §11.5).
+
+    Bezwzględne i rosnące, nie odstępy. Domyślna siatka obowiązuje wyłącznie
+    dla źródeł niezmierzonych — dla zmierzonego jest błędem konfiguracji
+    (RECON.md §3.6).
+    """
+    bid_history_ttl_seconds: int | None = None
+    """Jak długo po końcu widoczna jest historia ofert. `None` = nie znika."""
+    bid_count_semantics: BidCountSemantics = BidCountSemantics.UNKNOWN
+    """Co serwis liczy w `bid_count` (§11.8)."""
     id: int | None = None
+
+    def __post_init__(self) -> None:
+        drabinka = self.closing_ladder_seconds
+        if any(a >= b for a, b in itertools.pairwise(drabinka)):
+            raise ValueError(
+                f"closing_ladder_seconds musi rosnąć (SPEC.md §11.5): {drabinka}"
+            )
+        if any(s <= 0 for s in drabinka):
+            raise ValueError(f"closing_ladder_seconds musi być dodatnia: {drabinka}")
+        if self.bid_history_ttl_seconds is not None and (
+            self.bid_history_ttl_seconds <= 0
+        ):
+            raise ValueError(
+                "bid_history_ttl_seconds: dodatnie albo None (None = nie znika)"
+            )
 
     @property
     def ma_dogrywke(self) -> bool:
         return self.overtime_window_seconds > 0 and self.overtime_extension_seconds > 0
+
+    @property
+    def liczy_oferty(self) -> bool:
+        """Czy `bid_gap` wolno policzyć dla tego źródła (SPEC.md §11.8).
+
+        `UNKNOWN` celowo daje `False`: brak dowodu z rekonesansu ma skutkować
+        `NULL`-em, a nie zerem czytanym jak „komplet historii".
+        """
+        return self.bid_count_semantics is BidCountSemantics.OFFERS
 
 
 @dataclass(slots=True, frozen=True)

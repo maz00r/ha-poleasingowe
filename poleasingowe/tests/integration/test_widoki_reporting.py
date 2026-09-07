@@ -310,3 +310,34 @@ async def test_v_price_history_niesie_bid_gap(
         wiersze = [w[0] for w in await cur.fetchall()]
 
     assert wiersze == [None, 2], "pierwszy snapshot NULL, potem dwie przegapione"
+
+
+async def test_v_source_health_pokazuje_parametry_domkniecia(
+    pusta_baza: psycopg.AsyncConnection,
+) -> None:
+    """SPEC.md §9, §12 — z panelu ma być widać, DLACZEGO drabinka jest taka.
+
+    Bez tych kolumn w widoku diagnostyka „czemu tu jest LAST_SEEN zamiast
+    CONFIRMED" wymagałaby zaglądania do tabeli bazowej, czego Grafana
+    z założenia nie robi.
+    """
+    from app.domain.enums import BidCountSemantics
+
+    uow = PgUnitOfWork(pusta_baza)
+    await uow.source.zapisz(
+        zrodlo(
+            "efl",
+            closing_ladder_seconds=(2, 30),
+            bid_count_semantics=BidCountSemantics.PARTICIPANTS,
+        )
+    )
+
+    async with pusta_baza.cursor() as cur:
+        await cur.execute(
+            "SELECT closing_ladder_seconds, bid_history_ttl_seconds, "
+            "bid_count_semantics FROM reporting.v_source_health "
+            "WHERE source_key = 'efl'"
+        )
+        wiersz = await cur.fetchone()
+
+    assert wiersz == ([2, 30], None, "PARTICIPANTS")

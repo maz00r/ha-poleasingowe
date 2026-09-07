@@ -437,3 +437,51 @@ async def test_unit_of_work_zapisuje_na_wyjsciu(
     async with uow:
         await uow.source.zapisz(zrodlo("efl"))
     assert await uow.source.po_kluczu("efl") is not None
+
+
+async def test_source_zapisuje_parametry_domkniecia(
+    pusta_baza: psycopg.AsyncConnection,
+) -> None:
+    """SPEC.md §11.5, §11.8 — drabinka i semantyka licznika też są kolumnami.
+
+    Round-trip przez bazę, bo `integer[]` idzie tam jako lista, a wraca
+    do encji jako krotka — miejsce, w którym łatwo o cichy rozjazd typów.
+    """
+    from app.domain.enums import BidCountSemantics
+
+    uow = PgUnitOfWork(pusta_baza)
+
+    # autoprzetarg.pl: cena znika 10-15 s po końcu (RECON.md §3.6)
+    ap = await uow.source.zapisz(
+        zrodlo(
+            "autoprzetarg",
+            closing_ladder_seconds=(2, 5, 8, 11, 14),
+            bid_count_semantics=BidCountSemantics.OFFERS,
+        )
+    )
+    assert ap.closing_ladder_seconds == (2, 5, 8, 11, 14)
+    assert ap.liczy_oferty
+
+    # EFL: strona zamrożona po końcu, ale licznik zlicza uczestników (§3.5)
+    efl = await uow.source.zapisz(
+        zrodlo(
+            "efl",
+            closing_ladder_seconds=(2, 30),
+            bid_count_semantics=BidCountSemantics.PARTICIPANTS,
+        )
+    )
+    assert not efl.liczy_oferty, "licytacja proxy — bid_gap zostaje NULL"
+
+    # poleasingowe: cena trzyma się bezterminowo, historia ofert nie (§3.6)
+    pl = await uow.source.zapisz(
+        zrodlo(
+            "poleasingowe",
+            closing_ladder_seconds=(2, 30),
+            bid_history_ttl_seconds=120,
+        )
+    )
+    assert pl.bid_history_ttl_seconds == 120
+
+    odczytane = await uow.source.po_kluczu("autoprzetarg")
+    assert odczytane is not None
+    assert odczytane.closing_ladder_seconds == (2, 5, 8, 11, 14)

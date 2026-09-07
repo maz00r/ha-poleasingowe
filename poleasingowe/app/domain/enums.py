@@ -65,3 +65,20 @@ class Currency(StrEnum):
 
     PLN = "PLN"
     EUR = "EUR"
+
+
+class BidCountSemantics(StrEnum):
+    """Co serwis liczy w `bid_count` (SPEC.md §11.8, RECON.md §3.5).
+
+    Od tego zależy, czy `bid_gap` w ogóle coś znaczy. EFL prowadzi licytację
+    proxy i pokazuje jeden wiersz na uczestnika, aktualizowany w miejscu —
+    cena rośnie przy niezmienionym `bid_count`, więc przyrost nie mierzy
+    przegapionych ofert.
+    """
+
+    OFFERS = "OFFERS"
+    """Licznik rośnie o jeden na ofertę — `bid_gap` jest policzalny."""
+    PARTICIPANTS = "PARTICIPANTS"
+    """Licznik zlicza uczestników licytacji proxy — `bid_gap` zostaje `NULL`."""
+    UNKNOWN = "UNKNOWN"
+    """Rekonesans nie dał dowodu. Domyślne: niewiedza, nie założenie."""
