@@ -28,8 +28,21 @@ Kolejność etapów jest w `SPEC.md` §14. Zrobione:
 - **ETAP 5** — adapter EFL: parser, mapper, klient i rejestr, plus testy
   na fixtures.
 - **ETAP 6** — opakowanie add-onu: `config.yaml`, Dockerfile, s6, Ingress,
-  AppArmor, walidacja opcji. Zostaje instalacja na HAOS i pomiar zużycia
-  względem budżetu z §1.1.
+  AppArmor, walidacja opcji. **Zainstalowany na HAOS 2026-09-07** (wersja
+  0.2.1), łączy się do bazy jako `poleasingowe_app`.
+
+  Pierwszy pomiar wobec budżetu z §1.1 — z panelu diagnostycznego, nie
+  z oszacowania:
+
+  | Pozycja | Budżet §1.1 | Zmierzone |
+  |---|---|---|
+  | RSS w spoczynku | < 170 MB | **60,9 MB** |
+  | Rozmiar bazy | < 300 MB po roku | 7,7 MB (pusta, same tabele i widoki) |
+  | Dryf zegara wobec Postgresa | — | 0,013 s |
+
+  **To jest spoczynek bez dispatchera** — nic jeszcze nie odpytuje serwisów.
+  Pozycja „RSS w szczycie (20 obserwowanych w dogrywce) < 250 MB" da się
+  zmierzyć dopiero po etapie 9.
 - **ETAP 7** — interfejs: lista z filtrami i paginacją keyset, szczegóły,
   watchlist, zapisane filtry, panel diagnostyczny. ← tutaj jesteśmy.
 
