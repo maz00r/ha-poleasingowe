@@ -191,6 +191,35 @@ Nie znam jeszcze tego okna dla EFL ani poleasingowe — pomiar zaplanowany
 na 2026-09-07 10:40. Zanim zmienimy §11.5, warto mieć wszystkie trzy liczby,
 żeby nie poprawiać spec drugi raz.
 
+### 3.5 `bid_count` w EFL liczy uczestników, nie oferty
+
+**Zmierzone 2026-09-07** (§4.1). SPEC.md §11.8 zakłada, że `bid_count` rośnie
+o jeden na każdą ofertę, i na tym opiera `bid_gap`: „jeśli między dwoma
+snapshotami wzrósł o więcej niż 1, przegapiliśmy oferty pośrednie".
+
+W EFL to założenie nie obowiązuje. Serwis prowadzi licytację **proxy**
+(regulamin §4 ust. 7) i pokazuje **jeden wiersz na uczestnika** z jego
+bieżącą ofertą, aktualizowany w miejscu. Obserwacja wprost: na aukcji 435508
+cena poszła z 48 600 zł na 51 600 zł, a wiersz uczestnika `106125` zmienił
+kwotę i znacznik czasu — bez pojawienia się nowego wiersza.
+
+Skutek: **cena rośnie przy niezmienionym `bid_count`**, więc `bid_gap`
+wychodzi zerowy mimo realnych zmian. Miara kompletności mierzy co innego,
+niż zakłada spec.
+
+Co z tym zrobić — do decyzji, nie zmieniam spec sam:
+
+1. Zapisywać `bid_gap` tylko dla źródeł, w których `bid_count` faktycznie
+   zlicza oferty, a dla pozostałych zostawiać `NULL` (§8.2 już dopuszcza
+   `NULL` jako wartość znaczącą).
+2. Dla EFL wykorzystać to, że **pełna tabela ofert jest dostępna wprost** —
+   kompletność nie wymaga tam żadnego szacowania, bo widzimy stan wszystkich
+   uczestników w każdym odpycie.
+
+Wariant 2 jest dokładniejszy i tańszy, ale znaczy, że `bid_gap` przestaje być
+jedną miarą dla wszystkich źródeł — co samo w sobie jest uczciwsze niż liczba,
+która dla połowy serwisów mierzy coś innego.
+
 ---
 
 ## 4. Serwisy
@@ -256,11 +285,50 @@ Zgodne z regulaminem §4 ust. 4: „Wszystkie oferowane przez Uczestników ceny
 są jawne oraz zostają uwidocznione w Serwisie Aukcyjnym EFL w trakcie
 trwania Aukcji."
 
-**Konsekwencja dla §11.8: dla EFL problem kompletności historii ofert
-nie istnieje.** Każdy odpyt strony szczegółów zwraca pełną listę ofert
-z dokładnymi czasami, więc `bid_gap` jest tu zawsze 0 z definicji i nie ma
-potrzeby zgadywania z różnic snapshotów. Pozostaje otwarte, czy panel
-przeżywa zamknięcie aukcji — punkt (c) drugiej części, do 0b.
+**Panel przeżywa zamknięcie aukcji — ZMIERZONE 2026-09-07** na aukcji 435508
+kończącej się 10:47. Siedem minut po końcu strona nadal podaje cenę
+`51 600,00 zł`, `Ofert: 3` i pełną tabelę ofert. To **odwrotność
+autoprzetarg**, gdzie strona znika po kilkunastu sekundach.
+
+**Stan końcowy rozpoznaje się po dwóch rzeczach:**
+
+| | aukcja aktywna | aukcja zakończona |
+|---|---|---|
+| `Do zakończenia:` | etykieta **z datą** | etykieta **bez wartości** |
+| formularz oferty (`NewPriceProposal`) | jest | **znika** |
+| cena, `Ofert: N`, tabela ofert | są | **nadal są** |
+
+Praktycznie: dla EFL `CONFIRMED` jest osiągalne **bez żadnej presji czasu**.
+Drabinka z §11.5 może tu być dowolnie luźna.
+
+**Tabela ofert nie jest tym, na co wygląda — i to zmienia §11.8.**
+Ta sama aukcja 435508, dwa odczyty:
+
+```
+2026-09-06 (aktywna, Ofert: 1)
+  106125   48 600,00 zł   2026.09.04 13:00:52.2194
+
+2026-09-07 (zakończona, Ofert: 3)
+  106125   51 600,00 zł   2026.09.07 10:42:05.8800
+  106148   51 400,00 zł   2026.09.07 10:46:58.5933
+  106147   49 000,00 zł   2026.09.07 10:46:48.8506
+```
+
+**Wiersz o kodzie 106125 zmienił kwotę i czas.** To nie jest dziennik
+zdarzeń: wiersze odpowiadają **uczestnikom**, a nie pojedynczym ofertom,
+i pokazują **bieżącą** ofertę każdego z nich. Zgadza się to z regulaminem
+§4 ust. 7: serwis prowadzi licytację **proxy** i sam podbija w imieniu
+uczestnika do jego ceny maksymalnej. Uczestnik 106125 bronił swojej pozycji
+przed nowymi 106147 i 106148, a jego wiersz był aktualizowany w miejscu.
+
+Dodatkowo tabela jest posortowana **malejąco po kwocie**, nie po czasie —
+sprawdzone: kwoty `51 600 > 51 400 > 49 000`, a czasy `10:42 < 10:46:58`
+i `10:46:58 > 10:46:48`, więc chronologii tam nie ma.
+
+**Wniosek dla §11.8: `Ofert: N` to liczba UCZESTNIKÓW, nie liczba ofert.**
+Cena może wzrosnąć wielokrotnie przy niezmienionym `bid_count` — dokładnie
+tak stało się tutaj między 10:42 a 10:47. Dla tego źródła `bid_gap` liczony
+z przyrostu `bid_count` **nie mierzy tego, co miał mierzyć**. Patrz §3.5.
 
 **Dogrywka (punkt a): BRAK.** Regulamin §4 ust. 3:
 
