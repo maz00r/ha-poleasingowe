@@ -60,7 +60,15 @@ Kolejność etapów jest w `SPEC.md` §14. Zrobione:
   byłoby budowaniem czegoś, czego nie wolno używać — aplikacja nigdy nie
   licytuje.
 
-Następny: **ETAP 9** — dispatcher i `PollingPolicy`.
+- **ETAP 9** — dispatcher i `PollingPolicy`: czysta tabela progów
+  w `domain/harmonogram.py`, floor wyliczany z okna dogrywki, kubełek tokenów
+  z jitterem, bezpiecznik per źródło, pętla śpiąca do najbliższego terminu,
+  tani odpyt po `content_hash`, `run_log` z RSS i rozmiarem bazy.
+  Rejestracja źródeł przy starcie **zachowuje** stan uwierzytelnienia.
+  ← tutaj jesteśmy.
+
+Następny: **ETAP 10** — pozostałe adaptery (poleasingowe, autoprzetarg,
+leasygroup).
 
 Repozytorium add-onu: <https://github.com/maz00r/ha-poleasingowe> —
 instrukcja instalacji w [`poleasingowe/DOCS.md`](poleasingowe/DOCS.md).

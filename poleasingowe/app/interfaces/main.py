@@ -19,10 +19,14 @@ import sys
 
 import uvicorn
 
+from app.application.use_cases.rejestracja import zarejestruj_zrodla
 from app.infrastructure.persistence.migrations import Migracja
 from app.infrastructure.persistence.polaczenie import polacz_i_zmigruj
 from app.infrastructure.persistence.pula import PgFabrykaKontekstu
 from app.infrastructure.redakcja import Redakcja
+from app.infrastructure.scheduler.dispatcher import Dispatcher
+from app.infrastructure.sources import registry
+from app.infrastructure.sources.parametry import zbuduj_source
 from app.infrastructure.supervisor.options import (
     SCIEZKA_OPCJI,
     BladKonfiguracji,
@@ -107,6 +111,43 @@ def main() -> int:
         # dobijalaby sie do bazy rownolegle z petla ponowien, czyli dokladnie
         # tak, jak SPEC.md §2 pkt 8 zabrania traktowac wspoldzielony serwer.
         await fabryka.otworz()
+        await _wystartuj_dispatcher()
+
+    async def _wystartuj_dispatcher() -> None:
+        """Rejestruje źródła i uruchamia pętlę harmonogramu (SPEC.md §11.1).
+
+        Dopiero po migracjach i po otwarciu puli — dispatcher od pierwszego
+        obrotu potrzebuje i schematu, i połączeń.
+        """
+        wlaczone = [z for z in opcje.sources if z.enabled]
+        adaptery = {}
+        for wpis in wlaczone:
+            try:
+                adaptery[wpis.key] = registry.utworz(wpis.key)
+            except KeyError as exc:
+                # Zła nazwa źródła w opcjach nie ma zatrzymywać add-onu —
+                # pozostałe źródła mają pracować dalej (SPEC.md §13).
+                log.error("%s", exc)
+
+        async with fabryka() as kontekst, kontekst.uow as uow:
+            await zarejestruj_zrodla(
+                uow,
+                [
+                    zbuduj_source(
+                        wpis.key,
+                        enabled=True,
+                        rate_limit_per_minute=wpis.rate_limit_per_minute,
+                        floor_seconds=wpis.floor_seconds,
+                    )
+                    for wpis in wlaczone
+                    if wpis.key in adaptery
+                ],
+            )
+
+        if not adaptery:
+            log.warning("żadne źródło nie jest włączone — dispatcher nie startuje")
+            return
+        await Dispatcher(fabryka, adaptery).uruchom()
 
     aplikacja = utworz_aplikacje(
         opcje, zadania_tla=[_polaczenie_w_tle], fabryka=fabryka

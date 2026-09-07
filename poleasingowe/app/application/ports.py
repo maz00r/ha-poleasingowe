@@ -60,6 +60,7 @@ class AuctionRepository(Protocol):
         self, source_id: int, external_id: str
     ) -> Auction | None: ...
     async def do_odpytu(self, teraz: dt.datetime, limit: int) -> Sequence[Auction]: ...
+    async def najblizszy_termin(self) -> dt.datetime | None: ...
     async def po_vin(self, vin: Vin) -> Sequence[Auction]: ...
     async def odnotuj_widziana(self, auction_id: int, teraz: dt.datetime) -> None: ...
 
@@ -120,6 +121,8 @@ class SurowaOferta:
     url: str
     pola: dict[str, str]
     """Pola tak, jak podał je serwis — bez interpretacji i bez konwersji."""
+    content_hash: str = ""
+    """Hash **surowych bajtów** odpowiedzi, liczony przed parsowaniem (§11.3)."""
 
 
 @dataclass(slots=True, frozen=True)
@@ -180,8 +183,19 @@ class AuctionSource(Protocol):
         """Zbiorczy przemiat listy — główna oszczędność systemu (§11.2)."""
         ...
 
-    async def pobierz_szczegoly(self, external_id: str) -> SurowaOferta:
-        """Pojedyncza aukcja. Wywoływane tylko dla obserwowanych (§11.2)."""
+    async def pobierz_szczegoly(
+        self, external_id: str, znany_hash: str | None = None
+    ) -> SurowaOferta | None:
+        """Pojedyncza aukcja. Wywoływane tylko dla obserwowanych (§11.2).
+
+        `znany_hash` to `content_hash` z poprzedniego odpytu. Gdy treść się
+        nie zmieniła, adapter zwraca `None` **bez parsowania** (§11.3 krok 2):
+        parsowanie jest najdroższą operacją CPU w całej aplikacji i nie wolno
+        go wykonywać na niezmienionej treści.
+
+        Porównanie musi siedzieć w adapterze, nie u wywołującego — inaczej
+        parsowanie i tak by się wykonało, a oszczędność zniknęła.
+        """
         ...
 
     def na_aukcje(

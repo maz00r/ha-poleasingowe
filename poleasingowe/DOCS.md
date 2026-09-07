@@ -45,6 +45,52 @@ Jedyne, co zatrzymuje dodatek, to **błędna konfiguracja** — wtedy log mówi
 wprost, które pole jest złe. Dodatek nie uruchomi się z wartościami
 domyślnymi, których nie ustawiłeś.
 
+## Włączanie źródeł
+
+**Domyślnie dodatek niczego nie odpytuje.** Lista `sources` w opcjach jest
+pusta i dopóki taka zostanie, add-on trzyma schemat, wystawia interfejs
+i nie wysyła ani jednego żądania do serwisów.
+
+Żeby włączyć źródło, dopisz je do opcji:
+
+```yaml
+sources:
+  - key: efl
+    enabled: true
+    rate_limit_per_minute: 30
+    floor_seconds: 60
+```
+
+Ustawiasz tylko trzy rzeczy: czy źródło działa, ile żądań na minutę i jaki
+jest **floor**, czyli najmniejszy odstęp między odpytami w końcówce aukcji.
+Reszta — okno dogrywki, siatka domknięcia, co serwis liczy w `bid_count` —
+pochodzi z rekonesansu i siedzi w kodzie, bo to fakty o serwisie, a nie
+Twoje preferencje.
+
+**Floor działa jako podłoga, nie jako wartość.** Dodatek liczy go z reguły:
+połowa okna dogrywki serwisu, nie mniej niż 10 sekund — tak, żeby w okno
+przedłużenia zmieściły się dwie próbki. Dla poleasingowe.pl (okno 30 s) daje
+to 15 s. Twoje ustawienie może ten wynik **podnieść**, nigdy obniżyć.
+
+Jak często dodatek odpytuje aktywną aukcję:
+
+| Do końca | Odstęp |
+|---|---|
+| ponad 7 dni | 24 h |
+| 1–7 dni | 6 h |
+| 6–24 h | 1 h |
+| 1–6 h | 15 min |
+| 15–60 min | 3 min |
+| poniżej 15 min | floor źródła |
+
+**Odpytywane pojedynczo są tylko aukcje aktywne.** Reszcie wystarcza zbiorczy
+przemiat listy — dzięki temu koszt rośnie z liczbą obserwowanych pozycji,
+a nie z liczbą ofert w serwisie.
+
+Gdy serwis przestaje odpowiadać, dodatek odstawia **to jedno źródło** na
+rosnącą przerwę i pracuje dalej z pozostałymi. Widać to w panelu
+diagnostycznym w kolumnie ostatniego przebiegu.
+
 ## Interfejs
 
 Dodatek otwiera się z paska bocznego Home Assistanta. Uwierzytelnia Ingress —

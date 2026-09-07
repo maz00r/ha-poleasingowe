@@ -163,6 +163,11 @@ ORDER BY ends_at NULLS LAST
 LIMIT %s
 """
 
+SQL_AUCTION_NAJBLIZSZY_TERMIN = """
+SELECT min(next_poll_at) FROM app.auction
+WHERE status = 'ACTIVE' AND next_poll_at IS NOT NULL
+"""
+
 SQL_AUCTION_PO_VIN = """
 SELECT
     id, source_id, external_id, url, make, model, variant, year, mileage_km, fuel,
@@ -450,6 +455,21 @@ class PgAuctionRepository:
         async with self._conn.cursor(row_factory=dict_row) as cur:
             await cur.execute(SQL_AUCTION_DO_ODPYTU, (teraz, limit))
             return [_na_auction(w) for w in await cur.fetchall()]
+
+    async def najblizszy_termin(self) -> dt.datetime | None:
+        """Najbliższy `next_poll_at` — do wyliczenia, jak długo spać (§11.1).
+
+        Pętla śpi do najbliższego terminu, nie budzi się na stałym ticku.
+        Bez tego zapytania „ile spać" byłoby zgadywaniem, a stały tick
+        odpytywałby bazę bez powodu — na instancji dzielonej z TeslaMate.
+        """
+        async with self._conn.cursor() as cur:
+            await cur.execute(SQL_AUCTION_NAJBLIZSZY_TERMIN)
+            wiersz = await cur.fetchone()
+        if wiersz is None:
+            return None
+        termin: dt.datetime | None = wiersz[0]
+        return termin
 
     async def po_vin(self, vin: Vin) -> Sequence[Auction]:
         """Podstawa deduplikacji między serwisami (SPEC.md §8.4)."""

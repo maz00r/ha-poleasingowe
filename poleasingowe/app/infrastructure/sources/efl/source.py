@@ -5,6 +5,7 @@ from __future__ import annotations
 import datetime as dt
 import hashlib
 from collections.abc import Mapping, Sequence
+from dataclasses import replace
 from types import TracebackType
 
 import httpx
@@ -115,15 +116,27 @@ class EflSource:
             strona += 1
         return wszystkie
 
-    async def pobierz_szczegoly(self, external_id: str) -> SurowaOferta:
-        """Szczegóły jednej aukcji. Wywoływane tylko dla obserwowanych (§11.2)."""
+    async def pobierz_szczegoly(
+        self, external_id: str, znany_hash: str | None = None
+    ) -> SurowaOferta | None:
+        """Szczegóły jednej aukcji. Wywoływane tylko dla obserwowanych (§11.2).
+
+        Hash liczymy z surowych bajtów **przed** parsowaniem — inaczej cała
+        oszczędność z §11.3 znika, bo najdroższa operacja i tak by się
+        wykonała.
+        """
         sciezka = f"/Auction/x-id{external_id}"
         tresc = await self._pobierz(sciezka)
-        return parser.sparsuj_szczegoly(
+        biezacy = hash_tresci(tresc)
+        if znany_hash is not None and biezacy == znany_hash:
+            return None
+
+        surowa = parser.sparsuj_szczegoly(
             tresc.decode("utf-8", "replace"),
             external_id,
             f"{parser.BAZOWY_URL}{sciezka}",
         )
+        return replace(surowa, content_hash=biezacy)
 
     def na_aukcje(
         self, surowa: SurowaOferta, source_id: int, teraz: dt.datetime
