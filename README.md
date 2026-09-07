@@ -47,8 +47,20 @@ Kolejność etapów jest w `SPEC.md` §14. Zrobione:
 - **ETAP 7** — interfejs: lista z filtrami i paginacją keyset, szczegóły,
   watchlist, zapisane filtry, panel diagnostyczny. ← tutaj jesteśmy.
 
-Następny: **ETAP 8** — logowanie do serwisów, persystencja sesji, wykrywanie
-wygaśnięcia, licznik `AUTH_LOCKED`.
+- **ETAP 8** — mechanizm logowania: port `AuthenticatedSource`, trwały
+  magazyn sesji (`/data/sessions/<key>.json`, 0600), reguły przejść
+  `ANONYMOUS → OK → EXPIRED → LOCKED` w `domain/logowanie.py`, leniwe
+  ponowne logowanie z jednym retry, wspólna redakcja logów i zrzutów,
+  zrzuty diagnostyczne z rotacją. ← tutaj jesteśmy.
+
+  **Logowania per serwis jeszcze nie ma** — powstaje razem z adapterem,
+  który go potrzebuje. Realnie potrzebują go dwa źródła: autoprzetarg.pl
+  (bez sesji nie ma liczby ofert) i poleasingowe.pl (pełna historia ofert).
+  EFL i leasygroup czytają się w całości anonimowo, więc logowanie tam
+  byłoby budowaniem czegoś, czego nie wolno używać — aplikacja nigdy nie
+  licytuje.
+
+Następny: **ETAP 9** — dispatcher i `PollingPolicy`.
 
 Repozytorium add-onu: <https://github.com/maz00r/ha-poleasingowe> —
 instrukcja instalacji w [`poleasingowe/DOCS.md`](poleasingowe/DOCS.md).

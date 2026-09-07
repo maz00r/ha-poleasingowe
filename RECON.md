@@ -778,6 +778,24 @@ checkbox `rules` i **ukryte pole o losowej nazwie**
 obie w base64) — nazwa rotuje, więc adapter musi wyciągać **parę
 nazwa+wartość**. Brak markerów captchy.
 
+**SPROSTOWANIE 2026-09-08.** Zebrany zrzut `fixtures/leasygroup/logowanie.html`
+**nie jest formularzem logowania** — nie ma w nim ani jednego pola typu
+`password`. Jest tam jedno pole `mail` z etykietą „Wpisz adres e-mail, który
+podałeś podczas rejestracji", checkbox regulaminu i link do
+`/logowanie/przypomnij-haslo/`. To formularz przypomnienia hasła albo
+wysyłki linku, nie logowania. Powyższy opis pola `mail` opisuje więc **inną
+stronę, niż deklaruje**.
+
+Skutków operacyjnych brak: leasygroup czyta się w całości bez logowania,
+razem z pełną historią licytacji (§4.3 wyżej). Do zebrania przy okazji, gdy
+będzie potrzebne konto — parser formularza (`app/infrastructure/auth/
+formularz.py`) odmawia tu wprost, zamiast zgadywać, że `mail` to login.
+
+Ukryte pole na tej stronie ma **losową nazwę**, nie tylko wartość
+(`Tzd5UWsvaU9kQlMzbWhuNzIwMk9TQT09`). To niezależny argument za regułą
+z §10.2: przepisujemy wszystkie pola formularza, bo nie da się ich wymienić
+z nazwy.
+
 **Ochrona przed botami.** Ciasteczko `TS014acf5b` = F5 BIG-IP ASM. Decyzja:
 akceptujemy z ostrożnością — floor wyższy niż z reguły §11.2 i szybszy
 circuit breaker niż przy pozostałych źródłach.

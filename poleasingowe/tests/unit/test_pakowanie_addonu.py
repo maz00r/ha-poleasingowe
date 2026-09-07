@@ -264,9 +264,9 @@ def test_python_w_obrazie_zgadza_sie_z_celem_mypy() -> None:
     assert dopasowanie is not None
     dane = tomllib.loads(PYPROJECT.read_text(encoding="utf-8"))
     cel = dane["tool"]["mypy"]["python_version"]
-    assert dopasowanie.group("python") == cel, (
-        f"obraz ma Pythona {dopasowanie.group('python')}, a mypy celuje w {cel}"
-    )
+    assert (
+        dopasowanie.group("python") == cel
+    ), f"obraz ma Pythona {dopasowanie.group('python')}, a mypy celuje w {cel}"
 
 
 def _apparmor() -> str:
@@ -297,9 +297,9 @@ def test_init_ma_prawo_odczytu_a_nie_samo_wykonanie() -> None:
     `/bin/sh: can't open '/init': Permission denied`.
     """
     tresc = _apparmor()
-    assert re.search(r"^\s*/init\s+rix,", tresc, re.MULTILINE), (
-        "/init potrzebuje `rix`, nie `ix`"
-    )
+    assert re.search(
+        r"^\s*/init\s+rix,", tresc, re.MULTILINE
+    ), "/init potrzebuje `rix`, nie `ix`"
 
 
 @pytest.mark.parametrize(
@@ -310,9 +310,9 @@ def test_katalogi_wykonywalne_daja_takze_odczyt(sciezka: str) -> None:
     """Ten sam problem co z `/init` — s6 i bashio to skrypty, nie binarki."""
     wzorzec = re.escape(sciezka) + r"\s+r?w?ix,"
     tresc = _apparmor()
-    assert re.search(rf"^\s*{re.escape(sciezka)}\s+\w*rix,", tresc, re.MULTILINE), (
-        f"{sciezka} musi mieć `rix`, inaczej skrypty się nie wczytają ({wzorzec})"
-    )
+    assert re.search(
+        rf"^\s*{re.escape(sciezka)}\s+\w*rix,", tresc, re.MULTILINE
+    ), f"{sciezka} musi mieć `rix`, inaczej skrypty się nie wczytają ({wzorzec})"
 
 
 def test_profil_nie_ma_blankietowego_dostepu_do_plikow() -> None:
@@ -333,6 +333,6 @@ def test_dodatek_nie_pisze_po_cudzych_katalogach(katalog: str) -> None:
 def test_zapis_do_share_ograniczony_do_wlasnego_podkatalogu() -> None:
     tresc = _reguly_apparmor()
     assert "/share/poleasingowe/" in tresc
-    assert not re.search(r"^\s*/share/\*\*", tresc, re.MULTILINE), (
-        "w /share mieszkają też inne dodatki"
-    )
+    assert not re.search(
+        r"^\s*/share/\*\*", tresc, re.MULTILINE
+    ), "w /share mieszkają też inne dodatki"

@@ -28,7 +28,11 @@ from app.application.read_models import (
     Strona,
 )
 from app.domain.entities import SavedFilter, WatchlistEntry
-from app.domain.enums import AuthState, Currency
+from app.domain.enums import Currency
+from app.domain.logowanie import (
+    StanLogowania,
+    po_recznym_odblokowaniu,
+)
 from app.domain.value_objects import Money, NieprawidlowaWartosc
 from app.infrastructure.supervisor.proces import rss_bajty
 from app.interfaces.web import filtry_szablonu
@@ -352,9 +356,21 @@ async def odblokuj_zrodlo(request: Request, key: str) -> Response:
     async with _fabryka(request)() as kontekst, kontekst.uow as uow:
         zrodlo = await uow.source.po_kluczu(key)
         if zrodlo is not None:
+            # Przez regułę domenową, nie przez ręczne ustawienie kolumn:
+            # inaczej panel i dispatcher mogłyby rozumieć „odblokowanie"
+            # inaczej, a to jest dokładnie ta reguła, która chroni konto
+            # w serwisie przed zablokowaniem (SPEC.md §10.2).
+            po = po_recznym_odblokowaniu(
+                StanLogowania(
+                    stan=zrodlo.auth_state,
+                    nieudane_proby=zrodlo.consecutive_auth_failures,
+                )
+            )
             await uow.source.zapisz(
                 replace(
-                    zrodlo, auth_state=AuthState.EXPIRED, consecutive_auth_failures=0
+                    zrodlo,
+                    auth_state=po.stan,
+                    consecutive_auth_failures=po.nieudane_proby,
                 )
             )
             log.info(

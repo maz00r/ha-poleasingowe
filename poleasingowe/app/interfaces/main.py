@@ -22,6 +22,7 @@ import uvicorn
 from app.infrastructure.persistence.migrations import Migracja
 from app.infrastructure.persistence.polaczenie import polacz_i_zmigruj
 from app.infrastructure.persistence.pula import PgFabrykaKontekstu
+from app.infrastructure.redakcja import Redakcja
 from app.infrastructure.supervisor.options import (
     SCIEZKA_OPCJI,
     BladKonfiguracji,
@@ -39,26 +40,21 @@ PORT_INGRESS = 8099
 class _FiltrRedakcji(logging.Filter):
     """Redakcja w logach (SPEC.md §10.2).
 
-    Hasła, ciasteczka, `Authorization`, `Set-Cookie` i tokeny zastępowane
-    `***`. Filtr siedzi na loggerze, więc obejmuje też komunikaty, których
-    autor nie przewidział, że mogą coś ujawnić.
-    """
+    Sama reguła siedzi w `infrastructure/redakcja.py`, wspólnie ze zrzutami
+    diagnostycznymi — spec wymaga, żeby zrzuty przechodziły przez **ten sam**
+    filtr co logi, a dwie osobne listy wzorców rozjeżdżają się po cichu.
 
-    WRAZLIWE = ("password=", "Authorization:", "Set-Cookie:", "XSRF-TOKEN")
+    Filtr stoi na loggerze, nie w miejscach wywołań, więc obejmuje też
+    komunikaty, o których autor nie pomyślał, że mogą coś ujawnić — łącznie
+    z tymi z bibliotek.
+    """
 
     def __init__(self, sekrety: list[str]) -> None:
         super().__init__()
-        self._sekrety = [s for s in sekrety if s]
+        self._redakcja = Redakcja(sekrety)
 
     def filter(self, record: logging.LogRecord) -> bool:
-        tresc = record.getMessage()
-        for sekret in self._sekrety:
-            if sekret in tresc:
-                tresc = tresc.replace(sekret, "***")
-        for wzorzec in self.WRAZLIWE:
-            if wzorzec in tresc:
-                tresc = tresc.split(wzorzec)[0] + wzorzec + " ***"
-        record.msg = tresc
+        record.msg = self._redakcja.zastosuj(record.getMessage())
         record.args = ()
         return True
 

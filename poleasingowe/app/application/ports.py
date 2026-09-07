@@ -122,6 +122,51 @@ class SurowaOferta:
     """Pola tak, jak podał je serwis — bez interpretacji i bez konwersji."""
 
 
+@dataclass(slots=True, frozen=True)
+class Ciastko:
+    """Jedno ciasteczko sesji, w postaci niezależnej od klienta HTTP.
+
+    Port celowo nie mówi `httpx.Cookies`: magazyn sesji ma opisywać **co**
+    przechowujemy, a nie którą biblioteką akurat chodzimy po sieci.
+    """
+
+    nazwa: str
+    wartosc: str
+    domena: str = ""
+    sciezka: str = "/"
+    wygasa: int | None = None
+    """Uniksowy znacznik czasu albo `None` dla ciasteczka sesyjnego."""
+
+    def __repr__(self) -> str:
+        # SPEC.md §10.2 — wartość ciasteczka sesji to poświadczenie.
+        return f"Ciastko(nazwa={self.nazwa!r}, wartosc='***', domena={self.domena!r})"
+
+    __str__ = __repr__
+
+
+class MagazynSesji(Protocol):
+    """Trwałe ciasteczka sesji per źródło (SPEC.md §10.2).
+
+    Restart add-onu **nie ma** powodować ponownego logowania: każde zbędne
+    logowanie to kolejna próba na imiennym koncie, a limit z §10.2 jest
+    twardy.
+    """
+
+    def wczytaj(self, source_key: str) -> tuple[Ciastko, ...]: ...
+    def zapisz(self, source_key: str, ciastka: Sequence[Ciastko]) -> None: ...
+    def usun(self, source_key: str) -> None: ...
+
+
+@dataclass(slots=True, frozen=True)
+class OdpowiedzHttp:
+    """Tyle z odpowiedzi HTTP, ile potrzeba do wykrycia wygaśnięcia sesji."""
+
+    kod: int
+    tresc: str
+    url_koncowy: str
+    czy_przekierowano: bool = False
+
+
 class AuctionSource(Protocol):
     """Port źródła (SPEC.md §6.2 — Strategy + Protocol).
 
@@ -200,4 +245,35 @@ class FabrykaKontekstu(Protocol):
 
     def stan_puli(self) -> dict[str, int]:
         """Liczby do panelu diagnostycznego (§12), nie obiekty puli."""
+        ...
+
+
+class AuthenticatedSource(AuctionSource, Protocol):
+    """Źródło wymagające zalogowania (SPEC.md §10.1).
+
+    Adaptery serwisów publicznych implementują samo `AuctionSource` — §10.1
+    zabrania zmuszania ich do pustego `login()`.
+    """
+
+    async def zaloguj(self, login: str, haslo: str) -> tuple[Ciastko, ...]:
+        """Loguje się i zwraca ciasteczka sesji.
+
+        Rzuca `AuthenticationFailed`, gdy serwis odrzucił poświadczenia —
+        i **tylko** wtedy. Błąd sieci to `SourceUnavailable`; pomylenie tych
+        dwóch podbija licznik z §10.2 za cudzą awarię.
+        """
+        ...
+
+    def przywroc_sesje(self, ciastka: Sequence[Ciastko]) -> None:
+        """Wstawia ciasteczka z magazynu do klienta HTTP przy starcie."""
+        ...
+
+    def czy_sesja_wygasla(self, odpowiedz: OdpowiedzHttp) -> bool:
+        """Marker wygaśnięcia **definiuje adapter**, nie warstwa wspólna.
+
+        SPEC.md §10.2: po treści odpowiedzi, nie po samym kodzie HTTP.
+        Każdy serwis sygnalizuje to inaczej — poleasingowe.pl przez
+        przekierowanie i `auth: false` w JSON-ie (RECON.md §4.2), inne przez
+        brak markera zalogowania w HTML.
+        """
         ...
