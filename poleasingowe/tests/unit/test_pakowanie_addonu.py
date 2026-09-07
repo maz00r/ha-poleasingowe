@@ -171,3 +171,43 @@ def test_repozytorium_wskazuje_ten_sam_adres(config: dict[str, Any]) -> None:
         (KORZEN / "repository.yaml").read_text(encoding="utf-8")
     )
     assert repo["url"] == config["url"]
+
+
+def test_zasoby_interfejsu_trafiaja_do_obrazu() -> None:
+    """Szablony i statyki muszą wejść do obrazu razem z kodem (SPEC.md §12).
+
+    Leżą pod `app/`, więc obejmuje je `COPY app`. Ten test pilnuje, żeby
+    nikt ich stamtąd nie wyniósł bez dopisania drugiego `COPY` — brakujący
+    szablon ujawnia się dopiero przy pierwszym wejściu na stronę.
+    """
+    interfejs = ADDON / "app/interfaces"
+    dockerfile = (ADDON / "Dockerfile").read_text(encoding="utf-8")
+    assert "COPY app /opt/poleasingowe/app" in dockerfile
+    for zasob in ("templates/base.html", "static/styl.css", "static/htmx.min.js"):
+        assert (interfejs / zasob).exists(), f"brak {zasob}"
+
+
+def test_htmx_jest_w_repo_a_nie_w_cdn() -> None:
+    """SPEC.md §12 — HTMX z lokalnego pliku statycznego, żadnych CDN-ów."""
+    htmx = ADDON / "app/interfaces/static/htmx.min.js"
+    assert htmx.stat().st_size > 10_000, "to nie wygląda na pełny plik HTMX"
+    assert "htmx" in htmx.read_text(encoding="utf-8")[:200]
+
+    for szablon in (ADDON / "app/interfaces/templates").rglob("*.html"):
+        tresc = szablon.read_text(encoding="utf-8")
+        for zakazane in ("cdnjs", "unpkg", "jsdelivr", "//cdn."):
+            assert zakazane not in tresc, f"{szablon.name} ładuje coś z CDN-u"
+
+
+def test_szablony_nie_maja_sciezek_na_sztywno() -> None:
+    """SPEC.md §7.1 — prefiks Ingressu jest dynamiczny, liczy się `url_for`.
+
+    Ścieżka wpisana na sztywno działa lokalnie i prowadzi donikąd po
+    instalacji, bo Home Assistant montuje add-on pod losowym prefiksem.
+    """
+    for szablon in (ADDON / "app/interfaces/templates").rglob("*.html"):
+        tresc = szablon.read_text(encoding="utf-8")
+        for wzorzec in ('href="/', 'src="/', 'action="/', 'hx-get="/', 'hx-post="/'):
+            assert (
+                wzorzec not in tresc
+            ), f"{szablon.name} ma adres na sztywno ({wzorzec}) — użyj url_for"

@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block tytul %}Brak połączenia z bazą{% endblock %}
+{% block tresc %}
+{# SPEC.md §2 pkt 8 i §12: add-on nie wchodzi w crash-loop, tylko mowi,
+   DLACZEGO bazy nie ma. Powod jest tu, a nie w logach kontenera. #}
+<section class="karta ostrzezenie">
+  <h1>Baza jest niedostępna</h1>
+  <p>Połączenie: <code>{{ polaczenie }}</code></p>
+  {% if powod %}
+    <p>Ostatni błąd: <code>{{ powod }}</code></p>
+  {% else %}
+    <p>Add-on jeszcze nie zdążył nawiązać połączenia. Ponawia z narastającym
+       odstępem, do pięciu minut.</p>
+  {% endif %}
+  <p>Add-on działa dalej i ponawia próby — nie trzeba go restartować.</p>
+</section>
+{% endblock %}

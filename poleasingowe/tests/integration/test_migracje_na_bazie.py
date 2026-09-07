@@ -21,8 +21,12 @@ pytestmark = wymaga_postgresa
 
 
 async def test_migracje_stosuja_sie_i_sa_idempotentne(
-    polaczenie: psycopg.AsyncConnection,
+    baza_od_zera: psycopg.AsyncConnection,
 ) -> None:
+    # Wlasna, dziewicza baza: ten test jako jedyny wymaga, zeby NIC nie bylo
+    # jeszcze zastosowane. Na bazie sesyjnej byl zalezny od kolejnosci plikow.
+    polaczenie = baza_od_zera
+
     # Bez sztywnej listy — test nie ma wymagac aktualizacji przy kazdej
     # nowej migracji, tylko sprawdzac, ze stosuje sie dokladnie to, co lezy
     # na dysku, i ze drugie przejscie nie robi nic.

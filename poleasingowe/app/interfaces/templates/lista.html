@@ -1,0 +1,134 @@
+{% extends "base.html" %}
+{% block tytul %}Lista aukcji{% endblock %}
+{% block tresc %}
+
+{# Filtry ida zwyklym GET-em, nie HTMX-em: dzieki temu kazdy zestaw filtrow
+   ma wlasny adres, ktory da sie zapisac i wkleic. HTMX obsluguje wylacznie
+   doladowanie kolejnej strony i przelaczanie obserwacji. #}
+<form class="filtry" method="get" action="{{ url_for('lista') }}">
+  <div class="pole szerokie">
+    <label for="szukaj">Szukaj</label>
+    <input id="szukaj" name="szukaj" value="{{ kryteria.szukaj or '' }}"
+           placeholder="marka, model, VIN, identyfikator">
+  </div>
+
+  {% macro lista_wyboru(nazwa, etykieta, opcje, wybrana) %}
+  <div class="pole">
+    <label for="{{ nazwa }}">{{ etykieta }}</label>
+    <select id="{{ nazwa }}" name="{{ nazwa }}">
+      <option value="">wszystkie</option>
+      {% for wartosc in opcje %}
+        <option value="{{ wartosc }}" {% if wartosc == wybrana %}selected{% endif %}>{{ wartosc }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  {% endmacro %}
+
+  {{ lista_wyboru('zrodlo', 'Źródło', wartosci.zrodlo, kryteria.zrodlo) }}
+  {{ lista_wyboru('marka', 'Marka', wartosci.marka, kryteria.marka) }}
+  {{ lista_wyboru('paliwo', 'Paliwo', wartosci.paliwo, kryteria.paliwo) }}
+  {{ lista_wyboru('skrzynia', 'Skrzynia', wartosci.skrzynia, kryteria.skrzynia) }}
+  {{ lista_wyboru('lokalizacja', 'Lokalizacja', wartosci.lokalizacja, kryteria.lokalizacja) }}
+
+  <div class="pole">
+    <label for="model">Model</label>
+    <input id="model" name="model" value="{{ kryteria.model or '' }}">
+  </div>
+  <div class="pole waskie">
+    <label for="cena_od">Cena od</label>
+    <input id="cena_od" name="cena_od" inputmode="numeric" value="{{ kryteria.cena_od or '' }}">
+  </div>
+  <div class="pole waskie">
+    <label for="cena_do">Cena do</label>
+    <input id="cena_do" name="cena_do" inputmode="numeric" value="{{ kryteria.cena_do or '' }}">
+  </div>
+  <div class="pole waskie">
+    <label for="rocznik_od">Rocznik od</label>
+    <input id="rocznik_od" name="rocznik_od" inputmode="numeric" value="{{ kryteria.rocznik_od or '' }}">
+  </div>
+  <div class="pole waskie">
+    <label for="rocznik_do">Rocznik do</label>
+    <input id="rocznik_do" name="rocznik_do" inputmode="numeric" value="{{ kryteria.rocznik_do or '' }}">
+  </div>
+  <div class="pole waskie">
+    <label for="przebieg_do">Przebieg do</label>
+    <input id="przebieg_do" name="przebieg_do" inputmode="numeric" value="{{ kryteria.przebieg_do or '' }}">
+  </div>
+  <div class="pole waskie">
+    <label for="do_konca_h">Do końca (h)</label>
+    <input id="do_konca_h" name="do_konca_h" inputmode="numeric" value="{{ kryteria.konczy_sie_w_h or '' }}">
+  </div>
+
+  <div class="pole">
+    <label for="status">Status</label>
+    <select id="status" name="status">
+      <option value="aktywne" {% if parametry.status == 'aktywne' %}selected{% endif %}>aktywne</option>
+      <option value="zakonczone" {% if parametry.status == 'zakonczone' %}selected{% endif %}>zakończone</option>
+      <option value="domykane" {% if parametry.status == 'domykane' %}selected{% endif %}>domykane</option>
+      <option value="zniknely" {% if parametry.status == 'zniknely' %}selected{% endif %}>zniknęły</option>
+      <option value="wszystkie" {% if parametry.status == 'wszystkie' %}selected{% endif %}>wszystkie</option>
+    </select>
+  </div>
+  <div class="pole">
+    <label for="sort">Sortowanie</label>
+    <select id="sort" name="sort">
+      {% for opcja in sortowania %}
+        <option value="{{ opcja.value }}" {% if opcja == kryteria.sortowanie %}selected{% endif %}>{{ opcja.value }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="pole przelaczniki">
+    <label><input type="checkbox" name="obserwowane" value="1"
+      {% if kryteria.tylko_obserwowane %}checked{% endif %}> tylko obserwowane</label>
+    <label><input type="checkbox" name="nowe" value="1"
+      {% if kryteria.nowe_od %}checked{% endif %}> nowe od ostatniej wizyty</label>
+  </div>
+
+  <div class="przyciski">
+    <button type="submit">Filtruj</button>
+    <a class="przycisk-lekki" href="{{ url_for('lista') }}">Wyczyść</a>
+  </div>
+</form>
+
+<section class="zapisane">
+  <form method="post" action="{{ url_for('zapisz_filtr') }}?{{ parametry | urlencode }}">
+    <input name="nazwa" placeholder="nazwa dla bieżących filtrów" required>
+    <button type="submit">Zapisz filtr</button>
+  </form>
+  {% if zapisane %}
+    <ul class="chipsy">
+      {% for filtr in zapisane %}
+        <li>
+          <a href="{{ url_for('lista') }}?{{ filtr.criteria | urlencode }}">{{ filtr.name }}</a>
+          <form method="post" action="{{ url_for('usun_filtr', filter_id=filtr.id) }}">
+            <button type="submit" title="Usuń filtr" aria-label="Usuń filtr {{ filtr.name }}">×</button>
+          </form>
+        </li>
+      {% endfor %}
+    </ul>
+  {% endif %}
+</section>
+
+<table class="lista">
+  <thead>
+    <tr>
+      <th>Pojazd</th>
+      <th>Źródło</th>
+      <th>Rocznik</th>
+      <th>Przebieg</th>
+      <th>Cena</th>
+      <th>Ofert</th>
+      <th>Koniec</th>
+      <th>Zostało</th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody id="wiersze">
+    {% include "fragmenty/wiersze.html" %}
+  </tbody>
+</table>
+
+{% if not strona.pozycje %}
+  <p class="pusto">Nic nie pasuje do tych filtrów.</p>
+{% endif %}
+{% endblock %}

@@ -15,10 +15,19 @@ from typing import Any
 from psycopg import AsyncConnection
 from psycopg.rows import dict_row
 
+from app.application.ports import (
+    AuctionRepository,
+    RunLogRepository,
+    SavedFilterRepository,
+    SnapshotRepository,
+    SourceRepository,
+    WatchlistRepository,
+)
 from app.domain.entities import (
     Auction,
     PriceSnapshot,
     RunLog,
+    SavedFilter,
     Source,
     WatchlistEntry,
 )
@@ -198,6 +207,22 @@ RETURNING id, auction_id, note, target_price, currency, added_at
 """
 SQL_WATCHLIST_USUN = "DELETE FROM app.watchlist WHERE auction_id = %s"
 SQL_WATCHLIST_JEST = "SELECT 1 FROM app.watchlist WHERE auction_id = %s"
+SQL_WATCHLIST_WPIS = """
+SELECT id, auction_id, note, target_price, currency, added_at
+FROM app.watchlist WHERE auction_id = %s
+"""
+
+SQL_SAVED_FILTER_ZAPISZ = """
+INSERT INTO app.saved_filter (name, criteria, created_at)
+VALUES (%s, %s, %s)
+ON CONFLICT (name) DO UPDATE SET criteria = EXCLUDED.criteria
+RETURNING id, name, criteria, created_at
+"""
+SQL_SAVED_FILTER_WSZYSTKIE = """
+SELECT id, name, criteria, created_at FROM app.saved_filter
+ORDER BY name COLLATE "pl-PL-x-icu"
+"""
+SQL_SAVED_FILTER_USUN = "DELETE FROM app.saved_filter WHERE id = %s"
 
 SQL_RUNLOG_START = """
 INSERT INTO app.run_log (source_id, started_at)
@@ -539,6 +564,61 @@ class PgWatchlistRepository:
             await cur.execute(SQL_WATCHLIST_JEST, (auction_id,))
             return await cur.fetchone() is not None
 
+    async def wpis(self, auction_id: int) -> WatchlistEntry | None:
+        async with self._conn.cursor(row_factory=dict_row) as cur:
+            await cur.execute(SQL_WATCHLIST_WPIS, (auction_id,))
+            w = await cur.fetchone()
+        if w is None:
+            return None
+        return WatchlistEntry(
+            id=w["id"],
+            auction_id=w["auction_id"],
+            note=w["note"],
+            target_price=_money(w["target_price"], w["currency"]),
+            added_at=w["added_at"],
+        )
+
+
+class PgSavedFilterRepository:
+    """Zapisane filtry (SPEC.md §12). Kryteria jako `jsonb` (§8.2)."""
+
+    def __init__(self, conn: AsyncConnection) -> None:
+        self._conn = conn
+
+    async def zapisz(self, wpis: SavedFilter) -> SavedFilter:
+        async with self._conn.cursor(row_factory=dict_row) as cur:
+            await cur.execute(
+                SQL_SAVED_FILTER_ZAPISZ,
+                (wpis.name, json.dumps(wpis.criteria), wpis.created_at),
+            )
+            w = await cur.fetchone()
+        assert w is not None
+        return SavedFilter(
+            id=w["id"],
+            name=w["name"],
+            criteria=w["criteria"],
+            created_at=w["created_at"],
+        )
+
+    async def wszystkie(self) -> Sequence[SavedFilter]:
+        async with self._conn.cursor(row_factory=dict_row) as cur:
+            await cur.execute(SQL_SAVED_FILTER_WSZYSTKIE)
+            wiersze = await cur.fetchall()
+        return [
+            SavedFilter(
+                id=w["id"],
+                name=w["name"],
+                criteria=w["criteria"],
+                created_at=w["created_at"],
+            )
+            for w in wiersze
+        ]
+
+    async def usun(self, filter_id: int) -> bool:
+        async with self._conn.cursor() as cur:
+            await cur.execute(SQL_SAVED_FILTER_USUN, (filter_id,))
+            return cur.rowcount > 0
+
 
 class PgRunLogRepository:
     def __init__(self, conn: AsyncConnection) -> None:
@@ -600,11 +680,15 @@ class PgUnitOfWork:
     def __init__(self, conn: AsyncConnection) -> None:
         self._conn = conn
         self._transakcja: Any = None
-        self.source = PgSourceRepository(conn)
-        self.auction = PgAuctionRepository(conn)
-        self.snapshot = PgSnapshotRepository(conn)
-        self.watchlist = PgWatchlistRepository(conn)
-        self.run_log = PgRunLogRepository(conn)
+        # Adnotacje portami, nie klasami konkretnymi. Atrybuty protokolu sa
+        # niezmiennicze, wiec bez tego `PgUnitOfWork` nie spelnialby portu
+        # `UnitOfWork` mimo identycznego zachowania.
+        self.source: SourceRepository = PgSourceRepository(conn)
+        self.auction: AuctionRepository = PgAuctionRepository(conn)
+        self.snapshot: SnapshotRepository = PgSnapshotRepository(conn)
+        self.watchlist: WatchlistRepository = PgWatchlistRepository(conn)
+        self.saved_filter: SavedFilterRepository = PgSavedFilterRepository(conn)
+        self.run_log: RunLogRepository = PgRunLogRepository(conn)
 
     async def __aenter__(self) -> PgUnitOfWork:
         self._transakcja = self._conn.transaction()

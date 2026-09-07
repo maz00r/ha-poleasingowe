@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+{% block tytul %}Diagnostyka{% endblock %}
+{% block tresc %}
+
+{# SPEC.md §12. Pola bez zrodla danych pokazuja "—", nie zero: "zmierzone
+   i wyszlo zero" to co innego niz "nie ma czym zmierzyc". #}
+
+<section class="karta {{ 'ostrzezenie' if not dane.baza_dostepna }}">
+  <h1>Stan procesu</h1>
+  <div class="siatka">
+    <div><span>Połączenie</span><strong><code>{{ dane.polaczenie }}</code></strong></div>
+    <div><span>Baza</span><strong>{{ 'dostępna' if dane.baza_dostepna else 'niedostępna' }}</strong></div>
+    <div><span>Rozmiar bazy</span><strong>{{ dane.rozmiar_bazy_bajty | bajty }}</strong></div>
+    <div><span>RSS procesu</span><strong>{{ dane.rss_bajty | bajty }}</strong></div>
+    <div>
+      <span>Dryf zegara</span>
+      <strong>
+        {% if dane.dryf_zegara_s is not none %}
+          {{ '%.3f' | format(dane.dryf_zegara_s) }} s
+        {% else %}—{% endif %}
+      </strong>
+    </div>
+    <div><span>Ostatni pg_dump</span><strong>{{ dane.ostatni_pg_dump | czas_lokalny }}</strong></div>
+    <div><span>Zrzuty diagnostyczne</span><strong>{{ 'włączone' if dane.debug_dumps else 'wyłączone' }}</strong></div>
+  </div>
+  {% if dane.ostatni_blad_bazy %}
+    <p class="ostrzezenie-inline">Ostatni błąd bazy: <code>{{ dane.ostatni_blad_bazy }}</code></p>
+  {% endif %}
+  {% if not dane.ostatni_pg_dump %}
+    <p class="uwaga">Backup jeszcze nie istnieje — powstaje na etapie 11 (SPEC.md §14).</p>
+  {% endif %}
+</section>
+
+<section class="karta">
+  <h2>Pula połączeń</h2>
+  {% if dane.pula %}
+    <div class="siatka">
+      {% for nazwa, wartosc in dane.pula.items() %}
+        <div><span>{{ nazwa }}</span><strong>{{ wartosc }}</strong></div>
+      {% endfor %}
+    </div>
+  {% else %}
+    <p class="uwaga">Pula nie jest otwarta.</p>
+  {% endif %}
+</section>
+
+<section class="karta">
+  <h2>Źródła</h2>
+  {% if dane.zrodla %}
+  <table class="lista">
+    <thead>
+      <tr>
+        <th>Źródło</th><th>Włączone</th><th>Uwierzytelnienie</th>
+        <th>Aktywne</th><th>Limit/min</th><th>Floor</th>
+        <th>Drabinka domknięcia</th><th>bid_count</th>
+        <th>Ostatni przebieg</th><th>Nowe / zmienione / błędy</th><th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for z in dane.zrodla %}
+      <tr class="{{ 'ostrzezenie' if z.zablokowane }}">
+        <td>{{ z.source_name }} <code>{{ z.source_key }}</code></td>
+        <td>{{ 'tak' if z.enabled else 'nie' }}</td>
+        <td>
+          {{ z.auth_state }}
+          {% if z.consecutive_auth_failures %}
+            <span class="etykieta niepewna">{{ z.consecutive_auth_failures }} nieudanych</span>
+          {% endif %}
+        </td>
+        <td>{{ z.aktywne_aukcje }}</td>
+        <td>{{ z.rate_limit_per_minute }}</td>
+        <td>{{ z.floor_seconds }} s</td>
+        <td><code>{{ z.closing_ladder_seconds | join(', ') or '—' }}</code></td>
+        <td>{{ z.bid_count_semantics }}</td>
+        <td>{{ z.last_run_finished_at | czas_lokalny }}</td>
+        <td>
+          {{ z.last_run_new if z.last_run_new is not none else '—' }} /
+          {{ z.last_run_changed if z.last_run_changed is not none else '—' }} /
+          {{ z.last_run_errors if z.last_run_errors is not none else '—' }}
+        </td>
+        <td>
+          {% if z.zablokowane %}
+            {# SPEC.md §10.2 — reset jest swiadoma decyzja operatora.
+               Blokada po trzech nieudanych logowaniach istnieje po to,
+               zeby add-on nie zablokowal konta w serwisie. #}
+            <form method="post" action="{{ url_for('odblokuj_zrodlo', key=z.source_key) }}">
+              <button type="submit">Odblokuj</button>
+            </form>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+    <p class="uwaga">Żadne źródło nie jest jeszcze zarejestrowane w bazie.</p>
+  {% endif %}
+</section>
+{% endblock %}

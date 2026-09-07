@@ -1,0 +1,29 @@
+{# Szkielet strony. Ingress montuje add-on pod losowym prefiksem, wiec KAZDY
+   adres powstaje przez url_for — sciezka na sztywno prowadzi donikad. #}
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block tytul %}Aukcje poleasingowe{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', path='/styl.css') }}">
+  {# HTMX z lokalnego pliku (SPEC.md §12). Zadnych CDN-ow. #}
+  <script src="{{ url_for('static', path='/htmx.min.js') }}" defer></script>
+</head>
+<body>
+  <header class="pasek">
+    <a class="marka" href="{{ url_for('lista') }}">Aukcje poleasingowe</a>
+    <nav>
+      <a href="{{ url_for('lista') }}?status=aktywne">Aktywne</a>
+      <a href="{{ url_for('lista') }}?status=aktywne&amp;do_konca_h=24">Kończą się w 24 h</a>
+      <a href="{{ url_for('lista') }}?status=aktywne&amp;nowe=1">Nowe od ostatniej wizyty</a>
+      <a href="{{ url_for('lista') }}?obserwowane=1&amp;status=wszystkie">Obserwowane</a>
+      <a href="{{ url_for('lista') }}?status=zakonczone&amp;sort=koniec-desc">Archiwum</a>
+      <a href="{{ url_for('diagnostyka') }}">Diagnostyka</a>
+    </nav>
+  </header>
+  <main>
+    {% block tresc %}{% endblock %}
+  </main>
+</body>
+</html>

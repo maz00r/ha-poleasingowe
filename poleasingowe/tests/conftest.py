@@ -66,28 +66,55 @@ def nigdy_nie_produkcja() -> None:
 def nazwa_bazy_testowej() -> Iterator[str]:
     """Tworzy bazę tymczasową na czas sesji i kasuje ją na końcu."""
     nazwa = f"poleasingowe_test_{uuid.uuid4().hex[:12]}"
-    with psycopg.connect(_dsn("postgres"), autocommit=True) as conn:
-        conn.execute(f'CREATE DATABASE "{nazwa}"')
+    _utworz_baze(nazwa)
     try:
-        with psycopg.connect(_dsn(nazwa), autocommit=True) as conn:
-            # Schematy powstaja POZA migracja, tak jak na produkcji (SPEC.md §0).
-            conn.execute("CREATE SCHEMA app")
-            conn.execute("CREATE SCHEMA reporting")
-            # Odwzorowanie uprawnien z §0: PUBLIC odebrane na bazie i na
-            # schemacie public, grafana_ro ma WYLACZNIE CONNECT. Dzieki temu
-            # test "Grafana nie widzi tabel bazowych" cos naprawde sprawdza.
-            conn.execute(f'REVOKE ALL ON DATABASE "{nazwa}" FROM PUBLIC')
-            conn.execute("REVOKE ALL ON SCHEMA public FROM PUBLIC")
-            conn.execute(f'GRANT CONNECT ON DATABASE "{nazwa}" TO grafana_ro')
         yield nazwa
     finally:
-        with psycopg.connect(_dsn("postgres"), autocommit=True) as conn:
-            conn.execute(
-                "SELECT pg_terminate_backend(pid) FROM pg_stat_activity "
-                "WHERE datname = %s AND pid <> pg_backend_pid()",
-                (nazwa,),
-            )
-            conn.execute(f'DROP DATABASE IF EXISTS "{nazwa}"')
+        _skasuj_baze(nazwa)
+
+
+def _utworz_baze(nazwa: str) -> None:
+    with psycopg.connect(_dsn("postgres"), autocommit=True) as conn:
+        conn.execute(f'CREATE DATABASE "{nazwa}"')
+    with psycopg.connect(_dsn(nazwa), autocommit=True) as conn:
+        # Schematy powstaja POZA migracja, tak jak na produkcji (SPEC.md §0).
+        conn.execute("CREATE SCHEMA app")
+        conn.execute("CREATE SCHEMA reporting")
+        # Odwzorowanie uprawnien z §0: PUBLIC odebrane na bazie i na
+        # schemacie public, grafana_ro ma WYLACZNIE CONNECT. Dzieki temu
+        # test "Grafana nie widzi tabel bazowych" cos naprawde sprawdza.
+        conn.execute(f'REVOKE ALL ON DATABASE "{nazwa}" FROM PUBLIC')
+        conn.execute("REVOKE ALL ON SCHEMA public FROM PUBLIC")
+        conn.execute(f'GRANT CONNECT ON DATABASE "{nazwa}" TO grafana_ro')
+
+
+def _skasuj_baze(nazwa: str) -> None:
+    with psycopg.connect(_dsn("postgres"), autocommit=True) as conn:
+        conn.execute(
+            "SELECT pg_terminate_backend(pid) FROM pg_stat_activity "
+            "WHERE datname = %s AND pid <> pg_backend_pid()",
+            (nazwa,),
+        )
+        conn.execute(f'DROP DATABASE IF EXISTS "{nazwa}"')
+
+
+@pytest_asyncio.fixture
+async def baza_od_zera() -> AsyncIterator[psycopg.AsyncConnection]:
+    """Osobna, dziewicza baza na jeden test — bez zastosowanych migracji.
+
+    Baza sesyjna do tego nie wystarczy: `pusta_baza` commituje TRUNCATE,
+    a razem z nim commituje migracje zastosowane wczesniej na tym samym
+    polaczeniu. Test „migracje stosuja sie od zera i sa idempotentne" stawal
+    sie wtedy zalezny od kolejnosci plikow w katalogu — i faktycznie pekl,
+    gdy doszedl plik sortujacy sie przed nim alfabetycznie.
+    """
+    nazwa = f"poleasingowe_migracje_{uuid.uuid4().hex[:12]}"
+    _utworz_baze(nazwa)
+    try:
+        async with await psycopg.AsyncConnection.connect(_dsn(nazwa)) as conn:
+            yield conn
+    finally:
+        _skasuj_baze(nazwa)
 
 
 @pytest_asyncio.fixture

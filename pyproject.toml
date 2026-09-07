@@ -24,6 +24,10 @@ dependencies = [
   "fastapi==0.115.0",
   "uvicorn[standard]==0.52.4",
   "jinja2==3.1.6",
+  # Formularze POST z interfejsu (SPEC.md §12). FastAPI wymaga tego
+  # pakietu w chwili DEFINIOWANIA trasy z `Form`, nie przy zadaniu — brak
+  # konczy sie bledem przy imporcie, nie przy kliknieciu.
+  "python-multipart==0.0.32",
 ]
 
 [project.optional-dependencies]

@@ -21,6 +21,7 @@ import uvicorn
 
 from app.infrastructure.persistence.migrations import Migracja
 from app.infrastructure.persistence.polaczenie import polacz_i_zmigruj
+from app.infrastructure.persistence.pula import PgFabrykaKontekstu
 from app.infrastructure.supervisor.options import (
     SCIEZKA_OPCJI,
     BladKonfiguracji,
@@ -86,6 +87,7 @@ def main() -> int:
     _skonfiguruj_logi(opcje)
 
     stan_wstepny = StanAplikacji(opcje)
+    fabryka = PgFabrykaKontekstu(opcje.dsn, opis=opcje.bezpieczny_opis())
 
     def _udalo_sie(_: list[Migracja]) -> None:
         stan_wstepny.baza_dostepna = True
@@ -105,8 +107,14 @@ def main() -> int:
             na_sukces=_udalo_sie,
             na_blad=_nie_udalo_sie,
         )
+        # Pula otwiera sie DOPIERO po udanej migracji. Otwarta wczesniej
+        # dobijalaby sie do bazy rownolegle z petla ponowien, czyli dokladnie
+        # tak, jak SPEC.md §2 pkt 8 zabrania traktowac wspoldzielony serwer.
+        await fabryka.otworz()
 
-    aplikacja = utworz_aplikacje(opcje, zadania_tla=[_polaczenie_w_tle])
+    aplikacja = utworz_aplikacje(
+        opcje, zadania_tla=[_polaczenie_w_tle], fabryka=fabryka
+    )
     aplikacja.state.stan = stan_wstepny
 
     uvicorn.run(

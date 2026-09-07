@@ -1,0 +1,38 @@
+{# Panel watchlisty. Podmieniany w miejscu przez HTMX, wiec zawiera CALA
+   swoja tresc razem z naglowkiem — inaczej po pierwszym kliknieciu
+   naglowek zostalby sierota. #}
+{% set p = dane.pozycja %}
+<h2>Obserwacja</h2>
+
+{% if p.ponizej_progu %}
+  {# SPEC.md §12 — wyroznienie po przekroczeniu progu. #}
+  <p class="ponizej-progu-info">
+    Cena {{ p.price_current | kwota }} jest poniżej progu {{ p.cena_docelowa | kwota }}.
+  </p>
+{% endif %}
+
+<form hx-post="{{ url_for('obserwuj', auction_id=p.id) }}"
+      hx-target="#obserwacja"
+      hx-swap="innerHTML">
+  <div class="pole szerokie">
+    <label for="notatka">Notatka</label>
+    <input id="notatka" name="notatka" value="{{ p.notatka or '' }}"
+           placeholder="np. sprawdzić lakier na lewym błotniku">
+  </div>
+  <div class="pole waskie">
+    <label for="cena_docelowa">Cena docelowa</label>
+    <input id="cena_docelowa" name="cena_docelowa" inputmode="decimal"
+           value="{{ p.cena_docelowa.amount if p.cena_docelowa else '' }}">
+  </div>
+  <div class="przyciski">
+    <button type="submit">{{ 'Zapisz' if p.obserwowana else 'Obserwuj' }}</button>
+    {% if p.obserwowana %}
+      <button type="button" class="przycisk-lekki"
+              hx-post="{{ url_for('przestan_obserwowac', auction_id=p.id) }}"
+              hx-target="#obserwacja"
+              hx-swap="innerHTML">
+        Przestań obserwować
+      </button>
+    {% endif %}
+  </div>
+</form>

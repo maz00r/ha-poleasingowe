@@ -1,0 +1,41 @@
+{# Wiersze listy. Doladowywane przez HTMX i wstawiane na koniec <tbody>,
+   wiec ten plik NIE moze zawierac niczego poza <tr>-ami. #}
+{% for p in strona.pozycje %}
+<tr class="{% if p.ponizej_progu %}ponizej-progu{% endif %}">
+  <td>
+    <a class="nazwa" href="{{ url_for('szczegoly', auction_id=p.id) }}">{{ p.nazwa }}</a>
+    {% if p.obserwowana %}<span class="znacznik" title="Obserwowana">★</span>{% endif %}
+    {% if p.status.value != 'ACTIVE' %}
+      <span class="etykieta">{{ p.status.value }}</span>
+      {# Znacznik pewnosci ceny koncowej (SPEC.md §11.5, §12). LAST_SEEN to
+         dolne oszacowanie, nie cena koncowa — i ma tak wygladac. #}
+      <span class="etykieta {{ 'pewna' if p.final_price_state.value == 'CONFIRMED' else 'niepewna' }}">
+        {{ p.final_price_state.value }}
+      </span>
+    {% endif %}
+  </td>
+  <td>{{ p.source_key }}</td>
+  <td>{{ p.year or '—' }}</td>
+  <td>{{ p.mileage_km | liczba }}{% if p.mileage_km %} km{% endif %}</td>
+  <td class="kwota">{{ p.price_current | kwota }}</td>
+  <td>{{ p.bid_count if p.bid_count is not none else '—' }}</td>
+  <td>{{ p.ends_at | czas_lokalny }}</td>
+  <td>{{ p.ends_at | do_konca(teraz) }}</td>
+  <td><a href="{{ p.url }}" target="_blank" rel="noopener noreferrer">oferta</a></td>
+</tr>
+{% endfor %}
+
+{% if strona.kursor_dalej %}
+{# Paginacja keyset (SPEC.md §12): kursor zamiast numeru strony. Wiersz
+   podmienia sam siebie, wiec kolejne strony dokladaja sie do tabeli. #}
+<tr id="dalej">
+  <td colspan="9">
+    <button type="button"
+            hx-get="{{ url_for('lista_fragment') }}?{{ parametry | urlencode }}&amp;kursor={{ strona.kursor_dalej }}"
+            hx-target="#dalej"
+            hx-swap="outerHTML">
+      Wczytaj kolejne
+    </button>
+  </td>
+</tr>
+{% endif %}

@@ -11,12 +11,18 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import logging
+import pathlib
 from collections.abc import AsyncIterator, Awaitable, Callable, Coroutine
 from typing import Any
 
 from fastapi import FastAPI, Request, Response
+from fastapi.staticfiles import StaticFiles
 
+from app.application.ports import FabrykaKontekstu
 from app.infrastructure.supervisor.options import Opcje
+from app.interfaces.web.widoki import router as router_web
+
+STATYKI = pathlib.Path(__file__).resolve().parent / "static"
 
 log = logging.getLogger(__name__)
 
@@ -53,7 +59,9 @@ ZadanieTla = Callable[[], Coroutine[Any, Any, None]]
 
 
 def utworz_aplikacje(
-    opcje: Opcje, zadania_tla: list[ZadanieTla] | None = None
+    opcje: Opcje,
+    zadania_tla: list[ZadanieTla] | None = None,
+    fabryka: FabrykaKontekstu | None = None,
 ) -> FastAPI:
     """Buduje aplikację. Zależności wstrzykiwane, bez globalnych singletonów.
 
@@ -61,6 +69,11 @@ def utworz_aplikacje(
     Uwaga: gdy aplikacja ma `lifespan`, Starlette **ignoruje** handlery
     `on_startup` — dlatego zadania trzeba podać tutaj, a nie dopinać po
     utworzeniu aplikacji.
+
+    `fabryka` może być `None` — wtedy interfejs wstaje bez bazy i mówi,
+    dlaczego jej nie ma (SPEC.md §2 pkt 8, §12). To nie jest tryb testowy,
+    tylko normalny stan po restarcie Home Assistanta, gdy Postgres wstaje
+    wolniej niż add-on.
     """
     zadania_tla = zadania_tla or []
 
@@ -83,6 +96,8 @@ def utworz_aplikacje(
             for zadanie in uruchomione:
                 with contextlib.suppress(asyncio.CancelledError):
                     await zadanie
+            if fabryka is not None:
+                await fabryka.zamknij()
 
     app = FastAPI(
         title="Aukcje poleasingowe",
@@ -92,7 +107,11 @@ def utworz_aplikacje(
         lifespan=cykl_zycia,
     )
     app.state.stan = StanAplikacji(opcje)
+    app.state.fabryka = fabryka
     _middleware_ingress(app)
+    # `html=False`: to katalog na CSS i HTMX, nie na strony. Bez tego
+    # StaticFiles zaczalby serwowac index.html z dowolnego podkatalogu.
+    app.mount("/static", StaticFiles(directory=str(STATYKI), html=False), name="static")
 
     @app.get("/zdrowie")
     async def zdrowie(request: Request) -> dict[str, Any]:
@@ -112,4 +131,7 @@ def utworz_aplikacje(
             "debug_dumps": stan.opcje.debug_dumps,
         }
 
+    # Router na koncu: `/zdrowie` i `/static` maja pierwszenstwo przed
+    # trasami widokow, zeby zadna zmiana w §12 ich nie przeslonila.
+    app.include_router(router_web)
     return app

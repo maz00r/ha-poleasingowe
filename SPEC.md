@@ -821,7 +821,11 @@ Add-on obsługuje **operacje**. Analityka jest w Grafanie.
   Grafany** z `?var-auction_id=<id>`. Bez własnego wykresu.
 - Watchlist: dodaj/usuń, notatka, cena docelowa, wyróżnienie po przekroczeniu
   progu.
-- Widoki „kończą się w 24 h" i „nowe od ostatniej wizyty".
+- Widoki „kończą się w 24 h" i „nowe od ostatniej wizyty". Znacznik
+  ostatniej wizyty siedzi w **ciasteczku przeglądarki**, nie w bazie:
+  to stan przeglądarki, a nie fakt o aukcjach. Przestawia się przy
+  wejściu na listę, ale nie przy doładowaniu kolejnej strony — inaczej
+  widok kasowałby się w trakcie przeglądania.
 - Zapisane filtry.
 - Archiwum zakończonych z ceną końcową i znacznikiem pewności.
 - Link do dashboardu rynkowego z `?var-make=&var-model=`.

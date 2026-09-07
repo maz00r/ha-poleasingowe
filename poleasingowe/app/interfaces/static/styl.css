@@ -1,0 +1,185 @@
+/* Styl interfejsu operacyjnego (SPEC.md §12).
+   Bez frameworka: add-on jedzie na Pentium Silver J5005, a strona ma sie
+   wyswietlic, nie zaimponowac. Kolory idą za motywem Home Assistanta przez
+   prefers-color-scheme, bo add-on siedzi w jego ramce. */
+
+:root {
+  color-scheme: light dark;
+  --tlo: #f6f7f9;
+  --karta: #ffffff;
+  --tekst: #212121;
+  --przygaszony: #6b7280;
+  --obramowanie: #dfe3e8;
+  --akcent: #03a9f4;
+  --alarm: #d32f2f;
+  --sukces: #2e7d32;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --tlo: #111418;
+    --karta: #1c2126;
+    --tekst: #e6e8ea;
+    --przygaszony: #9aa3ad;
+    --obramowanie: #2c3339;
+    --akcent: #4fc3f7;
+    --alarm: #ef5350;
+    --sukces: #66bb6a;
+  }
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--tlo);
+  color: var(--tekst);
+  font: 14px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+main { padding: 16px; }
+
+.pasek {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  align-items: center;
+  padding: 12px 16px;
+  background: var(--karta);
+  border-bottom: 1px solid var(--obramowanie);
+}
+
+.marka { font-weight: 600; text-decoration: none; color: var(--tekst); }
+.pasek nav { display: flex; flex-wrap: wrap; gap: 12px; }
+.pasek nav a { color: var(--akcent); text-decoration: none; }
+.pasek nav a:hover { text-decoration: underline; }
+
+.karta {
+  background: var(--karta);
+  border: 1px solid var(--obramowanie);
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+h1 { font-size: 20px; margin: 0 0 4px; }
+h2 { font-size: 16px; margin: 0 0 12px; }
+.podtytul { color: var(--przygaszony); margin: 0 0 16px; }
+
+.filtry {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: flex-end;
+  background: var(--karta);
+  border: 1px solid var(--obramowanie);
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+.pole { display: flex; flex-direction: column; gap: 4px; min-width: 150px; }
+.pole.szerokie { min-width: 280px; flex: 1; }
+.pole.waskie { min-width: 90px; }
+.pole label { font-size: 12px; color: var(--przygaszony); }
+.pole.przelaczniki { gap: 6px; justify-content: flex-end; }
+.pole.przelaczniki label { color: var(--tekst); font-size: 13px; }
+
+input, select, button {
+  font: inherit;
+  padding: 6px 8px;
+  border: 1px solid var(--obramowanie);
+  border-radius: 6px;
+  background: var(--tlo);
+  color: var(--tekst);
+}
+
+button { cursor: pointer; background: var(--akcent); border-color: var(--akcent); color: #06121a; }
+button:hover { filter: brightness(1.08); }
+.przyciski { display: flex; gap: 8px; align-items: center; }
+.przycisk-lekki {
+  display: inline-block;
+  padding: 6px 8px;
+  border: 1px solid var(--obramowanie);
+  border-radius: 6px;
+  background: var(--karta);
+  color: var(--tekst);
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.zapisane { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-bottom: 16px; }
+.zapisane form { display: flex; gap: 8px; }
+.chipsy { display: flex; flex-wrap: wrap; gap: 8px; list-style: none; margin: 0; padding: 0; }
+.chipsy li {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--karta);
+  border: 1px solid var(--obramowanie);
+  border-radius: 999px;
+  padding: 2px 6px 2px 12px;
+}
+.chipsy a { color: var(--tekst); text-decoration: none; }
+.chipsy button { background: none; border: none; color: var(--przygaszony); padding: 0 4px; }
+
+table.lista {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--karta);
+  border: 1px solid var(--obramowanie);
+  border-radius: 8px;
+  overflow: hidden;
+}
+table.lista th, table.lista td {
+  padding: 8px 10px;
+  text-align: left;
+  border-bottom: 1px solid var(--obramowanie);
+  vertical-align: top;
+}
+table.lista th { font-size: 12px; color: var(--przygaszony); font-weight: 600; }
+table.lista tr:last-child td { border-bottom: none; }
+.kwota { white-space: nowrap; font-variant-numeric: tabular-nums; }
+.nazwa { color: var(--tekst); font-weight: 600; text-decoration: none; }
+.nazwa:hover { text-decoration: underline; }
+
+/* Wyroznienie po przekroczeniu progu ceny docelowej (SPEC.md §12). */
+tr.ponizej-progu td { background: color-mix(in srgb, var(--sukces) 14%, transparent); }
+.ponizej-progu-info { color: var(--sukces); font-weight: 600; }
+
+.znacznik { color: var(--akcent); }
+.etykieta {
+  display: inline-block;
+  font-size: 11px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  border: 1px solid var(--obramowanie);
+  color: var(--przygaszony);
+}
+.etykieta.pewna { border-color: var(--sukces); color: var(--sukces); }
+.etykieta.niepewna { border-color: var(--alarm); color: var(--alarm); }
+
+.siatka {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 12px;
+}
+/* min-width: 0 jest konieczne: domyslne `auto` w gridzie nie pozwala
+   komorce zwezic sie ponizej tresci, wiec dlugi DSN nachodzil na sasiednia
+   kolumne zamiast sie zawinac. */
+.siatka > div { display: flex; flex-direction: column; min-width: 0; }
+.siatka span { font-size: 12px; color: var(--przygaszony); }
+.siatka strong { overflow-wrap: anywhere; }
+
+.linki { margin-top: 16px; }
+.linki a { color: var(--akcent); }
+
+.ostrzezenie { border-color: var(--alarm); }
+/* Na wierszu tabeli samo obramowanie jest niewidoczne — zablokowane zrodlo
+   ma rzucac sie w oczy, bo to stan wymagajacy decyzji operatora (§10.2). */
+tr.ostrzezenie td { background: color-mix(in srgb, var(--alarm) 12%, transparent); }
+.ostrzezenie-inline { color: var(--alarm); }
+.uwaga { color: var(--przygaszony); }
+.pusto { color: var(--przygaszony); padding: 16px 0; }
+
+code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.92em; }

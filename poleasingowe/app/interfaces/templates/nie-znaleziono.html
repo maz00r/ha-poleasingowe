@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block tytul %}Nie znaleziono{% endblock %}
+{% block tresc %}
+<section class="karta">
+  <h1>Nie ma takiej aukcji</h1>
+  {% if auction_id %}<p>Szukany identyfikator: <code>{{ auction_id }}</code></p>{% endif %}
+  <p><a href="{{ url_for('lista') }}">Wróć do listy</a></p>
+</section>
+{% endblock %}

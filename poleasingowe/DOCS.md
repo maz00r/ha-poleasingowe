@@ -34,7 +34,7 @@ Reszta jest wypełniona wartościami z tej instalacji.
 ### Pierwsze uruchomienie
 
 Po starcie dodatek sam zastosuje migracje i utworzy tabele oraz widoki.
-W logu zobaczysz `zastosowano migracje: 001_init, 002_reporting`.
+W logu zobaczysz `zastosowano migracje: 001_init, 002_reporting, 003_domkniecie`.
 
 **Brak bazy nie zatrzymuje dodatku.** Interfejs wstaje mimo to i pokazuje
 w panelu diagnostycznym, dlaczego połączenia nie ma, a dodatek ponawia próby
@@ -44,6 +44,70 @@ do współdzielonego serwera byłaby gorsza niż usługa wyłączona.
 Jedyne, co zatrzymuje dodatek, to **błędna konfiguracja** — wtedy log mówi
 wprost, które pole jest złe. Dodatek nie uruchomi się z wartościami
 domyślnymi, których nie ustawiłeś.
+
+## Interfejs
+
+Dodatek otwiera się z paska bocznego Home Assistanta. Uwierzytelnia Ingress —
+nie ma osobnego logowania.
+
+### Lista
+
+Domyślnie: aktywne aukcje, najbliżej końca u góry. Filtry idą zwykłym adresem,
+więc **każdy zestaw filtrów da się zapisać w zakładkach albo wkleić komuś** —
+łącznie z sortowaniem.
+
+Paginacja to przycisk **Wczytaj kolejne**, po 50 wierszy. Nie ma numerów stron
+i to jest celowe: dodatek stronicuje kursorem, dzięki czemu aukcja, która
+w międzyczasie zmieniła cenę, nie wypada z listy ani nie pokazuje się dwa razy.
+
+Gotowe widoki są w pasku u góry:
+
+| Widok | Co pokazuje |
+|---|---|
+| Aktywne | wszystko, co trwa |
+| Kończą się w 24 h | aukcje z terminem w najbliższej dobie, bez tych po terminie |
+| Nowe od ostatniej wizyty | co doszło od poprzedniego wejścia na listę |
+| Obserwowane | tylko watchlista, niezależnie od statusu |
+| Archiwum | zakończone, ze znacznikiem pewności ceny |
+
+**„Nowe od ostatniej wizyty" pamięta ciasteczko przeglądarki**, nie baza.
+W innej przeglądarce albo po wyczyszczeniu danych strony licznik startuje od
+nowa. Znacznik przestawia się przy wejściu na listę, ale **nie** przy
+doładowaniu kolejnej strony — inaczej widok kasowałby się w trakcie
+przeglądania.
+
+W archiwum przy każdej pozycji stoi `CONFIRMED` albo `LAST_SEEN`. `CONFIRMED`
+to cena odczytana ze strony po zakończeniu aukcji. `LAST_SEEN` to ostatnia
+obserwacja **przed** zamknięciem, czyli **dolne oszacowanie** — realna cena
+końcowa mogła być wyższa.
+
+### Szczegóły i watchlist
+
+Karta aukcji pokazuje wszystkie pola, link do oferty w serwisie i linki do
+Grafany (jeśli ustawiłeś `grafana_base_url`). Wykresu tu nie ma świadomie —
+historia cen jest w Grafanie.
+
+Watchlist: notatka i cena docelowa. Gdy bieżąca cena zejdzie do progu lub
+niżej, wiersz na liście podświetla się na zielono. Próg porównuje się tylko
+w tej samej walucie — 45 000 EUR to nie 45 000 zł.
+
+Zapisane filtry siedzą pod formularzem: wpisujesz nazwę, a dodatek zapamiętuje
+**bieżący** zestaw filtrów razem z sortowaniem.
+
+### Panel diagnostyczny
+
+Stan procesu i bazy, pula połączeń, dryf zegara względem PostgreSQL, RSS
+procesu i rozmiar bazy. Niżej tabela źródeł: stan uwierzytelnienia, limit
+tempa, floor, drabinka domknięcia i to, co dane źródło liczy w `bid_count`.
+
+**Kreska „—" znaczy „nie ma czym zmierzyć", a nie „zero".** Data ostatniego
+`pg_dump` jest pusta, bo backupu jeszcze nie ma — powstaje na dalszym etapie.
+
+Źródło ze stanem `LOCKED` dostaje przycisk **Odblokuj**. Blokada zapala się po
+trzech nieudanych logowaniach i istnieje po to, żeby dodatek nie zablokował
+Twojego konta w serwisie — dlatego reset jest świadomą decyzją, a nie
+automatem. Po odblokowaniu stan to `EXPIRED`, nie `OK`: sesji jeszcze nie ma,
+dodatek zaloguje się przy najbliższej okazji.
 
 ## Gdzie leżą dane — przeczytaj przed pierwszym backupem
 

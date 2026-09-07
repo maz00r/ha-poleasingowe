@@ -28,11 +28,13 @@ Kolejność etapów jest w `SPEC.md` §14. Zrobione:
 - **ETAP 5** — adapter EFL: parser, mapper, klient i rejestr, plus testy
   na fixtures.
 - **ETAP 6** — opakowanie add-onu: `config.yaml`, Dockerfile, s6, Ingress,
-  AppArmor, walidacja opcji. ← tutaj jesteśmy. Zostaje instalacja na HAOS
-  i pomiar zużycia względem budżetu z §1.1.
+  AppArmor, walidacja opcji. Zostaje instalacja na HAOS i pomiar zużycia
+  względem budżetu z §1.1.
+- **ETAP 7** — interfejs: lista z filtrami i paginacją keyset, szczegóły,
+  watchlist, zapisane filtry, panel diagnostyczny. ← tutaj jesteśmy.
 
-Następny: **ETAP 7** — interfejs: lista z filtrami, szczegóły, watchlist,
-panel diagnostyczny.
+Następny: **ETAP 8** — logowanie do serwisów, persystencja sesji, wykrywanie
+wygaśnięcia, licznik `AUTH_LOCKED`.
 
 Repozytorium add-onu: <https://github.com/maz00r/ha-poleasingowe> —
 instrukcja instalacji w [`poleasingowe/DOCS.md`](poleasingowe/DOCS.md).
@@ -99,10 +101,23 @@ Cztery warstwy, zależności wyłącznie do wewnątrz (`SPEC.md` §6):
 ```
 poleasingowe/app/
   interfaces/       routery FastAPI, szablony, CLI  → wywołuje tylko application
-  application/      use case'y, porty (Protocol), Unit of Work
+    web/            trasy, formularze, filtry szablonów
+    templates/      Jinja2 — każdy adres przez url_for (prefiks Ingressu)
+    static/         styl.css i htmx.min.js — bez CDN-ów (§12)
+  application/      use case'y, porty (Protocol), Unit of Work, modele odczytu
   domain/           encje, value objects, reguły — ZERO zależności zewnętrznych
   infrastructure/   adaptery: sources/, persistence/, scheduler/, supervisor/
 ```
+
+**Zapis i odczyt są rozdzielone.** Repozytoria z `application/ports.py` służą
+use case'om i pracują na encjach; interfejs korzysta z osobnego portu
+`Zapytania`, który zwraca modele odczytu z `application/read_models.py`.
+Repozytorium próbujące obsłużyć obie strony kończy jako worek na zapytania
+raportowe.
+
+HTMX jest **wersjonowany w repo** (`interfaces/static/htmx.min.js`, 2.0.4),
+nie ładowany z CDN-u — tego wymaga `SPEC.md` §12. Aktualizacja to podmiana
+pliku, świadoma i widoczna w diffie.
 
 Granic pilnuje **import-linter**, nie dobre chęci. Kontrakty są
 w `pyproject.toml`; naruszenie wywala build. Że działają, sprawdzono celowym
