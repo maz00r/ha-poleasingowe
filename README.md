@@ -67,8 +67,14 @@ Kolejność etapów jest w `SPEC.md` §14. Zrobione:
   Rejestracja źródeł przy starcie **zachowuje** stan uwierzytelnienia.
   ← tutaj jesteśmy.
 
-Następny: **ETAP 10** — pozostałe adaptery (poleasingowe, autoprzetarg,
-leasygroup).
+- **ETAP 10** — adapter **poleasingowe.pl**: parser bloku Alpine, mapper,
+  klient i rejestr, plus testy na fixtures i sprawdzenie na żywym serwisie.
+  Heurystyka marki i modelu wyniesiona do `sources/marki.py`, wspólna dla
+  adapterów. ← tutaj jesteśmy; zostają autoprzetarg i leasygroup.
+
+Następny: dokończenie **ETAPU 10** (autoprzetarg wymaga sesji — patrz
+etap 8), potem **ETAP 11** — backup `pg_dump`, dashboardy Grafany jako JSON
+w repo, statystyki, eksport.
 
 Repozytorium add-onu: <https://github.com/maz00r/ha-poleasingowe> —
 instrukcja instalacji w [`poleasingowe/DOCS.md`](poleasingowe/DOCS.md).

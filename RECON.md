@@ -112,6 +112,23 @@ kiedyś zaczął go honorować), ale **nie wolno na nim opierać budżetu**.
 
 Dowód: `fixtures/*/meta.json`, pola `headers`.
 
+**Uzupełnienie 2026-09-08 — krok 2 też wymaga ostrożności.** Trzy kolejne
+żądania tej samej strony szczegółów poleasingowe.pl dały **trzy różne
+treści**, więc hash całej odpowiedzi nie oszczędziłby tam nic. Zmienia się:
+
+- token CSRF, w trzech miejscach naraz (`<meta name="_token">`, zmienna
+  `csrfToken`, ukryte pole formularza kontaktowego),
+- karuzela poleceń na dole strony (raz Renault Clio, raz Rolls-Royce SUV).
+
+Hash **samego bloku `auction: {...}`** był w tych samych trzech żądaniach
+identyczny. Wniosek ogólny: `content_hash` liczymy z fragmentu, który
+faktycznie parsujemy, a nie z całej odpowiedzi. Wycięcie fragmentu jest
+jednym przebiegiem wyrażenia regularnego, czyli tanie wobec budowy drzewa
+DOM z 200 kB, o które w §11.3 chodzi.
+
+Dla EFL hash całości pozostaje w mocy — tam nie znaleziono zmiennego
+fragmentu.
+
 ### 3.2 §11.5 i §11.2 zakładają dogrywkę ~60 s. Żaden serwis jej nie ma.
 
 Cztery serwisy, cztery różne reguły — i **żadna nie jest 60-sekundowa**:
@@ -490,8 +507,17 @@ użyć tego samego kryterium plus `auth: false` w JSON-ie.
 (`fixtures/poleasingowe/lista-vehicles-01.html`) zawiera: badge „AUKCJA
 Z PROWIZJĄ", tytuł, rok, paliwo, przebieg, moc, nr rejestracyjny,
 lokalizację, „Aktualna cena 110 600 PLN", „Najniższa cena z 30 dni"
-oraz **„Ilość ofert: 0"**. Daty zakończenia na liście **nie ma w żadnej
-postaci** — ani tekstem, ani w `data-*`, ani jako licznik.
+oraz **„Ilość ofert: 0"**.
+
+**SPROSTOWANIE 2026-09-08.** Wcześniej stało tu, że „daty zakończenia na
+liście nie ma w żadnej postaci". To nieprawda: kafelek ma
+`span.listing-box-time` z tekstem `19 godzin (2026-09-07)`, czyli **zgrubny
+czas pozostały plus datę bez godziny**. Godziny nie ma — a przy aukcjach
+zamykanych partiami o 12:00 (patrz niżej) doba to za mało, żeby cokolwiek
+zaplanować w końcówce. Adapter przenosi ten tekst jako `do_konca_tekst`
+i **nie ustawia z niego `ends_at`**: fałszywa precyzja byłaby gorsza niż
+brak danych, bo harmonogram z §11.2 stoi na dokładnym terminie. Dokładny
+`endDate` przychodzi ze strony szczegółów.
 
 Strona szczegółów renderuje etykietę „Aktualna cena" pustą (dopełnia ją JS),
 ale **komplet danych jest serwerowo w HTML**, w obiekcie inicjalizującym

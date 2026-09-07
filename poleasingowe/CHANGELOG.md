@@ -1,5 +1,20 @@
 # Historia zmian
 
+## 0.4.0 — w przygotowaniu
+
+Adapter poleasingowe.pl (RECON.md §4.2) — drugie zrodlo, bez logowania.
+
+- parser czyta blok inicjalizujacy Alpine.js, bo tam serwis renderuje
+  komplet danych: cene, liczbe ofert, postapienie i ABSOLUTNA date konca
+  z jawna strefa. Widoczny tekst podaje tylko "16 godzin"
+- `content_hash` liczony z bloku aukcji, nie z calej strony: trzy kolejne
+  zadania daja trzy rozne tresci (token CSRF w trzech miejscach + karuzela
+  polecen), a hash samego bloku byl identyczny
+- login zwyciezcy (`winner`) wycinany w parserze — to dane osobowe osoby
+  trzeciej, ktorych nie chroni zadne haslo
+- lista NIE ustawia `ends_at`: podaje date bez godziny, a falszywa precyzja
+  byla by gorsza niz jej brak
+
 ## 0.3.0 — w przygotowaniu
 
 Harmonogram odpytywania (SPEC.md §11).

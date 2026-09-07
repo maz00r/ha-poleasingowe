@@ -5,8 +5,6 @@ from __future__ import annotations
 import datetime as dt
 from decimal import Decimal
 
-import pytest
-
 from app.application.ports import SurowaOferta
 from app.domain.enums import Currency
 from app.domain.value_objects import Mileage, Money
@@ -61,40 +59,6 @@ def test_czas_zakonczenia_idzie_do_bazy_w_utc() -> None:
     )
     a = mapper.na_aukcje(surowa, source_id=1, teraz=TERAZ)
     assert a.ends_at == dt.datetime(2026, 9, 7, 8, 47, tzinfo=dt.UTC)
-
-
-@pytest.mark.parametrize(
-    "wejscie,oczekiwane",
-    [
-        ("Skoda  Superb  Style DSG", ("Skoda", "Superb", "Style DSG")),
-        (
-            "Audi A3 30 TDI S tronic Hatchback",
-            ("Audi", "A3", "30 TDI S tronic Hatchback"),
-        ),
-        ("Volkswagen Passat", ("Volkswagen", "Passat", None)),
-        ("Opel", ("Opel", None, None)),
-        ("", (None, None, None)),
-        # Marka dwuwyrazowa rozpoznawana z listy — bez niej "Land" trafiloby
-        # w marke, a "Rover" w model.
-        ("Land Rover Discovery Sport", ("Land Rover", "Discovery", "Sport")),
-    ],
-)
-def test_podzial_marki_i_modelu(
-    wejscie: str, oczekiwane: tuple[str | None, str | None, str | None]
-) -> None:
-    assert mapper.podziel_marke_model(wejscie) == oczekiwane
-
-
-def test_nieznana_marka_dwuwyrazowa_to_znane_ograniczenie() -> None:
-    """Udokumentowany sposób, w jaki heurystyka zawodzi.
-
-    Serwis nie oddziela marki od modelu niczym, czemu można zaufać
-    (podwójna spacja jest tylko w części wartości), więc marka spoza listy
-    `MARKI_DWUWYRAZOWE` rozjedzie się na markę i model. Test pilnuje, żeby to
-    zachowanie było świadome, a nie odkryte kiedyś na produkcji.
-    """
-    assert mapper.podziel_marke_model("Great Wall Haval") == ("Great", "Wall", "Haval")
-    assert "great wall" not in mapper.MARKI_DWUWYRAZOWE
 
 
 def test_niechlujny_vin_jest_odrzucany_a_nie_zapisywany() -> None:

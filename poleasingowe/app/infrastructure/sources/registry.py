@@ -10,9 +10,11 @@ from collections.abc import Callable, Mapping
 
 from app.application.ports import AuctionSource
 from app.infrastructure.sources.efl.source import EflSource
+from app.infrastructure.sources.poleasingowe.source import PoleasingoweSource
 
 REJESTR: Mapping[str, Callable[[], AuctionSource]] = {
     EflSource.key: EflSource.utworz,
+    PoleasingoweSource.key: PoleasingoweSource.utworz,
 }
 
 
