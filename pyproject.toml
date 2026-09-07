@@ -21,6 +21,9 @@ dependencies = [
   # SPEC.md §5: pydantic WYLACZNIE do options.json — jedyne miejsce, gdzie
   # walidacja schematu sie oplaca. Obiekty domenowe to dataclassy.
   "pydantic==2.13.5",
+  "fastapi==0.115.0",
+  "uvicorn[standard]==0.52.4",
+  "jinja2==3.1.6",
 ]
 
 [project.optional-dependencies]

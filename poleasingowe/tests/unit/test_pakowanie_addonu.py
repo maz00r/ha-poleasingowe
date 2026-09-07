@@ -121,10 +121,21 @@ def test_requirements_zgadza_sie_z_pyproject() -> None:
     }
     assert not rozjazdy, f"różne wersje w pyproject vs requirements: {rozjazdy}"
 
-    brakujace = set(z_pyproject) - set(z_requirements)
-    assert not brakujace, (
-        f"zależności runtime nieobecne w requirements.txt: {sorted(brakujace)} "
-        "— obraz ich nie zainstaluje"
+    # Sprawdzamy OBA kierunki. Pierwsza wersja tego testu patrzyla tylko
+    # w jedna strone i przepuscila realny blad: fastapi, uvicorn i jinja2
+    # byly w requirements.txt, ale nie w pyproject, wiec CI budowalo
+    # srodowisko bez nich i mypy nie znajdowal modulow. Lokalnie tego nie
+    # bylo widac, bo mialem je doinstalowane recznie w swoim venv.
+    brak_w_requirements = set(z_pyproject) - set(z_requirements)
+    assert not brak_w_requirements, (
+        f"zależności runtime nieobecne w requirements.txt: "
+        f"{sorted(brak_w_requirements)} — obraz ich nie zainstaluje"
+    )
+
+    brak_w_pyproject = set(z_requirements) - set(z_pyproject)
+    assert not brak_w_pyproject, (
+        f"zależności obrazu nieobecne w pyproject: {sorted(brak_w_pyproject)} "
+        "— czyste środowisko (CI) ich nie dostanie, a testy i mypy się wywalą"
     )
 
 
