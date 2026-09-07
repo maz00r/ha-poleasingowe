@@ -168,7 +168,7 @@ def parse_leasygroup(html: str) -> dict[str, object]:
     """leasygroup rozroznia dwa rodzaje pozycji (RECON.md §4.3).
 
     Licytacja ma <div class="time_label"> z ODLICZANIEM WZGLEDNYM (span.to_end,
-    format "H : MM : SS") i NIE podaje absolutnego czasu konca. Oferta "Kup
+    format DNI : GODZINY : MINUTY) i NIE podaje absolutnego czasu konca. Oferta "Kup
     teraz" ma zamiast tego "Koniec aukcji: <timestamp>" i pusty time_label_x.
     Dlatego ends_at dla licytacji wyliczamy z odliczania — co jest dokladnie
     tym przypadkiem, przed ktorym ostrzega SPEC.md §11.7 (dryf zegara).
@@ -181,10 +181,16 @@ def parse_leasygroup(html: str) -> dict[str, object]:
         html,
     )
     if m:
-        hh, mm, ss = (int(x) for x in m.groups())
+        # UWAGA: to sa DNI : GODZINY : MINUTY, nie godziny:minuty:sekundy.
+        # Ustalone pomiarem, nie z dokumentacji: miedzy 2026-09-06 20:13
+        # a 2026-09-07 02:03 uplynelo 5 h 50 min, a licznik spadl
+        # z "3 : 15 : 46" na "3 : 09 : 56", czyli dokladnie o 5 h 50 min.
+        # Odczyt jako H:MM:SS dawal koniec za trzy godziny, gdy aukcja
+        # konczyla sie za trzy DNI.
+        dni, godziny, minuty = (int(x) for x in m.groups())
         out["is_auction"] = True
-        out["countdown_raw"] = f"{hh}:{mm:02d}:{ss:02d}"
-        left = dt.timedelta(hours=hh, minutes=mm, seconds=ss)
+        out["countdown_raw"] = f"{dni}:{godziny:02d}:{minuty:02d}"
+        left = dt.timedelta(days=dni, hours=godziny, minutes=minuty)
         out["end_date"] = (dt.datetime.now(TZ) + left).strftime("%Y-%m-%d %H:%M:%S")
         out["end_date_source"] = "wyliczony z odliczania"
     else:

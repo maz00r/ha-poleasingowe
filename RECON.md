@@ -52,7 +52,7 @@ dysk 44 GB. Maszyna dzielona z HA (~1,8 GB), PostgreSQL, Grafaną i TeslaMate.
 | Limit tempa w nagłówkach | **`x-ratelimit-limit` 60–120** | brak | brak | brak |
 | Paginacja | serwerowa | serwerowa `?page=N` | `strona-N`, **robots blokuje > 1** | serwerowa `?page=N` |
 | **Dogrywka** | **+30 s, okno 30 s, max +30 min** | **BRAK — twardy koniec** | **+2 min, okno 2 min** | **+120 s, okno 2 min, bez sufitu** |
-| Czas do końca | **absolutny `endDate` w HTML** + strefa jawnie | **absolutny timestamp w HTML** | **tylko odliczanie względne** | **ukryty input `auctionEndDate`** |
+| Czas do końca | **absolutny `endDate` w HTML** + strefa jawnie | **absolutny timestamp w HTML** | **odliczanie D:HH:MM, rozdzielczość 1 min** | **ukryty input `auctionEndDate`** |
 | Czas serwera | **`sdt.date` w API, bez logowania** | brak | brak | brak |
 | VIN publiczny | **tak** | **tak** | **tak** | **tak, już na liście** |
 | Werdykt | **`httpx`, bez logowania do odczytu** | **`httpx`, bez przeglądarki** | `httpx`, ale mało danych | **`httpx`; oferty wymagają sesji lub SignalR** |
@@ -512,12 +512,29 @@ Pozostaje potwierdzić jej kształt na aukcji z realnymi ofertami — pomiar
 **Czas do końca (punkt d) — najgorszy przypadek z czterech.** Strona
 licytacji **nie podaje absolutnego czasu zakończenia w żadnej postaci**:
 ani tekstem, ani w `data-*`, ani w JSON. Jest wyłącznie odliczanie względne
-`span.to_end` w formacie `H : MM : SS`, renderowane serwerowo. `ends_at`
-trzeba więc **wyliczać** jako `teraz + odliczanie`, co jest dokładnie tym
-przypadkiem, przed którym ostrzega §11.7: przy dryfie zegara VM-ki błąd
-wchodzi wprost do wyznaczonego terminu końca. Paradoksalnie oferty „Kup
-teraz" mają absolutne „Koniec aukcji: 2026-09-07 12:00" — czyli serwis
-podaje absolutny czas tam, gdzie jest najmniej potrzebny.
+`span.to_end`, renderowane serwerowo. `ends_at` trzeba więc **wyliczać** jako
+`teraz + odliczanie`, co jest dokładnie tym przypadkiem, przed którym
+ostrzega §11.7: przy dryfie zegara VM-ki błąd wchodzi wprost do wyznaczonego
+terminu końca.
+
+**Format odliczania to `DNI : GODZINY : MINUTY`, nie `H:MM:SS`.** Serwis nie
+podaje jednostek nigdzie w HTML, więc pierwsza wersja tej sekcji czytała
+`3 : 15 : 48` jako trzy godziny. Ustalone pomiarem: między 2026-09-06 20:13
+a 2026-09-07 02:03 upłynęło **5 h 50 min**, a licznik spadł z `3 : 15 : 46`
+na `3 : 09 : 56`, czyli dokładnie o 5 h 50 min. Odczyt jako `H:MM:SS` dawałby
+spadek o 5 min 50 s — sto razy za mało.
+
+Praktyczna konsekwencja: rozdzielczość odliczania to **jedna minuta**. Przy
+dwuminutowym oknie dogrywki tego serwisu oznacza to, że z samego licznika
+**nie da się rozstrzygnąć, czy do końca zostało 0 czy 59 sekund**. Dla
+poprawnego domknięcia (§11.5) trzeba albo próbkować gęściej niż wynika
+z odczytu, albo oprzeć się na tym, że aukcje kończą się o pełnych godzinach —
+w próbce koniec wypadł na 2026-09-10 11:59:42, czyli praktycznie równo
+w południe, tak samo jak partie poleasingowe.
+
+Paradoksalnie oferty „Kup teraz" mają absolutne „Koniec aukcji:
+2026-09-07 12:00" — czyli serwis podaje absolutny czas tam, gdzie jest
+najmniej potrzebny.
 
 **Pola na liście**: tytuł (**ucięty wielokropkiem**), rocznik, paliwo,
 przebieg, skrzynia, kolor, cena, oraz `time_label` przy licytacjach.
