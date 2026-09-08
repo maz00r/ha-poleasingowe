@@ -23,14 +23,33 @@ configuration:
   grafana_base_url:
     name: Grafana base URL
     description: Used only to build dashboard links. Empty disables the links.
-  openai_api_key:
-    name: OpenAI API key
+  ai_provider:
+    name: AI valuation provider
+    description: >-
+      Who computes the valuation. `zgodny_z_openai` covers DeepSeek,
+      OpenRouter, Groq, Mistral and local models (Ollama, LM Studio) —
+      anything exposing /chat/completions. It then needs a base URL and
+      a model name.
+  ai_api_key:
+    name: Provider API key
     description: >-
       Optional. Enables AI valuation on vehicle detail pages. The key is never
       displayed or written to logs.
+  ai_base_url:
+    name: Provider API base URL
+    description: >-
+      Required for `zgodny_z_openai`, e.g. https://api.deepseek.com/v1 or
+      http://ollama:11434/v1. Leave empty for OpenAI and Anthropic.
   ai_model:
     name: AI valuation model
-    description: OpenAI model used for valuation. Defaults to gpt-5.4-mini.
+    description: >-
+      Model name at the chosen provider, e.g. deepseek-chat. Empty = the
+      provider default; `zgodny_z_openai` requires it.
+  openai_api_key:
+    name: OpenAI API key (legacy name)
+    description: >-
+      Previous name of `ai_api_key`. Still works so that updating the add-on
+      does not switch valuation off. Use `ai_api_key` in new setups.
   credentials:
     name: Site credentials
     description: >-

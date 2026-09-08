@@ -24,14 +24,33 @@ configuration:
     name: Adres Grafany
     description: >-
       Uzywany tylko do budowania linkow do dashboardow. Puste = brak linkow.
-  openai_api_key:
-    name: Klucz API OpenAI
+  ai_provider:
+    name: Dostawca wyceny AI
+    description: >-
+      Kto liczy wycene. `zgodny_z_openai` obejmuje DeepSeek, OpenRouter,
+      Groq, Mistral i modele lokalne (Ollama, LM Studio) — czyli wszystko,
+      co wystawia /chat/completions. Wymaga wtedy adresu i nazwy modelu.
+  ai_api_key:
+    name: Klucz API dostawcy
     description: >-
       Opcjonalny. Wlacza wycene AI na karcie pojazdu. Klucz nie jest
       wyswietlany ani zapisywany w logach.
+  ai_base_url:
+    name: Adres API dostawcy
+    description: >-
+      Wymagany dla `zgodny_z_openai`, np. https://api.deepseek.com/v1 albo
+      http://ollama:11434/v1. Dla OpenAI i Anthropic zostaw puste.
   ai_model:
     name: Model wyceny AI
-    description: Model OpenAI uzywany do wyceny. Domyslnie gpt-5.4-mini.
+    description: >-
+      Nazwa modelu u wybranego dostawcy, np. deepseek-chat. Puste = model
+      domyslny dostawcy; przy `zgodny_z_openai` trzeba go podac.
+  openai_api_key:
+    name: Klucz API OpenAI (stara nazwa)
+    description: >-
+      Poprzednia nazwa opcji `ai_api_key`. Dziala nadal, zeby aktualizacja
+      dodatku nie wylaczyla wyceny. W nowych konfiguracjach uzywaj
+      `ai_api_key`.
   credentials:
     name: Poswiadczenia do serwisow
     description: >-

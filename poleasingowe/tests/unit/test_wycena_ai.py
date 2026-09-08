@@ -317,3 +317,74 @@ async def test_zly_klucz_nie_jest_ponawiany(tmp_path: pathlib.Path) -> None:
         await usluga.wycen(_dane(), ())
     assert proby == 1
     await klient.aclose()
+
+
+async def test_powod_odmowy_dociera_do_uzytkownika(tmp_path: pathlib.Path) -> None:
+    """Zgłoszenie z użytkowania: w logu było samo „400 Bad Request".
+
+    Tym kodem dostawca odpowiada i na nieznany model, i na nieobsługiwany
+    format odpowiedzi — a to dwie różne naprawy. Bez treści odpowiedzi nie
+    da się zgadnąć, którą wykonać.
+    """
+
+    def obsluz(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(400, json={"error": {"message": "Model Not Exist"}})
+
+    klient = httpx.AsyncClient(transport=httpx.MockTransport(obsluz))
+    usluga = WycenaAI(
+        KlientZgodnyZOpenAI(
+            "k",
+            model="zly-model",
+            base_url="https://api.deepseek.com/v1",
+            klient=klient,
+        ),
+        katalog=tmp_path,
+    )
+    with pytest.raises(BladWyceny, match="Model Not Exist"):
+        await usluga.wycen(_dane(), ())
+    await klient.aclose()
+
+
+async def test_odmowa_klucza_nie_odbija_tresci_od_dostawcy(
+    tmp_path: pathlib.Path,
+) -> None:
+    """DeepSeek odsyła przy 401 fragment klucza (`Your api key: ****lowy`).
+
+    Klucz nie ma prawa trafić na ekran ani do logu (SPEC.md §10.2), więc
+    przy 401/403 pokazujemy własne zdanie zamiast cytatu od dostawcy.
+    """
+
+    def obsluz(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            401,
+            json={"error": {"message": "Authentication Fails, Your api key: ****jne"}},
+        )
+
+    klient = httpx.AsyncClient(transport=httpx.MockTransport(obsluz))
+    usluga = WycenaAI(
+        KlientZgodnyZOpenAI(
+            "sk-tajne",
+            model="m",
+            base_url="https://api.deepseek.com/v1",
+            klient=klient,
+        ),
+        katalog=tmp_path,
+    )
+    with pytest.raises(BladWyceny) as blad:
+        await usluga.wycen(_dane(), ())
+    assert "odrzucił klucz" in str(blad.value)
+    assert "****jne" not in str(blad.value)
+    await klient.aclose()
+
+
+def test_komunikat_bledu_radzi_sobie_z_roznymi_ksztaltami() -> None:
+    """Każdy dostawca pakuje powód gdzie indziej; nie-JSON też się zdarza."""
+    from app.infrastructure.ai_klienci import _komunikat_bledu
+
+    assert (
+        _komunikat_bledu(httpx.Response(400, json={"error": {"message": "a"}})) == "a"
+    )
+    assert _komunikat_bledu(httpx.Response(400, json={"detail": "b"})) == "b"
+    assert _komunikat_bledu(httpx.Response(502, text="<html>proxy</html>")).startswith(
+        "<html>"
+    )

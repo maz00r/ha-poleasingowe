@@ -25,7 +25,7 @@ from typing import Any
 import httpx
 
 from app.application.read_models import PorownanieRynkowe, Szczegoly
-from app.infrastructure.ai_klienci import BladModelu, KlientModelu
+from app.infrastructure.ai_klienci import BladModelu, BladOdpowiedzi, KlientModelu
 
 log = logging.getLogger(__name__)
 
@@ -115,7 +115,15 @@ class WycenaAI:
             wynik = self._z_tekstu(tekst)
         except (httpx.HTTPError, BladModelu, ValueError, KeyError, TypeError) as exc:
             log.warning("wycena AI nie powiodła się: %s", exc)
-            raise BladWyceny("Nie udało się teraz wygenerować wyceny AI.") from exc
+            # Powód od dostawcy idzie NA KARTĘ, nie tylko do logu. „Nie udało
+            # się" nie mówi, czy poprawić nazwę modelu, adres czy klucz —
+            # a to jedyne trzy rzeczy, które użytkownik może tu zrobić.
+            powod = exc.powod if isinstance(exc, BladOdpowiedzi) else None
+            raise BladWyceny(
+                f"Wycena AI nie powiodła się: {powod}"
+                if powod
+                else "Nie udało się teraz wygenerować wyceny AI."
+            ) from exc
 
         self._zapisz(sciezka, wynik)
         return wynik

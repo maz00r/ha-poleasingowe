@@ -62,6 +62,60 @@ class BladModelu(RuntimeError):
     """Model nie oddał wyniku w umówionym kształcie."""
 
 
+class BladOdpowiedzi(BladModelu):
+    """Dostawca odmówił — z jego własnym uzasadnieniem.
+
+    Samo „HTTP 400" jest bezużyteczne dokładnie wtedy, gdy jest potrzebne:
+    tym kodem dostawca odpowiada i na nieznany model, i na nieobsługiwany
+    `response_format`, a to dwie zupełnie różne naprawy. Powód stoi w treści
+    odpowiedzi, więc niesiemy ją dalej zamiast wyrzucać.
+    """
+
+    def __init__(self, status: int, tresc: str) -> None:
+        self.status = status
+        self.tresc = tresc
+        super().__init__(f"HTTP {status}: {tresc}" if tresc else f"HTTP {status}")
+
+    @property
+    def powod(self) -> str:
+        """Krótkie zdanie dla użytkownika, bez echa poświadczeń.
+
+        Przy 401/403 nie pokazujemy treści od dostawcy: bywa w niej fragment
+        klucza (DeepSeek odsyła `Your api key: ****lowy is invalid`), a klucz
+        nie ma prawa trafić na ekran ani do logu (SPEC.md §10.2).
+        """
+        if self.status in (401, 403):
+            return "dostawca odrzucił klucz API"
+        return self.tresc or f"dostawca odpowiedział kodem {self.status}"
+
+
+MAKS_TRESCI_BLEDU = 300
+"""Ile znaków uzasadnienia od dostawcy przepuszczamy dalej. Tyle wystarcza
+na `Model Not Exist` czy `response_format is not supported`, a nie zaleje
+logu stroną HTML od pośredniczącego proxy."""
+
+
+def _komunikat_bledu(odpowiedz: httpx.Response) -> str:
+    """Wyciąga zdanie z odpowiedzi błędu, niezależnie od jej kształtu.
+
+    Dostawcy pakują to różnie: OpenAI i DeepSeek w `error.message`, część
+    bramek w `message` albo `detail`, a lokalne serwery bywają, że w czysty
+    tekst. Zaglądamy po kolei, a w ostateczności bierzemy początek treści.
+    """
+    try:
+        dane = odpowiedz.json()
+    except ValueError:
+        return odpowiedz.text.strip()[:MAKS_TRESCI_BLEDU]
+    if isinstance(dane, dict):
+        blad = dane.get("error")
+        if isinstance(blad, dict) and blad.get("message"):
+            return str(blad["message"])[:MAKS_TRESCI_BLEDU]
+        for klucz in ("message", "detail", "error"):
+            if isinstance(dane.get(klucz), str) and dane[klucz]:
+                return str(dane[klucz])[:MAKS_TRESCI_BLEDU]
+    return odpowiedz.text.strip()[:MAKS_TRESCI_BLEDU]
+
+
 class KlientModelu(Protocol):
     """Jedna operacja: zapytaj i oddaj JSON wg schematu."""
 
@@ -119,7 +173,8 @@ class _Bazowy:
         odpowiedz = await klient.post(
             f"{self._base_url}{sciezka}", headers=naglowki, json=tresc
         )
-        odpowiedz.raise_for_status()
+        if odpowiedz.is_error:
+            raise BladOdpowiedzi(odpowiedz.status_code, _komunikat_bledu(odpowiedz))
         wynik: dict[str, Any] = odpowiedz.json()
         return wynik
 
@@ -221,8 +276,8 @@ class KlientZgodnyZOpenAI(_Bazowy):
             odpowiedz = await self._poslij(
                 "/chat/completions", naglowki=naglowki, tresc=tresc
             )
-        except httpx.HTTPStatusError as exc:
-            if exc.response.status_code not in (400, 422):
+        except BladOdpowiedzi as exc:
+            if exc.status not in (400, 422):
                 raise
             tresc["response_format"] = {"type": "json_object"}
             odpowiedz = await self._poslij(

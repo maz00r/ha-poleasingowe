@@ -1,5 +1,21 @@
 # Historia zmian
 
+## 0.10.1 — w przygotowaniu
+
+**Widać, dlaczego wycena AI odmówiła.** Dotąd w logu było samo „400 Bad
+Request", a na karcie „nie udało się" — tym samym kodem dostawca odpowiada
+i na nieznaną nazwę modelu, i na nieobsługiwany format odpowiedzi, więc nie
+dało się zgadnąć, co poprawić. Powód od dostawcy (np. `Model Not Exist`)
+trafia teraz do logu i na kartę aukcji. Wyjątkiem jest odrzucony klucz:
+przy 401/403 pokazujemy własne zdanie, bo część dostawców odsyła w błędzie
+fragment klucza.
+
+**Opcje AI mają wreszcie opisy.** W konfiguracji dodatku `ai_provider`,
+`ai_api_key` i `ai_base_url` pokazywały się jako surowe klucze, a przy
+`ai_model` wisiał opis „Model OpenAI… domyślnie gpt-5.4-mini" — mylący przy
+DeepSeeku. Nowy test pilnuje, żeby każda opcja miała nazwę i opis w obu
+językach.
+
 ## 0.10.0 — w przygotowaniu
 
 **Nowy wygląd interfejsu.** Język wizualny idzie za serwisami, z których

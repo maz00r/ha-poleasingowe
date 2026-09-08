@@ -350,3 +350,28 @@ def test_wersja_w_kodzie_zgadza_sie_z_config_yaml(config: dict[str, Any]) -> Non
     from app.wersja import WERSJA
 
     assert config["version"] == WERSJA
+
+
+@pytest.mark.parametrize("jezyk", ["pl", "en"])
+def test_tlumaczenia_opisuja_wszystkie_opcje(
+    config: dict[str, Any], jezyk: str
+) -> None:
+    """Każda opcja ma nazwę i opis w obu językach.
+
+    Bez tego Home Assistant pokazuje w konfiguracji surowy klucz
+    (`ai_provider`) i opis poprzedniej opcji — użytkownik widzi wtedy pole
+    „Model OpenAI" przy DeepSeeku i słusznie nie wie, co wpisać. To się
+    właśnie zdarzyło, więc pilnuje tego test, a nie pamięć.
+    """
+    plik = ADDON / "translations" / f"{jezyk}.yaml"
+    tlumaczenia = yaml.safe_load(plik.read_text(encoding="utf-8"))["configuration"]
+
+    for opcja in config["options"]:
+        assert opcja in tlumaczenia, f"{jezyk}: brak tłumaczenia opcji {opcja}"
+        assert tlumaczenia[opcja].get("name"), f"{jezyk}: {opcja} bez nazwy"
+        assert tlumaczenia[opcja].get("description"), f"{jezyk}: {opcja} bez opisu"
+
+    nadmiarowe = set(tlumaczenia) - set(config["options"])
+    assert (
+        not nadmiarowe
+    ), f"{jezyk}: tłumaczenia opcji, których już nie ma: {nadmiarowe}"
