@@ -92,6 +92,35 @@ async def test_indeks_na_next_poll_jest_czesciowy(
     assert "WHERE (status = 'ACTIVE'" in wiersz[0], wiersz[0]
 
 
+async def test_migracja_poprawia_historyczne_tytuly_autoprzetarg(
+    pusta_baza: psycopg.AsyncConnection,
+) -> None:
+    async with pusta_baza.cursor() as cur:
+        await cur.execute(
+            "INSERT INTO app.source (key, name) VALUES ('autoprzetarg', 'Auto') "
+            "RETURNING id"
+        )
+        source_id = (await cur.fetchone())[0]  # type: ignore[index]
+        await cur.executemany(
+            "INSERT INTO app.auction "
+            "(source_id, external_id, url, variant) VALUES (%s, %s, %s, %s)",
+            [
+                (source_id, "a", "https://example/a", "1490,00 cm3 / 125 KM"),
+                (
+                    source_id,
+                    "b",
+                    "https://example/b",
+                    "Executive 3,0 DIESEL / 175 KM",
+                ),
+            ],
+        )
+        await cur.execute((MIGRACJE / "008_tytuly_autoprzetarg.sql").read_text())
+        await cur.execute(
+            "SELECT external_id, variant FROM app.auction ORDER BY external_id"
+        )
+        assert await cur.fetchall() == [("a", None), ("b", "Executive")]
+
+
 async def test_migracje_nie_tworza_schematow(
     polaczenie: psycopg.AsyncConnection,
 ) -> None:

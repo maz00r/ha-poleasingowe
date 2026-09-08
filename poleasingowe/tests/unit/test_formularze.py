@@ -83,8 +83,10 @@ def test_wszystkie_znaczy_brak_filtra_statusu() -> None:
 
 
 def test_archiwum_to_status_zakonczone() -> None:
-    """SPEC.md §12 — archiwum zakończonych z ceną końcową."""
-    assert zbuduj_kryteria({"status": "zakonczone"}).status is AuctionStatus.ENDED
+    """Archiwum zawiera wyłącznie zakończone obserwowane aukcje."""
+    kryteria = zbuduj_kryteria({"status": "zakonczone"})
+    assert kryteria.status is AuctionStatus.ENDED
+    assert kryteria.tylko_obserwowane is True
 
 
 @pytest.mark.parametrize("wartosc", ["1", "true", "tak", "on", "ON"])

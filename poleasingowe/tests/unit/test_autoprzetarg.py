@@ -12,6 +12,7 @@ from decimal import Decimal
 
 import pytest
 
+from app.application.ports import SurowaOferta
 from app.domain.enums import AuctionStatus, Currency
 from app.domain.errors import ParseFailed
 from app.domain.value_objects import Money
@@ -152,6 +153,24 @@ def test_nazwa_jest_odklejana_od_danych_technicznych() -> None:
     # `CITROEN` bez diakrytyku i wersalikami to ta sama marka co `Citroën`.
     assert (aukcja.make, aukcja.model) == ("Citroën", "JUMPER")
     assert aukcja.year == 2018
+
+
+@pytest.mark.parametrize(
+    ("nazwa", "oczekiwane"),
+    [
+        ("TOYOTA YARIS 1490,00 cm3 / 125 KM", ("Toyota", "YARIS", None)),
+        ("IVECO 35S18 3,0 DIESEL / 175 KM", ("Iveco", "35S18", None)),
+    ],
+)
+def test_nazwa_odcina_nowsze_warianty_danych_technicznych(
+    nazwa: str, oczekiwane: tuple[str, str, None]
+) -> None:
+    aukcja = mapper.na_aukcje(
+        SurowaOferta(external_id="x", url="u", pola={"nazwa": nazwa}),
+        source_id=1,
+        teraz=TERAZ,
+    )
+    assert (aukcja.make, aukcja.model, aukcja.variant) == oczekiwane
 
 
 def test_pojemnosc_i_moc_z_jednego_pola() -> None:

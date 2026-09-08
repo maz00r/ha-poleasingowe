@@ -96,6 +96,10 @@ async def test_archiwum_pokazuje_znacznik_pewnosci_ceny(
     await _dane(pusta_baza)
     odp = await klient.get("/", params={"status": "zakonczone"})
     assert "Opel Insignia" in odp.text
+    assert "Ford Focus" not in odp.text, "archiwum nie pokazuje nieobserwowanych"
+    assert (
+        "Toyota Yaris" in odp.text
+    ), "zniknięta obserwowana aukcja też jest archiwalna"
     assert "CONFIRMED" in odp.text
 
 

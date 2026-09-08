@@ -225,7 +225,11 @@ def _warunki(kryteria: Kryteria) -> tuple[list[sql.Composable], dict[str, Any]]:
     ]
     parametry: dict[str, Any] = {}
 
-    if kryteria.status is not None:
+    if kryteria.status is AuctionStatus.ENDED:
+        # Autoprzetarg po zakończeniu usuwa stronę aukcji, więc dispatcher
+        # zapisuje DISAPPEARED. Dla użytkownika to wciąż pozycja archiwalna.
+        warunki.append(sql.SQL("a.status IN ('ENDED', 'DISAPPEARED')"))
+    elif kryteria.status is not None:
         warunki.append(sql.SQL("a.status = %(status)s"))
         parametry["status"] = kryteria.status.value
     if kryteria.szukaj:

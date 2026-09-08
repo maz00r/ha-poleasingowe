@@ -95,7 +95,11 @@ def zbuduj_kryteria(
             parametry, "do_konca_h", minimum=1, maksimum=MAKS_GODZIN
         ),
         status=status,
-        tylko_obserwowane=_flaga(parametry, "obserwowane"),
+        # Archiwum jest historią watchlisty, nie wysypiskiem wszystkich
+        # zakończonych aukcji. Jawna flaga nadal obsługuje obserwowane aktywne.
+        tylko_obserwowane=(
+            status is AuctionStatus.ENDED or _flaga(parametry, "obserwowane")
+        ),
         nowe_od=nowe_od,
         sortowanie=sortowanie,
     )

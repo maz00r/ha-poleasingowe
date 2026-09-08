@@ -138,6 +138,28 @@ async def _dane(baza: psycopg.AsyncConnection) -> dict[str, int]:
                 "final_price_state": FinalPriceState.CONFIRMED,
             },
         ),
+        (
+            "archiwalna-nieobserwowana",
+            pol.id,
+            {
+                "make": "Ford",
+                "model": "Focus",
+                "status": AuctionStatus.ENDED,
+                "price_current": _pln("25000"),
+                "ends_at": teraz - dt.timedelta(days=2),
+            },
+        ),
+        (
+            "zniknieta-obserwowana",
+            pol.id,
+            {
+                "make": "Toyota",
+                "model": "Yaris",
+                "status": AuctionStatus.DISAPPEARED,
+                "price_current": _pln("35000"),
+                "ends_at": teraz - dt.timedelta(hours=12),
+            },
+        ),
     ]
     for klucz, source_id, pola in definicje:
         wynik = await uow.auction.zapisz(aukcja(source_id, klucz, **pola))
@@ -167,6 +189,10 @@ async def _dane(baza: psycopg.AsyncConnection) -> dict[str, int]:
             target_price=_pln("50000"),
         )
     )
+    for klucz in ("archiwalna", "zniknieta-obserwowana"):
+        await uow.watchlist.dodaj(
+            WatchlistEntry(auction_id=zapisane[klucz], added_at=TERAZ)
+        )
     return zapisane
 
 
@@ -319,10 +345,14 @@ async def test_archiwum_niesie_znacznik_pewnosci_ceny(
     """SPEC.md §12 — archiwum z ceną końcową i znacznikiem pewności."""
     await _dane(pusta_baza)
     strona = await PgZapytania(pusta_baza).lista(
-        Kryteria(status=AuctionStatus.ENDED), None, 100
+        Kryteria(status=AuctionStatus.ENDED, tylko_obserwowane=True), None, 100
     )
-    assert [p.external_id for p in strona.pozycje] == ["archiwalna"]
-    assert strona.pozycje[0].final_price_state is FinalPriceState.CONFIRMED
+    assert {p.external_id for p in strona.pozycje} == {
+        "archiwalna",
+        "zniknieta-obserwowana",
+    }
+    archiwalna = next(p for p in strona.pozycje if p.external_id == "archiwalna")
+    assert archiwalna.final_price_state is FinalPriceState.CONFIRMED
 
 
 async def test_lista_niesie_stan_obserwacji_i_prog(

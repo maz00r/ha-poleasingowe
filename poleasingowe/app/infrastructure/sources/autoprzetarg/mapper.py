@@ -33,10 +33,14 @@ from app.infrastructure.sources.paliwa import kanoniczne_paliwo
 STREFA_SERWISU = zoneinfo.ZoneInfo("Europe/Warsaw")
 
 _KONIEC = re.compile(r"^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2}):(\d{2})$")
-_POJEMNOSC = re.compile(r"([\d\s\xa0]+(?:,\d+)?)\s*ccm", re.I)
+_POJEMNOSC = re.compile(r"([\d\s\xa0]+(?:,\d+)?)\s*(?:ccm|cm3)", re.I)
 _MOC = re.compile(r"(\d+)\s*KM", re.I)
-# Wszystko od rocznika w prawo to już dane techniczne, nie nazwa pojazdu.
-_OGON_NAZWY = re.compile(r"\s*\d{4}\s*/.*$|\s*\d+[,.]?\d*\s*ccm.*$", re.I)
+# Wszystko od rocznika, pojemności albo paliwa w prawo to już dane techniczne,
+# nie nazwa pojazdu. Serwis używa wymiennie `ccm`, `cm3` i np. `3,0 DIESEL`.
+_OGON_NAZWY = re.compile(
+    r"\s*\d{4}\s*/.*$|" r"\s*\d+[,.]?\d*\s*(?:ccm|cm3|diesel|benzyna|hybryda)\b.*$",
+    re.I,
+)
 
 
 def _liczba(tekst: str | None) -> int | None:

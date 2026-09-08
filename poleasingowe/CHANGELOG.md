@@ -2,6 +2,11 @@
 
 ## 0.8.0 — w przygotowaniu
 
+**Poprawione archiwum.** Pokazuje teraz tylko auta pozostawione na watchliście,
+zarówno zakończone normalnie, jak i oznaczone przez źródło jako zniknięte.
+Parser Autoprzetarg usuwa z tytułów także techniczne ogony zapisane jako `cm3`
+lub pojemność z rodzajem paliwa. Migracja poprawia tytuły już zebranych aukcji.
+
 **Zdjęcia i wycena AI.** Lista pokazuje leniwie ładowaną miniaturę pierwszego
 zdjęcia, pobieraną przez bezpieczne proxy add-onu. Brak zdjęcia daje neutralny
 placeholder zamiast ikony uszkodzonego obrazu. Karta aukcji pokazuje całą
