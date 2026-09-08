@@ -26,6 +26,7 @@ from app.domain.enums import AuctionStatus, Currency
 from app.domain.errors import ParseFailed
 from app.domain.value_objects import Mileage, Money, NieprawidlowaWartosc, Vin
 from app.infrastructure.sources.marki import podziel_marke_model
+from app.infrastructure.sources.paliwa import kanoniczne_paliwo
 
 # RECON.md §4.4: strefa nie jest podana przy `auctionEndDate`. Zakładamy czas
 # lokalny Polski, bo taki serwis pokazuje użytkownikowi. Do bazy idzie UTC.
@@ -86,6 +87,11 @@ def _vin(pola: dict[str, str]) -> Vin | None:
         return None
 
 
+def _paliwo(wartosc: str | None) -> str | None:
+    """Nazwa paliwa w postaci wspólnej dla wszystkich źródeł (§6.2)."""
+    return kanoniczne_paliwo(wartosc) if wartosc else None
+
+
 def na_aukcje(surowa: SurowaOferta, source_id: int, teraz: dt.datetime) -> Auction:
     """Buduje encję domenową z surowej pozycji autoprzetarg.pl."""
     pola = surowa.pola
@@ -132,7 +138,7 @@ def na_aukcje(surowa: SurowaOferta, source_id: int, teraz: dt.datetime) -> Aucti
         variant=wersja,
         year=_liczba(pola.get("Rok produkcji")),
         mileage=przebieg,
-        fuel=pola.get("Rodzaj paliwa"),
+        fuel=_paliwo(pola.get("Rodzaj paliwa")),
         engine_ccm=_liczba(pojemnosc.group(1)) if pojemnosc else None,
         engine_hp=int(moc.group(1)) if moc else None,
         vin=_vin(pola),

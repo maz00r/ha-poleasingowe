@@ -12,10 +12,10 @@ import asyncio
 import contextlib
 import logging
 import pathlib
-from collections.abc import AsyncIterator, Awaitable, Callable, Coroutine
+from collections.abc import AsyncIterator, Callable, Coroutine
 from typing import Any
 
-from fastapi import FastAPI, Request, Response
+from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
 
 from app.application.ports import FabrykaKontekstu
@@ -26,8 +26,6 @@ STATYKI = pathlib.Path(__file__).resolve().parent / "static"
 
 log = logging.getLogger(__name__)
 
-NAGLOWEK_INGRESS = "X-Ingress-Path"
-
 
 class StanAplikacji:
     """Współdzielony stan procesu. Jeden proces, jeden event loop (§7.1)."""
@@ -36,23 +34,6 @@ class StanAplikacji:
         self.opcje = opcje
         self.baza_dostepna = False
         self.ostatni_blad_bazy: str | None = None
-
-
-def _middleware_ingress(app: FastAPI) -> None:
-    """Ustawia `root_path` z nagłówka, żeby `url_for` budował dobre adresy.
-
-    Home Assistant montuje add-on pod losowym prefiksem, innym po każdym
-    restarcie, więc prefiksu nie da się skonfigurować z góry.
-    """
-
-    @app.middleware("http")
-    async def ustaw_prefiks(
-        request: Request, call_next: Callable[[Request], Awaitable[Response]]
-    ) -> Response:
-        prefiks = request.headers.get(NAGLOWEK_INGRESS)
-        if prefiks:
-            request.scope["root_path"] = prefiks.rstrip("/")
-        return await call_next(request)
 
 
 ZadanieTla = Callable[[], Coroutine[Any, Any, None]]
@@ -114,7 +95,6 @@ def utworz_aplikacje(
     # Galeria zdjęć jest opcjonalna: bez niej karta aukcji po prostu
     # nie pokazuje zdjęć (SPEC.md §12).
     app.state.galeria = galeria
-    _middleware_ingress(app)
     # `html=False`: to katalog na CSS i HTMX, nie na strony. Bez tego
     # StaticFiles zaczalby serwowac index.html z dowolnego podkatalogu.
     app.mount("/static", StaticFiles(directory=str(STATYKI), html=False), name="static")

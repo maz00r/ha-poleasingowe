@@ -45,6 +45,7 @@ from app.interfaces.web.formularze import (
     na_parametry,
     zbuduj_kryteria,
 )
+from app.interfaces.web.ingress import prefiks_ingress
 
 log = logging.getLogger(__name__)
 
@@ -56,6 +57,8 @@ filtry_szablonu.zarejestruj(SZABLONY.env)
 def sciezka(request: Request, nazwa: str, **parametry: object) -> str:
     """Adres **względny wobec origin**, z prefiksem Ingressu (SPEC.md §7.1).
 
+    Prefiks bierzemy z nagłówka, nie ze `scope` — powód w `app.prefiks_ingress`.
+
     Dlaczego nie `url_for`: buduje adres BEZWZGLĘDNY, a host bierze z żądania
     widzianego przez add-on — czyli wewnętrzny adres kontenera, np.
     `http://172.30.33.5:8099/...`. Home Assistant proxuje Ingress i **nie**
@@ -66,8 +69,7 @@ def sciezka(request: Request, nazwa: str, **parametry: object) -> str:
     Ścieżka zaczynająca się od `/` rozwiązuje się względem origin strony,
     więc jest odporna i na Ingress, i na uruchomienie bez niego.
     """
-    prefiks = request.scope.get("root_path", "")
-    return f"{prefiks}{request.app.url_path_for(nazwa, **parametry)}"
+    return f"{prefiks_ingress(request)}{request.app.url_path_for(nazwa, **parametry)}"
 
 
 # Globalna w szablonach — `url_for` jest tu nie do uzycia, patrz wyzej.

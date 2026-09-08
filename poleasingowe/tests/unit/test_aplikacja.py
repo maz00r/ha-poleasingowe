@@ -6,7 +6,8 @@ from fastapi import Request
 from fastapi.testclient import TestClient
 
 from app.infrastructure.supervisor.options import Opcje
-from app.interfaces.app import NAGLOWEK_INGRESS, utworz_aplikacje
+from app.interfaces.app import utworz_aplikacje
+from app.interfaces.web.ingress import NAGLOWEK_INGRESS
 
 OPCJE = Opcje(
     db_password="tajne-haslo",
@@ -41,12 +42,19 @@ def test_zdrowie_pokazuje_tylko_wlaczone_zrodla() -> None:
     assert odp.json()["zrodla"] == ["efl"]
 
 
-def test_prefiks_ingress_trafia_do_root_path() -> None:
-    """SPEC.md §7.1 — prefiks jest dynamiczny i przychodzi w nagłówku.
+def test_prefiks_ingressu_nie_trafia_do_root_path() -> None:
+    """Scope zostaje NIETKNIĘTY — i to jest cała poprawka (SPEC.md §7.1).
 
-    Home Assistant montuje add-on pod losowym prefiksem, innym po każdym
-    restarcie, więc nie da się go skonfigurować z góry. Bez przepisania go
-    do `root_path` `url_for` budowałby adresy prowadzące donikąd.
+    Wpisywanie prefiksu do `scope["root_path"]` wygląda naturalnie i tak to
+    tu początkowo działało. Łamie jednak umowę ASGI: `root_path` ma być
+    **początkiem** `scope["path"]`, a Home Assistant prefiks już zdjął.
+    Starlette 0.38 liczy trasę jako `path` minus `root_path` i przekazuje
+    `root_path` do podaplikacji, więc `StaticFiles` szukał pliku pod
+    `<katalog>/static/styl.css` i oddawał **404 na CSS i na HTMX-a**, choć
+    zwykłe trasy odpowiadały normalnie.
+
+    Objaw był myląco szeroki: „GUI nie działa" — strona bez stylów,
+    gwiazdka obserwacji martwa, bo HTMX-a w ogóle nie było.
     """
     app = utworz_aplikacje(OPCJE)
     zapamietane: list[str] = []
@@ -63,9 +71,24 @@ def test_prefiks_ingress_trafia_do_root_path() -> None:
         c.get(
             "/echo-prefiksu", headers={NAGLOWEK_INGRESS: "/api/hassio_ingress/abc123/"}
         )
-    assert zapamietane == [
-        "/api/hassio_ingress/abc123"
-    ], "prefiks ma trafić do root_path, bez końcowego ukośnika"
+    assert zapamietane == [""], "scope ma zostać nietknięty"
+
+
+def test_pliki_statyczne_dzialaja_takze_pod_ingressem() -> None:
+    """Dokładnie ta regresja, która zepsuła panel.
+
+    `/static/styl.css` oddawało 404, gdy w żądaniu był nagłówek Ingressu,
+    a 200 bez niego. Żaden test tego nie sprawdzał, bo wszystkie pytały
+    o statyki **bez** nagłówka.
+    """
+    prefiks = "/api/hassio_ingress/abc123"
+    with klient() as c:
+        for sciezka in ("/static/styl.css", "/static/htmx.min.js"):
+            bez = c.get(sciezka)
+            z_ingressem = c.get(sciezka, headers={NAGLOWEK_INGRESS: prefiks + "/"})
+            assert bez.status_code == 200, sciezka
+            assert z_ingressem.status_code == 200, f"{sciezka} pod Ingressem"
+            assert bez.content == z_ingressem.content
 
 
 def test_brak_naglowka_zostawia_pusty_prefiks() -> None:

@@ -23,6 +23,7 @@ from app.domain.enums import AuctionStatus, Currency
 from app.domain.errors import ParseFailed
 from app.domain.value_objects import Mileage, Money, NieprawidlowaWartosc, Vin
 from app.infrastructure.sources.marki import podziel_marke_model
+from app.infrastructure.sources.paliwa import kanoniczne_paliwo
 
 # Serwis podaje `endDate` z jawną strefą: `moment('...').tz("Europe/Warsaw")`.
 # Do bazy idzie UTC (SPEC.md §8.2).
@@ -88,6 +89,11 @@ def _vin(pola: dict[str, str]) -> Vin | None:
         return None
 
 
+def _paliwo(wartosc: str | None) -> str | None:
+    """Nazwa paliwa w postaci wspólnej dla wszystkich źródeł (§6.2)."""
+    return kanoniczne_paliwo(wartosc) if wartosc else None
+
+
 def na_aukcje(surowa: SurowaOferta, source_id: int, teraz: dt.datetime) -> Auction:
     """Buduje encję domenową z surowej pozycji poleasingowe.pl."""
     pola = surowa.pola
@@ -121,7 +127,7 @@ def na_aukcje(surowa: SurowaOferta, source_id: int, teraz: dt.datetime) -> Aucti
         variant=wersja,
         year=_int_lub_none(pola.get("Rok produkcji") or pola.get("rocznik")),
         mileage=przebieg,
-        fuel=pola.get("Paliwo") or pola.get("paliwo"),
+        fuel=_paliwo(pola.get("Paliwo") or pola.get("paliwo")),
         gearbox=pola.get("Skrzynia biegów"),
         engine_ccm=_int_lub_none(pola.get("Pojemność silnika")),
         engine_hp=_int_lub_none(pola.get("Moc silnika")),

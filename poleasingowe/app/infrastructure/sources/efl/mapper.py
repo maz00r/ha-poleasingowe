@@ -17,6 +17,7 @@ from app.domain.enums import AuctionStatus, Currency
 from app.domain.errors import ParseFailed
 from app.domain.value_objects import Mileage, Money, NieprawidlowaWartosc, Vin
 from app.infrastructure.sources.marki import podziel_marke_model
+from app.infrastructure.sources.paliwa import kanoniczne_paliwo
 
 # RECON.md §4.1: serwis podaje czas bez strefy. Zakladamy czas lokalny Polski,
 # bo taki pokazuje uzytkownikowi. Do bazy idzie UTC (SPEC.md §8.2).
@@ -42,6 +43,11 @@ def _koniec_na_utc(wartosc: str) -> dt.datetime:
     d, m, r, gg, mm, ss = (int(x) for x in dopasowanie.groups())
     lokalny = dt.datetime(r, m, d, gg, mm, ss, tzinfo=STREFA_SERWISU)
     return lokalny.astimezone(dt.UTC)
+
+
+def _paliwo(wartosc: str | None) -> str | None:
+    """Nazwa paliwa w postaci wspólnej dla wszystkich źródeł (§6.2)."""
+    return kanoniczne_paliwo(wartosc) if wartosc else None
 
 
 def na_aukcje(surowa: SurowaOferta, source_id: int, teraz: dt.datetime) -> Auction:
@@ -110,7 +116,7 @@ def na_aukcje(surowa: SurowaOferta, source_id: int, teraz: dt.datetime) -> Aucti
         variant=wersja,
         year=_int_lub_none(pola.get("Rok produkcji")),
         mileage=przebieg,
-        fuel=pola.get("Rodzaj paliwa"),
+        fuel=_paliwo(pola.get("Rodzaj paliwa")),
         gearbox=pola.get("Skrzynia biegów"),
         engine_ccm=pojemnosc,
         engine_hp=moc,

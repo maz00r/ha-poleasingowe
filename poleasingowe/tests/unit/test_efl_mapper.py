@@ -23,7 +23,7 @@ def test_szczegoly_mapuja_sie_na_komplet_pol() -> None:
     assert (a.make, a.model, a.variant) == ("Škoda", "Superb", "Style DSG")
     assert a.year == 2023
     assert a.mileage == Mileage(208475)
-    assert a.fuel == "Olej napędowy"
+    assert a.fuel == "Diesel"
     assert a.gearbox == "Automatyczna"
     assert a.body == "Liftback"
     assert a.color == "czarny"

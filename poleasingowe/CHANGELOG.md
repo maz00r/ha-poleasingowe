@@ -1,5 +1,26 @@
 # Historia zmian
 
+## 0.7.2 — w przygotowaniu
+
+**Naprawa: pliki statyczne oddawaly 404 pod Ingressem.** To byla wlasciwa
+przyczyna „GUI nie dziala", ktorej poprzednia poprawka nie usunela. Middleware
+wpisywal prefiks Ingressu do `scope["root_path"]`, co lamie umowe ASGI:
+`root_path` ma byc POCZATKIEM `scope["path"]`, a Home Assistant prefiks juz
+zdjal. Starlette 0.38 liczy trase jako `path` minus `root_path` i przekazuje
+`root_path` do podaplikacji, wiec `StaticFiles` szukal pliku pod
+`<katalog>/static/styl.css` — 404 na arkusz stylow i na HTMX-a, przy dzialajacych
+zwyklych trasach. Stad strona bez stylow i martwa gwiazdka obserwacji.
+
+Scope nie jest juz dotykany; prefiks czytamy z naglowka. Sprawdzone przez
+atrape Ingressu (osobny port, zdejmowanie prefiksu, naglowek X-Ingress-Path),
+a nie tylko testami jednostkowymi.
+
+**Ujednolicenie nazw paliwa.** Serwisy uzywaja ROZNYCH SLOW, nie tylko roznej
+wielkosci liter: `Olej napedowy` (poleasingowe, bez ogonka), `Olej napędowy`
+(EFL, z ogonkiem) i `Diesel` (autoprzetarg) to jedno paliwo; `Hybryda`
+i `Hybryda/benzyna` — drugie. Lista rozwijana miala piec pozycji na trzy
+paliwa. Slownik jest jawny, migracja `007_paliwa` porzadkuje dane juz zebrane.
+
 ## 0.7.1 — w przygotowaniu
 
 Ujednolicenie zapisu marek.
