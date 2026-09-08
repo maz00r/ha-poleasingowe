@@ -251,3 +251,69 @@ def test_dostawcy_maja_domyslne_adresy_i_modele() -> None:
     """Użytkownik podaje sam klucz i to ma wystarczyć."""
     assert utworz_klienta("openai", "k").model == "gpt-5.4-mini"
     assert utworz_klienta("anthropic", "k").model == "claude-sonnet-5"
+
+
+async def test_odrzucony_json_schema_konczy_sie_ponowieniem_w_json_object(
+    tmp_path: pathlib.Path,
+) -> None:
+    """DeepSeek dokumentuje wyłącznie `json_object`, a nieznany typ
+    `response_format` bywa odrzucany błędem 400 — nie ignorowany.
+
+    Bez tego ponowienia wybór takiego dostawcy dawałby wycenę, która nigdy
+    się nie udaje, i komunikat „nie udało się" bez wskazania przyczyny.
+    """
+    formaty: list[str] = []
+
+    def obsluz(request: httpx.Request) -> httpx.Response:
+        tresc = json.loads(request.content)
+        formaty.append(tresc["response_format"]["type"])
+        if tresc["response_format"]["type"] == "json_schema":
+            return httpx.Response(
+                400,
+                json={"error": {"message": "response_format.type unsupported"}},
+            )
+        return httpx.Response(
+            200, json={"choices": [{"message": {"content": json.dumps(WYNIK)}}]}
+        )
+
+    klient = httpx.AsyncClient(transport=httpx.MockTransport(obsluz))
+    usluga = WycenaAI(
+        KlientZgodnyZOpenAI(
+            "sk-deepseek",
+            model="deepseek-chat",
+            base_url="https://api.deepseek.com/v1",
+            klient=klient,
+        ),
+        katalog=tmp_path,
+    )
+
+    wynik = await usluga.wycen(_dane(), ())
+    assert wynik.wartosc == 78_000
+    assert formaty == ["json_schema", "json_object"]
+    await klient.aclose()
+
+
+async def test_zly_klucz_nie_jest_ponawiany(tmp_path: pathlib.Path) -> None:
+    """401 znaczy co innego niż „nie umiem tego formatu" — powtórka nic by
+    nie dała, a podwoiłaby żądania przy każdej próbie wyceny."""
+    proby = 0
+
+    def obsluz(request: httpx.Request) -> httpx.Response:
+        nonlocal proby
+        proby += 1
+        return httpx.Response(401, json={"error": {"message": "zły klucz"}})
+
+    klient = httpx.AsyncClient(transport=httpx.MockTransport(obsluz))
+    usluga = WycenaAI(
+        KlientZgodnyZOpenAI(
+            "zly",
+            model="deepseek-chat",
+            base_url="https://api.deepseek.com/v1",
+            klient=klient,
+        ),
+        katalog=tmp_path,
+    )
+    with pytest.raises(BladWyceny):
+        await usluga.wycen(_dane(), ())
+    assert proby == 1
+    await klient.aclose()

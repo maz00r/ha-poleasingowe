@@ -34,9 +34,11 @@ upływie okna dogrywki źródła, oznaczając cenę jako ostatnią widzianą, ni
 jako potwierdzoną.
 
 **Wycena AI u dowolnego dostawcy.** `ai_provider` wybiera między OpenAI,
-Anthropic i dowolnym endpointem zgodnym z OpenAI — z modelem lokalnym
-(Ollama, LM Studio) włącznie, co pozwala nie wypuszczać danych pojazdu poza
-sieć domową. Stara opcja `openai_api_key` nadal działa.
+Anthropic i dowolnym endpointem zgodnym z OpenAI — DeepSeek, OpenRouter,
+Groq, a także model lokalny (Ollama, LM Studio), co pozwala nie wypuszczać
+danych pojazdu poza sieć domową. Dostawcy różnie wymuszają strukturę
+odpowiedzi, więc przy odrzuceniu `json_schema` dodatek sam ponawia żądanie
+w trybie `json_object`. Stara opcja `openai_api_key` nadal działa.
 
 ## 0.8.1 — w przygotowaniu
 

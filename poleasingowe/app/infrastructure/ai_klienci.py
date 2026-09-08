@@ -165,11 +165,23 @@ class KlientOpenAI(_Bazowy):
 class KlientZgodnyZOpenAI(_Bazowy):
     """Endpoint `chat/completions` — wspólny mianownik reszty rynku.
 
-    Nie każdy dostawca honoruje `json_schema`; część zna tylko
-    `{"type": "json_object"}`, a część nic. Dlatego schemat idzie
-    **dodatkowo w treści polecenia** — wtedy nawet zignorowany
-    `response_format` nie psuje wyniku, bo model i tak wie, czego od niego
-    chcemy. Walidacja i tak stoi po naszej stronie (`wycena_ai`).
+    Wymuszanie struktury jest tu **niejednolite**, i to jest cała trudność
+    tej klasy. `json_schema` rozumie OpenAI i część bramek; DeepSeek
+    dokumentuje wyłącznie `{"type": "json_object"}`, a lokalne serwery bywają
+    na to obojętne albo odrzucają nieznany typ błędem 400.
+
+    Stąd dwa zabezpieczenia, które działają niezależnie od siebie:
+
+    1. **Schemat idzie zawsze w treści polecenia**, nie tylko w
+       `response_format`. Dostawca, który to pole ignoruje, i tak wie, czego
+       od niego chcemy.
+    2. Gdy dostawca **odrzuci** `json_schema` (400/422), ponawiamy raz
+       w trybie `json_object`. To jest jedyna sytuacja, w której ponawiamy:
+       401 czy 429 znaczą co innego i powtórka nic by nie dała.
+
+    Kształt wyniku sprawdzamy i tak po swojej stronie (`wycena_ai`), więc
+    nawet dostawca bez żadnego trybu JSON jest użyteczny, o ile odpowie
+    obiektem.
     """
 
     async def json_wg_schematu(
@@ -180,39 +192,50 @@ class KlientZgodnyZOpenAI(_Bazowy):
         nazwa_schematu: str,
         schemat: dict[str, Any],
     ) -> str:
-        odpowiedz = await self._poslij(
-            "/chat/completions",
-            naglowki={"Authorization": f"Bearer {self._api_key}"},
-            tresc={
-                "model": self.model,
-                "messages": [
-                    {
-                        "role": "system",
-                        "content": (
-                            f"{instrukcje}\n\nOdpowiedz WYŁĄCZNIE obiektem JSON "
-                            f"zgodnym ze schematem:\n"
-                            f"{json.dumps(schemat, ensure_ascii=False)}"
-                        ),
-                    },
-                    {"role": "user", "content": wejscie},
-                ],
-                "response_format": {
-                    "type": "json_schema",
-                    "json_schema": {
-                        "name": nazwa_schematu,
-                        "strict": True,
-                        "schema": schemat,
-                    },
+        # Słowo „JSON" w poleceniu jest wymogiem części dostawców (m.in.
+        # DeepSeeka) przy trybie `json_object` — bez niego odmawiają.
+        tresc: dict[str, Any] = {
+            "model": self.model,
+            "messages": [
+                {
+                    "role": "system",
+                    "content": (
+                        f"{instrukcje}\n\nOdpowiedz WYŁĄCZNIE obiektem JSON "
+                        f"zgodnym ze schematem:\n"
+                        f"{json.dumps(schemat, ensure_ascii=False)}"
+                    ),
+                },
+                {"role": "user", "content": wejscie},
+            ],
+            "response_format": {
+                "type": "json_schema",
+                "json_schema": {
+                    "name": nazwa_schematu,
+                    "strict": True,
+                    "schema": schemat,
                 },
             },
-        )
+        }
+        naglowki = {"Authorization": f"Bearer {self._api_key}"}
+        try:
+            odpowiedz = await self._poslij(
+                "/chat/completions", naglowki=naglowki, tresc=tresc
+            )
+        except httpx.HTTPStatusError as exc:
+            if exc.response.status_code not in (400, 422):
+                raise
+            tresc["response_format"] = {"type": "json_object"}
+            odpowiedz = await self._poslij(
+                "/chat/completions", naglowki=naglowki, tresc=tresc
+            )
+
         wybory = odpowiedz.get("choices") or []
         if not wybory:
             raise BladModelu("Dostawca nie zwrócił żadnej odpowiedzi.")
-        tresc = (wybory[0].get("message") or {}).get("content")
-        if not tresc:
+        wiadomosc = (wybory[0].get("message") or {}).get("content")
+        if not wiadomosc:
             raise BladModelu("Dostawca zwrócił pustą odpowiedź.")
-        return str(tresc)
+        return str(wiadomosc)
 
 
 class KlientAnthropic(_Bazowy):

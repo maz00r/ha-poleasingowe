@@ -123,12 +123,23 @@ ai_provider: anthropic
 ai_api_key: "sk-ant-..."
 ai_model: ""            # puste = domyślny model dostawcy
 
+# DeepSeek
+ai_provider: zgodny_z_openai
+ai_base_url: "https://api.deepseek.com/v1"
+ai_model: "deepseek-chat"     # albo deepseek-reasoner
+ai_api_key: "sk-..."
+
 # Model lokalny — dane pojazdu nie opuszczają sieci domowej
 ai_provider: zgodny_z_openai
 ai_base_url: "http://ollama:11434/v1"
 ai_model: "qwen3:14b"
 ai_api_key: "cokolwiek"  # lokalne serwery zwykle nie sprawdzają klucza
 ```
+
+Dostawcy różnie wymuszają strukturę odpowiedzi: OpenAI rozumie `json_schema`,
+DeepSeek dokumentuje wyłącznie `json_object`. Dodatek próbuje najpierw
+tej pierwszej i **sam ponawia** w drugiej, gdy dostawca ją odrzuci — nie
+trzeba tego konfigurować.
 
 `ai_model` puste znaczy „model domyślny dostawcy"; przy `zgodny_z_openai`
 trzeba go podać, bo tam żadnego domyślnego nie ma. Brak `ai_base_url` przy
