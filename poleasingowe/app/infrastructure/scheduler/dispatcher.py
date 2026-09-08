@@ -121,6 +121,14 @@ class Dispatcher:
         async with kontekst.uow as uow:
             zrodla = {z.key: z for z in await uow.source.wlaczone()}
             po_id = {z.id: z for z in zrodla.values() if z.id is not None}
+
+        # Przemiat listy PRZED odpytem szczegółów — to on w ogóle wprowadza
+        # aukcje do bazy. Bez niego dispatcher odświeżałby wyłącznie to, co
+        # ktoś tam wcześniej wstawił, czyli nic.
+        for do_przemiatu in zrodla.values():
+            await self._moze_przemiec(kontekst, do_przemiatu, teraz)
+
+        async with kontekst.uow as uow:
             zalegle = await uow.auction.do_odpytu(teraz, self._limit)
 
         do_zrobienia = [a for a in zalegle if a.id not in self._w_locie]
@@ -141,6 +149,80 @@ class Dispatcher:
                 )
                 continue
             await self._obsluz_zrodlo(kontekst, zrodlo, aukcje, teraz)
+
+    async def _moze_przemiec(
+        self, kontekst: KontekstBazy, zrodlo: Source, teraz: dt.datetime
+    ) -> None:
+        """Zbiorczy przemiat listy, jeśli minął interwał źródła (SPEC.md §11.2).
+
+        „Aukcje nieobserwowane nie są odpytywane pojedynczo w ogóle.
+        Wystarcza im zbiorczy przemiat listy raz na kilka godzin. To główna
+        oszczędność całego systemu — koszt rośnie z liczbą obserwowanych,
+        nie z liczbą ofert w serwisie."
+
+        `last_sweep_at = NULL` znaczy „nigdy", więc świeżo zainstalowany
+        dodatek zapełnia się przy pierwszym obrocie, a nie po sześciu
+        godzinach patrzenia na pustą listę.
+        """
+        if zrodlo.last_sweep_at is not None:
+            od_ostatniego = (teraz - zrodlo.last_sweep_at).total_seconds()
+            if od_ostatniego < zrodlo.sweep_interval_seconds:
+                return
+
+        adapter = self._zrodla.get(zrodlo.key)
+        if adapter is None or zrodlo.id is None:
+            return
+
+        zegar_mono = asyncio.get_running_loop().time
+        bezpiecznik = self._bezpieczniki.setdefault(zrodlo.key, Bezpiecznik())
+        if bezpiecznik.otwarty(zegar_mono()):
+            return
+
+        async with kontekst.uow as uow:
+            przebieg = await uow.run_log.rozpocznij(
+                RunLog(source_id=zrodlo.id, started_at=teraz)
+            )
+
+        nowe = 0
+        bledy: list[str] = []
+        pozycje: list[Auction] = []
+        try:
+            surowe = await adapter.przemiec_liste()
+            pozycje = [adapter.na_aukcje(s, zrodlo.id, teraz) for s in surowe]
+            bezpiecznik.zglos_sukces()
+        except (DomainError, OSError) as exc:
+            bledy.append(f"przemiat: {type(exc).__name__}: {exc}")
+            bezpiecznik.zglos_blad(zegar_mono())
+            log.warning("przemiat listy %s nie powiódł się: %s", zrodlo.key, exc)
+
+        if pozycje:
+            async with kontekst.uow as uow:
+                nowe = await uow.auction.zapisz_z_przemiatu(pozycje)
+            log.info(
+                "przemiat %s: %s pozycji, w tym %s nowych",
+                zrodlo.key,
+                len(pozycje),
+                nowe,
+            )
+
+        async with kontekst.uow as uow:
+            # Znacznik przesuwamy TAKŻE po nieudanym przemiacie — inaczej
+            # padnięty serwis byłby przemiatany przy każdym obrocie pętli.
+            # Od dobijania się w kółko jest bezpiecznik, nie brak znacznika.
+            await uow.source.zapisz(replace(zrodlo, last_sweep_at=teraz))
+            await uow.run_log.zakoncz(
+                replace(
+                    przebieg,
+                    finished_at=await kontekst.zapytania.czas_serwera(),
+                    new_count=nowe,
+                    changed_count=len(pozycje),
+                    error_count=len(bledy),
+                    errors=bledy,
+                    rss_bytes=rss_bajty(),
+                    database_bytes=await kontekst.zapytania.rozmiar_bazy(),
+                    notes="przemiat listy",
+                )
+            )
 
     async def _obsluz_zrodlo(
         self,

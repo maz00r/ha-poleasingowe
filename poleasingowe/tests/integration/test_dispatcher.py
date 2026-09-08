@@ -42,10 +42,23 @@ class ZrodloAtrapa:
         self.blad: Exception | None = None
         self.pobrania = 0
         self.sparsowane = 0
+        self.przemiaty = 0
         self.podane_hashe: list[str | None] = []
+        self.na_liscie: list[str] = []
+        self.ends_at_na_liscie: dt.datetime | None = None
 
-    async def przemiec_liste(self) -> list[SurowaOferta]:  # pragma: no cover
-        return []
+    async def przemiec_liste(self) -> list[SurowaOferta]:
+        self.przemiaty += 1
+        if self.blad is not None:
+            raise self.blad
+        return [
+            SurowaOferta(
+                external_id=eid,
+                url=f"https://atrapa.test/{eid}",
+                pola={"z_listy": "1"},
+            )
+            for eid in self.na_liscie
+        ]
 
     async def pobierz_szczegoly(
         self, external_id: str, znany_hash: str | None = None
@@ -68,6 +81,9 @@ class ZrodloAtrapa:
     def na_aukcje(
         self, surowa: SurowaOferta, source_id: int, teraz: dt.datetime
     ) -> Auction:
+        # Pozycja z listy wie mniej niż strona szczegółów — dokładnie tak,
+        # jak poleasingowe.pl, gdzie lista nie podaje godziny zakończenia.
+        z_listy = surowa.pola.get("z_listy") == "1"
         return Auction(
             source_id=source_id,
             external_id=surowa.external_id,
@@ -77,7 +93,7 @@ class ZrodloAtrapa:
             last_seen_at=teraz,
             price_current=Money(self.cena, Currency.PLN),
             bid_count=1,
-            ends_at=self.ends_at,
+            ends_at=self.ends_at_na_liscie if z_listy else self.ends_at,
             content_hash=surowa.content_hash,
         )
 
@@ -561,3 +577,120 @@ async def test_zrodlo_wymagajace_logowania_startuje_jako_expired(
         ).auth_state
         is AuthState.ANONYMOUS
     )
+
+
+# --------------------------------------------------------------------------
+# Przemiat listy (SPEC.md §11.2) — to on wprowadza aukcje do bazy
+# --------------------------------------------------------------------------
+
+
+async def test_przemiat_wprowadza_aukcje_do_bazy(
+    pusta_baza: psycopg.AsyncConnection,
+) -> None:
+    """Bez tego dispatcher odświeżałby wyłącznie to, co ktoś wstawił ręcznie.
+
+    Dokładnie tak było po etapie 9: pętla działała, panel pokazywał pustą
+    listę, bo `przemiec_liste` nie było wywoływane nigdzie.
+    """
+    adapter = ZrodloAtrapa()
+    adapter.na_liscie = ["a1", "a2", "a3"]
+    async with PgUnitOfWork(pusta_baza) as uow:
+        await uow.source.zapisz(zrodlo(adapter.key))
+
+    await dispatcher(pusta_baza, adapter).jeden_obrot()
+
+    async with pusta_baza.cursor() as cur:
+        await cur.execute("SELECT external_id FROM app.auction ORDER BY external_id")
+        klucze = [w[0] for w in await cur.fetchall()]
+    assert klucze == ["a1", "a2", "a3"]
+    assert adapter.przemiaty == 1
+
+
+async def test_przemiat_nie_powtarza_sie_przed_uplywem_interwalu(
+    pusta_baza: psycopg.AsyncConnection,
+) -> None:
+    """SPEC.md §11.2 — „raz na kilka godzin", nie przy każdym obrocie pętli."""
+    adapter = ZrodloAtrapa()
+    adapter.na_liscie = ["a1"]
+    async with PgUnitOfWork(pusta_baza) as uow:
+        await uow.source.zapisz(zrodlo(adapter.key, sweep_interval_seconds=21_600))
+
+    disp = dispatcher(pusta_baza, adapter)
+    await disp.jeden_obrot()
+    await disp.jeden_obrot()
+    await disp.jeden_obrot()
+
+    assert adapter.przemiaty == 1, "drugi i trzeci obrót są przed upływem interwału"
+
+
+async def test_przemiat_nie_kasuje_dokladnego_konca_z_odpytu_szczegolow(
+    pusta_baza: psycopg.AsyncConnection,
+) -> None:
+    """Najważniejsza reguła zapisu z przemiatu: **lista wie mniej**.
+
+    poleasingowe.pl nie podaje na liście godziny zakończenia (RECON.md §4.2).
+    Gdyby przemiat nadpisywał `ends_at`, kasowałby dokładny termin odczytany
+    ze strony szczegółów — a na nim stoi cały harmonogram z §11.2.
+    """
+    adapter = ZrodloAtrapa()
+    auction_id, koniec = await przygotuj(pusta_baza, adapter, do_konca_min=20)
+
+    adapter.na_liscie = ["sztuczna-1"]
+    adapter.ends_at_na_liscie = None  # lista nie zna godziny
+    async with PgUnitOfWork(pusta_baza) as uow:
+        biezace = await uow.source.po_kluczu(adapter.key)
+        assert biezace is not None
+        await uow.source.zapisz(replace(biezace, last_sweep_at=None))
+
+    await dispatcher(pusta_baza, adapter).jeden_obrot()
+
+    po = await wczytaj(pusta_baza, auction_id)
+    assert po.ends_at == koniec, "przemiat nie ma prawa wyczyścić terminu"
+
+
+async def test_przemiat_nie_przestawia_zakonczonej_aukcji_na_aktywna(
+    pusta_baza: psycopg.AsyncConnection,
+) -> None:
+    """Serwis trzyma zakończone aukcje na liście (RECON.md §3.6).
+
+    Status wie odpyt szczegółów (`auction_pending`), nie lista.
+    """
+    adapter = ZrodloAtrapa()
+    auction_id, _ = await przygotuj(pusta_baza, adapter, do_konca_min=20)
+    async with PgUnitOfWork(pusta_baza) as uow:
+        biezaca = await wczytaj(pusta_baza, auction_id)
+        await uow.auction.zapisz(replace(biezaca, status=AuctionStatus.ENDED))
+        zr = await uow.source.po_kluczu(adapter.key)
+        assert zr is not None
+        await uow.source.zapisz(replace(zr, last_sweep_at=None))
+
+    adapter.na_liscie = ["sztuczna-1"]
+    await dispatcher(pusta_baza, adapter).jeden_obrot()
+
+    async with pusta_baza.cursor() as cur:
+        await cur.execute("SELECT status FROM app.auction WHERE id = %s", (auction_id,))
+        wiersz = await cur.fetchone()
+    assert wiersz is not None and wiersz[0] == "ENDED"
+
+
+async def test_nowa_aukcja_z_przemiatu_nie_jest_odpytywana_pojedynczo(
+    pusta_baza: psycopg.AsyncConnection,
+) -> None:
+    """SPEC.md §11.2 — to jest główna oszczędność całego systemu.
+
+    Koszt ma rosnąć z liczbą obserwowanych, a nie z liczbą ofert w serwisie.
+    """
+    adapter = ZrodloAtrapa()
+    adapter.na_liscie = ["a1", "a2"]
+    async with PgUnitOfWork(pusta_baza) as uow:
+        await uow.source.zapisz(zrodlo(adapter.key))
+
+    await dispatcher(pusta_baza, adapter).jeden_obrot()
+
+    assert adapter.pobrania == 0, "świeżo odkryte aukcje nie są obserwowane"
+    async with pusta_baza.cursor() as cur:
+        await cur.execute(
+            "SELECT count(*) FROM app.auction WHERE next_poll_at IS NOT NULL"
+        )
+        wiersz = await cur.fetchone()
+    assert wiersz is not None and wiersz[0] == 0

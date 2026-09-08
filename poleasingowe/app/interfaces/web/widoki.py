@@ -28,7 +28,7 @@ from app.application.read_models import (
     Strona,
 )
 from app.domain.entities import SavedFilter, WatchlistEntry
-from app.domain.enums import Currency
+from app.domain.enums import Currency, PollTier
 from app.domain.logowanie import (
     StanLogowania,
     po_recznym_odblokowaniu,
@@ -239,6 +239,13 @@ async def obserwuj(
                     target_price=_cena_docelowa(cena_docelowa, Currency.PLN),
                 )
             )
+            # SPEC.md §11.2 — pojedynczo odpytujemy WYŁĄCZNIE obserwowane.
+            # Bez tego dodanie do watchlisty niczego by nie zmieniało:
+            # aukcja z pustym `next_poll_at` nigdy nie trafia do kolejki
+            # dispatchera, więc jej cena stałaby na wartości z przemiatu.
+            await uow.auction.zaplanuj(
+                auction_id, dt.datetime.now(dt.UTC), PollTier.FAR
+            )
         dane = await kontekst.zapytania.szczegoly(auction_id)
     return _panel_obserwacji(request, dane)
 
@@ -251,6 +258,9 @@ async def przestan_obserwowac(request: Request, auction_id: int) -> Response:
     async with _fabryka(request)() as kontekst:
         async with kontekst.uow as uow:
             await uow.watchlist.usun(auction_id)
+            # Koniec obserwacji to koniec pojedynczych odpytów — dalej
+            # wystarcza zbiorczy przemiat listy (§11.2).
+            await uow.auction.zaplanuj(auction_id, None, PollTier.IDLE)
         dane = await kontekst.zapytania.szczegoly(auction_id)
     return _panel_obserwacji(request, dane)
 

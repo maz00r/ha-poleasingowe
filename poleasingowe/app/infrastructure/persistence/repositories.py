@@ -50,13 +50,14 @@ INSERT INTO app.source (
     key, name, enabled, sweep_interval_seconds, rate_limit_per_minute,
     floor_seconds, auth_state, consecutive_auth_failures,
     overtime_window_seconds, overtime_extension_seconds, overtime_cap_seconds,
-    closing_ladder_seconds, bid_history_ttl_seconds, bid_count_semantics
+    closing_ladder_seconds, bid_history_ttl_seconds, bid_count_semantics,
+    last_sweep_at
 ) VALUES (%(key)s, %(name)s, %(enabled)s, %(sweep_interval_seconds)s,
           %(rate_limit_per_minute)s, %(floor_seconds)s, %(auth_state)s,
           %(consecutive_auth_failures)s, %(overtime_window_seconds)s,
           %(overtime_extension_seconds)s, %(overtime_cap_seconds)s,
           %(closing_ladder_seconds)s, %(bid_history_ttl_seconds)s,
-          %(bid_count_semantics)s)
+          %(bid_count_semantics)s, %(last_sweep_at)s)
 ON CONFLICT (key) DO UPDATE SET
     name = EXCLUDED.name,
     enabled = EXCLUDED.enabled,
@@ -70,11 +71,13 @@ ON CONFLICT (key) DO UPDATE SET
     overtime_cap_seconds = EXCLUDED.overtime_cap_seconds,
     closing_ladder_seconds = EXCLUDED.closing_ladder_seconds,
     bid_history_ttl_seconds = EXCLUDED.bid_history_ttl_seconds,
-    bid_count_semantics = EXCLUDED.bid_count_semantics
+    bid_count_semantics = EXCLUDED.bid_count_semantics,
+    last_sweep_at = EXCLUDED.last_sweep_at
 RETURNING id, key, name, enabled, sweep_interval_seconds, rate_limit_per_minute,
     floor_seconds, auth_state, consecutive_auth_failures,
     overtime_window_seconds, overtime_extension_seconds, overtime_cap_seconds,
-    closing_ladder_seconds, bid_history_ttl_seconds, bid_count_semantics
+    closing_ladder_seconds, bid_history_ttl_seconds, bid_count_semantics,
+    last_sweep_at
 """
 
 SQL_SOURCE_PO_KLUCZU = """
@@ -82,7 +85,7 @@ SELECT
     id, key, name, enabled, sweep_interval_seconds, rate_limit_per_minute,
     floor_seconds, auth_state, consecutive_auth_failures, overtime_window_seconds,
     overtime_extension_seconds, overtime_cap_seconds, closing_ladder_seconds,
-    bid_history_ttl_seconds, bid_count_semantics
+    bid_history_ttl_seconds, bid_count_semantics, last_sweep_at
 FROM app.source WHERE key = %s
 """
 SQL_SOURCE_WLACZONE = """
@@ -90,7 +93,7 @@ SELECT
     id, key, name, enabled, sweep_interval_seconds, rate_limit_per_minute,
     floor_seconds, auth_state, consecutive_auth_failures, overtime_window_seconds,
     overtime_extension_seconds, overtime_cap_seconds, closing_ladder_seconds,
-    bid_history_ttl_seconds, bid_count_semantics
+    bid_history_ttl_seconds, bid_count_semantics, last_sweep_at
 FROM app.source WHERE enabled ORDER BY key
 """
 
@@ -139,6 +142,60 @@ RETURNING id, source_id, external_id, url, make, model, variant, year, mileage_k
     last_price_lead_seconds, duplicate_of
 """
 
+# Zapis z przemiatu listy (SPEC.md §11.2, §8.4). RÓŻNI SIĘ od upsertu po
+# odpycie szczegółów, i to jest cała jego racja bytu: **lista wie mniej**.
+#
+# poleasingowe.pl nie podaje na liście godziny zakończenia (RECON.md §4.2),
+# więc gdyby przemiat nadpisywał `ends_at`, kasowałby dokładny termin
+# odczytany wcześniej ze strony szczegółów — i harmonogram z §11.2 straciłby
+# to, na czym stoi. Stąd `COALESCE(EXCLUDED.x, app.auction.x)`: przemiat
+# **uzupełnia** brakujące pola, nigdy nie zastępuje wypełnionych pustką.
+#
+# `status`, `next_poll_at`, `poll_tier`, `content_hash` i `raw_json` nie są
+# aktualizowane w ogóle — przemiat nie ma o nich wiedzy. W szczególności
+# aukcja oznaczona jako ENDED po odpycie szczegółów nie ma prawa wrócić do
+# ACTIVE tylko dlatego, że serwis nadal pokazuje ją na liście.
+SQL_AUCTION_Z_PRZEMIATU = """
+INSERT INTO app.auction (
+    source_id, external_id, url, make, model, variant, year, mileage_km,
+    fuel, gearbox, engine_ccm, engine_hp, vin, body, color, location, seller,
+    price_start, price_current, currency, bid_count, bid_increment_raw,
+    ends_at, status, first_seen_at, last_seen_at
+) VALUES (
+    %(source_id)s, %(external_id)s, %(url)s, %(make)s, %(model)s, %(variant)s,
+    %(year)s, %(mileage_km)s, %(fuel)s, %(gearbox)s, %(engine_ccm)s,
+    %(engine_hp)s, %(vin)s, %(body)s, %(color)s, %(location)s, %(seller)s,
+    %(price_start)s, %(price_current)s, %(currency)s, %(bid_count)s,
+    %(bid_increment_raw)s, %(ends_at)s, %(status)s, %(first_seen_at)s,
+    %(last_seen_at)s
+)
+ON CONFLICT (source_id, external_id) DO UPDATE SET
+    url = EXCLUDED.url,
+    make = COALESCE(EXCLUDED.make, app.auction.make),
+    model = COALESCE(EXCLUDED.model, app.auction.model),
+    variant = COALESCE(EXCLUDED.variant, app.auction.variant),
+    year = COALESCE(EXCLUDED.year, app.auction.year),
+    mileage_km = COALESCE(EXCLUDED.mileage_km, app.auction.mileage_km),
+    fuel = COALESCE(EXCLUDED.fuel, app.auction.fuel),
+    gearbox = COALESCE(EXCLUDED.gearbox, app.auction.gearbox),
+    engine_ccm = COALESCE(EXCLUDED.engine_ccm, app.auction.engine_ccm),
+    engine_hp = COALESCE(EXCLUDED.engine_hp, app.auction.engine_hp),
+    vin = COALESCE(EXCLUDED.vin, app.auction.vin),
+    body = COALESCE(EXCLUDED.body, app.auction.body),
+    color = COALESCE(EXCLUDED.color, app.auction.color),
+    location = COALESCE(EXCLUDED.location, app.auction.location),
+    seller = COALESCE(EXCLUDED.seller, app.auction.seller),
+    price_start = COALESCE(EXCLUDED.price_start, app.auction.price_start),
+    price_current = COALESCE(EXCLUDED.price_current, app.auction.price_current),
+    bid_count = COALESCE(EXCLUDED.bid_count, app.auction.bid_count),
+    bid_increment_raw = COALESCE(
+        EXCLUDED.bid_increment_raw, app.auction.bid_increment_raw
+    ),
+    ends_at = COALESCE(EXCLUDED.ends_at, app.auction.ends_at),
+    last_seen_at = EXCLUDED.last_seen_at
+RETURNING id, (xmax = 0) AS nowa
+"""
+
 SQL_AUCTION_PO_KLUCZU = """
 SELECT
     id, source_id, external_id, url, make, model, variant, year, mileage_km, fuel,
@@ -178,6 +235,9 @@ SELECT
 FROM app.auction WHERE vin = %s ORDER BY id
 """
 
+SQL_AUCTION_ZAPLANUJ = """
+UPDATE app.auction SET next_poll_at = %s, poll_tier = %s WHERE id = %s
+"""
 SQL_AUCTION_ODNOTUJ_WIDZIANA = "UPDATE app.auction SET last_seen_at = %s WHERE id = %s"
 
 SQL_SNAPSHOT_OSTATNI = """
@@ -273,6 +333,7 @@ def _na_source(w: dict[str, Any]) -> Source:
         closing_ladder_seconds=tuple(w["closing_ladder_seconds"]),
         bid_history_ttl_seconds=w["bid_history_ttl_seconds"],
         bid_count_semantics=BidCountSemantics(w["bid_count_semantics"]),
+        last_sweep_at=w["last_sweep_at"],
     )
 
 
@@ -355,6 +416,7 @@ class PgSourceRepository:
                     "closing_ladder_seconds": list(source.closing_ladder_seconds),
                     "bid_history_ttl_seconds": source.bid_history_ttl_seconds,
                     "bid_count_semantics": source.bid_count_semantics.value,
+                    "last_sweep_at": source.last_sweep_at,
                 },
             )
             wiersz = await cur.fetchone()
@@ -438,6 +500,69 @@ class PgAuctionRepository:
         assert wiersz is not None
         return _na_auction(wiersz)
 
+    async def zapisz_z_przemiatu(self, aukcje: Sequence[Auction]) -> int:
+        """Zbiorczy zapis pozycji z listy. Zwraca liczbę **nowych** aukcji.
+
+        Jedna transakcja, `executemany` — nie wiersz po wierszu (SPEC.md §8.4).
+        Przy ~721 pojazdach poleasingowe.pl różnica jest odczuwalna na tej
+        maszynie, a wolumen zapisów ma pozostać znikomy wobec TeslaMate (§2).
+
+        `xmax = 0` w `RETURNING` odróżnia wstawienie od aktualizacji — to
+        jedyny sposób, żeby policzyć nowe aukcje bez dodatkowego zapytania.
+        """
+        if not aukcje:
+            return 0
+        async with self._conn.cursor(row_factory=dict_row) as cur:
+            await cur.executemany(
+                SQL_AUCTION_Z_PRZEMIATU,
+                [self._parametry_przemiatu(a) for a in aukcje],
+                returning=True,
+            )
+            nowe = 0
+            while True:
+                wiersz = await cur.fetchone()
+                if wiersz is not None and wiersz["nowa"]:
+                    nowe += 1
+                if not cur.nextset():
+                    break
+        return nowe
+
+    @staticmethod
+    def _parametry_przemiatu(auction: Auction) -> dict[str, Any]:
+        cena = auction.price_current or auction.price_start
+        return {
+            "source_id": auction.source_id,
+            "external_id": auction.external_id,
+            "url": auction.url,
+            "make": auction.make,
+            "model": auction.model,
+            "variant": auction.variant,
+            "year": auction.year,
+            "mileage_km": None if auction.mileage is None else auction.mileage.km,
+            "fuel": auction.fuel,
+            "gearbox": auction.gearbox,
+            "engine_ccm": auction.engine_ccm,
+            "engine_hp": auction.engine_hp,
+            "vin": None if auction.vin is None else auction.vin.value,
+            "body": auction.body,
+            "color": auction.color,
+            "location": auction.location,
+            "seller": auction.seller,
+            "price_start": None
+            if auction.price_start is None
+            else auction.price_start.amount,
+            "price_current": None
+            if auction.price_current is None
+            else auction.price_current.amount,
+            "currency": (cena.currency if cena else Currency.PLN).value,
+            "bid_count": auction.bid_count,
+            "bid_increment_raw": auction.bid_increment_raw,
+            "ends_at": auction.ends_at,
+            "status": auction.status.value,
+            "first_seen_at": auction.first_seen_at,
+            "last_seen_at": auction.last_seen_at,
+        }
+
     async def po_kluczu_naturalnym(
         self, source_id: int, external_id: str
     ) -> Auction | None:
@@ -476,6 +601,19 @@ class PgAuctionRepository:
         async with self._conn.cursor(row_factory=dict_row) as cur:
             await cur.execute(SQL_AUCTION_PO_VIN, (vin.value,))
             return [_na_auction(w) for w in await cur.fetchall()]
+
+    async def zaplanuj(
+        self, auction_id: int, next_poll_at: dt.datetime | None, poll_tier: PollTier
+    ) -> None:
+        """Włącza albo wyłącza pojedynczy odpyt tej aukcji (SPEC.md §11.2).
+
+        `None` znaczy „nie odpytuj" — tak wygląda aukcja nieobserwowana,
+        której wystarcza zbiorczy przemiat listy.
+        """
+        async with self._conn.cursor() as cur:
+            await cur.execute(
+                SQL_AUCTION_ZAPLANUJ, (next_poll_at, poll_tier.value, auction_id)
+            )
 
     async def odnotuj_widziana(self, auction_id: int, teraz: dt.datetime) -> None:
         """Odpyt bez zmiany aktualizuje tylko `last_seen_at` (SPEC.md §8.4)."""

@@ -64,9 +64,12 @@ class Source:
     """Jak długo po końcu widoczna jest historia ofert. `None` = nie znika."""
     bid_count_semantics: BidCountSemantics = BidCountSemantics.UNKNOWN
     """Co serwis liczy w `bid_count` (§11.8)."""
+    last_sweep_at: dt.datetime | None = None
+    """Kiedy ostatnio przemieciono listę. `None` = nigdy (SPEC.md §11.2)."""
     id: int | None = None
 
     def __post_init__(self) -> None:
+        _wymagaj_utc("last_sweep_at", self.last_sweep_at)
         drabinka = self.closing_ladder_seconds
         if any(a >= b for a, b in itertools.pairwise(drabinka)):
             raise ValueError(

@@ -1,5 +1,21 @@
 # Historia zmian
 
+## 0.4.1 — w przygotowaniu
+
+Naprawa: dodatek nie pokazywal ZADNYCH ofert.
+
+- `przemiec_liste` nie bylo wywolywane NIGDZIE. Dispatcher z etapu 9
+  odswiezal wylacznie aukcje juz obecne w bazie, a nic ich tam nie wstawialo,
+  wiec baza zostawala pusta na zawsze. Testy dispatchera same wstawialy
+  aukcje, wiec przechodzily mimo braku funkcji.
+- migracja `004_przemiat`: `source.last_sweep_at` — bez tego przemiat szedlby
+  przy kazdym obrocie petli albo po kazdym restarcie
+- zbiorczy zapis z przemiatu UZUPELNIA pola, nigdy nie kasuje: lista wie
+  mniej niz strona szczegolow (poleasingowe nie podaje na liscie godziny
+  zakonczenia), wiec `ends_at` i status z odpytu szczegolow zostaja
+- dodanie do watchlisty wlacza pojedynczy odpyt, usuniecie go wylacza —
+  bez tego obserwowanie niczego nie zmienialo
+
 ## 0.4.0 — w przygotowaniu
 
 Adapter poleasingowe.pl (RECON.md §4.2) — drugie zrodlo, bez logowania.
