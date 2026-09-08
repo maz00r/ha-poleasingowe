@@ -3,10 +3,10 @@
 Add-on obsługuje **operacje**, nie analitykę — stąd brak wykresów i linki
 do Grafany zamiast własnych.
 
-Prefiks Ingressu jest dynamiczny, więc każdy adres powstaje przez `sciezka`
-— pomocnika zwracającego ścieżkę **względną wobec origin**. Ani ścieżka
-wpisana na sztywno, ani `url_for` nie nadają się tu do niczego: pierwsza
-gubi prefiks, druga wkleja wewnętrzny host kontenera.
+Prefiks Ingressu jest dynamiczny. Dokument ustawia względny element `base`,
+a każdy adres powstaje przez `sciezka` względem korzenia aplikacji. Nie
+musimy dzięki temu znać tokenu Ingressu ani ufać, że każde proxy przekaże
+niestandardowy nagłówek.
 """
 
 from __future__ import annotations
@@ -15,6 +15,7 @@ import datetime as dt
 import decimal
 import logging
 import pathlib
+import posixpath
 from typing import Any
 from urllib.parse import urlencode
 
@@ -45,7 +46,6 @@ from app.interfaces.web.formularze import (
     na_parametry,
     zbuduj_kryteria,
 )
-from app.interfaces.web.ingress import prefiks_ingress
 
 log = logging.getLogger(__name__)
 
@@ -55,25 +55,51 @@ filtry_szablonu.zarejestruj(SZABLONY.env)
 
 
 def sciezka(request: Request, nazwa: str, **parametry: object) -> str:
-    """Adres **względny wobec origin**, z prefiksem Ingressu (SPEC.md §7.1).
+    """Ścieżka względem korzenia aplikacji, nigdy względem origin.
 
-    Prefiks bierzemy z nagłówka, nie ze `scope` — powód w `app.prefiks_ingress`.
+    Home Assistant ukrywa add-on pod dynamicznym prefiksem Ingressu. Nie
+    próbujemy tego prefiksu odtwarzać z nagłówka: CSS i HTMX mają działać
+    również wtedy, gdy pośrednie proxy go nie przekaże. Element ``<base>``
+    w ``base.html`` ustawia przeglądarce korzeń aplikacji, a wszystkie adresy
+    zwracane tutaj są względem tego korzenia.
 
-    Dlaczego nie `url_for`: buduje adres BEZWZGLĘDNY, a host bierze z żądania
-    widzianego przez add-on — czyli wewnętrzny adres kontenera, np.
-    `http://172.30.33.5:8099/...`. Home Assistant proxuje Ingress i **nie**
-    przekazuje zewnętrznego hosta, więc przeglądarka dostawała odsyłacze do
-    hosta, do którego nie ma dostępu: arkusz stylów się nie wczytywał, HTMX
-    też, a każdy link i formularz prowadziły donikąd.
-
-    Ścieżka zaczynająca się od `/` rozwiązuje się względem origin strony,
-    więc jest odporna i na Ingress, i na uruchomienie bez niego.
+    To działa także dla fragmentów HTMX: po wstawieniu fragmentu jego adresy
+    nadal rozwiązują się względem ``<base>`` głównego dokumentu, nie względem
+    trasy, która zwróciła fragment.
     """
-    return f"{prefiks_ingress(request)}{request.app.url_path_for(nazwa, **parametry)}"
+    sciezka_docelowa = str(request.app.url_path_for(nazwa, **parametry))
+    return sciezka_docelowa.lstrip("/") or "./"
 
 
-# Globalna w szablonach — `url_for` jest tu nie do uzycia, patrz wyzej.
+def baza_sciezek(request: Request) -> str:
+    """Względne dojście z bieżącej strony do korzenia aplikacji.
+
+    Proxy Ingressu zdejmuje swój prefiks przed przekazaniem żądania, ale jego
+    końcówka jest taka sama jak ``request.url.path``. Dzięki temu ``../`` z
+    karty ``/aukcja/123`` prowadzi do korzenia add-onu zarówno lokalnie, jak
+    i pod ``/api/hassio_ingress/<token>/`` — bez znajomości tokenu.
+    """
+    katalog = posixpath.dirname(request.url.path)
+    wzgledna = posixpath.relpath("/", start=katalog)
+    return f"{wzgledna.rstrip('/')}/"
+
+
+def sciezka_przekierowania(request: Request, nazwa: str, **parametry: object) -> str:
+    """Location względne wobec bieżącego żądania HTTP.
+
+    Nagłówek ``Location`` nie korzysta z HTML-owego ``<base>``, więc dla
+    odpowiedzi 303 liczymy drogę osobno. Przeglądarka zachowuje przy tym
+    niewidoczny dla aplikacji prefiks Ingressu.
+    """
+    cel = str(request.app.url_path_for(nazwa, **parametry))
+    katalog = posixpath.dirname(request.url.path)
+    wzgledna = posixpath.relpath(cel, start=katalog)
+    return f"{wzgledna}/" if cel.endswith("/") else wzgledna
+
+
+# Globalne w szablonach — `url_for` jest tu nie do uzycia, patrz wyzej.
 SZABLONY.env.globals["sciezka"] = sciezka
+SZABLONY.env.globals["baza_sciezek"] = baza_sciezek
 
 
 CIASTECZKO_WIZYTY = "poleasingowe_ostatnia_wizyta"
@@ -476,7 +502,7 @@ async def zapisz_filtr(request: Request, nazwa: str = Form()) -> Response:
                     created_at=dt.datetime.now(dt.UTC),
                 )
             )
-    return RedirectResponse(sciezka(request, "lista"), status_code=303)
+    return RedirectResponse(sciezka_przekierowania(request, "lista"), status_code=303)
 
 
 @router.post("/filtry/{filter_id}/usun")
@@ -485,7 +511,7 @@ async def usun_filtr(request: Request, filter_id: int) -> Response:
         return _brak_bazy(request)
     async with _fabryka(request)() as kontekst, kontekst.uow as uow:
         await uow.saved_filter.usun(filter_id)
-    return RedirectResponse(sciezka(request, "lista"), status_code=303)
+    return RedirectResponse(sciezka_przekierowania(request, "lista"), status_code=303)
 
 
 @router.get("/diagnostyka", response_class=HTMLResponse)
@@ -565,4 +591,6 @@ async def odblokuj_zrodlo(request: Request, key: str) -> Response:
             log.info(
                 "odblokowano źródło %s — licznik nieudanych logowań wyzerowany", key
             )
-    return RedirectResponse(sciezka(request, "diagnostyka"), status_code=303)
+    return RedirectResponse(
+        sciezka_przekierowania(request, "diagnostyka"), status_code=303
+    )

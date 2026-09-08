@@ -144,7 +144,7 @@ Cztery warstwy, zależności wyłącznie do wewnątrz (`SPEC.md` §6):
 poleasingowe/app/
   interfaces/       routery FastAPI, szablony, CLI  → wywołuje tylko application
     web/            trasy, formularze, filtry szablonów
-    templates/      Jinja2 — każdy adres przez url_for (prefiks Ingressu)
+    templates/      Jinja2 — względny <base> zachowuje prefiks Ingressu
     static/         styl.css i htmx.min.js — bez CDN-ów (§12)
   application/      use case'y, porty (Protocol), Unit of Work, modele odczytu
   domain/           encje, value objects, reguły — ZERO zależności zewnętrznych

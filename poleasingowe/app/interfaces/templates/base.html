@@ -1,10 +1,12 @@
-{# Szkielet strony. Ingress montuje add-on pod losowym prefiksem, wiec KAZDY
-   adres powstaje przez url_for — sciezka na sztywno prowadzi donikad. #}
+{# Szkielet strony. Ingress montuje add-on pod losowym prefiksem. Wzgledny
+   <base> zachowuje ten prefiks bez polegania na naglowkach proxy, a sciezka()
+   zwraca adresy wzgledem korzenia aplikacji. #}
 <!doctype html>
 <html lang="pl">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <base href="{{ baza_sciezek(request) }}">
   <title>{% block tytul %}Aukcje poleasingowe{% endblock %}</title>
   <link rel="stylesheet" href="{{ sciezka(request, 'static', path='/styl.css') }}">
   {# HTMX z lokalnego pliku (SPEC.md §12). Zadnych CDN-ow. #}

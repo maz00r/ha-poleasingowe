@@ -1,9 +1,8 @@
 """Aplikacja FastAPI wystawiana przez Ingress (SPEC.md §7.1).
 
 Ingress zapewnia uwierzytelnienie Home Assistant — **nie dokładamy własnego
-logowania**. Prefiks ścieżki jest dynamiczny i przychodzi w nagłówku
-`X-Ingress-Path`, więc w szablonach wolno używać wyłącznie `url_for`,
-nigdy ścieżek na sztywno.
+logowania**. Prefiks ścieżki jest dynamiczny, dlatego dokument ustawia
+względny element ``<base>`` i nie buduje adresów od korzenia domeny.
 """
 
 from __future__ import annotations

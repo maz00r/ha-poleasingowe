@@ -204,7 +204,7 @@ def test_htmx_jest_w_repo_a_nie_w_cdn() -> None:
 
 
 def test_szablony_nie_maja_sciezek_na_sztywno() -> None:
-    """SPEC.md §7.1 — prefiks Ingressu jest dynamiczny, liczy się `url_for`.
+    """SPEC.md §7.1 — prefiks Ingressu jest dynamiczny, adres ma być względny.
 
     Ścieżka wpisana na sztywno działa lokalnie i prowadzi donikąd po
     instalacji, bo Home Assistant montuje add-on pod losowym prefiksem.
@@ -214,7 +214,7 @@ def test_szablony_nie_maja_sciezek_na_sztywno() -> None:
         for wzorzec in ('href="/', 'src="/', 'action="/', 'hx-get="/', 'hx-post="/'):
             assert (
                 wzorzec not in tresc
-            ), f"{szablon.name} ma adres na sztywno ({wzorzec}) — użyj url_for"
+            ), f"{szablon.name} ma adres na sztywno ({wzorzec})"
 
 
 OBRAZ_BAZOWY = re.compile(

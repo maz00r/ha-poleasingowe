@@ -1,5 +1,18 @@
 # Historia zmian
 
+## 0.7.3 — w przygotowaniu
+
+**Naprawa: CSS i HTMX pod Ingressem bez zależności od nagłówka proxy.**
+Objawy były połączone: HTML listy dochodził, ale bez arkusza stylów wyglądał
+jak surowy dokument, a bez HTMX przycisk obserwowania nic nie robił.
+
+Poprzednia poprawka nadal składała publiczne adresy z `X-Ingress-Path`.
+Teraz dokument wyznacza korzeń add-onu względnym `<base href>` (np. `../`
+z karty aukcji), a wszystkie zasoby, linki i akcje formularzy są względem
+tego korzenia. Prefiks i token Ingressu zostają w adresie przeglądarki bez
+odczytywania ich przez aplikację. Obejmuje to także fragmenty zwracane przez
+HTMX oraz względne nagłówki `Location` po formularzach.
+
 ## 0.7.2 — w przygotowaniu
 
 **Naprawa: pliki statyczne oddawaly 404 pod Ingressem.** To byla wlasciwa

@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
-from fastapi import Request
+import re
+from urllib.parse import urljoin
+
 from fastapi.testclient import TestClient
 
 from app.infrastructure.supervisor.options import Opcje
 from app.interfaces.app import utworz_aplikacje
-from app.interfaces.web.ingress import NAGLOWEK_INGRESS
 
 OPCJE = Opcje(
     db_password="tajne-haslo",
@@ -42,71 +43,41 @@ def test_zdrowie_pokazuje_tylko_wlaczone_zrodla() -> None:
     assert odp.json()["zrodla"] == ["efl"]
 
 
-def test_prefiks_ingressu_nie_trafia_do_root_path() -> None:
-    """Scope zostaje NIETKNIĘTY — i to jest cała poprawka (SPEC.md §7.1).
+def _atrybut(html: str, tag: str, atrybut: str) -> str:
+    dopasowanie = re.search(rf"<{tag}[^>]*\b{atrybut}=\"([^\"]+)\"", html)
+    assert dopasowanie is not None, f"brak {tag}[{atrybut}]"
+    return dopasowanie.group(1)
 
-    Wpisywanie prefiksu do `scope["root_path"]` wygląda naturalnie i tak to
-    tu początkowo działało. Łamie jednak umowę ASGI: `root_path` ma być
-    **początkiem** `scope["path"]`, a Home Assistant prefiks już zdjął.
-    Starlette 0.38 liczy trasę jako `path` minus `root_path` i przekazuje
-    `root_path` do podaplikacji, więc `StaticFiles` szukał pliku pod
-    `<katalog>/static/styl.css` i oddawał **404 na CSS i na HTMX-a**, choć
-    zwykłe trasy odpowiadały normalnie.
 
-    Objaw był myląco szeroki: „GUI nie działa" — strona bez stylów,
-    gwiazdka obserwacji martwa, bo HTMX-a w ogóle nie było.
+def test_przegladarka_trafia_do_statyk_przez_prefiks_bez_naglowka() -> None:
+    """Odtwarza błąd: HTML działał, ale CSS i HTMX nie dochodziły.
+
+    Aplikacja nie może polegać na ``X-Ingress-Path``. Liczy się adres, który
+    przeglądarka wyliczy z publicznego URL-a dokumentu, ``<base>`` i względnego
+    ``href``. Core i Supervisor zdejmą potem prefiks i podadzą aplikacji zwykłe
+    ``/static/...``.
     """
-    app = utworz_aplikacje(OPCJE)
-    zapamietane: list[str] = []
-
-    @app.get("/echo-prefiksu")
-    async def echo(request: Request) -> dict[str, str]:
-        # Adnotacja `Request` jest konieczna: bez niej FastAPI uzna parametr
-        # za zapytanie w URL-u, odrzuci żądanie z kodem 422 i ciało trasy
-        # nigdy się nie wykona.
-        zapamietane.append(request.scope.get("root_path", ""))
-        return {}
-
-    with TestClient(app) as c:
-        c.get(
-            "/echo-prefiksu", headers={NAGLOWEK_INGRESS: "/api/hassio_ingress/abc123/"}
-        )
-    assert zapamietane == [""], "scope ma zostać nietknięty"
-
-
-def test_pliki_statyczne_dzialaja_takze_pod_ingressem() -> None:
-    """Dokładnie ta regresja, która zepsuła panel.
-
-    `/static/styl.css` oddawało 404, gdy w żądaniu był nagłówek Ingressu,
-    a 200 bez niego. Żaden test tego nie sprawdzał, bo wszystkie pytały
-    o statyki **bez** nagłówka.
-    """
-    prefiks = "/api/hassio_ingress/abc123"
+    publiczny_dokument = "https://ha.test/api/hassio_ingress/abc123/diagnostyka"
     with klient() as c:
-        for sciezka in ("/static/styl.css", "/static/htmx.min.js"):
-            bez = c.get(sciezka)
-            z_ingressem = c.get(sciezka, headers={NAGLOWEK_INGRESS: prefiks + "/"})
-            assert bez.status_code == 200, sciezka
-            assert z_ingressem.status_code == 200, f"{sciezka} pod Ingressem"
-            assert bez.content == z_ingressem.content
+        strona = c.get("/diagnostyka")  # celowo bez X-Ingress-Path
+
+    baza = urljoin(publiczny_dokument, _atrybut(strona.text, "base", "href"))
+    styl = urljoin(baza, _atrybut(strona.text, "link", "href"))
+    skrypt = urljoin(baza, _atrybut(strona.text, "script", "src"))
+
+    prefiks = "https://ha.test/api/hassio_ingress/abc123/"
+    assert styl == prefiks + "static/styl.css"
+    assert skrypt == prefiks + "static/htmx.min.js"
 
 
-def test_brak_naglowka_zostawia_pusty_prefiks() -> None:
-    """Uruchomienie poza Ingressem ma działać, a nie wywalać się."""
-    app = utworz_aplikacje(OPCJE)
-    zapamietane: list[str] = []
-
-    @app.get("/echo-prefiksu")
-    async def echo(request: Request) -> dict[str, str]:
-        # Adnotacja `Request` jest konieczna: bez niej FastAPI uzna parametr
-        # za zapytanie w URL-u, odrzuci żądanie z kodem 422 i ciało trasy
-        # nigdy się nie wykona.
-        zapamietane.append(request.scope.get("root_path", ""))
-        return {}
-
-    with TestClient(app) as c:
-        c.get("/echo-prefiksu")
-    assert zapamietane == [""]
+def test_base_z_karty_aukcji_wraca_do_korzenia_ingressu() -> None:
+    """Zagnieżdżona karta potrzebuje ``../``, nie korzenia domeny."""
+    publiczny_dokument = "https://ha.test/api/hassio_ingress/abc123/aukcja/7"
+    with klient() as c:
+        strona = c.get("/aukcja/7")
+    assert strona.status_code == 503  # brak bazy, ale pełny szkielet strony działa
+    baza = urljoin(publiczny_dokument, _atrybut(strona.text, "base", "href"))
+    assert baza == "https://ha.test/api/hassio_ingress/abc123/"
 
 
 def test_dokumentacja_api_jest_wylaczona() -> None:
@@ -157,17 +128,6 @@ def test_styl_jest_serwowany() -> None:
     assert odp.headers["content-type"].startswith("text/css")
 
 
-def test_wszystkie_adresy_w_stronie_maja_prefiks_ingressu() -> None:
-    """SPEC.md §7.1 — ścieżka na sztywno prowadzi donikąd po instalacji."""
-    prefiks = "/api/hassio_ingress/abc123"
-    with klient() as c:
-        odp = c.get("/diagnostyka", headers={NAGLOWEK_INGRESS: prefiks + "/"})
-    assert odp.status_code == 200
-    for adres in ('href="/static', 'src="/static', 'href="/diagnostyka'):
-        assert adres not in odp.text, f"{adres} pomija prefiks Ingressu"
-    assert f"{prefiks}/static/styl.css" in odp.text
-
-
 def test_adresy_sa_wzgledne_wobec_origin_a_nie_bezwzgledne() -> None:
     """Najdroższy błąd tego interfejsu — cały panel wyglądał na zepsuty.
 
@@ -181,19 +141,16 @@ def test_adresy_sa_wzgledne_wobec_origin_a_nie_bezwzgledne() -> None:
     Objawiało się to jako „GUI nie działa", więc test celuje w przyczynę:
     w wygenerowanej stronie nie ma prawa być adresu z naszym własnym hostem.
     """
-    prefiks = "/api/hassio_ingress/abc123"
     wewnetrzny_host = "172.30.33.5:8099"
     with klient() as c:
-        odp = c.get(
-            "/diagnostyka",
-            headers={NAGLOWEK_INGRESS: prefiks + "/", "host": wewnetrzny_host},
-        )
+        odp = c.get("/diagnostyka", headers={"host": wewnetrzny_host})
 
     assert odp.status_code == 200
     assert (
         wewnetrzny_host not in odp.text
     ), "adres z wewnętrznym hostem kontenera — przeglądarka tam nie trafi"
     assert "http://testserver" not in odp.text
-    # Ścieżka zaczynająca się od `/` rozwiązuje się względem origin strony.
-    assert f'href="{prefiks}/static/styl.css"' in odp.text
-    assert f'src="{prefiks}/static/htmx.min.js"' in odp.text
+    assert 'href="static/styl.css"' in odp.text
+    assert 'src="static/htmx.min.js"' in odp.text
+    assert 'href="/static' not in odp.text
+    assert 'src="/static' not in odp.text
