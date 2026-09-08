@@ -15,13 +15,16 @@ import decimal
 import logging
 import pathlib
 from typing import Any
+from urllib.parse import urlencode
 
 from fastapi import APIRouter, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from fastapi.templating import Jinja2Templates
 
 from app.application.read_models import (
+    ETYKIETY_SORTOWANIA,
     LIMIT_STRONY,
+    SORTOWANIE_KOLUMN,
     Diagnostyka,
     Kryteria,
     Sortowanie,
@@ -74,6 +77,7 @@ def _kontekst_bazowy(request: Request) -> dict[str, Any]:
         "teraz": dt.datetime.now(dt.UTC),
         "grafana": stan.opcje.grafana_base_url.rstrip("/"),
         "sortowania": list(Sortowanie),
+        "etykiety_sortowania": ETYKIETY_SORTOWANIA,
     }
 
 
@@ -118,18 +122,71 @@ def _zapamietaj_wizyte(odpowiedz: Response, teraz: dt.datetime) -> None:
     )
 
 
+ZAAWANSOWANE = (
+    "model",
+    "paliwo",
+    "skrzynia",
+    "lokalizacja",
+    "cena_od",
+    "cena_do",
+    "rocznik_od",
+    "rocznik_do",
+    "przebieg_do",
+    "konczy_sie_w_h",
+    "tylko_obserwowane",
+    "nowe_od",
+)
+
+
+def _czy_rozwinac_filtry(kryteria: Kryteria) -> bool:
+    """Sekcja „więcej filtrów" ma być otwarta, gdy coś w niej działa.
+
+    Zwinięty filtr, który cicho zawęża listę, to najgorszy rodzaj filtra:
+    użytkownik widzi za mało wyników i nie ma jak zgadnąć dlaczego.
+    """
+    return any(getattr(kryteria, pole) for pole in ZAAWANSOWANE)
+
+
 async def _pobierz_liste(
     request: Request, kryteria: Kryteria
-) -> tuple[Strona, dict[str, tuple[str, ...]], list[SavedFilter]]:
+) -> tuple[Strona, dict[str, tuple[str, ...]], list[SavedFilter], bool]:
     fabryka = _fabryka(request)
     async with fabryka() as kontekst:
         strona = await kontekst.zapytania.lista(
             kryteria, kursor_z_parametrow(request.query_params), LIMIT_STRONY
         )
         wartosci = await kontekst.zapytania.wartosci_filtrow()
+        # Pytamy tylko wtedy, gdy lista wyszła pusta — inaczej to zbędne
+        # zapytanie przy każdym wejściu na stronę.
+        cokolwiek = (
+            True
+            if strona.pozycje
+            else await kontekst.zapytania.sa_jakiekolwiek_aukcje()
+        )
         async with kontekst.uow as uow:
             zapisane = list(await uow.saved_filter.wszystkie())
-    return strona, wartosci, zapisane
+    return strona, wartosci, zapisane, cokolwiek
+
+
+def _linki_sortowania(kryteria: Kryteria) -> dict[str, dict[str, str]]:
+    """Dla każdej sortowalnej kolumny: dokąd prowadzi klik i czy jest aktywna.
+
+    Klik w aktywną kolumnę odwraca kierunek — tak działa każda tabela, którą
+    użytkownik już zna. Filtry zostają, bo idą tym samym adresem.
+    """
+    parametry = na_parametry(kryteria)
+    wynik: dict[str, dict[str, str]] = {}
+    for kolumna, (rosnaco, malejaco) in SORTOWANIE_KOLUMN.items():
+        aktywna = kryteria.sortowanie in (rosnaco, malejaco)
+        nastepne = malejaco if kryteria.sortowanie is rosnaco else rosnaco
+        wynik[kolumna] = {
+            "sort": nastepne.value,
+            "parametry": urlencode({**parametry, "sort": nastepne.value}),
+            "strzalka": ("↑" if kryteria.sortowanie is rosnaco else "↓")
+            if aktywna
+            else "",
+        }
+    return wynik
 
 
 @router.get("/", response_class=HTMLResponse)
@@ -142,7 +199,7 @@ async def lista(request: Request) -> Response:
     kryteria = zbuduj_kryteria(
         request.query_params, ostatnia_wizyta=_ostatnia_wizyta(request)
     )
-    strona, wartosci, zapisane = await _pobierz_liste(request, kryteria)
+    strona, wartosci, zapisane, cokolwiek = await _pobierz_liste(request, kryteria)
 
     odpowiedz = SZABLONY.TemplateResponse(
         request=request,
@@ -152,8 +209,11 @@ async def lista(request: Request) -> Response:
             "strona": strona,
             "kryteria": kryteria,
             "parametry": na_parametry(kryteria),
+            "sortowanie_kolumn": _linki_sortowania(kryteria),
             "wartosci": wartosci,
             "zapisane": zapisane,
+            "rozwin_filtry": _czy_rozwinac_filtry(kryteria),
+            "pusta_baza": not cokolwiek,
         },
     )
     _zapamietaj_wizyte(odpowiedz, teraz)
@@ -174,7 +234,7 @@ async def lista_fragment(request: Request) -> Response:
     kryteria = zbuduj_kryteria(
         request.query_params, ostatnia_wizyta=_ostatnia_wizyta(request)
     )
-    strona, _, _ = await _pobierz_liste(request, kryteria)
+    strona, _, _, _ = await _pobierz_liste(request, kryteria)
     return SZABLONY.TemplateResponse(
         request=request,
         name="fragmenty/wiersze.html",
@@ -277,6 +337,42 @@ def _panel_obserwacji(request: Request, dane: Any) -> Response:
         request=request,
         name="fragmenty/obserwacja.html",
         context={**_kontekst_bazowy(request), "dane": dane},
+    )
+
+
+@router.post("/aukcja/{auction_id}/przelacz", response_class=HTMLResponse)
+async def przelacz_obserwacje(request: Request, auction_id: int) -> Response:
+    """Obserwuj / przestań, jednym kliknięciem z listy (SPEC.md §12).
+
+    Decyzja „obserwuję to" zapada przy przeglądaniu listy, a nie po wejściu
+    w szczegóły — zmuszanie do dwóch przeładowań na każdą pozycję czyni
+    watchlistę bezużyteczną przy kilkudziesięciu aukcjach.
+    """
+    if _fabryka(request) is None:
+        return _brak_bazy(request)
+
+    async with _fabryka(request)() as kontekst:
+        async with kontekst.uow as uow:
+            if await uow.watchlist.obserwowana(auction_id):
+                await uow.watchlist.usun(auction_id)
+                await uow.auction.zaplanuj(auction_id, None, PollTier.IDLE)
+            else:
+                await uow.watchlist.dodaj(
+                    WatchlistEntry(
+                        auction_id=auction_id, added_at=dt.datetime.now(dt.UTC)
+                    )
+                )
+                await uow.auction.zaplanuj(
+                    auction_id, dt.datetime.now(dt.UTC), PollTier.FAR
+                )
+        dane = await kontekst.zapytania.szczegoly(auction_id)
+
+    if dane is None:
+        return HTMLResponse("", status_code=404)
+    return SZABLONY.TemplateResponse(
+        request=request,
+        name="fragmenty/gwiazdka.html",
+        context={**_kontekst_bazowy(request), "p": dane.pozycja},
     )
 
 

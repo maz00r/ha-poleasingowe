@@ -1,27 +1,36 @@
 {# Wiersze listy. Doladowywane przez HTMX i wstawiane na koniec <tbody>,
    wiec ten plik NIE moze zawierac niczego poza <tr>-ami. #}
 {% for p in strona.pozycje %}
-<tr class="{% if p.ponizej_progu %}ponizej-progu{% endif %}">
+<tr class="{{ 'ponizej-progu' if p.ponizej_progu }} {{ p.ends_at | pilnosc(teraz) }}">
+  <td class="kol-obserwacja">{% include "fragmenty/gwiazdka.html" %}</td>
   <td>
     <a class="nazwa" href="{{ url_for('szczegoly', auction_id=p.id) }}">{{ p.nazwa }}</a>
-    {% if p.obserwowana %}<span class="znacznik" title="Obserwowana">★</span>{% endif %}
-    {% if p.status.value != 'ACTIVE' %}
-      <span class="etykieta">{{ p.status.value }}</span>
-      {# Znacznik pewnosci ceny koncowej (SPEC.md §11.5, §12). LAST_SEEN to
-         dolne oszacowanie, nie cena koncowa — i ma tak wygladac. #}
-      <span class="etykieta {{ 'pewna' if p.final_price_state.value == 'CONFIRMED' else 'niepewna' }}">
-        {{ p.final_price_state.value }}
-      </span>
-    {% endif %}
+    <div class="pod-nazwa">
+      {% if p.year %}<span>{{ p.year }}</span>{% endif %}
+      {% if p.mileage_km %}<span>{{ p.mileage_km | liczba }} km</span>{% endif %}
+      {% if p.fuel %}<span>{{ p.fuel }}</span>{% endif %}
+      {% if p.gearbox %}<span>{{ p.gearbox }}</span>{% endif %}
+      {% if p.location %}<span>{{ p.location }}</span>{% endif %}
+      <span class="zrodlo">{{ p.source_key }}</span>
+      {% if p.status.value != 'ACTIVE' %}
+        <span class="etykieta">{{ p.status.value }}</span>
+        {# Znacznik pewnosci ceny koncowej (SPEC.md §11.5, §12). LAST_SEEN to
+           dolne oszacowanie, nie cena koncowa — i ma tak wygladac. #}
+        <span class="etykieta {{ 'pewna' if p.final_price_state.value == 'CONFIRMED' else 'niepewna' }}">
+          {{ p.final_price_state.value }}
+        </span>
+      {% endif %}
+    </div>
   </td>
-  <td>{{ p.source_key }}</td>
-  <td>{{ p.year or '—' }}</td>
-  <td>{{ p.mileage_km | liczba }}{% if p.mileage_km %} km{% endif %}</td>
-  <td class="kwota">{{ p.price_current | kwota }}</td>
-  <td>{{ p.bid_count if p.bid_count is not none else '—' }}</td>
-  <td>{{ p.ends_at | czas_lokalny }}</td>
-  <td>{{ p.ends_at | do_konca(teraz) }}</td>
-  <td><a href="{{ p.url }}" target="_blank" rel="noopener noreferrer">oferta</a></td>
+  <td class="kwota">
+    {{ p.price_current | kwota }}
+    {% if p.bid_count is not none %}<div class="drobne">{{ p.bid_count }} ofert</div>{% endif %}
+  </td>
+  <td class="kol-czas">
+    <span class="zostalo">{{ p.ends_at | do_konca(teraz) }}</span>
+    <div class="drobne">{{ p.ends_at | czas_lokalny }}</div>
+  </td>
+  <td><a href="{{ p.url }}" target="_blank" rel="noopener noreferrer">oferta ↗</a></td>
 </tr>
 {% endfor %}
 
@@ -29,12 +38,12 @@
 {# Paginacja keyset (SPEC.md §12): kursor zamiast numeru strony. Wiersz
    podmienia sam siebie, wiec kolejne strony dokladaja sie do tabeli. #}
 <tr id="dalej">
-  <td colspan="9">
-    <button type="button"
+  <td colspan="5">
+    <button type="button" class="wczytaj-wiecej"
             hx-get="{{ url_for('lista_fragment') }}?{{ parametry | urlencode }}&amp;kursor={{ strona.kursor_dalej }}"
             hx-target="#dalej"
             hx-swap="outerHTML">
-      Wczytaj kolejne
+      Wczytaj kolejne 50
     </button>
   </td>
 </tr>

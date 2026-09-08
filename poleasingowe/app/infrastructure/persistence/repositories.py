@@ -160,14 +160,14 @@ INSERT INTO app.auction (
     source_id, external_id, url, make, model, variant, year, mileage_km,
     fuel, gearbox, engine_ccm, engine_hp, vin, body, color, location, seller,
     price_start, price_current, currency, bid_count, bid_increment_raw,
-    ends_at, status, first_seen_at, last_seen_at
+    ends_at, status, first_seen_at, last_seen_at, next_poll_at, poll_tier
 ) VALUES (
     %(source_id)s, %(external_id)s, %(url)s, %(make)s, %(model)s, %(variant)s,
     %(year)s, %(mileage_km)s, %(fuel)s, %(gearbox)s, %(engine_ccm)s,
     %(engine_hp)s, %(vin)s, %(body)s, %(color)s, %(location)s, %(seller)s,
     %(price_start)s, %(price_current)s, %(currency)s, %(bid_count)s,
     %(bid_increment_raw)s, %(ends_at)s, %(status)s, %(first_seen_at)s,
-    %(last_seen_at)s
+    %(last_seen_at)s, %(next_poll_at)s, %(poll_tier)s
 )
 ON CONFLICT (source_id, external_id) DO UPDATE SET
     url = EXCLUDED.url,
@@ -561,6 +561,10 @@ class PgAuctionRepository:
             "status": auction.status.value,
             "first_seen_at": auction.first_seen_at,
             "last_seen_at": auction.last_seen_at,
+            # Tylko dla WSTAWIANYCH wierszy — `ON CONFLICT` tych dwóch kolumn
+            # nie rusza, więc aukcja już obecna w bazie zachowuje swój termin.
+            "next_poll_at": auction.next_poll_at,
+            "poll_tier": auction.poll_tier.value,
         }
 
     async def po_kluczu_naturalnym(

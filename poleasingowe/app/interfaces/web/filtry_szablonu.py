@@ -74,6 +74,25 @@ def do_konca(ends_at: dt.datetime | None, teraz: dt.datetime) -> str:
     return f"{minuty}{NBSP}min"
 
 
+def pilnosc(ends_at: dt.datetime | None, teraz: dt.datetime) -> str:
+    """Klasa CSS zależna od tego, jak blisko końca jest aukcja.
+
+    Kolor niesie tu informację operacyjną, nie ozdobę: w liście
+    kilkudziesięciu pozycji to, że coś kończy się za kwadrans, musi być
+    widoczne bez czytania kolumny z datą.
+    """
+    if ends_at is None:
+        return ""
+    zostalo = (ends_at - teraz).total_seconds()
+    if zostalo <= 0:
+        return "po-terminie"
+    if zostalo <= 15 * 60:
+        return "konczy-sie"
+    if zostalo <= 6 * 3600:
+        return "dzis"
+    return ""
+
+
 def zarejestruj(srodowisko: object) -> None:
     """Podpina filtry pod środowisko Jinja2."""
     filtry = getattr(srodowisko, "filters")  # noqa: B009 — Jinja2 API
@@ -82,3 +101,4 @@ def zarejestruj(srodowisko: object) -> None:
     filtry["liczba"] = liczba
     filtry["bajty"] = bajty
     filtry["do_konca"] = do_konca
+    filtry["pilnosc"] = pilnosc

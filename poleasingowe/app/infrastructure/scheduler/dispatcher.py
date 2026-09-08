@@ -30,6 +30,7 @@ from app.application.ports import (
     KontekstBazy,
 )
 from app.domain.entities import Auction, PriceSnapshot, RunLog, Source
+from app.domain.enums import PollTier
 from app.domain.errors import DomainError
 from app.domain.harmonogram import nastepny_odpyt, tier
 from app.domain.logowanie import ZrodloZablokowane
@@ -188,7 +189,19 @@ class Dispatcher:
         pozycje: list[Auction] = []
         try:
             surowe = await adapter.przemiec_liste()
-            pozycje = [adapter.na_aukcje(s, zrodlo.id, teraz) for s in surowe]
+            # Nowo odkryta aukcja dostaje JEDEN odpyt szczegółów, po którym
+            # wraca do trybu „tylko przemiat" (patrz `_termin_po_odpycie`).
+            # Bez tego lista nie zna godziny zakończenia — poleasingowe podaje
+            # na niej wyłącznie datę dzienną (RECON.md §4.2) — i nie da się
+            # zdecydować, co warto obserwować.
+            pozycje = [
+                replace(
+                    adapter.na_aukcje(s, zrodlo.id, teraz),
+                    next_poll_at=teraz,
+                    poll_tier=PollTier.FAR,
+                )
+                for s in surowe
+            ]
             bezpiecznik.zglos_sukces()
         except (DomainError, OSError) as exc:
             bledy.append(f"przemiat: {type(exc).__name__}: {exc}")
@@ -335,14 +348,18 @@ class Dispatcher:
 
         if surowa is None:
             async with kontekst.uow as uow:
+                obserwowana = await uow.watchlist.obserwowana(aukcja.id)
                 await uow.auction.odnotuj_widziana(aukcja.id, teraz)
-                await uow.auction.zapisz(self._przelicz_termin(aukcja, zrodlo, teraz))
+                await uow.auction.zapisz(
+                    self._termin_po_odpycie(aukcja, zrodlo, teraz, obserwowana)
+                )
             return False
 
         swieza = adapter.na_aukcje(surowa, zrodlo.id or aukcja.source_id, teraz)
-        scalona = self._scal(aukcja, swieza, zrodlo, teraz)
 
         async with kontekst.uow as uow:
+            obserwowana = await uow.watchlist.obserwowana(aukcja.id)
+            scalona = self._scal(aukcja, swieza, zrodlo, teraz, obserwowana)
             zapisana = await uow.auction.zapisz(scalona)
             zmieniony = None
             if scalona.price_current is not None and zapisana.id is not None:
@@ -361,9 +378,21 @@ class Dispatcher:
         return zmieniony is not None
 
     @staticmethod
-    def _przelicz_termin(
-        aukcja: Auction, zrodlo: Source, teraz: dt.datetime
+    def _termin_po_odpycie(
+        aukcja: Auction, zrodlo: Source, teraz: dt.datetime, obserwowana: bool
     ) -> Auction:
+        """Kiedy odpytać tę aukcję znowu — albo czy w ogóle.
+
+        SPEC.md §11.2: pojedynczo odpytujemy **wyłącznie obserwowane**. Aukcja
+        nieobserwowana dostała właśnie swój jeden odpyt po odkryciu i wraca do
+        trybu „wystarcza przemiat listy": `next_poll_at = NULL`. To jest ta
+        główna oszczędność systemu — koszt rośnie z liczbą obserwowanych,
+        a nie z liczbą ofert w serwisie.
+        """
+        if not obserwowana:
+            return replace(
+                aukcja, last_seen_at=teraz, next_poll_at=None, poll_tier=PollTier.IDLE
+            )
         return replace(
             aukcja,
             last_seen_at=teraz,
@@ -372,7 +401,12 @@ class Dispatcher:
         )
 
     def _scal(
-        self, stara: Auction, swieza: Auction, zrodlo: Source, teraz: dt.datetime
+        self,
+        stara: Auction,
+        swieza: Auction,
+        zrodlo: Source,
+        teraz: dt.datetime,
+        obserwowana: bool,
     ) -> Auction:
         """Nakłada świeży odczyt na aukcję z bazy, zachowując jej historię.
 
@@ -401,11 +435,7 @@ class Dispatcher:
         elif swieza.ends_at is None:
             scalona = replace(scalona, ends_at=stara.ends_at)
 
-        return replace(
-            scalona,
-            next_poll_at=nastepny_odpyt(scalona, zrodlo, teraz),
-            poll_tier=tier(scalona, teraz),
-        )
+        return self._termin_po_odpycie(scalona, zrodlo, teraz, obserwowana)
 
 
 @contextlib.asynccontextmanager

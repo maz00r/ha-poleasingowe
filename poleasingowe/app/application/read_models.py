@@ -44,6 +44,24 @@ class Sortowanie(StrEnum):
     """Po `first_seen_at` malejąco — „co doszło od ostatniej wizyty"."""
 
 
+ETYKIETY_SORTOWANIA: dict[Sortowanie, str] = {
+    Sortowanie.KONIEC_ROSNACO: "najbliżej końca",
+    Sortowanie.KONIEC_MALEJACO: "najpóźniej kończące się",
+    Sortowanie.CENA_ROSNACO: "najtańsze",
+    Sortowanie.CENA_MALEJACO: "najdroższe",
+    Sortowanie.ROCZNIK_MALEJACO: "najnowszy rocznik",
+    Sortowanie.PRZEBIEG_ROSNACO: "najmniejszy przebieg",
+    Sortowanie.NAJNOWSZE: "ostatnio dodane",
+}
+"""Nazwy dla człowieka. `koniec-desc` w liście rozwijanej to nie interfejs."""
+
+# Sortowania osiągalne z nagłówka kolumny: klik przełącza kierunek.
+SORTOWANIE_KOLUMN: dict[str, tuple[Sortowanie, Sortowanie]] = {
+    "koniec": (Sortowanie.KONIEC_ROSNACO, Sortowanie.KONIEC_MALEJACO),
+    "cena": (Sortowanie.CENA_ROSNACO, Sortowanie.CENA_MALEJACO),
+}
+
+
 @dataclass(slots=True, frozen=True)
 class Kursor:
     """Pozycja w wyniku dla paginacji keyset (SPEC.md §12 — nie `OFFSET`).

@@ -1,0 +1,10 @@
+{# Przelacznik obserwacji. Podmienia sam siebie, wiec musi byc jednym
+   elementem z komplet atrybutow HTMX — inaczej po pierwszym klikneciu
+   przycisk przestaje reagowac. #}
+<button type="button"
+        class="gwiazdka {{ 'wlaczona' if p.obserwowana else '' }}"
+        title="{{ 'Przestań obserwować' if p.obserwowana else 'Obserwuj' }}"
+        aria-label="{{ 'Przestań obserwować' if p.obserwowana else 'Obserwuj' }}"
+        aria-pressed="{{ 'true' if p.obserwowana else 'false' }}"
+        hx-post="{{ url_for('przelacz_obserwacje', auction_id=p.id) }}"
+        hx-swap="outerHTML">{{ '★' if p.obserwowana else '☆' }}</button>

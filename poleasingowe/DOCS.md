@@ -83,9 +83,15 @@ Jak często dodatek odpytuje aktywną aukcję:
 | 15–60 min | 3 min |
 | poniżej 15 min | floor źródła |
 
-**Odpytywane pojedynczo są tylko aukcje aktywne.** Reszcie wystarcza zbiorczy
-przemiat listy — dzięki temu koszt rośnie z liczbą obserwowanych pozycji,
-a nie z liczbą ofert w serwisie.
+**Nowo odkryta aukcja dostaje jeden odpyt szczegółów**, żeby uzupełnić
+godzinę zakończenia i resztę pól — lista poleasingowe.pl podaje samą datę
+dzienną. Potem wraca do trybu „wystarcza przemiat listy". Pojedynczo, raz za
+razem, odpytywane są **wyłącznie pozycje obserwowane** — dzięki temu koszt
+stały rośnie z liczbą obserwowanych, a nie z liczbą ofert w serwisie.
+
+Gwiazdka przy wierszu listy włącza i wyłącza obserwację jednym kliknięciem.
+To nie jest tylko etykieta: włączenie obserwacji uruchamia regularny odpyt
+tej aukcji, wyłączenie go zatrzymuje.
 
 Gdy serwis przestaje odpowiadać, dodatek odstawia **to jedno źródło** na
 rosnącą przerwę i pracuje dalej z pozostałymi. Widać to w panelu

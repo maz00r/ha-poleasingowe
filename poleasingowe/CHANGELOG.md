@@ -1,5 +1,24 @@
 # Historia zmian
 
+## 0.5.0 — w przygotowaniu
+
+Interfejs i uzupelnienie danych.
+
+- **nowo odkryta aukcja dostaje JEDEN odpyt szczegolow**, potem wraca do
+  trybu "wystarcza przemiat". Bez tego lista poleasingowe nie miala godziny
+  zakonczenia (serwis podaje na niej sama date dzienna), wiec nie dalo sie
+  zdecydowac, co warto obserwowac
+- gwiazdka w liscie: obserwowanie jednym klikniecieciem, bez wchodzenia
+  w szczegoly; wlacza i wylacza tez regularny odpyt aukcji
+- filtry zwarte — rzadko uzywane pod "Wiecej filtrow", ktore otwiera sie
+  samo, gdy cos w srodku dziala
+- sortowanie klikane w naglowkach kolumn, z zachowaniem filtrow
+- kolor pilnosci: aukcja konczaca sie w ciagu kwadransa widoczna bez
+  czytania kolumny z data
+- licznik pozycji i rozroznienie "jeszcze nic nie zebrano" od "nic nie
+  pasuje do tych filtrow" — te dwie sytuacje wymagaja czego innego
+- nazwy sortowan po ludzku zamiast `koniec-desc`
+
 ## 0.4.1 — w przygotowaniu
 
 Naprawa: dodatek nie pokazywal ZADNYCH ofert.

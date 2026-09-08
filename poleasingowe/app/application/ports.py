@@ -239,6 +239,15 @@ class Zapytania(Protocol):
 
     async def rozmiar_bazy(self) -> int | None: ...
 
+    async def sa_jakiekolwiek_aukcje(self) -> bool:
+        """Czy cokolwiek już zebrano — do odróżnienia pustej listy od filtrów.
+
+        „Nic nie pasuje do tych filtrów" i „jeszcze nic nie zebrano" wymagają
+        od użytkownika zupełnie różnych działań, więc muszą być różnymi
+        komunikatami.
+        """
+        ...
+
     async def czas_serwera(self) -> dt.datetime:
         """Zegar Postgresa — odniesienie do wykrywania dryfu (§11.7)."""
         ...

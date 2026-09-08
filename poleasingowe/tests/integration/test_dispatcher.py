@@ -19,7 +19,7 @@ import psycopg
 import pytest
 
 from app.application.ports import SurowaOferta
-from app.domain.entities import Auction, Source
+from app.domain.entities import Auction, Source, WatchlistEntry
 from app.domain.enums import AuctionStatus, AuthState, Currency, PollTier
 from app.domain.errors import SourceUnavailable
 from app.domain.value_objects import Money
@@ -144,6 +144,11 @@ async def przygotuj(
                 poll_tier=PollTier.NEAR,
             )
         )
+        # Aukcja OBSERWOWANA — tylko takie są odpytywane pojedynczo w kółko
+        # (SPEC.md §11.2). Nieobserwowana dostaje jeden odpyt po odkryciu
+        # i wraca do trybu „wystarcza przemiat listy".
+        assert aukcja.id is not None
+        await uow.watchlist.dodaj(WatchlistEntry(auction_id=aukcja.id, added_at=teraz))
     assert aukcja.id is not None
     return aukcja.id, koniec
 
@@ -673,24 +678,50 @@ async def test_przemiat_nie_przestawia_zakonczonej_aukcji_na_aktywna(
     assert wiersz is not None and wiersz[0] == "ENDED"
 
 
-async def test_nowa_aukcja_z_przemiatu_nie_jest_odpytywana_pojedynczo(
+async def test_nowa_aukcja_dostaje_dokladnie_jeden_odpyt_i_wraca_do_przemiatu(
     pusta_baza: psycopg.AsyncConnection,
 ) -> None:
-    """SPEC.md §11.2 — to jest główna oszczędność całego systemu.
+    """Kompromis wobec dosłownego §11.2, świadomy i ograniczony.
 
-    Koszt ma rosnąć z liczbą obserwowanych, a nie z liczbą ofert w serwisie.
+    Spec mówi, że nieobserwowane „nie są odpytywane pojedynczo w ogóle".
+    Trzymanie się tego co do litery znaczyłoby jednak, że lista poleasingowe
+    nie ma godziny zakończenia (serwis podaje na niej samą datę dzienną,
+    RECON.md §4.2) — a bez niej nie da się zdecydować, co warto obserwować.
+
+    Stąd: **jeden** odpyt po odkryciu, potem `next_poll_at = NULL`. Główna
+    oszczędność zostaje nienaruszona — koszt stały rośnie z liczbą
+    obserwowanych, a nie z liczbą ofert w serwisie.
     """
     adapter = ZrodloAtrapa()
     adapter.na_liscie = ["a1", "a2"]
     async with PgUnitOfWork(pusta_baza) as uow:
         await uow.source.zapisz(zrodlo(adapter.key))
 
-    await dispatcher(pusta_baza, adapter).jeden_obrot()
+    disp = dispatcher(pusta_baza, adapter)
+    await disp.jeden_obrot()
+    assert adapter.pobrania == 2, "każda nowa aukcja dostaje swój jeden odpyt"
 
-    assert adapter.pobrania == 0, "świeżo odkryte aukcje nie są obserwowane"
+    for _ in range(3):
+        await disp.jeden_obrot()
+    assert adapter.pobrania == 2, "i ani jednego więcej — nikt ich nie obserwuje"
+
     async with pusta_baza.cursor() as cur:
         await cur.execute(
             "SELECT count(*) FROM app.auction WHERE next_poll_at IS NOT NULL"
         )
         wiersz = await cur.fetchone()
     assert wiersz is not None and wiersz[0] == 0
+
+
+async def test_obserwowana_aukcja_jest_odpytywana_dalej(
+    pusta_baza: psycopg.AsyncConnection,
+) -> None:
+    """Odwrotna strona tej samej reguły: watchlista utrzymuje odpyt."""
+    adapter = ZrodloAtrapa()
+    auction_id, _ = await przygotuj(pusta_baza, adapter, do_konca_min=20)
+
+    await dispatcher(pusta_baza, adapter).jeden_obrot()
+
+    po = await wczytaj(pusta_baza, auction_id)
+    assert po.next_poll_at is not None, "obserwowana ma zaplanowany kolejny odpyt"
+    assert po.poll_tier is not PollTier.IDLE

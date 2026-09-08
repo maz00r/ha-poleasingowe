@@ -134,6 +134,9 @@ ORDER BY source_key
 """)
 
 SQL_ROZMIAR_BAZY = sql.SQL("SELECT pg_database_size(current_database())")
+# `EXISTS` zatrzymuje się na pierwszym wierszu — `COUNT(*)` przeczytałby
+# całą tabelę tylko po to, żeby odpowiedzieć „tak".
+SQL_SA_AUKCJE = sql.SQL("SELECT EXISTS (SELECT 1 FROM app.auction)")
 SQL_CZAS_SERWERA = sql.SQL("SELECT now()")
 
 
@@ -404,6 +407,12 @@ class PgZapytania:
             return None
         rozmiar: int = wiersz[0]
         return rozmiar
+
+    async def sa_jakiekolwiek_aukcje(self) -> bool:
+        async with self._conn.cursor() as cur:
+            await cur.execute(SQL_SA_AUKCJE)
+            wiersz = await cur.fetchone()
+        return bool(wiersz and wiersz[0])
 
     async def czas_serwera(self) -> dt.datetime:
         async with self._conn.cursor() as cur:

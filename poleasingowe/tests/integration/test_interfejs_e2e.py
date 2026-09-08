@@ -240,3 +240,76 @@ async def test_odblokowanie_zrodla_zeruje_licznik_i_nie_daje_od_razu_ok(
     assert po_resecie is not None
     assert po_resecie.auth_state is AuthState.EXPIRED
     assert po_resecie.consecutive_auth_failures == 0
+
+
+async def test_gwiazdka_na_liscie_przelacza_obserwacje_i_odpyt(
+    klient: httpx.AsyncClient, pusta_baza: psycopg.AsyncConnection
+) -> None:
+    """SPEC.md §12 — decyzja „obserwuję to" zapada przy przeglądaniu listy.
+
+    Razem z obserwacją włącza się pojedynczy odpyt (§11.2): bez tego
+    watchlista byłaby etykietą, a nie zmianą zachowania.
+    """
+    identyfikatory = await _dane(pusta_baza)
+    identyfikator = identyfikatory["audi-za-tydzien"]
+
+    odp = await klient.post(f"/aukcja/{identyfikator}/przelacz")
+    assert odp.status_code == 200
+    assert "★" in odp.text
+    assert 'aria-pressed="true"' in odp.text
+
+    async with FabrykaNaPolaczeniu(pusta_baza)() as kontekst:
+        assert await kontekst.uow.watchlist.obserwowana(identyfikator)
+        dane = await kontekst.zapytania.szczegoly(identyfikator)
+    assert dane is not None and dane.next_poll_at is not None
+
+    odp = await klient.post(f"/aukcja/{identyfikator}/przelacz")
+    assert "☆" in odp.text
+    async with FabrykaNaPolaczeniu(pusta_baza)() as kontekst:
+        assert not await kontekst.uow.watchlist.obserwowana(identyfikator)
+        dane = await kontekst.zapytania.szczegoly(identyfikator)
+    assert dane is not None and dane.next_poll_at is None
+
+
+async def test_pusta_lista_rozroznia_brak_danych_od_filtrow(
+    klient: httpx.AsyncClient, pusta_baza: psycopg.AsyncConnection
+) -> None:
+    """Te dwie sytuacje wymagają od użytkownika zupełnie różnych działań.
+
+    „Jeszcze nic nie zebrano" znaczy „poczekaj albo sprawdź diagnostykę".
+    „Nic nie pasuje" znaczy „popraw filtry". Jeden komunikat na oba przypadki
+    kazałby zgadywać, który to.
+    """
+    pusta = await klient.get("/")
+    assert "Jeszcze nic nie zebrano" in pusta.text
+
+    await _dane(pusta_baza)
+    bez_trafien = await klient.get("/", params={"marka": "Trabant"})
+    assert "Nic nie pasuje do tych filtrów" in bez_trafien.text
+    assert "Jeszcze nic nie zebrano" not in bez_trafien.text
+
+
+async def test_naglowek_kolumny_odwraca_kierunek_sortowania(
+    klient: httpx.AsyncClient, pusta_baza: psycopg.AsyncConnection
+) -> None:
+    """Klik w aktywną kolumnę ma odwracać kierunek, a filtry mają zostać."""
+    await _dane(pusta_baza)
+    odp = await klient.get("/", params={"marka": "Audi", "sort": "cena"})
+
+    assert (
+        "sort=cena-desc" in odp.text
+    ), "aktywna kolumna prowadzi do odwrotnego kierunku"
+    assert "marka=Audi" in odp.text, "sortowanie nie ma prawa gubić filtrów"
+
+
+async def test_wiecej_filtrow_otwiera_sie_gdy_cos_w_srodku_dziala(
+    klient: httpx.AsyncClient, pusta_baza: psycopg.AsyncConnection
+) -> None:
+    """Zwinięty filtr, który cicho zawęża listę, to najgorszy rodzaj filtra."""
+    await _dane(pusta_baza)
+
+    zwiniete = await klient.get("/")
+    assert '<details class="wiecej-filtrow" >' in zwiniete.text.replace("  ", " ")
+
+    rozwiniete = await klient.get("/", params={"przebieg_do": "150000"})
+    assert "open" in rozwiniete.text.split("wiecej-filtrow")[1][:40]

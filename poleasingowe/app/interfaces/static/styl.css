@@ -67,16 +67,33 @@ h2 { font-size: 16px; margin: 0 0 12px; }
 .podtytul { color: var(--przygaszony); margin: 0 0 16px; }
 
 .filtry {
+  background: var(--karta);
+  border: 1px solid var(--obramowanie);
+  border-radius: 8px;
+  padding: 12px 16px;
+  margin-bottom: 12px;
+}
+.pasek-filtrow {
   display: flex;
   flex-wrap: wrap;
   gap: 12px;
   align-items: flex-end;
-  background: var(--karta);
-  border: 1px solid var(--obramowanie);
-  border-radius: 8px;
-  padding: 16px;
-  margin-bottom: 16px;
 }
+.pole.rosnie { flex: 1 1 260px; }
+
+/* Rzadko uzywane filtry zwiniete: czternascie pol rozwinietych na staly
+   zajmowalo pol ekranu nad lista, ktora jest tu wlasciwa trescia. */
+.wiecej-filtrow { margin-top: 12px; }
+.wiecej-filtrow > summary {
+  cursor: pointer;
+  color: var(--akcent);
+  font-size: 13px;
+  padding: 4px 0;
+  list-style-position: inside;
+}
+.wiecej-filtrow[open] > summary { margin-bottom: 10px; }
+
+.podsumowanie { color: var(--przygaszony); margin: 0 0 8px; font-size: 13px; }
 
 .pole { display: flex; flex-direction: column; gap: 4px; min-width: 150px; }
 .pole.szerokie { min-width: 280px; flex: 1; }
@@ -108,7 +125,7 @@ button:hover { filter: brightness(1.08); }
   cursor: pointer;
 }
 
-.zapisane { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-bottom: 16px; }
+.zapisane { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-bottom: 12px; }
 .zapisane form { display: flex; gap: 8px; }
 .chipsy { display: flex; flex-wrap: wrap; gap: 8px; list-style: none; margin: 0; padding: 0; }
 .chipsy li {
@@ -138,6 +155,49 @@ table.lista th, table.lista td {
   vertical-align: top;
 }
 table.lista th { font-size: 12px; color: var(--przygaszony); font-weight: 600; }
+table.lista td { vertical-align: middle; }
+th .sortuj { color: inherit; text-decoration: none; white-space: nowrap; }
+th .sortuj:hover { color: var(--akcent); }
+
+.kol-obserwacja { width: 34px; text-align: center; }
+.kol-czas { white-space: nowrap; }
+.pod-nazwa {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 3px;
+  font-size: 12px;
+  color: var(--przygaszony);
+}
+.pod-nazwa > span:not(:last-child)::after { content: " ·"; }
+.pod-nazwa .zrodlo { color: var(--akcent); }
+.drobne { font-size: 11px; color: var(--przygaszony); margin-top: 2px; }
+.zostalo { font-weight: 600; }
+
+/* Gwiazdka obserwacji — przycisk, ale ma wygladac jak ikona, nie jak
+   przycisk formularza. */
+.gwiazdka {
+  background: none;
+  border: none;
+  padding: 2px 4px;
+  font-size: 17px;
+  line-height: 1;
+  color: var(--przygaszony);
+}
+.gwiazdka:hover { color: var(--akcent); filter: none; }
+.gwiazdka.wlaczona { color: var(--akcent); }
+
+.wczytaj-wiecej { width: 100%; }
+
+/* Pilnosc: w liscie kilkudziesieciu pozycji to, ze cos konczy sie za
+   kwadrans, musi byc widoczne bez czytania kolumny z data. */
+tr.dzis .zostalo { color: var(--akcent); }
+tr.konczy-sie .zostalo { color: var(--alarm); font-weight: 700; }
+tr.konczy-sie td { background: color-mix(in srgb, var(--alarm) 7%, transparent); }
+tr.po-terminie { opacity: 0.65; }
+
+.pusto-karta { text-align: center; padding: 32px 16px; }
+.pusto-karta p { color: var(--przygaszony); max-width: 52ch; margin: 8px auto; }
 table.lista tr:last-child td { border-bottom: none; }
 .kwota { white-space: nowrap; font-variant-numeric: tabular-nums; }
 .nazwa { color: var(--tekst); font-weight: 600; text-decoration: none; }
