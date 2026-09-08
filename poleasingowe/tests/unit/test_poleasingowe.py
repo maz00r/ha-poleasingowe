@@ -187,7 +187,8 @@ def test_mapowanie_szczegolow_na_komplet_pol() -> None:
     )
     assert aukcja.source_id == 7
     assert aukcja.external_id == "9ooxn4x9"
-    assert (aukcja.make, aukcja.model) == ("VOLKSWAGEN", "GOLF")
+    # Marka w postaci kanonicznej — serwis pisze WERSALIKAMI, my nie.
+    assert (aukcja.make, aukcja.model) == ("Volkswagen", "GOLF")
     assert aukcja.year == 2022
     assert aukcja.mileage is not None and aukcja.mileage.km == 210_434
     assert aukcja.gearbox == "Manualna"

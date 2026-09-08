@@ -149,7 +149,8 @@ def test_nazwa_jest_odklejana_od_danych_technicznych() -> None:
         source_id=1,
         teraz=TERAZ,
     )
-    assert (aukcja.make, aukcja.model) == ("CITROEN", "JUMPER")
+    # `CITROEN` bez diakrytyku i wersalikami to ta sama marka co `Citroën`.
+    assert (aukcja.make, aukcja.model) == ("Citroën", "JUMPER")
     assert aukcja.year == 2018
 
 

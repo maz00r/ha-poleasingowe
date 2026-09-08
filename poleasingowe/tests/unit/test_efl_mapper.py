@@ -20,7 +20,7 @@ def test_szczegoly_mapuja_sie_na_komplet_pol() -> None:
     )
     a = mapper.na_aukcje(surowa, source_id=1, teraz=TERAZ)
 
-    assert (a.make, a.model, a.variant) == ("Skoda", "Superb", "Style DSG")
+    assert (a.make, a.model, a.variant) == ("Škoda", "Superb", "Style DSG")
     assert a.year == 2023
     assert a.mileage == Mileage(208475)
     assert a.fuel == "Olej napędowy"

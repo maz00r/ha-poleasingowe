@@ -1,5 +1,24 @@
 # Historia zmian
 
+## 0.7.1 — w przygotowaniu
+
+Ujednolicenie zapisu marek.
+
+- poleasingowe i autoprzetarg pisza marki WERSALIKAMI (`TESLA`), EFL zwyklym
+  zapisem (`Tesla`) — lista rozwijana miala przez to po dwa wpisy na marke,
+  filtr po jednym z nich gubil polowe wynikow, a `v_market_stats` liczyl dwie
+  osobne mediany dla tego samego modelu
+- marka zapisywana jest teraz w postaci kanonicznej, w warstwie
+  antykorupcyjnej, wiec obejmuje wszystkie adaptery naraz
+- skroty zostaja wersalikami: `BMW`, `MAN`, `DAF`, `SEAT` (`Bmw` wyglada
+  na literowke)
+- jawna lista aliasow laczy rozne nazwy tej samej marki: `MERCEDES` z
+  `MERCEDES-BENZ`, `VW` z `Volkswagen`, `SKODA` i `ŠKODA` ze `Škoda`,
+  `CITROEN` z `Citroën`
+- migracja `006_marki` porzadkuje wiersze juz zebrane, w tym aukcje
+  zakonczone — tych przemiat listy juz nie dotknie, a to one niosa ceny
+  koncowe
+
 ## 0.7.0 — w przygotowaniu
 
 **Naprawa: interfejs nie dzialal pod Ingressem.** Adresy powstawaly przez

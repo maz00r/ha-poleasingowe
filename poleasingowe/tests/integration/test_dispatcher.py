@@ -734,3 +734,57 @@ async def test_obserwowana_aukcja_jest_odpytywana_dalej(
     po = await wczytaj(pusta_baza, auction_id)
     assert po.next_poll_at is not None, "obserwowana ma zaplanowany kolejny odpyt"
     assert po.poll_tier is not PollTier.IDLE
+
+
+async def test_migracja_ujednolica_marki_juz_zebrane(
+    pusta_baza: psycopg.AsyncConnection,
+) -> None:
+    """Migracja 006 na realnej bazie — sam kod mappera tu nie wystarczy.
+
+    Aukcje **zakończone** nie pojawiają się już na liście, więc przemiat ich
+    nie dotknie i zostałyby z dawnym zapisem na zawsze. A to właśnie one
+    niosą ceny końcowe, czyli wchodzą do `v_market_stats` (§8.4, §9).
+    """
+    adapter = ZrodloAtrapa()
+    async with PgUnitOfWork(pusta_baza) as uow:
+        zapisane = await uow.source.zapisz(zrodlo(adapter.key))
+        assert zapisane.id is not None
+        teraz = await _czas_bazy(pusta_baza)
+        for numer, marka in enumerate(
+            ["TESLA", "Tesla", "BMW", "bmw", "MERCEDES", "SKODA", "VW", "Peugeot"]
+        ):
+            await uow.auction.zapisz(
+                Auction(
+                    source_id=zapisane.id,
+                    external_id=f"m{numer}",
+                    url="https://atrapa.test/x",
+                    status=AuctionStatus.ENDED,
+                    first_seen_at=teraz,
+                    last_seen_at=teraz,
+                    make=marka,
+                )
+            )
+
+    # Migracje sa juz zastosowane przez fikstury, wiec uruchamiamy sama 006
+    # na danych wstawionych po fakcie — dokladnie tak, jak zadziala przy
+    # aktualizacji dodatku na istniejacej bazie.
+    from tests.conftest import MIGRACJE
+
+    sql = (MIGRACJE / "006_marki.sql").read_text(encoding="utf-8")
+    async with pusta_baza.transaction():
+        await pusta_baza.execute(sql)
+
+    async with pusta_baza.cursor() as cur:
+        await cur.execute("SELECT DISTINCT make FROM app.auction")
+        marki = {w[0] for w in await cur.fetchall()}
+
+    # Zbiorem, nie lista: kolejnosc zalezy od locale bazy, a sprawdzamy
+    # WARTOSCI — osiem wierszy w szesciu wariantach zapisu ma dac szesc marek.
+    assert marki == {
+        "BMW",
+        "Mercedes-Benz",
+        "Peugeot",
+        "Tesla",
+        "Volkswagen",
+        "Škoda",
+    }
