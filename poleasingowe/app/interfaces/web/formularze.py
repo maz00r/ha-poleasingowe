@@ -62,6 +62,29 @@ def _flaga(parametry: Mapping[str, str], nazwa: str) -> bool:
     return parametry.get(nazwa, "").strip().lower() in {"1", "true", "tak", "on"}
 
 
+def _lista(parametry: Mapping[str, str], nazwa: str) -> tuple[str, ...]:
+    """Wszystkie wartości parametru, nie tylko pierwsza.
+
+    Adres `?paliwo=Diesel&paliwo=Benzyna` niesie dwie wartości; zwykłe
+    `Mapping.get` zwróciłoby jedną i po cichu zgubiłoby drugą. Starlette
+    daje na to `getlist`, ale sygnatura pozostaje zwykłym `Mapping`, żeby
+    testy mogły podać słownik — stąd sprawdzenie zamiast twardego wymogu.
+
+    Puste wartości odsiewamy: `?paliwo=` z formularza znaczy „nie filtruj",
+    a nie „paliwo o pustej nazwie".
+    """
+    pobierz = getattr(parametry, "getlist", None)
+    surowe = pobierz(nazwa) if callable(pobierz) else [parametry.get(nazwa, "")]
+    # Kolejność zachowana, duplikaty usunięte — ten sam filtr dwa razy
+    # w adresie nie ma prawa podwoić warunku.
+    widziane: dict[str, None] = {}
+    for wartosc in surowe:
+        oczyszczona = (wartosc or "").strip()
+        if oczyszczona:
+            widziane.setdefault(oczyszczona, None)
+    return tuple(widziane)
+
+
 def zbuduj_kryteria(
     parametry: Mapping[str, str], *, ostatnia_wizyta: dt.datetime | None = None
 ) -> Kryteria:
@@ -85,32 +108,39 @@ def zbuduj_kryteria(
 
     nowe_od = ostatnia_wizyta if _flaga(parametry, "nowe") else None
 
-    surowy_rodzaj = parametry.get("rodzaj", "").strip()
-    if surowy_rodzaj == RODZAJ_WSZYSTKIE:
-        rodzaj: RodzajPojazdu | None = None
-    elif surowy_rodzaj:
-        try:
-            rodzaj = RodzajPojazdu(surowy_rodzaj.upper())
-        except ValueError:
-            # Śmieć w adresie nie ma prawa dać 500 ani po cichu pokazać
-            # wszystkiego — wracamy do wartości domyślnej.
-            rodzaj = RodzajPojazdu.OSOBOWY
+    surowe_rodzaje = _lista(parametry, "rodzaj")
+    if RODZAJ_WSZYSTKIE in surowe_rodzaje:
+        # „wszystkie" wygrywa z resztą zaznaczeń — inaczej wybór „wszystkie"
+        # razem z „osobowe" znaczyłby coś innego niż mówi.
+        rodzaje: tuple[RodzajPojazdu, ...] = ()
+    elif surowe_rodzaje:
+        rozpoznane = []
+        for surowy in surowe_rodzaje:
+            try:
+                rozpoznane.append(RodzajPojazdu(surowy.upper()))
+            except ValueError:
+                # Śmieć w adresie pomijamy; 500 ani ciche „pokaż wszystko"
+                # nie są tu poprawną odpowiedzią.
+                continue
+        rodzaje = tuple(rozpoznane) or (RodzajPojazdu.OSOBOWY,)
     else:
-        rodzaj = RodzajPojazdu.OSOBOWY
+        rodzaje = (RodzajPojazdu.OSOBOWY,)
 
     return Kryteria(
         szukaj=_tekst(parametry, "szukaj"),
-        marka=_tekst(parametry, "marka"),
         model=_tekst(parametry, "model"),
-        zrodlo=_tekst(parametry, "zrodlo"),
-        rodzaj=rodzaj,
-        paliwo=_tekst(parametry, "paliwo"),
-        skrzynia=_tekst(parametry, "skrzynia"),
-        lokalizacja=_tekst(parametry, "lokalizacja"),
+        marki=_lista(parametry, "marka"),
+        zrodla=_lista(parametry, "zrodlo"),
+        rodzaje=rodzaje,
+        paliwa=_lista(parametry, "paliwo"),
+        skrzynie=_lista(parametry, "skrzynia"),
+        lokalizacje=_lista(parametry, "lokalizacja"),
         cena_od=_liczba(parametry, "cena_od", maksimum=9_999_999),
         cena_do=_liczba(parametry, "cena_do", maksimum=9_999_999),
         rocznik_od=_liczba(parametry, "rocznik_od", minimum=1900, maksimum=2100),
         rocznik_do=_liczba(parametry, "rocznik_do", minimum=1900, maksimum=2100),
+        moc_od=_liczba(parametry, "moc_od", maksimum=9_999),
+        moc_do=_liczba(parametry, "moc_do", maksimum=9_999),
         przebieg_do=_liczba(parametry, "przebieg_do", maksimum=9_999_999),
         konczy_sie_w_h=_liczba(
             parametry, "do_konca_h", minimum=1, maksimum=MAKS_GODZIN
@@ -131,51 +161,66 @@ def kursor_z_parametrow(parametry: Mapping[str, str]) -> Kursor | None:
     return Kursor.odkoduj(surowy) if surowy else None
 
 
-def na_parametry(kryteria: Kryteria) -> dict[str, str]:
+def na_parametry(kryteria: Kryteria) -> list[tuple[str, str]]:
     """Odwrotność `zbuduj_kryteria` — do budowania linków „dalej" i sortowania.
 
     Bez tego każdy link w liście gubiłby filtry: użytkownik ustawia markę,
     klika „po cenie" i dostaje całą bazę od nowa.
+
+    Lista par, a nie słownik: filtry wielokrotnego wyboru powtarzają ten sam
+    klucz (`marka=Audi&marka=BMW`), a słownik trzymałby tylko ostatnią
+    wartość i cicho gubił resztę zaznaczeń.
     """
-    wynik: dict[str, str] = {}
-    proste = (
+    wynik: list[tuple[str, str]] = []
+
+    for nazwa, wartosc in (
         ("szukaj", kryteria.szukaj),
-        ("marka", kryteria.marka),
         ("model", kryteria.model),
-        ("zrodlo", kryteria.zrodlo),
-        ("paliwo", kryteria.paliwo),
-        ("skrzynia", kryteria.skrzynia),
-        ("lokalizacja", kryteria.lokalizacja),
-    )
-    for nazwa, wartosc in proste:
+    ):
         if wartosc:
-            wynik[nazwa] = wartosc
+            wynik.append((nazwa, wartosc))
+
+    for nazwa, wartosci in (
+        ("marka", kryteria.marki),
+        ("zrodlo", kryteria.zrodla),
+        ("paliwo", kryteria.paliwa),
+        ("skrzynia", kryteria.skrzynie),
+        ("lokalizacja", kryteria.lokalizacje),
+    ):
+        wynik.extend((nazwa, w) for w in wartosci)
 
     liczby = (
         ("cena_od", kryteria.cena_od),
         ("cena_do", kryteria.cena_do),
         ("rocznik_od", kryteria.rocznik_od),
         ("rocznik_do", kryteria.rocznik_do),
+        ("moc_od", kryteria.moc_od),
+        ("moc_do", kryteria.moc_do),
         ("przebieg_do", kryteria.przebieg_do),
         ("do_konca_h", kryteria.konczy_sie_w_h),
     )
     for nazwa, liczba in liczby:
         if liczba is not None:
-            wynik[nazwa] = str(liczba)
+            wynik.append((nazwa, str(liczba)))
 
     # Rodzaj wpisujemy ZAWSZE, także domyślny: bez tego „Wyczyść" i linki
     # nawigacji gubiłyby wybór „wszystkie rodzaje" przy pierwszym kliknięciu.
-    wynik["rodzaj"] = (
-        RODZAJ_WSZYSTKIE if kryteria.rodzaj is None else kryteria.rodzaj.value
-    )
-
-    if kryteria.status is None:
-        wynik["status"] = "wszystkie"
+    if kryteria.rodzaje:
+        wynik.extend(("rodzaj", r.value) for r in kryteria.rodzaje)
     else:
-        wynik["status"] = PARAMETR_ZE_STATUSU[kryteria.status]
+        wynik.append(("rodzaj", RODZAJ_WSZYSTKIE))
+
+    wynik.append(
+        (
+            "status",
+            "wszystkie"
+            if kryteria.status is None
+            else PARAMETR_ZE_STATUSU[kryteria.status],
+        )
+    )
     if kryteria.tylko_obserwowane:
-        wynik["obserwowane"] = "1"
+        wynik.append(("obserwowane", "1"))
     if kryteria.nowe_od is not None:
-        wynik["nowe"] = "1"
-    wynik["sort"] = kryteria.sortowanie.value
+        wynik.append(("nowe", "1"))
+    wynik.append(("sort", kryteria.sortowanie.value))
     return wynik

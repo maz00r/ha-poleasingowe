@@ -9,9 +9,10 @@ from __future__ import annotations
 import datetime as dt
 
 import pytest
+from starlette.datastructures import QueryParams
 
 from app.application.read_models import Kursor, Sortowanie
-from app.domain.enums import AuctionStatus
+from app.domain.enums import AuctionStatus, RodzajPojazdu
 from app.interfaces.web.formularze import (
     kursor_z_parametrow,
     na_parametry,
@@ -42,7 +43,7 @@ def test_filtry_tekstowe_i_liczbowe() -> None:
         }
     )
     assert kryteria.szukaj == "passat", "spacje z pola tekstowego mają odpaść"
-    assert kryteria.marka == "Volkswagen"
+    assert kryteria.marki == ("Volkswagen",)
     assert (kryteria.cena_od, kryteria.rocznik_od) == (20_000, 2018)
     assert (kryteria.przebieg_do, kryteria.konczy_sie_w_h) == (150_000, 24)
 
@@ -106,18 +107,70 @@ def test_bez_ciasteczka_widok_nowych_nie_filtruje_nic() -> None:
 
 
 def test_parametry_przezywaja_obieg_tam_i_z_powrotem() -> None:
-    """Bez tego link „dalej" albo zmiana sortowania gubiłyby filtry."""
-    zrodlowe = {
-        "szukaj": "passat",
-        "marka": "Volkswagen",
-        "cena_do": "80000",
-        "status": "wszystkie",
-        "obserwowane": "1",
-        "sort": Sortowanie.CENA_ROSNACO.value,
-    }
+    """Bez tego link „dalej" albo zmiana sortowania gubiłyby filtry.
+
+    Obieg idzie przez `QueryParams`, bo dokładnie to dostaje aplikacja
+    z żądania — a zwykły słownik nie umie powtórzonych kluczy i test
+    przechodziłby, gdy w produkcji filtr wielokrotny by się gubił.
+    """
+    zrodlowe = QueryParams(
+        [
+            ("szukaj", "passat"),
+            ("marka", "Volkswagen"),
+            ("cena_do", "80000"),
+            ("status", "wszystkie"),
+            ("obserwowane", "1"),
+            ("sort", Sortowanie.CENA_ROSNACO.value),
+        ]
+    )
     kryteria = zbuduj_kryteria(zrodlowe)
-    odtworzone = zbuduj_kryteria(na_parametry(kryteria))
+    odtworzone = zbuduj_kryteria(QueryParams(na_parametry(kryteria)))
     assert odtworzone == kryteria
+
+
+def test_wybor_wielokrotny_przezywa_obieg() -> None:
+    """„Diesel ALBO benzyna" ma przetrwać link „dalej" i zmianę sortowania.
+
+    To jest miejsce, w którym słownik parametrów zawodzi po cichu: zostawia
+    ostatnią wartość klucza i lista wygląda na poprawną, tylko węższą.
+    """
+    zrodlowe = QueryParams(
+        [
+            ("paliwo", "Diesel"),
+            ("paliwo", "Benzyna"),
+            ("marka", "Audi"),
+            ("marka", "BMW"),
+            ("rodzaj", "OSOBOWY"),
+            ("rodzaj", "MOTOCYKL"),
+        ]
+    )
+    kryteria = zbuduj_kryteria(zrodlowe)
+    assert kryteria.paliwa == ("Diesel", "Benzyna")
+    assert kryteria.marki == ("Audi", "BMW")
+    assert kryteria.rodzaje == (RodzajPojazdu.OSOBOWY, RodzajPojazdu.MOTOCYKL)
+
+    odtworzone = zbuduj_kryteria(QueryParams(na_parametry(kryteria)))
+    assert odtworzone == kryteria
+
+
+def test_powtorzona_ta_sama_wartosc_nie_podwaja_filtru() -> None:
+    kryteria = zbuduj_kryteria(
+        QueryParams([("paliwo", "Diesel"), ("paliwo", "Diesel")])
+    )
+    assert kryteria.paliwa == ("Diesel",)
+
+
+def test_wszystkie_rodzaje_wygrywaja_z_pojedynczym_zaznaczeniem() -> None:
+    """Zaznaczenie „wszystkie" razem z „osobowe" nie ma znaczyć „osobowe"."""
+    kryteria = zbuduj_kryteria(
+        QueryParams([("rodzaj", "OSOBOWY"), ("rodzaj", "wszystkie")])
+    )
+    assert kryteria.rodzaje == ()
+
+
+def test_zakres_mocy_jest_czytany_z_adresu() -> None:
+    kryteria = zbuduj_kryteria(QueryParams([("moc_od", "150"), ("moc_do", "250")]))
+    assert (kryteria.moc_od, kryteria.moc_do) == (150, 250)
 
 
 def test_kursor_przezywa_obieg() -> None:

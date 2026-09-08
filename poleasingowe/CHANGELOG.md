@@ -1,5 +1,29 @@
 # Historia zmian
 
+## 0.12.0 — w przygotowaniu
+
+**Filtry wielokrotnego wyboru.** Marka, źródło, paliwo, skrzynia, lokalizacja
+i rodzaj pojazdu przyjmują teraz kilka wartości naraz — „diesel albo benzyna"
+to jedno pytanie, a nie dwa przeglądania listy. Wewnątrz wymiaru wartości
+łączy OR, wymiary między sobą AND. Kontrolka to rozwijana lista checkboxów
+na czystym HTML-u, bez ani jednej linii JavaScriptu.
+
+**Suwaki rocznika i mocy silnika.** Zakres ustawia się przeciąganiem, a nie
+wpisywaniem dwóch liczb. Granice suwaka biorą się z danych, nie z teorii:
+suwak rocznika od 1900 do 2100 miałby cały ruch na trzech procentach
+długości. Skrajne wartości odcina percentyl 1/99, żeby jedna aukcja z błędną
+mocą nie spłaszczyła całej skali. Filtr mocy silnika istnieje w ogóle
+pierwszy raz.
+
+Bez JavaScriptu suwaki degradują się do dwóch zwykłych pól liczbowych i filtr
+nadal działa.
+
+**Cena docelowa znaczy to, co powinna.** Na aukcji cena tylko rośnie, więc
+próg jest **limitem**, a nie ceną, do której coś ma spaść — wcześniejszy opis
+w interfejsie mówił nieprawdę. Aukcja, która przebiła limit, jest teraz
+oznaczona na czerwono i podpisana kwotą limitu; mieszcząca się w nim zostaje
+zielona.
+
 ## 0.11.1 — w przygotowaniu
 
 **Naprawiony formularz obserwacji.** Pola nie miały żadnych reguł układu, więc

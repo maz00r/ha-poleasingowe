@@ -8,6 +8,8 @@ warszawskim.
 from __future__ import annotations
 
 import datetime as dt
+from collections.abc import Mapping, Sequence
+from urllib.parse import urlencode
 from zoneinfo import ZoneInfo
 
 from app.domain.value_objects import Money
@@ -49,6 +51,25 @@ def kwota_w_polu(wartosc: Money | None) -> str:
     if wartosc is None:
         return ""
     return f"{wartosc.amount.normalize():f}"
+
+
+def parametry_url(wartosc: object) -> str:
+    """Query string z filtrów — **z powtórzonymi kluczami**.
+
+    Wbudowany `urlencode` Jinjy dostaje słownik i bierze z niego jedną
+    wartość na klucz, a filtry wielokrotnego wyboru powtarzają klucz
+    (`marka=Audi&marka=BMW`). Przyjmujemy oba kształty, bo zapisane filtry
+    leżą w bazie jako obiekt JSON, a bieżące kryteria przychodzą jako lista
+    par — i jedne, i drugie muszą dać ten sam adres.
+    """
+    pary: list[tuple[str, str]] = []
+    if isinstance(wartosc, Mapping):
+        for klucz, surowa in wartosc.items():
+            wartosci = surowa if isinstance(surowa, list | tuple) else [surowa]
+            pary.extend((str(klucz), str(w)) for w in wartosci if w is not None)
+    elif isinstance(wartosc, Sequence) and not isinstance(wartosc, str):
+        pary.extend((str(k), str(w)) for k, w in wartosc)  # type: ignore[misc]
+    return urlencode(pary)
 
 
 def liczba(wartosc: int | None) -> str:
@@ -112,6 +133,7 @@ def zarejestruj(srodowisko: object) -> None:
     filtry["czas_lokalny"] = czas_lokalny
     filtry["kwota"] = kwota
     filtry["kwota_w_polu"] = kwota_w_polu
+    filtry["parametry_url"] = parametry_url
     filtry["liczba"] = liczba
     filtry["bajty"] = bajty
     filtry["do_konca"] = do_konca

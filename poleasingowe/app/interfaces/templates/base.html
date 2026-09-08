@@ -17,6 +17,9 @@
   <link rel="stylesheet" href="{{ sciezka(request, 'static', path='/styl.css') }}?v={{ wersja }}">
   {# HTMX z lokalnego pliku (SPEC.md §12). Zadnych CDN-ow. #}
   <script src="{{ sciezka(request, 'static', path='/htmx.min.js') }}?v={{ wersja }}" defer></script>
+  {# Suwaki zakresu. `defer`, bo skrypt dorabia tor do pol, ktore musza juz
+     istniec — a bez niego filtr nadal dziala jako dwa pola liczbowe. #}
+  <script src="{{ sciezka(request, 'static', path='/suwaki.js') }}?v={{ wersja }}" defer></script>
 </head>
 <body>
   <header class="pasek">

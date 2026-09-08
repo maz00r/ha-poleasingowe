@@ -556,10 +556,14 @@ button:hover { filter: brightness(1.1); }
 }
 .link-oferta:hover { text-decoration: underline; }
 
-/* Stany, które mają być widoczne bez czytania: poniżej progu ceny
-   docelowej (SPEC.md §12) i po terminie. */
+/* Stany, które mają być widoczne bez czytania: w limicie ceny, ponad
+   limitem i po terminie (SPEC.md §12). Na aukcji cena tylko rośnie, więc
+   przejście z zieleni w czerwień jest jednokierunkowe i dlatego czytelne. */
 .oferta.ponizej-progu { border-color: var(--sukces); }
 .oferta.ponizej-progu .kwota { color: var(--sukces); }
+.oferta.ponad-limitem { border-color: var(--alarm); }
+.oferta.ponad-limitem .kwota { color: var(--alarm); }
+.ponad-limitem-info { color: var(--alarm); font-weight: 600; }
 .oferta.po-terminie { opacity: 0.72; }
 .oferta.po-terminie:hover { opacity: 1; }
 
@@ -638,6 +642,148 @@ button:hover { filter: brightness(1.1); }
   color: var(--przygaszony);
 }
 .siatka strong { overflow-wrap: anywhere; font-weight: 600; }
+
+/* --------------------------------------------------------------------------
+   Wybór wielokrotny i suwaki zakresu
+   -------------------------------------------------------------------------- */
+
+.etykieta-pola {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--przygaszony);
+}
+
+/* Rozwijana lista checkboxów na czystym `<details>` — bez JS i bez
+   biblioteki. Zamknięta zajmuje tyle co zwykłe pole wyboru, więc pasek
+   filtrów nie puchnie od kilkudziesięciu marek. */
+.wybor-wielu {
+  position: relative;
+  min-width: 150px;
+}
+.wybor-wielu > summary {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  border: 1px solid var(--obramowanie-mocna);
+  border-radius: var(--promien-maly);
+  background: var(--karta);
+  cursor: pointer;
+  list-style: none;
+  white-space: nowrap;
+}
+.wybor-wielu > summary::-webkit-details-marker { display: none; }
+.wybor-wielu > summary::after {
+  content: "▾";
+  margin-left: auto;
+  color: var(--przygaszony);
+  font-size: 11px;
+}
+.wybor-wielu[open] > summary { border-color: var(--akcent); }
+.wybor-wielu .licznik {
+  min-width: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--akcent);
+  color: var(--akcent-tekst);
+  font-size: 10px;
+  font-weight: 700;
+  text-align: center;
+}
+.wybor-wielu .opcje {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + 4px);
+  left: 0;
+  min-width: 100%;
+  max-height: 260px;
+  overflow-y: auto;
+  padding: 6px;
+  background: var(--karta);
+  border: 1px solid var(--obramowanie-mocna);
+  border-radius: var(--promien-maly);
+  box-shadow: var(--cien-uniesiona);
+}
+.wybor-wielu .opcje label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  font-size: 13px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.wybor-wielu .opcje label:hover { background: var(--karta-2); }
+
+/* Suwak zakresu. Dwa `input[type=range]` leżą NA SOBIE — inaczej nie da się
+   zrobić dwóch uchwytów na jednym torze bez biblioteki. Tor przepuszcza
+   kliknięcia (`pointer-events: none`), a łapią je same uchwyty. */
+.suwak { min-width: 210px; }
+.suwak-wartosc {
+  font-size: 13px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.suwak-tor {
+  position: relative;
+  height: 22px;
+  margin: 2px 0 4px;
+}
+.suwak-tor::before {
+  content: "";
+  position: absolute;
+  inset: 9px 0 auto;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--obramowanie-mocna);
+}
+.suwak-zakres {
+  position: absolute;
+  top: 9px;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--akcent);
+}
+.suwak-uchwyt {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 22px;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: none;
+  appearance: none;
+  pointer-events: none;
+}
+.suwak-uchwyt::-webkit-slider-thumb {
+  appearance: none;
+  pointer-events: auto;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--karta);
+  border: 2px solid var(--akcent);
+  box-shadow: var(--cien);
+  cursor: grab;
+}
+.suwak-uchwyt::-moz-range-thumb {
+  pointer-events: auto;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--karta);
+  border: 2px solid var(--akcent);
+  cursor: grab;
+}
+.suwak-pola { display: flex; gap: 8px; }
+.suwak-pola input { width: 100%; min-width: 0; padding: 5px 8px; font-size: 12px; }
+/* Póki skrypt nie wstanie, pola liczbowe SĄ filtrem — a nie ozdobą pod
+   torem, którego nie ma. Chowamy je dopiero, gdy suwak faktycznie działa. */
+.suwak-gotowy .suwak-pola input { font-size: 11px; }
 
 /* Formularz obserwacji. Bez tych regul jego pola byly zwyklymi blokami
    sklejonymi bez odstepu: obwodka fokusu pola „cena docelowa" (2 px z

@@ -28,6 +28,7 @@ from app.application.read_models import (
     StanZrodla,
     Strona,
     Szczegoly,
+    Zakres,
 )
 from app.domain.enums import (
     AuctionStatus,
@@ -159,6 +160,29 @@ SELECT pole, wartosc FROM (
 ORDER BY pole, wartosc COLLATE "pl-PL-x-icu"
 """)
 
+# Granice suwakow — liczone z DANYCH, nie zgadniete. Suwak rocznika od 1900
+# do 2100 mialby caly ruch na trzech procentach dlugosci.
+#
+# Skrajne wartosci odcinamy percentylem 1/99: jedna aukcja z bledna moca
+# 9999 KM rozciagnelaby suwak tak, ze reszta zbioru zmiescilaby sie w kilku
+# pikselach. `min`/`max` zostaja jako granice bezwzgledne, zeby nie dalo sie
+# odfiltrowac pojazdu, ktorego suwak nie umie pokazac.
+SQL_ZAKRESY_FILTROW = sql.SQL("""
+SELECT
+    min(year)::int AS rocznik_min,
+    max(year)::int AS rocznik_max,
+    least(
+        percentile_disc(0.01) WITHIN GROUP (ORDER BY engine_hp),
+        min(engine_hp)
+    )::int AS moc_min,
+    greatest(
+        percentile_disc(0.99) WITHIN GROUP (ORDER BY engine_hp),
+        min(engine_hp)
+    )::int AS moc_max
+FROM app.auction
+WHERE duplicate_of IS NULL
+""")
+
 SQL_DIAGNOSTYKA = sql.SQL("""
 SELECT source_key, source_name, enabled, auth_state,
        consecutive_auth_failures, rate_limit_per_minute, floor_seconds,
@@ -250,27 +274,27 @@ def _warunki(kryteria: Kryteria) -> tuple[list[sql.Composable], dict[str, Any]]:
             )
         )
         parametry["szukaj"] = f"%{kryteria.szukaj}%"
-    if kryteria.marka:
-        warunki.append(sql.SQL("a.make = %(marka)s"))
-        parametry["marka"] = kryteria.marka
     if kryteria.model:
         warunki.append(sql.SQL("a.model = %(model)s"))
         parametry["model"] = kryteria.model
-    if kryteria.zrodlo:
-        warunki.append(sql.SQL("s.key = %(zrodlo)s"))
-        parametry["zrodlo"] = kryteria.zrodlo
-    if kryteria.rodzaj is not None:
-        warunki.append(sql.SQL("a.vehicle_kind = %(rodzaj)s"))
-        parametry["rodzaj"] = kryteria.rodzaj.value
-    if kryteria.paliwo:
-        warunki.append(sql.SQL("a.fuel = %(paliwo)s"))
-        parametry["paliwo"] = kryteria.paliwo
-    if kryteria.skrzynia:
-        warunki.append(sql.SQL("a.gearbox = %(skrzynia)s"))
-        parametry["skrzynia"] = kryteria.skrzynia
-    if kryteria.lokalizacja:
-        warunki.append(sql.SQL("a.location = %(lokalizacja)s"))
-        parametry["lokalizacja"] = kryteria.lokalizacja
+
+    # Wybór wielokrotny: `= ANY(tablica)` zamiast `IN (...)` sklejanego
+    # z listy. Liczba wartości nie zmienia wtedy kształtu zapytania, więc
+    # baza cache'uje jeden plan zamiast osobnego na każdą liczbę zaznaczeń,
+    # a wartości nadal idą parametrem (SPEC.md §5 — zero sklejania SQL-a).
+    for pole, kolumna, wartosci in (
+        ("marki", "a.make", kryteria.marki),
+        ("zrodla", "s.key", kryteria.zrodla),
+        ("paliwa", "a.fuel", kryteria.paliwa),
+        ("skrzynie", "a.gearbox", kryteria.skrzynie),
+        ("lokalizacje", "a.location", kryteria.lokalizacje),
+        ("rodzaje", "a.vehicle_kind", tuple(r.value for r in kryteria.rodzaje)),
+    ):
+        if wartosci:
+            warunki.append(
+                sql.SQL("{} = ANY(%({})s)").format(sql.SQL(kolumna), sql.SQL(pole))
+            )
+            parametry[pole] = list(wartosci)
     if kryteria.cena_od is not None:
         warunki.append(sql.SQL("a.price_current >= %(cena_od)s"))
         parametry["cena_od"] = kryteria.cena_od
@@ -283,6 +307,12 @@ def _warunki(kryteria: Kryteria) -> tuple[list[sql.Composable], dict[str, Any]]:
     if kryteria.rocznik_do is not None:
         warunki.append(sql.SQL("a.year <= %(rocznik_do)s"))
         parametry["rocznik_do"] = kryteria.rocznik_do
+    if kryteria.moc_od is not None:
+        warunki.append(sql.SQL("a.engine_hp >= %(moc_od)s"))
+        parametry["moc_od"] = kryteria.moc_od
+    if kryteria.moc_do is not None:
+        warunki.append(sql.SQL("a.engine_hp <= %(moc_do)s"))
+        parametry["moc_do"] = kryteria.moc_do
     if kryteria.przebieg_do is not None:
         warunki.append(sql.SQL("a.mileage_km <= %(przebieg_do)s"))
         parametry["przebieg_do"] = kryteria.przebieg_do
@@ -441,6 +471,18 @@ class PgZapytania:
         for pole, wartosc in wiersze:
             wynik.setdefault(pole, []).append(wartosc)
         return {k: tuple(v) for k, v in wynik.items()}
+
+    async def zakresy_filtrow(self) -> dict[str, Zakres]:
+        """Granice suwaków rocznika i mocy (SPEC.md §12)."""
+        async with self._conn.cursor(row_factory=dict_row) as cur:
+            await cur.execute(SQL_ZAKRESY_FILTROW)
+            wiersz = await cur.fetchone()
+        if wiersz is None:
+            return {"rocznik": Zakres(), "moc": Zakres()}
+        return {
+            "rocznik": Zakres(wiersz["rocznik_min"], wiersz["rocznik_max"]),
+            "moc": Zakres(wiersz["moc_min"], wiersz["moc_max"]),
+        }
 
     async def diagnostyka(self) -> tuple[StanZrodla, ...]:
         async with self._conn.cursor(row_factory=dict_row) as cur:

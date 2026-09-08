@@ -16,6 +16,7 @@ import decimal
 import logging
 import pathlib
 import posixpath
+from dataclasses import dataclass
 from typing import Any
 from urllib.parse import urlencode
 
@@ -32,6 +33,7 @@ from app.application.read_models import (
     Kryteria,
     Sortowanie,
     Strona,
+    Zakres,
 )
 from app.domain.entities import SavedFilter, WatchlistEntry
 from app.domain.enums import Currency, PollTier
@@ -44,6 +46,7 @@ from app.infrastructure.supervisor.proces import rss_bajty
 from app.infrastructure.wycena_ai import BladWyceny
 from app.interfaces.web import filtry_szablonu
 from app.interfaces.web.formularze import (
+    PARAMETR_ZE_STATUSU,
     kursor_z_parametrow,
     na_parametry,
     zbuduj_kryteria,
@@ -180,13 +183,15 @@ def _zapamietaj_wizyte(odpowiedz: Response, teraz: dt.datetime) -> None:
 
 ZAAWANSOWANE = (
     "model",
-    "paliwo",
-    "skrzynia",
-    "lokalizacja",
+    "paliwa",
+    "skrzynie",
+    "lokalizacje",
     "cena_od",
     "cena_do",
     "rocznik_od",
     "rocznik_do",
+    "moc_od",
+    "moc_do",
     "przebieg_do",
     "konczy_sie_w_h",
     "tylko_obserwowane",
@@ -203,15 +208,25 @@ def _czy_rozwinac_filtry(kryteria: Kryteria) -> bool:
     return any(getattr(kryteria, pole) for pole in ZAAWANSOWANE)
 
 
-async def _pobierz_liste(
-    request: Request, kryteria: Kryteria
-) -> tuple[Strona, dict[str, tuple[str, ...]], list[SavedFilter], bool]:
+@dataclass(slots=True, frozen=True)
+class _DaneListy:
+    """Wszystko, czego potrzebuje widok listy, z jednego przejścia po bazie."""
+
+    strona: Strona
+    wartosci: dict[str, tuple[str, ...]]
+    zakresy: dict[str, Zakres]
+    zapisane: list[SavedFilter]
+    cokolwiek: bool
+
+
+async def _pobierz_liste(request: Request, kryteria: Kryteria) -> _DaneListy:
     fabryka = _fabryka(request)
     async with fabryka() as kontekst:
         strona = await kontekst.zapytania.lista(
             kryteria, kursor_z_parametrow(request.query_params), LIMIT_STRONY
         )
         wartosci = await kontekst.zapytania.wartosci_filtrow()
+        zakresy = await kontekst.zapytania.zakresy_filtrow()
         # Pytamy tylko wtedy, gdy lista wyszła pusta — inaczej to zbędne
         # zapytanie przy każdym wejściu na stronę.
         cokolwiek = (
@@ -221,7 +236,27 @@ async def _pobierz_liste(
         )
         async with kontekst.uow as uow:
             zapisane = list(await uow.saved_filter.wszystkie())
-    return strona, wartosci, zapisane, cokolwiek
+    return _DaneListy(strona, wartosci, zakresy, zapisane, cokolwiek)
+
+
+def _parametr_statusu(kryteria: Kryteria) -> str:
+    """Nazwa statusu dla listy rozwijanej. Osobno, bo szablon nie ma już
+    słownika parametrów — filtry idą listą par."""
+    return (
+        "wszystkie" if kryteria.status is None else PARAMETR_ZE_STATUSU[kryteria.status]
+    )
+
+
+def _kryteria_do_zapisu(kryteria: Kryteria) -> dict[str, list[str]]:
+    """Filtry w postaci nadającej się do `jsonb` — z zachowaniem powtórzeń.
+
+    `dict(pary)` gubiłby tu wszystko poza ostatnią wartością klucza, czyli
+    zapisany filtr „diesel albo benzyna" wracałby jako sama benzyna.
+    """
+    zgrupowane: dict[str, list[str]] = {}
+    for klucz, wartosc in na_parametry(kryteria):
+        zgrupowane.setdefault(klucz, []).append(wartosc)
+    return zgrupowane
 
 
 def _linki_sortowania(kryteria: Kryteria) -> dict[str, dict[str, str | bool]]:
@@ -235,13 +270,17 @@ def _linki_sortowania(kryteria: Kryteria) -> dict[str, dict[str, str | bool]]:
     wiadomo, po czym lista jest ułożona.
     """
     parametry = na_parametry(kryteria)
+    # Filtry wielokrotnego wyboru powtarzają klucz, więc pracujemy na liście
+    # par: podmiana sortowania to wyrzucenie starego `sort` i dopisanie
+    # nowego, a nie nadpisanie klucza w słowniku.
+    bez_sortu = [(k, w) for k, w in parametry if k != "sort"]
     wynik: dict[str, dict[str, str | bool]] = {}
     for kolumna, (rosnaco, malejaco) in SORTOWANIE_KOLUMN.items():
         aktywna = kryteria.sortowanie in (rosnaco, malejaco)
         nastepne = malejaco if kryteria.sortowanie is rosnaco else rosnaco
         wynik[kolumna] = {
             "sort": nastepne.value,
-            "parametry": urlencode({**parametry, "sort": nastepne.value}),
+            "parametry": urlencode([*bez_sortu, ("sort", nastepne.value)]),
             "strzalka": ("↑" if kryteria.sortowanie is rosnaco else "↓")
             if aktywna
             else "",
@@ -260,21 +299,23 @@ async def lista(request: Request) -> Response:
     kryteria = zbuduj_kryteria(
         request.query_params, ostatnia_wizyta=_ostatnia_wizyta(request)
     )
-    strona, wartosci, zapisane, cokolwiek = await _pobierz_liste(request, kryteria)
+    dane = await _pobierz_liste(request, kryteria)
 
     odpowiedz = SZABLONY.TemplateResponse(
         request=request,
         name="lista.html",
         context={
             **_kontekst_bazowy(request),
-            "strona": strona,
+            "strona": dane.strona,
             "kryteria": kryteria,
             "parametry": na_parametry(kryteria),
             "sortowanie_kolumn": _linki_sortowania(kryteria),
-            "wartosci": wartosci,
-            "zapisane": zapisane,
+            "wartosci": dane.wartosci,
+            "zakresy": dane.zakresy,
+            "zapisane": dane.zapisane,
             "rozwin_filtry": _czy_rozwinac_filtry(kryteria),
-            "pusta_baza": not cokolwiek,
+            "pusta_baza": not dane.cokolwiek,
+            "parametr_statusu": _parametr_statusu(kryteria),
         },
     )
     _zapamietaj_wizyte(odpowiedz, teraz)
@@ -295,13 +336,13 @@ async def lista_fragment(request: Request) -> Response:
     kryteria = zbuduj_kryteria(
         request.query_params, ostatnia_wizyta=_ostatnia_wizyta(request)
     )
-    strona, _, _, _ = await _pobierz_liste(request, kryteria)
+    dane = await _pobierz_liste(request, kryteria)
     return SZABLONY.TemplateResponse(
         request=request,
         name="fragmenty/karty.html",
         context={
             **_kontekst_bazowy(request),
-            "strona": strona,
+            "strona": dane.strona,
             "parametry": na_parametry(kryteria),
         },
     )
@@ -588,7 +629,7 @@ async def zapisz_filtr(request: Request, nazwa: str = Form()) -> Response:
             await uow.saved_filter.zapisz(
                 SavedFilter(
                     name=czysta,
-                    criteria=dict(na_parametry(kryteria)),
+                    criteria=_kryteria_do_zapisu(kryteria),
                     created_at=dt.datetime.now(dt.UTC),
                 )
             )

@@ -55,6 +55,30 @@ ETYKIETY_SORTOWANIA: dict[Sortowanie, str] = {
 }
 """Nazwy dla człowieka. `koniec-desc` w liście rozwijanej to nie interfejs."""
 
+
+@dataclass(slots=True, frozen=True)
+class Zakres:
+    """Granice suwaka, wyliczone z danych, a nie zgadnięte.
+
+    Suwak od 1900 do 2100 jest bezużyteczny: cały ruch dzieje się na trzech
+    procentach jego długości. Granice biorą się z tego, co faktycznie leży
+    w bazie — `None` znaczy, że kolumna jest pusta i suwaka nie ma czego
+    pokazywać.
+    """
+
+    minimum: int | None = None
+    maksimum: int | None = None
+
+    @property
+    def uzyteczny(self) -> bool:
+        """Czy jest co przesuwać. Jedna wartość to nie jest zakres."""
+        return (
+            self.minimum is not None
+            and self.maksimum is not None
+            and self.maksimum > self.minimum
+        )
+
+
 ETYKIETY_RODZAJU: dict[RodzajPojazdu, str] = {
     RodzajPojazdu.OSOBOWY: "osobowe",
     RodzajPojazdu.DOSTAWCZY: "dostawcze",
@@ -123,11 +147,21 @@ class Kryteria:
     """
 
     szukaj: str | None = None
-    marka: str | None = None
     model: str | None = None
-    zrodlo: str | None = None
-    rodzaj: RodzajPojazdu | None = RodzajPojazdu.OSOBOWY
-    """Rodzaj pojazdu; `None` znaczy „wszystkie rodzaje".
+
+    # --- filtry wielokrotnego wyboru --------------------------------------
+    # Krotka, nie pojedyncza wartość: „diesel ALBO benzyna" to jedno
+    # naturalne pytanie kupującego, a przy jednej wartości trzeba było
+    # przeglądać listę dwa razy i samemu scalać wynik. Pusta krotka znaczy
+    # „nie filtruj", a każdy element jest warunkiem OR wewnątrz wymiaru
+    # (wymiary między sobą łączy AND).
+    marki: tuple[str, ...] = ()
+    zrodla: tuple[str, ...] = ()
+    paliwa: tuple[str, ...] = ()
+    skrzynie: tuple[str, ...] = ()
+    lokalizacje: tuple[str, ...] = ()
+    rodzaje: tuple[RodzajPojazdu, ...] = (RodzajPojazdu.OSOBOWY,)
+    """Rodzaje pojazdu; pusta krotka znaczy „wszystkie rodzaje".
 
     **Domyślnie zawężone do osobowych** — to jedyny filtr z niepustą
     wartością domyślną i jest to decyzja świadoma: źródła sprzedają
@@ -135,13 +169,15 @@ class Kryteria:
     zawężenia pokazuje je wymieszane z samochodami. Wybór „wszystkie"
     stoi w pasku filtrów obok, jednym kliknięciem.
     """
-    paliwo: str | None = None
-    skrzynia: str | None = None
-    lokalizacja: str | None = None
+
     cena_od: int | None = None
     cena_do: int | None = None
     rocznik_od: int | None = None
     rocznik_do: int | None = None
+    moc_od: int | None = None
+    moc_do: int | None = None
+    """Moc silnika w KM. Zakres, bo o moc pyta się przedziałem („od 150
+    wzwyż", „nie więcej niż 200"), a nie konkretną liczbą."""
     przebieg_do: int | None = None
     konczy_sie_w_h: int | None = None
     status: AuctionStatus | None = AuctionStatus.ACTIVE
@@ -188,15 +224,43 @@ class PozycjaListy:
 
     @property
     def ponizej_progu(self) -> bool:
-        """SPEC.md §12 — wyróżnienie po przekroczeniu progu.
+        """Czy cena mieści się jeszcze w Twoim limicie (SPEC.md §12).
+
+        **Na aukcji cena tylko rośnie**, więc ten stan jest prawdziwy na
+        starcie i w pewnym momencie przestaje być — i to właśnie ta chwila
+        jest informacją. Patrz `ponad_limitem`.
 
         Bez ceny albo bez progu odpowiedź brzmi „nie wiadomo", a nie „tak".
         """
-        if self.cena_docelowa is None or self.price_current is None:
+        if not self._porownywalne():
             return False
-        if self.cena_docelowa.currency is not self.price_current.currency:
-            return False
+        assert self.price_current is not None and self.cena_docelowa is not None
         return self.price_current.amount <= self.cena_docelowa.amount
+
+    @property
+    def ponad_limitem(self) -> bool:
+        """Licytacja przebiła Twój limit — aukcja wypadła z budżetu.
+
+        To jest sygnał operacyjny, po który się tu przychodzi: przy
+        kilkudziesięciu obserwowanych nie da się pamiętać, ile za którą
+        chciało się dać, a licytacja przesuwa granicę bez ostrzeżenia.
+        """
+        if not self._porownywalne():
+            return False
+        assert self.price_current is not None and self.cena_docelowa is not None
+        return self.price_current.amount > self.cena_docelowa.amount
+
+    def _porownywalne(self) -> bool:
+        """Cena i próg istnieją i są w tej samej walucie.
+
+        Porównanie 50 000 PLN z 50 000 EUR dałoby odpowiedź wyglądającą na
+        sensowną, więc wolimy nie odpowiadać wcale.
+        """
+        return (
+            self.cena_docelowa is not None
+            and self.price_current is not None
+            and self.cena_docelowa.currency is self.price_current.currency
+        )
 
 
 @dataclass(slots=True, frozen=True)

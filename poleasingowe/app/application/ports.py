@@ -20,6 +20,7 @@ from app.application.read_models import (
     StanZrodla,
     Strona,
     Szczegoly,
+    Zakres,
 )
 from app.domain.entities import (
     Auction,
@@ -236,6 +237,14 @@ class Zapytania(Protocol):
 
         Brane z danych, nie ze słownika w kodzie: filtr pokazujący markę,
         której nie ma w bazie, to filtr, który zawsze zwraca pustkę.
+        """
+        ...
+
+    async def zakresy_filtrow(self) -> dict[str, Zakres]:
+        """Granice suwaków rocznika i mocy, wyliczone z danych (§12).
+
+        Ta sama zasada co przy `wartosci_filtrow`: suwak ma pokrywać to, co
+        w bazie faktycznie jest, a nie teoretyczny zakres roczników.
         """
         ...
 

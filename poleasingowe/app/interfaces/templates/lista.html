@@ -9,6 +9,63 @@
    Rzadko uzywane pola siedza w <details>. Czternascie pol rozwinietych na
    staly zajmowalo pol ekranu nad lista, ktora jest tu wlasciwa trescia. #}
 <form class="filtry" method="get" action="{{ sciezka(request, 'lista') }}">
+
+  {# Wybor wielokrotny bez ani jednej linii JS: <details> otwiera liste,
+     a w srodku stoja zwykle checkboxy o tej samej nazwie. Adres niesie
+     wtedy `paliwo=Diesel&paliwo=Benzyna`, czyli "diesel ALBO benzyna",
+     i nadal da sie go zapisac w zakladkach. #}
+  {% macro wybor_wielu(nazwa, etykieta, opcje, wybrane) %}
+  <div class="pole">
+    <span class="etykieta-pola">{{ etykieta }}</span>
+    <details class="wybor-wielu">
+      <summary>
+        {%- if wybrane -%}
+          {{ wybrane | join(', ') | truncate(28, true, '…') }}
+          <span class="licznik">{{ wybrane | length }}</span>
+        {%- else -%}
+          wszystkie
+        {%- endif -%}
+      </summary>
+      <div class="opcje">
+        {% for wartosc in opcje %}
+          <label>
+            <input type="checkbox" name="{{ nazwa }}" value="{{ wartosc }}"
+                   {% if wartosc in wybrane %}checked{% endif %}>
+            <span>{{ wartosc }}</span>
+          </label>
+        {% endfor %}
+      </div>
+    </details>
+  </div>
+  {% endmacro %}
+
+  {# Suwak zakresu. Bez JS to dwa zwykle pola liczbowe i wszystko dziala;
+     `suwaki.js` dorabia do nich tor z dwoma uchwytami. Granice biora sie
+     z DANYCH (`zakresy`), nie z teorii — suwak rocznika od 1900 do 2100
+     mialby caly ruch na trzech procentach dlugosci. #}
+  {% macro suwak(nazwa, etykieta, zakres, od, do, jednostka='') %}
+  {% if zakres.uzyteczny %}
+  <div class="pole suwak" data-suwak
+       data-min="{{ zakres.minimum }}" data-max="{{ zakres.maksimum }}"
+       data-jednostka="{{ jednostka }}">
+    <span class="etykieta-pola">{{ etykieta }}</span>
+    <div class="suwak-wartosc" data-suwak-podglad>
+      {{ od or zakres.minimum }}–{{ do or zakres.maksimum }}{{ jednostka }}
+    </div>
+    <div class="suwak-pola">
+      <input type="number" name="{{ nazwa }}_od" data-suwak-od
+             min="{{ zakres.minimum }}" max="{{ zakres.maksimum }}"
+             inputmode="numeric" placeholder="{{ zakres.minimum }}"
+             aria-label="{{ etykieta }} od" value="{{ od or '' }}">
+      <input type="number" name="{{ nazwa }}_do" data-suwak-do
+             min="{{ zakres.minimum }}" max="{{ zakres.maksimum }}"
+             inputmode="numeric" placeholder="{{ zakres.maksimum }}"
+             aria-label="{{ etykieta }} do" value="{{ do or '' }}">
+    </div>
+  </div>
+  {% endif %}
+  {% endmacro %}
+
   <div class="pasek-filtrow">
     <div class="pole rosnie">
       <label for="szukaj">Szukaj</label>
@@ -19,32 +76,33 @@
        naczepy i ciagniki siodlowe w tej samej kategorii co samochody, wiec to
        jest pierwsza rzecz, ktora sie tu ustawia. Domyslnie: osobowe. #}
     <div class="pole">
-      <label for="rodzaj">Rodzaj</label>
-      <select id="rodzaj" name="rodzaj">
-        <option value="wszystkie" {% if kryteria.rodzaj is none %}selected{% endif %}>wszystkie</option>
-        {% for wartosc, etykieta in etykiety_rodzaju.items() %}
-          <option value="{{ wartosc.value }}" {% if wartosc == kryteria.rodzaj %}selected{% endif %}>{{ etykieta }}</option>
-        {% endfor %}
-      </select>
+      <span class="etykieta-pola">Rodzaj</span>
+      <details class="wybor-wielu">
+        <summary>
+          {%- if kryteria.rodzaje -%}
+            {{ kryteria.rodzaje | map(attribute='value') | map('lower') | join(', ') | truncate(24, true, '…') }}
+          {%- else -%}
+            wszystkie
+          {%- endif -%}
+        </summary>
+        <div class="opcje">
+          <label>
+            <input type="checkbox" name="rodzaj" value="wszystkie"
+                   {% if not kryteria.rodzaje %}checked{% endif %}>
+            <span>wszystkie rodzaje</span>
+          </label>
+          {% for wartosc, etykieta in etykiety_rodzaju.items() %}
+            <label>
+              <input type="checkbox" name="rodzaj" value="{{ wartosc.value }}"
+                     {% if wartosc in kryteria.rodzaje %}checked{% endif %}>
+              <span>{{ etykieta }}</span>
+            </label>
+          {% endfor %}
+        </div>
+      </details>
     </div>
-    <div class="pole">
-      <label for="zrodlo">Źródło</label>
-      <select id="zrodlo" name="zrodlo">
-        <option value="">wszystkie</option>
-        {% for wartosc in wartosci.zrodlo %}
-          <option value="{{ wartosc }}" {% if wartosc == kryteria.zrodlo %}selected{% endif %}>{{ wartosc }}</option>
-        {% endfor %}
-      </select>
-    </div>
-    <div class="pole">
-      <label for="marka">Marka</label>
-      <select id="marka" name="marka">
-        <option value="">wszystkie</option>
-        {% for wartosc in wartosci.marka %}
-          <option value="{{ wartosc }}" {% if wartosc == kryteria.marka %}selected{% endif %}>{{ wartosc }}</option>
-        {% endfor %}
-      </select>
-    </div>
+    {{ wybor_wielu('zrodlo', 'Źródło', wartosci.zrodlo, kryteria.zrodla) }}
+    {{ wybor_wielu('marka', 'Marka', wartosci.marka, kryteria.marki) }}
     <div class="pole">
       <label for="sort">Sortowanie</label>
       <select id="sort" name="sort">
@@ -62,21 +120,12 @@
   <details class="wiecej-filtrow" {% if rozwin_filtry %}open{% endif %}>
     <summary>Więcej filtrów</summary>
     <div class="pasek-filtrow">
-      {% macro lista_wyboru(nazwa, etykieta, opcje, wybrana) %}
-      <div class="pole">
-        <label for="{{ nazwa }}">{{ etykieta }}</label>
-        <select id="{{ nazwa }}" name="{{ nazwa }}">
-          <option value="">wszystkie</option>
-          {% for wartosc in opcje %}
-            <option value="{{ wartosc }}" {% if wartosc == wybrana %}selected{% endif %}>{{ wartosc }}</option>
-          {% endfor %}
-        </select>
-      </div>
-      {% endmacro %}
+      {{ suwak('rocznik', 'Rocznik', zakresy.rocznik, kryteria.rocznik_od, kryteria.rocznik_do) }}
+      {{ suwak('moc', 'Moc silnika', zakresy.moc, kryteria.moc_od, kryteria.moc_do, ' KM') }}
 
-      {{ lista_wyboru('paliwo', 'Paliwo', wartosci.paliwo, kryteria.paliwo) }}
-      {{ lista_wyboru('skrzynia', 'Skrzynia', wartosci.skrzynia, kryteria.skrzynia) }}
-      {{ lista_wyboru('lokalizacja', 'Lokalizacja', wartosci.lokalizacja, kryteria.lokalizacja) }}
+      {{ wybor_wielu('paliwo', 'Paliwo', wartosci.paliwo, kryteria.paliwa) }}
+      {{ wybor_wielu('skrzynia', 'Skrzynia', wartosci.skrzynia, kryteria.skrzynie) }}
+      {{ wybor_wielu('lokalizacja', 'Lokalizacja', wartosci.lokalizacja, kryteria.lokalizacje) }}
 
       <div class="pole">
         <label for="model">Model</label>
@@ -91,14 +140,6 @@
         <input id="cena_do" name="cena_do" inputmode="numeric" value="{{ kryteria.cena_do or '' }}">
       </div>
       <div class="pole waskie">
-        <label for="rocznik_od">Rocznik od</label>
-        <input id="rocznik_od" name="rocznik_od" inputmode="numeric" value="{{ kryteria.rocznik_od or '' }}">
-      </div>
-      <div class="pole waskie">
-        <label for="rocznik_do">Rocznik do</label>
-        <input id="rocznik_do" name="rocznik_do" inputmode="numeric" value="{{ kryteria.rocznik_do or '' }}">
-      </div>
-      <div class="pole waskie">
         <label for="przebieg_do">Przebieg do</label>
         <input id="przebieg_do" name="przebieg_do" inputmode="numeric" value="{{ kryteria.przebieg_do or '' }}">
       </div>
@@ -109,11 +150,11 @@
       <div class="pole">
         <label for="status">Status</label>
         <select id="status" name="status">
-          <option value="aktywne" {% if parametry.status == 'aktywne' %}selected{% endif %}>aktywne</option>
-          <option value="zakonczone" {% if parametry.status == 'zakonczone' %}selected{% endif %}>zakończone</option>
-          <option value="domykane" {% if parametry.status == 'domykane' %}selected{% endif %}>domykane</option>
-          <option value="zniknely" {% if parametry.status == 'zniknely' %}selected{% endif %}>zniknęły</option>
-          <option value="wszystkie" {% if parametry.status == 'wszystkie' %}selected{% endif %}>wszystkie</option>
+          <option value="aktywne" {% if parametr_statusu == 'aktywne' %}selected{% endif %}>aktywne</option>
+          <option value="zakonczone" {% if parametr_statusu == 'zakonczone' %}selected{% endif %}>zakończone</option>
+          <option value="domykane" {% if parametr_statusu == 'domykane' %}selected{% endif %}>domykane</option>
+          <option value="zniknely" {% if parametr_statusu == 'zniknely' %}selected{% endif %}>zniknęły</option>
+          <option value="wszystkie" {% if parametr_statusu == 'wszystkie' %}selected{% endif %}>wszystkie</option>
         </select>
       </div>
       <div class="pole przelaczniki">
@@ -127,7 +168,7 @@
 </form>
 
 <section class="zapisane">
-  <form method="post" action="{{ sciezka(request, 'zapisz_filtr') }}?{{ parametry | urlencode }}">
+  <form method="post" action="{{ sciezka(request, 'zapisz_filtr') }}?{{ parametry | parametry_url }}">
     <input name="nazwa" placeholder="zapisz te filtry jako…" required>
     <button type="submit">Zapisz</button>
   </form>
@@ -135,7 +176,7 @@
     <ul class="chipsy">
       {% for filtr in zapisane %}
         <li>
-          <a href="{{ sciezka(request, 'lista') }}?{{ filtr.criteria | urlencode }}">{{ filtr.name }}</a>
+          <a href="{{ sciezka(request, 'lista') }}?{{ filtr.criteria | parametry_url }}">{{ filtr.name }}</a>
           <form method="post" action="{{ sciezka(request, 'usun_filtr', filter_id=filtr.id) }}">
             <button type="submit" title="Usuń filtr" aria-label="Usuń filtr {{ filtr.name }}">×</button>
           </form>

@@ -289,11 +289,11 @@ async def test_filtry_zawezaja_liste(pusta_baza: psycopg.AsyncConnection) -> Non
     zapytania = PgZapytania(pusta_baza)
     await _dane(pusta_baza)
 
-    assert await _wszystkie_klucze(zapytania, Kryteria(marka="Audi")) == [
+    assert await _wszystkie_klucze(zapytania, Kryteria(marki=("Audi",))) == [
         "audi-za-godzine",
         "audi-za-tydzien",
     ]
-    assert await _wszystkie_klucze(zapytania, Kryteria(zrodlo="poleasingowe")) == [
+    assert await _wszystkie_klucze(zapytania, Kryteria(zrodla=("poleasingowe",))) == [
         "vw-za-dwie-godziny",
         "bez-terminu-a",
         "bez-terminu-b",
@@ -301,7 +301,7 @@ async def test_filtry_zawezaja_liste(pusta_baza: psycopg.AsyncConnection) -> Non
     assert await _wszystkie_klucze(
         zapytania, Kryteria(cena_od=60_000, cena_do=100_000)
     ) == ["audi-za-tydzien", "bez-terminu-b"]
-    assert await _wszystkie_klucze(zapytania, Kryteria(paliwo="diesel")) == [
+    assert await _wszystkie_klucze(zapytania, Kryteria(paliwa=("diesel",))) == [
         "audi-za-godzine",
         "vw-za-dwie-godziny",
     ]
@@ -509,10 +509,94 @@ async def test_domyslny_filtr_pokazuje_tylko_osobowe(
     domyslne = await _wszystkie_klucze(zapytania, Kryteria())
     assert "naczepa-krone" not in domyslne
 
-    wszystkie = await _wszystkie_klucze(zapytania, Kryteria(rodzaj=None))
+    wszystkie = await _wszystkie_klucze(zapytania, Kryteria(rodzaje=()))
     assert "naczepa-krone" in wszystkie
 
     tylko_przyczepy = await _wszystkie_klucze(
-        zapytania, Kryteria(rodzaj=RodzajPojazdu.PRZYCZEPA)
+        zapytania, Kryteria(rodzaje=(RodzajPojazdu.PRZYCZEPA,))
     )
     assert tylko_przyczepy == ["naczepa-krone"]
+
+
+async def test_wybor_wielokrotny_laczy_wartosci_alternatywa(
+    pusta_baza: psycopg.AsyncConnection,
+) -> None:
+    """„Diesel ALBO benzyna" w jednym przejściu, a nie dwa przeglądania listy.
+
+    Wewnątrz wymiaru wartości łączy OR, a wymiary między sobą AND — czyli
+    „(diesel lub benzyna) ORAZ (Audi lub Volkswagen)".
+    """
+    zapytania = PgZapytania(pusta_baza)
+    await _dane(pusta_baza)
+
+    assert await _wszystkie_klucze(
+        zapytania, Kryteria(paliwa=("diesel", "benzyna"))
+    ) == ["audi-za-godzine", "vw-za-dwie-godziny", "audi-za-tydzien"]
+
+    assert await _wszystkie_klucze(
+        zapytania, Kryteria(marki=("Audi", "Volkswagen"), paliwa=("diesel",))
+    ) == ["audi-za-godzine", "vw-za-dwie-godziny"]
+
+    # Pusta krotka to brak filtru, a nie „żadna wartość nie pasuje".
+    assert len(await _wszystkie_klucze(zapytania, Kryteria(paliwa=()))) == 6
+
+
+async def test_zakres_mocy_silnika_zawezaja_liste(
+    pusta_baza: psycopg.AsyncConnection,
+) -> None:
+    zapytania = PgZapytania(pusta_baza)
+    identyfikatory = await _dane(pusta_baza)
+    async with pusta_baza.cursor() as cur:
+        await cur.execute(
+            "UPDATE app.auction SET engine_hp = CASE external_id"
+            " WHEN 'audi-za-godzine' THEN 190 WHEN 'audi-za-tydzien' THEN 150"
+            " WHEN 'vw-za-dwie-godziny' THEN 120 END"
+            " WHERE id = ANY(%s)",
+            (
+                [
+                    identyfikatory[k]
+                    for k in (
+                        "audi-za-godzine",
+                        "audi-za-tydzien",
+                        "vw-za-dwie-godziny",
+                    )
+                ],
+            ),
+        )
+
+    assert await _wszystkie_klucze(zapytania, Kryteria(moc_od=150)) == [
+        "audi-za-godzine",
+        "audi-za-tydzien",
+    ]
+    assert await _wszystkie_klucze(zapytania, Kryteria(moc_od=130, moc_do=180)) == [
+        "audi-za-tydzien"
+    ]
+
+
+async def test_zakresy_suwakow_biora_sie_z_danych(
+    pusta_baza: psycopg.AsyncConnection,
+) -> None:
+    """Granice suwaka mają pokrywać to, co w bazie jest — nie teorię.
+
+    Suwak rocznika od 1900 do 2100 miałby cały ruch na trzech procentach
+    długości i byłby nie do użycia.
+    """
+    zapytania = PgZapytania(pusta_baza)
+    await _dane(pusta_baza)
+    async with pusta_baza.cursor() as cur:
+        await cur.execute(
+            "UPDATE app.auction SET engine_hp = 150 WHERE engine_hp IS NULL"
+        )
+
+    zakresy = await zapytania.zakresy_filtrow()
+    assert (zakresy["rocznik"].minimum, zakresy["rocznik"].maksimum) == (2018, 2021)
+    assert zakresy["moc"].minimum == 150
+    assert zakresy["moc"].uzyteczny is False, "jedna wartość to nie jest zakres"
+
+
+async def test_pusta_baza_nie_wywraca_zakresow(
+    pusta_baza: psycopg.AsyncConnection,
+) -> None:
+    zakresy = await PgZapytania(pusta_baza).zakresy_filtrow()
+    assert zakresy["rocznik"].uzyteczny is False
+    assert zakresy["moc"].uzyteczny is False

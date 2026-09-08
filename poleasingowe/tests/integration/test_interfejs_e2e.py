@@ -153,7 +153,7 @@ async def test_obserwowanie_zapisuje_notatke_i_prog(
     assert "sprawdzić opony" in odp.text
     assert "Przestań obserwować" in odp.text
     # 90 000 zł jest poniżej progu 95 000,50 zł — wyróżnienie ma się zapalić.
-    assert "poniżej progu" in odp.text
+    assert "mieści się w limicie" in odp.text
 
     async with FabrykaNaPolaczeniu(pusta_baza)() as kontekst:
         wpis = await kontekst.uow.watchlist.wpis(identyfikator)
