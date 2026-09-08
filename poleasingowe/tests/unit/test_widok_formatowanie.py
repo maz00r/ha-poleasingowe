@@ -17,6 +17,7 @@ from app.interfaces.web.filtry_szablonu import (
     czas_lokalny,
     do_konca,
     kwota,
+    kwota_w_polu,
     liczba,
 )
 
@@ -108,3 +109,14 @@ def test_progu_nie_porownujemy_miedzy_walutami() -> None:
         price_current=Money(Decimal("40000"), Currency.PLN),
         cena_docelowa=Money(Decimal("45000"), Currency.EUR),
     ).ponizej_progu
+
+
+def test_kwota_w_polu_nie_dokleja_zer_ani_waluty() -> None:
+    """Pole formularza to nie to samo co kwota do czytania.
+
+    `60000.00` w polu edycji wygląda jak literówka, a `Decimal.normalize()`
+    samo z siebie daje `6E+4`. Grosze, jeśli są, muszą przeżyć.
+    """
+    assert kwota_w_polu(Money(Decimal("60000.00"), Currency.PLN)) == ("60000")
+    assert kwota_w_polu(Money(Decimal("60000.50"), Currency.PLN)) == ("60000.5")
+    assert kwota_w_polu(None) == ""

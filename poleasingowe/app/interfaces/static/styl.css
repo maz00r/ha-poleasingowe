@@ -639,6 +639,28 @@ button:hover { filter: brightness(1.1); }
 }
 .siatka strong { overflow-wrap: anywhere; font-weight: 600; }
 
+/* Formularz obserwacji. Bez tych regul jego pola byly zwyklymi blokami
+   sklejonymi bez odstepu: obwodka fokusu pola „cena docelowa" (2 px z
+   offsetem) wchodzila na przycisk pod spodem, a pole na kwote rozciagalo
+   sie na cala szerokosc karty. */
+.formularz-obserwacji {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  align-items: flex-start;
+}
+.formularz-obserwacji .pole.szerokie { flex: 1 1 300px; }
+.formularz-obserwacji .pole.cena-docelowa { flex: 0 1 220px; }
+/* Przyciski rownaja sie do pol, a nie do ich etykiet — stad odsuniecie
+   o wysokosc etykiety. */
+.formularz-obserwacji .przyciski { flex: 0 0 auto; padding-top: 22px; }
+
+.podpowiedz {
+  font-size: 11px;
+  line-height: 1.35;
+  color: var(--przygaszony);
+}
+
 .linki { margin-top: 18px; font-size: 13px; }
 .linki a { font-weight: 600; text-decoration: none; }
 .linki a:hover { text-decoration: underline; }

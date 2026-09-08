@@ -38,6 +38,19 @@ def kwota(wartosc: Money | None) -> str:
     return f"{calosc}{NBSP}{wartosc.currency.value}"
 
 
+def kwota_w_polu(wartosc: Money | None) -> str:
+    """Kwota do pola formularza: bez waluty, bez zbędnych zer.
+
+    `kwota` formatuje do czytania (`60 000,00 PLN`); do edycji trzeba czegoś,
+    co po zapisaniu bez zmian wróci tą samą wartością. `60000.00` w polu
+    wygląda jak literówka, a `Decimal.normalize()` samo w sobie daje
+    `6E+4` — stąd jawne formatowanie.
+    """
+    if wartosc is None:
+        return ""
+    return f"{wartosc.amount.normalize():f}"
+
+
 def liczba(wartosc: int | None) -> str:
     if wartosc is None:
         return NIEZNANE
@@ -98,6 +111,7 @@ def zarejestruj(srodowisko: object) -> None:
     filtry = getattr(srodowisko, "filters")  # noqa: B009 — Jinja2 API
     filtry["czas_lokalny"] = czas_lokalny
     filtry["kwota"] = kwota
+    filtry["kwota_w_polu"] = kwota_w_polu
     filtry["liczba"] = liczba
     filtry["bajty"] = bajty
     filtry["do_konca"] = do_konca

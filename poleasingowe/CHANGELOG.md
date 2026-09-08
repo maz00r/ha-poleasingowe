@@ -1,5 +1,16 @@
 # Historia zmian
 
+## 0.11.1 — w przygotowaniu
+
+**Naprawiony formularz obserwacji.** Pola nie miały żadnych reguł układu, więc
+stały sklejone bez odstępu: obwódka zaznaczonego pola „cena docelowa" wchodziła
+na przycisk pod spodem, a pole na kwotę rozciągało się na całą szerokość karty.
+Notatka i cena stoją teraz obok siebie, kwota ma sensowną szerokość, a zapisana
+wartość wyświetla się jako `60000`, nie `60000.00`.
+
+**Widać, po co jest cena docelowa.** Pod polem stoi zdanie: gdy cena zejdzie do
+tej kwoty, aukcja podświetli się na liście.
+
 ## 0.11.0 — w przygotowaniu
 
 **Wycena odnosi się do cen na portalach ogłoszeniowych.** Model podaje teraz

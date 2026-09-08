@@ -11,7 +11,8 @@
   </p>
 {% endif %}
 
-<form hx-post="{{ sciezka(request, 'obserwuj', auction_id=p.id) }}"
+<form class="formularz-obserwacji"
+      hx-post="{{ sciezka(request, 'obserwuj', auction_id=p.id) }}"
       hx-target="#obserwacja"
       hx-swap="innerHTML">
   <div class="pole szerokie">
@@ -19,10 +20,17 @@
     <input id="notatka" name="notatka" value="{{ p.notatka or '' }}"
            placeholder="np. sprawdzić lakier na lewym błotniku">
   </div>
-  <div class="pole waskie">
+  <div class="pole cena-docelowa">
     <label for="cena_docelowa">Cena docelowa</label>
     <input id="cena_docelowa" name="cena_docelowa" inputmode="decimal"
-           value="{{ p.cena_docelowa.amount if p.cena_docelowa else '' }}">
+           placeholder="np. 60 000"
+           aria-describedby="cena-docelowa-opis"
+           value="{{ p.cena_docelowa | kwota_w_polu }}">
+    {# Do czego to sluzy, ma byc widoczne PRZY POLU, a nie tylko w dokumentacji
+       — inaczej zostaje pustym polem, ktore nikt nie wie po co wypelnia. #}
+    <small id="cena-docelowa-opis" class="podpowiedz">
+      Gdy cena zejdzie do tej kwoty, aukcja podświetli się na liście.
+    </small>
   </div>
   <div class="przyciski">
     <button type="submit">{{ 'Zapisz' if p.obserwowana else 'Obserwuj' }}</button>
