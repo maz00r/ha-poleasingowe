@@ -148,6 +148,16 @@ class PoleasingoweSource:
         )
         return replace(surowa, content_hash=biezacy)
 
+    async def zdjecia(self, external_id: str) -> Sequence[str]:
+        """Adresy zdjęć pojazdu (SPEC.md §12).
+
+        Wywoływane **na żądanie**, gdy ktoś otworzy kartę aukcji — nie przy
+        zbieraniu. Adresy nie trafiają do bazy: to jedno żądanie na obejrzaną
+        aukcję zamiast kolumny utrzymywanej dla wszystkich.
+        """
+        sciezka = f"/pl/auctions/details/x/{external_id}"
+        return parser.zdjecia((await self._pobierz(sciezka)).decode("utf-8", "replace"))
+
     def na_aukcje(
         self, surowa: SurowaOferta, source_id: int, teraz: dt.datetime
     ) -> Auction:

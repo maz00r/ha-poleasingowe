@@ -135,9 +135,15 @@ końcowa mogła być wyższa.
 
 ### Szczegóły i watchlist
 
-Karta aukcji pokazuje wszystkie pola, link do oferty w serwisie i linki do
-Grafany (jeśli ustawiłeś `grafana_base_url`). Wykresu tu nie ma świadomie —
-historia cen jest w Grafanie.
+Karta aukcji pokazuje wszystkie pola, zdjęcia pojazdu, link do oferty
+w serwisie i linki do Grafany (jeśli ustawiłeś `grafana_base_url`). Wykresu
+tu nie ma świadomie — historia cen jest w Grafanie.
+
+**Zdjęcia nie są trzymane w bazie.** Dodatek pobiera je dopiero, gdy otworzysz
+kartę aukcji, i podaje **przez siebie**, a nie odsyłaczem wprost do serwisu.
+Raz pobrane leżą w cache'u na dysku (`/data/cache/zdjecia`), który ma twardy
+limit 100 MB i kasuje najstarsze pliki. Pierwsze otwarcie karty jest przez to
+wolniejsze o czas pobrania zdjęć; kolejne są natychmiastowe.
 
 Watchlist: notatka i cena docelowa. Gdy bieżąca cena zejdzie do progu lub
 niżej, wiersz na liście podświetla się na zielono. Próg porównuje się tylko

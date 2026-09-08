@@ -191,3 +191,19 @@ def sparsuj_szczegoly(html: str, external_id: str, url: str) -> SurowaOferta:
 
     # `winner` NIE trafia do `pola` — patrz docstring modułu.
     return SurowaOferta(external_id=external_id, url=url, pola=pola)
+
+
+# Galeria: `https://poleasingowe.pl/images/sgallery_<uuid>_127.png`.
+# `sgallery_` odróżnia zdjęcia pojazdu od logotypów i ikon serwisu.
+_ZDJECIA = re.compile(
+    r'https://[^"\']+/images/sgallery_[^"\']+\.(?:jpe?g|png|webp)', re.I
+)
+
+
+def zdjecia(html: str) -> list[str]:
+    """Adresy zdjęć pojazdu ze strony szczegółów.
+
+    Nie zapisujemy ich w bazie — pobieramy w razie potrzeby, gdy ktoś otworzy
+    kartę aukcji (SPEC.md §12: proxy z cache na dysku, nigdy hotlink).
+    """
+    return list(dict.fromkeys(_ZDJECIA.findall(html)))

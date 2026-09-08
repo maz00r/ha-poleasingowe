@@ -143,3 +143,34 @@ def test_wszystkie_adresy_w_stronie_maja_prefiks_ingressu() -> None:
     for adres in ('href="/static', 'src="/static', 'href="/diagnostyka'):
         assert adres not in odp.text, f"{adres} pomija prefiks Ingressu"
     assert f"{prefiks}/static/styl.css" in odp.text
+
+
+def test_adresy_sa_wzgledne_wobec_origin_a_nie_bezwzgledne() -> None:
+    """Najdroższy błąd tego interfejsu — cały panel wyglądał na zepsuty.
+
+    `url_for` buduje adres BEZWZGLĘDNY i bierze host z żądania widzianego
+    przez add-on, czyli wewnętrzny adres kontenera (`172.30.33.5:8099`).
+    Home Assistant proxuje Ingress i nie przekazuje zewnętrznego hosta, więc
+    przeglądarka dostawała odsyłacze do hosta, do którego nie ma dostępu:
+    arkusz stylów się nie wczytywał, HTMX też — a bez HTMX-a gwiazdka
+    obserwacji i doładowanie kolejnej strony po prostu nic nie robiły.
+
+    Objawiało się to jako „GUI nie działa", więc test celuje w przyczynę:
+    w wygenerowanej stronie nie ma prawa być adresu z naszym własnym hostem.
+    """
+    prefiks = "/api/hassio_ingress/abc123"
+    wewnetrzny_host = "172.30.33.5:8099"
+    with klient() as c:
+        odp = c.get(
+            "/diagnostyka",
+            headers={NAGLOWEK_INGRESS: prefiks + "/", "host": wewnetrzny_host},
+        )
+
+    assert odp.status_code == 200
+    assert (
+        wewnetrzny_host not in odp.text
+    ), "adres z wewnętrznym hostem kontenera — przeglądarka tam nie trafi"
+    assert "http://testserver" not in odp.text
+    # Ścieżka zaczynająca się od `/` rozwiązuje się względem origin strony.
+    assert f'href="{prefiks}/static/styl.css"' in odp.text
+    assert f'src="{prefiks}/static/htmx.min.js"' in odp.text

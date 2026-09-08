@@ -276,6 +276,19 @@ class FabrykaKontekstu(Protocol):
         ...
 
 
+class ZrodloZeZdjeciami(AuctionSource, Protocol):
+    """Źródło udostępniające galerię zdjęć pojazdu (SPEC.md §12).
+
+    Osobny protokół, nie pole w `AuctionSource`: adapter serwisu bez galerii
+    nie ma po co implementować pustej metody (§6.3, ta sama zasada co przy
+    `AuthenticatedSource`).
+    """
+
+    async def zdjecia(self, external_id: str) -> Sequence[str]:
+        """Adresy zdjęć. Pobierane **na żądanie**, nie przy zbieraniu."""
+        ...
+
+
 class AuthenticatedSource(AuctionSource, Protocol):
     """Źródło wymagające zalogowania (SPEC.md §10.1).
 

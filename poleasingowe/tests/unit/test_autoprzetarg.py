@@ -263,3 +263,10 @@ def test_odcisk_reaguje_na_zmiane_ceny_i_terminu() -> None:
     przesuniety = surowy.replace("2026-09-07 08:10:00", "2026-09-07 08:12:00")
     assert przesuniety != surowy
     assert parser.odcisk_aukcji(przesuniety) != bazowy
+
+
+def test_zdjecia_sa_rozwijane_do_adresow_bezwzglednych() -> None:
+    """W HTML-u stoją jako `/uploads/photos/<id>/N.jpg` — bez hosta."""
+    adresy = parser.zdjecia(html("szczegoly-bFhGo2gH3wg.html"))
+    assert adresy
+    assert all(u.startswith("https://autoprzetarg.pl/uploads/photos/") for u in adresy)

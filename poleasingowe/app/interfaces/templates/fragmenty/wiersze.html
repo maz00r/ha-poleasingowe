@@ -4,7 +4,7 @@
 <tr class="{{ 'ponizej-progu' if p.ponizej_progu }} {{ p.ends_at | pilnosc(teraz) }}">
   <td class="kol-obserwacja">{% include "fragmenty/gwiazdka.html" %}</td>
   <td>
-    <a class="nazwa" href="{{ url_for('szczegoly', auction_id=p.id) }}">{{ p.nazwa }}</a>
+    <a class="nazwa" href="{{ sciezka(request, 'szczegoly', auction_id=p.id) }}">{{ p.nazwa }}</a>
     <div class="pod-nazwa">
       {% if p.year %}<span>{{ p.year }}</span>{% endif %}
       {% if p.mileage_km %}<span>{{ p.mileage_km | liczba }} km</span>{% endif %}
@@ -40,7 +40,7 @@
 <tr id="dalej">
   <td colspan="5">
     <button type="button" class="wczytaj-wiecej"
-            hx-get="{{ url_for('lista_fragment') }}?{{ parametry | urlencode }}&amp;kursor={{ strona.kursor_dalej }}"
+            hx-get="{{ sciezka(request, 'lista_fragment') }}?{{ parametry | urlencode }}&amp;kursor={{ strona.kursor_dalej }}"
             hx-target="#dalej"
             hx-swap="outerHTML">
       Wczytaj kolejne 50

@@ -286,3 +286,16 @@ def test_dogrywka_widoczna_w_przesunietym_end_date() -> None:
     assert koniec > dt.datetime(
         2026, 9, 7, 10, 0, tzinfo=dt.UTC
     ), "termin ma być PÓŹNIEJSZY niż nominalne 12:00 lokalnego czasu"
+
+
+def test_zdjecia_pojazdu_odsiane_od_logotypow() -> None:
+    """SPEC.md §12 — galeria pobierana na żądanie, nie trzymana w bazie.
+
+    Serwis ma na stronie dziesiątki obrazów; zdjęcia pojazdu odróżnia
+    przedrostek `sgallery_` w nazwie pliku.
+    """
+    adresy = parser.zdjecia(html("szczegoly-9ooxn4x9.html"))
+    assert adresy, "fixture ma galerię — inaczej test nic nie waży"
+    assert all("sgallery_" in u for u in adresy)
+    assert all(u.startswith("https://poleasingowe.pl/") for u in adresy)
+    assert len(adresy) == len(set(adresy)), "bez duplikatów"

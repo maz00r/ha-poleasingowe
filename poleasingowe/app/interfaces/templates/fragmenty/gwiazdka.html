@@ -6,5 +6,5 @@
         title="{{ 'Przestań obserwować' if p.obserwowana else 'Obserwuj' }}"
         aria-label="{{ 'Przestań obserwować' if p.obserwowana else 'Obserwuj' }}"
         aria-pressed="{{ 'true' if p.obserwowana else 'false' }}"
-        hx-post="{{ url_for('przelacz_obserwacje', auction_id=p.id) }}"
+        hx-post="{{ sciezka(request, 'przelacz_obserwacje', auction_id=p.id) }}"
         hx-swap="outerHTML">{{ '★' if p.obserwowana else '☆' }}</button>

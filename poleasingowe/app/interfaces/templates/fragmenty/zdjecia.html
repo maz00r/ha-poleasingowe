@@ -1,0 +1,13 @@
+{# Galeria. Kazde zdjecie idzie przez add-on, nie wprost z serwisu
+   aukcyjnego (SPEC.md §12 — proxy z cache, nie hotlink). #}
+{% if ile %}
+<div class="galeria">
+  {% for i in range(ile) %}
+    <a href="{{ sciezka(request, 'zdjecie', auction_id=auction_id, indeks=i) }}"
+       target="_blank" rel="noopener noreferrer">
+      <img loading="lazy" alt="Zdjęcie pojazdu {{ i + 1 }} z {{ ile }}"
+           src="{{ sciezka(request, 'zdjecie', auction_id=auction_id, indeks=i) }}">
+    </a>
+  {% endfor %}
+</div>
+{% endif %}

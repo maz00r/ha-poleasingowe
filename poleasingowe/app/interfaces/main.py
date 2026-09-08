@@ -33,6 +33,7 @@ from app.infrastructure.supervisor.options import (
     Opcje,
     wczytaj_opcje,
 )
+from app.infrastructure.zdjecia import GaleriaZdjec
 from app.interfaces.app import StanAplikacji, utworz_aplikacje
 
 log = logging.getLogger("poleasingowe")
@@ -144,13 +145,26 @@ def main() -> int:
                 ],
             )
 
+        # Ta sama mapa obiektow, ktora dostala galeria — uzupelniamy ja
+        # w miejscu, zeby interfejs i dispatcher chodzily po jednym kliencie
+        # HTTP na zrodlo, a nie po dwoch.
+        adaptery_ui.update(adaptery)
+
         if not adaptery:
             log.warning("żadne źródło nie jest włączone — dispatcher nie startuje")
             return
         await Dispatcher(fabryka, adaptery).uruchom()
 
+    # Galeria dzieli adaptery z dispatcherem — jeden `AsyncClient` per
+    # zrodlo, tworzony raz (SPEC.md §11.3).
+    adaptery_ui: dict[str, object] = {}
+    galeria = GaleriaZdjec(adaptery_ui)  # type: ignore[arg-type]
+
     aplikacja = utworz_aplikacje(
-        opcje, zadania_tla=[_polaczenie_w_tle], fabryka=fabryka
+        opcje,
+        zadania_tla=[_polaczenie_w_tle],
+        fabryka=fabryka,
+        galeria=galeria,
     )
     aplikacja.state.stan = stan_wstepny
 

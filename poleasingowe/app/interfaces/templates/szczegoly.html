@@ -17,7 +17,7 @@
        znika z listy, a tutaj widac, czego jest duplikatem. #}
     <p class="ostrzezenie-inline">
       Duplikat aukcji
-      <a href="{{ url_for('szczegoly', auction_id=dane.duplicate_of) }}">#{{ dane.duplicate_of }}</a>
+      <a href="{{ sciezka(request, 'szczegoly', auction_id=dane.duplicate_of) }}">#{{ dane.duplicate_of }}</a>
       — ten sam VIN w innym serwisie.
     </p>
   {% endif %}
@@ -41,6 +41,13 @@
     <div><span>Lokalizacja</span><strong>{{ p.location or '—' }}</strong></div>
     <div><span>Sprzedający</span><strong>{{ dane.seller or '—' }}</strong></div>
   </div>
+
+  {# Galeria doladowywana po wyrenderowaniu karty: adresy zdjec wymagaja
+     odpytania strony zrodla, a wolny serwis nie ma zatrzymywac danych,
+     ktore mamy juz w bazie (SPEC.md §12). #}
+  <div hx-get="{{ sciezka(request, 'zdjecia_aukcji', auction_id=p.id) }}"
+       hx-trigger="load"
+       hx-swap="outerHTML"></div>
 
   <p class="linki">
     <a href="{{ p.url }}" target="_blank" rel="noopener noreferrer">Otwórz ofertę w serwisie</a>

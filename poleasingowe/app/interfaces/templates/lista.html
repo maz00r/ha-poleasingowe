@@ -8,7 +8,7 @@
 
    Rzadko uzywane pola siedza w <details>. Czternascie pol rozwinietych na
    staly zajmowalo pol ekranu nad lista, ktora jest tu wlasciwa trescia. #}
-<form class="filtry" method="get" action="{{ url_for('lista') }}">
+<form class="filtry" method="get" action="{{ sciezka(request, 'lista') }}">
   <div class="pasek-filtrow">
     <div class="pole rosnie">
       <label for="szukaj">Szukaj</label>
@@ -43,7 +43,7 @@
     </div>
     <div class="przyciski">
       <button type="submit">Filtruj</button>
-      <a class="przycisk-lekki" href="{{ url_for('lista') }}">Wyczyść</a>
+      <a class="przycisk-lekki" href="{{ sciezka(request, 'lista') }}">Wyczyść</a>
     </div>
   </div>
 
@@ -115,7 +115,7 @@
 </form>
 
 <section class="zapisane">
-  <form method="post" action="{{ url_for('zapisz_filtr') }}?{{ parametry | urlencode }}">
+  <form method="post" action="{{ sciezka(request, 'zapisz_filtr') }}?{{ parametry | urlencode }}">
     <input name="nazwa" placeholder="zapisz te filtry jako…" required>
     <button type="submit">Zapisz</button>
   </form>
@@ -123,8 +123,8 @@
     <ul class="chipsy">
       {% for filtr in zapisane %}
         <li>
-          <a href="{{ url_for('lista') }}?{{ filtr.criteria | urlencode }}">{{ filtr.name }}</a>
-          <form method="post" action="{{ url_for('usun_filtr', filter_id=filtr.id) }}">
+          <a href="{{ sciezka(request, 'lista') }}?{{ filtr.criteria | urlencode }}">{{ filtr.name }}</a>
+          <form method="post" action="{{ sciezka(request, 'usun_filtr', filter_id=filtr.id) }}">
             <button type="submit" title="Usuń filtr" aria-label="Usuń filtr {{ filtr.name }}">×</button>
           </form>
         </li>
@@ -146,8 +146,8 @@
       <th>Pojazd</th>
       {# Sortowanie klikane w naglowku: klik w aktywna kolumne odwraca
          kierunek, filtry ida tym samym adresem. #}
-      <th><a class="sortuj" href="{{ url_for('lista') }}?{{ sortowanie_kolumn.cena.parametry }}">Cena {{ sortowanie_kolumn.cena.strzalka }}</a></th>
-      <th><a class="sortuj" href="{{ url_for('lista') }}?{{ sortowanie_kolumn.koniec.parametry }}">Koniec {{ sortowanie_kolumn.koniec.strzalka }}</a></th>
+      <th><a class="sortuj" href="{{ sciezka(request, 'lista') }}?{{ sortowanie_kolumn.cena.parametry }}">Cena {{ sortowanie_kolumn.cena.strzalka }}</a></th>
+      <th><a class="sortuj" href="{{ sciezka(request, 'lista') }}?{{ sortowanie_kolumn.koniec.parametry }}">Koniec {{ sortowanie_kolumn.koniec.strzalka }}</a></th>
       <th></th>
     </tr>
   </thead>
@@ -163,11 +163,11 @@
          Jeśli włączyłeś źródło przed chwilą, pierwsze pozycje pojawią się
          w ciągu kilku minut.</p>
       <p>Gdy nic się nie dzieje, zajrzyj do
-         <a href="{{ url_for('diagnostyka') }}">diagnostyki</a> — kolumna
+         <a href="{{ sciezka(request, 'diagnostyka') }}">diagnostyki</a> — kolumna
          ostatniego przebiegu powie, czy źródło w ogóle odpowiada.</p>
     {% else %}
       <h2>Nic nie pasuje do tych filtrów</h2>
-      <p><a href="{{ url_for('lista') }}">Wyczyść filtry</a> i zacznij od nowa.</p>
+      <p><a href="{{ sciezka(request, 'lista') }}">Wyczyść filtry</a> i zacznij od nowa.</p>
     {% endif %}
   </section>
 {% endif %}

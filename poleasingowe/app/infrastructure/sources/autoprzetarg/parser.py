@@ -208,3 +208,13 @@ def czy_zakonczona(kod_http: int, url_koncowy: str) -> bool:
     ten serwis daje — nie ma etykiety w treści, bo nie ma już treści.
     """
     return kod_http in (301, 302) or url_koncowy.rstrip("/") == BAZOWY_URL
+
+
+# Galeria: `/uploads/photos/<external_id>/<N>.jpg`.
+_ZDJECIA = re.compile(r'/uploads/photos/[^"\'\s]+\.(?:jpe?g|png|webp)', re.I)
+
+
+def zdjecia(html: str) -> list[str]:
+    """Adresy zdjęć pojazdu. Względne, więc rozwijamy je do bezwzględnych."""
+    znalezione = dict.fromkeys(_ZDJECIA.findall(html))
+    return [f"{BAZOWY_URL}{u}" if u.startswith("/") else u for u in znalezione]

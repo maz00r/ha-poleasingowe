@@ -3,9 +3,10 @@
 Add-on obsługuje **operacje**, nie analitykę — stąd brak wykresów i linki
 do Grafany zamiast własnych.
 
-Prefiks Ingressu jest dynamiczny, więc każdy adres w szablonach powstaje
-przez `url_for`. Ścieżka wpisana na sztywno działa u mnie w testach
-i prowadzi donikąd po instalacji.
+Prefiks Ingressu jest dynamiczny, więc każdy adres powstaje przez `sciezka`
+— pomocnika zwracającego ścieżkę **względną wobec origin**. Ani ścieżka
+wpisana na sztywno, ani `url_for` nie nadają się tu do niczego: pierwsza
+gubi prefiks, druga wkleja wewnętrzny host kontenera.
 """
 
 from __future__ import annotations
@@ -50,6 +51,28 @@ log = logging.getLogger(__name__)
 KATALOG = pathlib.Path(__file__).resolve().parents[1]
 SZABLONY = Jinja2Templates(directory=str(KATALOG / "templates"))
 filtry_szablonu.zarejestruj(SZABLONY.env)
+
+
+def sciezka(request: Request, nazwa: str, **parametry: object) -> str:
+    """Adres **względny wobec origin**, z prefiksem Ingressu (SPEC.md §7.1).
+
+    Dlaczego nie `url_for`: buduje adres BEZWZGLĘDNY, a host bierze z żądania
+    widzianego przez add-on — czyli wewnętrzny adres kontenera, np.
+    `http://172.30.33.5:8099/...`. Home Assistant proxuje Ingress i **nie**
+    przekazuje zewnętrznego hosta, więc przeglądarka dostawała odsyłacze do
+    hosta, do którego nie ma dostępu: arkusz stylów się nie wczytywał, HTMX
+    też, a każdy link i formularz prowadziły donikąd.
+
+    Ścieżka zaczynająca się od `/` rozwiązuje się względem origin strony,
+    więc jest odporna i na Ingress, i na uruchomienie bez niego.
+    """
+    prefiks = request.scope.get("root_path", "")
+    return f"{prefiks}{request.app.url_path_for(nazwa, **parametry)}"
+
+
+# Globalna w szablonach — `url_for` jest tu nie do uzycia, patrz wyzej.
+SZABLONY.env.globals["sciezka"] = sciezka
+
 
 CIASTECZKO_WIZYTY = "poleasingowe_ostatnia_wizyta"
 DNI_WIZYTY = 90
@@ -340,6 +363,64 @@ def _panel_obserwacji(request: Request, dane: Any) -> Response:
     )
 
 
+@router.get("/aukcja/{auction_id}/zdjecia", response_class=HTMLResponse)
+async def zdjecia_aukcji(request: Request, auction_id: int) -> Response:
+    """Galeria doładowywana po wyrenderowaniu karty (SPEC.md §12).
+
+    Osobne żądanie, bo pobranie adresów wymaga odpytania strony źródła —
+    trzymanie na to karty aukcji znaczyłoby, że wolny serwis zatrzymuje
+    również dane, które mamy już w bazie.
+    """
+    galeria = getattr(request.app.state, "galeria", None)
+    if galeria is None or _fabryka(request) is None:
+        return HTMLResponse("")
+
+    async with _fabryka(request)() as kontekst:
+        dane = await kontekst.zapytania.szczegoly(auction_id)
+    if dane is None:
+        return HTMLResponse("")
+
+    adresy = await galeria.adresy(dane.pozycja.source_key, dane.pozycja.external_id)
+    return SZABLONY.TemplateResponse(
+        request=request,
+        name="fragmenty/zdjecia.html",
+        context={
+            **_kontekst_bazowy(request),
+            "auction_id": auction_id,
+            "ile": len(adresy),
+        },
+    )
+
+
+@router.get("/aukcja/{auction_id}/zdjecie/{indeks}")
+async def zdjecie(request: Request, auction_id: int, indeks: int) -> Response:
+    """Pojedyncze zdjęcie z cache'u na dysku (SPEC.md §12 — nie hotlink).
+
+    Trasa przyjmuje **indeks**, nie adres. Gdyby przyjmowała adres, add-on
+    byłby otwartym proxy: każdy, kto dosięgnie panelu, mógłby przez niego
+    odpytywać dowolne adresy w sieci lokalnej.
+    """
+    galeria = getattr(request.app.state, "galeria", None)
+    if galeria is None or _fabryka(request) is None:
+        return Response(status_code=404)
+
+    async with _fabryka(request)() as kontekst:
+        dane = await kontekst.zapytania.szczegoly(auction_id)
+    if dane is None:
+        return Response(status_code=404)
+
+    wynik = await galeria.obraz(
+        dane.pozycja.source_key, dane.pozycja.external_id, indeks
+    )
+    if wynik is None:
+        return Response(status_code=404)
+    tresc, typ = wynik
+    # Zdjęcie aukcji nie zmienia się w trakcie jej trwania, a add-on i tak
+    # trzyma je na dysku — niech przeglądarka nie pyta o nie przy każdym
+    # otwarciu karty.
+    return Response(tresc, media_type=typ, headers={"Cache-Control": "max-age=86400"})
+
+
 @router.post("/aukcja/{auction_id}/przelacz", response_class=HTMLResponse)
 async def przelacz_obserwacje(request: Request, auction_id: int) -> Response:
     """Obserwuj / przestań, jednym kliknięciem z listy (SPEC.md §12).
@@ -393,7 +474,7 @@ async def zapisz_filtr(request: Request, nazwa: str = Form()) -> Response:
                     created_at=dt.datetime.now(dt.UTC),
                 )
             )
-    return RedirectResponse(request.url_for("lista"), status_code=303)
+    return RedirectResponse(sciezka(request, "lista"), status_code=303)
 
 
 @router.post("/filtry/{filter_id}/usun")
@@ -402,7 +483,7 @@ async def usun_filtr(request: Request, filter_id: int) -> Response:
         return _brak_bazy(request)
     async with _fabryka(request)() as kontekst, kontekst.uow as uow:
         await uow.saved_filter.usun(filter_id)
-    return RedirectResponse(request.url_for("lista"), status_code=303)
+    return RedirectResponse(sciezka(request, "lista"), status_code=303)
 
 
 @router.get("/diagnostyka", response_class=HTMLResponse)
@@ -482,4 +563,4 @@ async def odblokuj_zrodlo(request: Request, key: str) -> Response:
             log.info(
                 "odblokowano źródło %s — licznik nieudanych logowań wyzerowany", key
             )
-    return RedirectResponse(request.url_for("diagnostyka"), status_code=303)
+    return RedirectResponse(sciezka(request, "diagnostyka"), status_code=303)

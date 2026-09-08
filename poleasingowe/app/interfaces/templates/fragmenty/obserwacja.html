@@ -11,7 +11,7 @@
   </p>
 {% endif %}
 
-<form hx-post="{{ url_for('obserwuj', auction_id=p.id) }}"
+<form hx-post="{{ sciezka(request, 'obserwuj', auction_id=p.id) }}"
       hx-target="#obserwacja"
       hx-swap="innerHTML">
   <div class="pole szerokie">
@@ -28,7 +28,7 @@
     <button type="submit">{{ 'Zapisz' if p.obserwowana else 'Obserwuj' }}</button>
     {% if p.obserwowana %}
       <button type="button" class="przycisk-lekki"
-              hx-post="{{ url_for('przestan_obserwowac', auction_id=p.id) }}"
+              hx-post="{{ sciezka(request, 'przestan_obserwowac', auction_id=p.id) }}"
               hx-target="#obserwacja"
               hx-swap="innerHTML">
         Przestań obserwować

@@ -155,3 +155,16 @@ def numery_stron(html: str) -> list[int]:
     # przed `page=` stoi srednik, a nie ampersand. Bez uwzglednienia tego
     # funkcja zwracala pusta liste mimo obecnych linkow paginacji.
     return sorted({int(m) for m in re.findall(r"[?&;]page=(\d+)", html)})
+
+
+# Galeria: `Content/Media/<uuid>/<N>.jpg` — adres WZGLĘDNY, bez wiodącego
+# ukośnika, więc rozwinięcie musi iść przez `urljoin`, a nie sklejenie.
+_ZDJECIA = re.compile(r'(?:\.{0,2}/)?Content/Media/[^"\'\s]+\.(?:jpe?g|png|webp)', re.I)
+
+
+def zdjecia(html: str) -> list[str]:
+    """Adresy zdjęć pojazdu ze strony szczegółów."""
+    from urllib.parse import urljoin
+
+    znalezione = dict.fromkeys(_ZDJECIA.findall(html))
+    return [urljoin(f"{BAZOWY_URL}/", u.lstrip("./")) for u in znalezione]

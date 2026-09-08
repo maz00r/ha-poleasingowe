@@ -108,3 +108,22 @@ def test_strona_ktora_nie_jest_aukcja_konczy_sie_jasnym_bledem() -> None:
 def test_lista_ignoruje_smieci_zamiast_sie_wywalac() -> None:
     """Kafelek bez linku nie ma prawa przewrócić całego przemiatu."""
     assert parser.sparsuj_liste('<div class="OfferList"><p>bez linku</p></div>') == []
+
+
+def test_zdjecia_z_adresow_wzglednych_bez_wiodacego_ukosnika() -> None:
+    """EFL podaje `Content/Media/<uuid>/N.jpg` — adres względny BEZ `/`.
+
+    Sklejenie z bazowym adresem dałoby `https://…plContent/…`, więc musi
+    iść przez `urljoin`.
+    """
+    import pathlib
+
+    from app.infrastructure.sources.efl import parser as p
+
+    html = (
+        pathlib.Path(__file__).resolve().parents[3]
+        / "fixtures/efl/szczegoly-435508.html"
+    ).read_text(encoding="utf-8", errors="replace")
+    adresy = p.zdjecia(html)
+    assert adresy
+    assert all(u.startswith("https://aukcje.efl.com.pl/Content/Media/") for u in adresy)

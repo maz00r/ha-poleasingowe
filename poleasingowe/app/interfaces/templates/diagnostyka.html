@@ -83,7 +83,7 @@
             {# SPEC.md §10.2 — reset jest swiadoma decyzja operatora.
                Blokada po trzech nieudanych logowaniach istnieje po to,
                zeby add-on nie zablokowal konta w serwisie. #}
-            <form method="post" action="{{ url_for('odblokuj_zrodlo', key=z.source_key) }}">
+            <form method="post" action="{{ sciezka(request, 'odblokuj_zrodlo', key=z.source_key) }}">
               <button type="submit">Odblokuj</button>
             </form>
           {% endif %}

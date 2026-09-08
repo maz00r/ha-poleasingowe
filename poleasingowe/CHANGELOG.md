@@ -1,5 +1,26 @@
 # Historia zmian
 
+## 0.7.0 — w przygotowaniu
+
+**Naprawa: interfejs nie dzialal pod Ingressem.** Adresy powstawaly przez
+`url_for`, ktory buduje adres BEZWZGLEDNY i bierze host z zadania widzianego
+przez add-on — czyli wewnetrzny adres kontenera (`172.30.33.5:8099`). Home
+Assistant proxuje Ingress i nie przekazuje zewnetrznego hosta, wiec
+przegladarka dostawala odsylacze do hosta, do ktorego nie ma dostepu: arkusz
+stylow sie nie wczytywal, HTMX tez, a bez HTMX-a gwiazdka obserwacji
+i doladowanie kolejnej strony po prostu nic nie robily. Adresy sa teraz
+wzgledne wobec origin.
+
+**Naprawa: brakujaca data zakonczenia.** Aukcje odkryte przed 0.5.0 mialy
+pusty termin odpytu i nigdy nie dostaly odpytu szczegolow, wiec zostawaly
+z pustym `ends_at` na zawsze. Migracja `005_uzupelnij_terminy` planuje im
+ten jeden odpyt.
+
+**Zdjecia na karcie aukcji.** Pobierane na zadanie, podawane przez add-on
+(nie hotlink), cache na dysku z twardym limitem 100 MB. Adresy NIE trafiaja
+do bazy. Trasa przyjmuje indeks zdjecia, nie adres — inaczej add-on bylby
+otwartym proxy do sieci lokalnej.
+
 ## 0.6.0 — w przygotowaniu
 
 Adapter autoprzetarg.pl (RECON.md §4.4) — trzecie zrodlo.
