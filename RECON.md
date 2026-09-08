@@ -127,6 +127,26 @@ jednym przebiegiem wyrażenia regularnego, czyli tanie wobec budowy drzewa
 DOM z 200 kB, o które w §11.3 chodzi.
 
 Dla EFL hash całości pozostaje w mocy — tam nie znaleziono zmiennego
+
+**Uzupełnienie 2026-09-08 — autoprzetarg ma cztery źródła szumu.** Ta sama
+lekcja, ostrzej: trzy kolejne żądania tej samej, niezmienionej aukcji dały
+trzy różne treści. Zmienia się znacznik odświeżania cache przy plikach CSS
+(tick .NET-a w `?…`), token CSRF wyszukiwarki, link Cloudflare
+`cdn-cgi/content` i obfuskacja adresu e-mail. Adapter liczy tam hash
+z **kanonicznego odcisku pól, które parsuje** — par `etykieta: wartość`,
+ceny i terminu — bo gonienie kolejnych fragmentów regexami skończyłoby się
+piątym przy najbliższej zmianie szablonu.
+
+**Uzupełnienie 2026-09-08 — `Accept-Encoding` musi pochodzić od klienta.**
+Adaptery miały wpisany na sztywno `gzip, br`, ale `httpx` bez pakietu
+`brotli` nie ma dekodera dla `br`. autoprzetarg.pl wybierał brotli
+i dostawaliśmy bajty nie do odczytania — parser widział pustą listę
+i **nie zgłaszał błędu**, bo pusta strona jest poprawną stroną. EFL
+i poleasingowe działały tylko dlatego, że akurat wybierały gzip. Dołożony
+`brotli` (koło musllinux cp312 sprawdzone) plus zdjęty ręczny nagłówek:
+`httpx` ogłasza dokładnie to, co umie rozpakować, więc rozjazd jest odtąd
+niemożliwy.
+
 fragmentu.
 
 ### 3.2 §11.5 i §11.2 zakładają dogrywkę ~60 s. Żaden serwis jej nie ma.

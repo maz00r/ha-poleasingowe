@@ -75,8 +75,11 @@ ZNANE: dict[str, ParametryZrodla] = {
         closing_ladder_seconds=(2, 5, 8, 11, 14),
         bid_history_ttl_seconds=15,
         bid_count_semantics=BidCountSemantics.UNKNOWN,
-        # Bez sesji nie ma liczby ofert (RECON.md §4.4).
-        wymaga_logowania=True,
+        # Odczyt DZIAŁA bez konta: lista niesie komplet danych technicznych
+        # z VIN-em i terminem. Sesja dokłada wyłącznie liczbę i historię ofert
+        # (RECON.md §4.4), więc źródło startuje jako ANONYMOUS — `EXPIRED`
+        # znaczyłoby „trzeba się zalogować", a to nieprawda dla odczytu.
+        wymaga_logowania=False,
         dowod="RECON.md §4.4, §3.4, §3.6",
     ),
     "leasygroup": ParametryZrodla(

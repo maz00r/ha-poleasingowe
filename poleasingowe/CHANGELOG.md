@@ -1,5 +1,26 @@
 # Historia zmian
 
+## 0.6.0 — w przygotowaniu
+
+Adapter autoprzetarg.pl (RECON.md §4.4) — trzecie zrodlo.
+
+- czyta anonimowo komplet danych technicznych; jako jedyny serwis podaje
+  **VIN juz na liscie**, wiec deduplikacja po VIN dziala bez wchodzenia
+  w szczegoly
+- termin z ukrytego `auctionEndDate`, czytany z zasiegu KAFELKA — pole stoi
+  po `href` swojego kafelka i parowanie "pole -> nastepny link" przesuwa
+  caly wynik o jeden
+- `bid_count` zostaje PUSTE, nie zerowe: serwis nie podaje liczby ofert bez
+  zalogowania, a zero znaczyloby "nikt nie licytowal"
+- zniknieta aukcja (302 po terminie) zapisuje sam status, bez kasowania
+  ostatniej znanej ceny
+
+NAPRAWA DOTYCZACA WSZYSTKICH ADAPTEROW: `Accept-Encoding` wpisany recznie
+jako `gzip, br` oglaszal brotli, ktorego httpx bez dodatkowego pakietu nie
+umie rozpakowac. autoprzetarg wybieral brotli i dostawalismy bajty nie do
+odczytania — parser widzial pusta liste i NIE zglaszal bledu. Dolozony
+`brotli`, naglowek ustawia teraz httpx.
+
 ## 0.5.0 — w przygotowaniu
 
 Interfejs i uzupelnienie danych.

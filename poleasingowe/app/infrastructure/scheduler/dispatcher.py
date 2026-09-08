@@ -30,7 +30,7 @@ from app.application.ports import (
     KontekstBazy,
 )
 from app.domain.entities import Auction, PriceSnapshot, RunLog, Source
-from app.domain.enums import PollTier
+from app.domain.enums import AuctionStatus, PollTier
 from app.domain.errors import DomainError
 from app.domain.harmonogram import nastepny_odpyt, tier
 from app.domain.logowanie import ZrodloZablokowane
@@ -417,6 +417,21 @@ class Dispatcher:
         z bazy jest tylko wskazówką (§11.2), a dogrywka realnie przesuwa
         termin — aukcja `9mjrl4k9` przeszła z 12:00 na 12:18 (RECON.md §3.7).
         """
+        if swieza.status is AuctionStatus.DISAPPEARED:
+            # Aukcja zniknęła z serwisu (autoprzetarg kasuje ją 10-15 s po
+            # terminie, RECON.md §3.4). Ten odczyt nie niesie danych, tylko
+            # sam fakt — więc zapisujemy WYŁĄCZNIE status i przestajemy
+            # odpytywać. Nadpisanie reszty wyczyściłoby ostatnią znaną cenę,
+            # czyli jedyne, co nam po tej aukcji zostało (§8.4).
+            log.info("aukcja %s/%s zniknęła z serwisu", zrodlo.key, stara.external_id)
+            return replace(
+                stara,
+                status=AuctionStatus.DISAPPEARED,
+                last_seen_at=teraz,
+                next_poll_at=None,
+                poll_tier=PollTier.IDLE,
+            )
+
         scalona = replace(
             swieza,
             id=stara.id,

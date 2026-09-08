@@ -107,3 +107,50 @@ async def test_blokada_sieci_w_testach_jednostkowych_dziala() -> None:
         ), f"połączenie zablokowane, ale nie przez naszego strażnika: {exc!r}"
     else:
         pytest.fail("żądanie sieciowe przeszło — blokada nie działa")
+
+
+@pytest.mark.parametrize("klucz", KLUCZE)
+def test_adapter_oglasza_tylko_kodowania_ktore_umie_rozpakowac(klucz: str) -> None:
+    """Najkosztowniejszy błąd tego projektu, gdyby został niezauważony.
+
+    Adaptery miały wpisany na sztywno `Accept-Encoding: gzip, br`, ale httpx
+    bez pakietu `brotli` nie ma dekodera dla `br`. autoprzetarg.pl wybierał
+    brotli i dostawaliśmy bajty nie do odczytania — parser widział pustą
+    listę i **nie zgłaszał błędu**, bo pusta strona to poprawna strona.
+    EFL i poleasingowe działały tylko dlatego, że akurat wybierały gzip.
+
+    Nagłówek ustawia teraz httpx, więc ogłaszany zbiór z definicji równa się
+    zbiorowi dekodowalnemu. Ten test pilnuje, żeby nikt go znów nie nadpisał.
+    """
+    import httpx
+
+    adapter = registry.utworz(klucz)
+    klient = adapter._klient  # type: ignore[attr-defined]
+    oglaszane = {
+        czesc.split(";")[0].strip().lower()
+        for czesc in klient.headers.get("accept-encoding", "").split(",")
+        if czesc.strip()
+    }
+    umiemy = set(httpx._decoders.SUPPORTED_DECODERS) | {"*", "identity"}
+    assert (
+        oglaszane <= umiemy
+    ), f"{klucz} ogłasza {sorted(oglaszane - umiemy)}, czego nie umie rozpakować"
+
+
+@pytest.mark.parametrize("klucz", KLUCZE)
+def test_adapter_nie_wpisuje_accept_encoding_recznie(klucz: str) -> None:
+    """SPEC.md §11.3 chce `gzip, br` — i dostaje je, ale od httpx.
+
+    Ręczne wpisanie tego nagłówka jest właśnie tym, co rozjechało ogłoszenie
+    z możliwościami. Zbiór dekoderów rozszerza się instalacją `brotli`,
+    nie edycją adaptera.
+    """
+    import inspect
+
+    from app.infrastructure.sources import registry as rejestr
+
+    modul = inspect.getmodule(type(rejestr.utworz(klucz)))
+    assert modul is not None
+    # Szukamy KLUCZA w słowniku nagłówków, nie samej nazwy — o samym
+    # nagłówku wolno pisać w komentarzu, bo to on jest tu tematem.
+    assert '"Accept-Encoding":' not in inspect.getsource(modul)

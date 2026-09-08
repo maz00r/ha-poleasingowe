@@ -560,33 +560,42 @@ async def test_rejestracja_odswieza_fakty_o_serwisie_i_opcje(
     assert po.bid_history_ttl_seconds == 120
 
 
-async def test_zrodlo_wymagajace_logowania_startuje_jako_expired(
-    pusta_baza: psycopg.AsyncConnection,
-) -> None:
+def test_stan_uwierzytelnienia_wynika_z_tego_czy_odczyt_wymaga_konta() -> None:
     """`ANONYMOUS` znaczy „czyta się bez konta", nie „jeszcze się nie logowałem".
 
-    autoprzetarg bez sesji nie pokazuje liczby ofert (RECON.md §4.4), więc
-    musi wystartować ze stanem mówiącym „trzeba się zalogować".
+    Dziś **żadne** z czterech źródeł nie wymaga sesji do odczytu — autoprzetarg
+    też nie, choć bez zalogowania nie podaje liczby ofert (RECON.md §4.4).
+    Sesja dokłada tam dane, ale nie warunkuje odczytu, więc `EXPIRED` byłoby
+    nieprawdą i zapaliłoby w panelu stan wyglądający na awarię.
+
+    Reguła jest jednak w kodzie i ma działać, gdy pojawi się źródło, które
+    faktycznie wymaga konta — dlatego sprawdzamy ją na obu gałęziach.
     """
-    from app.infrastructure.sources.parametry import zbuduj_source
+    from dataclasses import replace as podmien
 
-    assert (
-        zbuduj_source(
-            "autoprzetarg", enabled=True, rate_limit_per_minute=30, floor_seconds=60
-        ).auth_state
-        is AuthState.EXPIRED
+    from app.infrastructure.sources import parametry
+
+    assert all(not z.wymaga_logowania for z in parametry.ZNANE.values())
+
+    for klucz in parametry.ZNANE:
+        zbudowane = parametry.zbuduj_source(
+            klucz, enabled=True, rate_limit_per_minute=30, floor_seconds=60
+        )
+        assert zbudowane.auth_state is AuthState.ANONYMOUS, klucz
+
+    parametry.ZNANE["_test_z_logowaniem"] = podmien(
+        parametry.ZNANE["efl"], wymaga_logowania=True
     )
-    assert (
-        zbuduj_source(
-            "efl", enabled=True, rate_limit_per_minute=30, floor_seconds=60
-        ).auth_state
-        is AuthState.ANONYMOUS
-    )
-
-
-# --------------------------------------------------------------------------
-# Przemiat listy (SPEC.md §11.2) — to on wprowadza aukcje do bazy
-# --------------------------------------------------------------------------
+    try:
+        z_kontem = parametry.zbuduj_source(
+            "_test_z_logowaniem",
+            enabled=True,
+            rate_limit_per_minute=30,
+            floor_seconds=60,
+        )
+        assert z_kontem.auth_state is AuthState.EXPIRED
+    finally:
+        del parametry.ZNANE["_test_z_logowaniem"]
 
 
 async def test_przemiat_wprowadza_aukcje_do_bazy(

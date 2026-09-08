@@ -64,10 +64,12 @@ class PoleasingoweSource:
                 http2=True,
                 timeout=timeout,
                 follow_redirects=True,
-                headers={
-                    "Accept-Encoding": "gzip, br",
-                    "Accept-Language": "pl-PL,pl;q=0.9",
-                },
+                # Accept-Encoding ustawia httpx, a NIE my. Recznie wpisany
+                # `gzip, br` oglaszal brotli, ktorego klient nie umial
+                # rozpakowac — serwer wybieral `br` i dostawalismy bajty
+                # nie do odczytania. httpx oglasza dokladnie to, co ma
+                # dekoder, wiec rozjazd staje sie niemozliwy (SPEC.md §11.3).
+                headers={"Accept-Language": "pl-PL,pl;q=0.9"},
             )
         )
 

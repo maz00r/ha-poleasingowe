@@ -17,6 +17,10 @@ dependencies = [
   "psycopg[binary]==3.3.5",
   "psycopg-pool==3.3.1",
   "httpx[http2]==0.28.1",
+  # SPEC.md §11.3 mowi "zawsze Accept-Encoding: gzip, br". httpx sam z
+  # siebie NIE umie brotli i ogłasza tylko to, co potrafi rozpakowac —
+  # ten pakiet dokłada dekoder, zeby "br" bylo prawda, a nie deklaracja.
+  "brotli==1.2.0",
   "selectolax==0.4.11",
   # SPEC.md §5: pydantic WYLACZNIE do options.json — jedyne miejsce, gdzie
   # walidacja schematu sie oplaca. Obiekty domenowe to dataclassy.

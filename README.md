@@ -70,7 +70,9 @@ Kolejność etapów jest w `SPEC.md` §14. Zrobione:
 - **ETAP 10** — adapter **poleasingowe.pl**: parser bloku Alpine, mapper,
   klient i rejestr, plus testy na fixtures i sprawdzenie na żywym serwisie.
   Heurystyka marki i modelu wyniesiona do `sources/marki.py`, wspólna dla
-  adapterów. ← tutaj jesteśmy; zostają autoprzetarg i leasygroup.
+  adapterów. Dołożony adapter **autoprzetarg.pl** — czyta anonimowo wszystko
+  poza liczbą ofert, bo tej serwis nie podaje bez sesji.
+  ← tutaj jesteśmy; zostaje leasygroup (po pomiarze 2026-09-10).
 
 Następny: dokończenie **ETAPU 10** (autoprzetarg wymaga sesji — patrz
 etap 8), potem **ETAP 11** — backup `pg_dump`, dashboardy Grafany jako JSON
@@ -191,6 +193,21 @@ odczyt, same GET-y. Obsługuje cztery źródła:
 ```bash
 python3 tools/recon_0b.py --dry-run --source efl --url "<URL>"
 ```
+
+## Znane luki
+
+- **Faza domknięcia z §11.5 nie jest zaimplementowana.** Dispatcher liczy
+  interwały aż po floor, ale nie ma drabinki fazy 2 ani czujki dogrywki
+  z fazy 1. Aukcja po terminie zostaje z ostatnią znaną ceną i stanem
+  `final_price_state = UNKNOWN`; autoprzetarg dodatkowo dostaje
+  `DISAPPEARED`, bo tam znika z serwisu. Kolumny `closing_ladder_seconds`
+  i `bid_history_ttl_seconds` czekają wypełnione, ale nikt ich jeszcze
+  nie czyta.
+- **Nie ma wykrywania zniknięcia z listy.** Aukcja, która przestała się
+  pojawiać w przemiatach, zostaje `ACTIVE` bez końca.
+- **Logowanie do serwisów** — mechanizm z etapu 8 stoi gotowy, ale żaden
+  adapter go nie używa. Realnie zyskałby na tym tylko autoprzetarg
+  (liczba i historia ofert).
 
 ## Znane odstępstwa od SPEC.md
 
