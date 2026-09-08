@@ -33,6 +33,7 @@ from app.infrastructure.supervisor.options import (
     Opcje,
     wczytaj_opcje,
 )
+from app.infrastructure.wycena_ai import WycenaAI
 from app.infrastructure.zdjecia import GaleriaZdjec
 from app.interfaces.app import StanAplikacji, utworz_aplikacje
 
@@ -70,7 +71,11 @@ def _skonfiguruj_logi(opcje: Opcje) -> None:
         format="%(asctime)s %(levelname)-7s %(name)s: %(message)s",
         stream=sys.stdout,
     )
-    sekrety = [opcje.db_password, *(p.password for p in opcje.credentials)]
+    sekrety = [
+        opcje.db_password,
+        opcje.openai_api_key,
+        *(p.password for p in opcje.credentials),
+    ]
     filtr = _FiltrRedakcji(sekrety)
     for nazwa in ("", "poleasingowe", "app", "uvicorn", "uvicorn.error"):
         logging.getLogger(nazwa).addFilter(filtr)
@@ -159,12 +164,18 @@ def main() -> int:
     # zrodlo, tworzony raz (SPEC.md §11.3).
     adaptery_ui: dict[str, object] = {}
     galeria = GaleriaZdjec(adaptery_ui)  # type: ignore[arg-type]
+    wycena_ai = (
+        WycenaAI(opcje.openai_api_key, model=opcje.ai_model)
+        if opcje.openai_api_key
+        else None
+    )
 
     aplikacja = utworz_aplikacje(
         opcje,
         zadania_tla=[_polaczenie_w_tle],
         fabryka=fabryka,
         galeria=galeria,
+        wycena_ai=wycena_ai,
     )
     aplikacja.state.stan = stan_wstepny
 

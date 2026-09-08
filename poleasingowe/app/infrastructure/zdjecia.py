@@ -42,8 +42,6 @@ KATALOG_CACHE = pathlib.Path("/data/cache/zdjecia")
 LIMIT_KATALOGU_BAJTY = 100 * 1024 * 1024
 """SPEC.md §1.1 — `/data` ma budżet, więc cache ma sufit."""
 LIMIT_PLIKU_BAJTY = 4 * 1024 * 1024
-MAKS_ZDJEC = 20
-"""Tyle wystarczy do obejrzenia auta; reszta galerii to koszt bez pożytku."""
 WAZNOSC_LISTY_S = 900.0
 """Jak długo pamiętamy adresy galerii. Zdjęcia nie zmieniają się w trakcie
 trwania aukcji, a bez tego każde odświeżenie karty to nowe żądanie strony."""
@@ -101,7 +99,9 @@ class GaleriaZdjec:
             return ()
 
         try:
-            adresy = tuple((await pobierz(external_id))[:MAKS_ZDJEC])
+            # Pełna dokumentacja fotograficzna pojazdu. Limit przestrzeni
+            # dotyczy cache'u bajtów, nie liczby adresów w galerii.
+            adresy = tuple(await pobierz(external_id))
         except Exception as exc:
             # Brak zdjęć nie ma prawa zepsuć karty aukcji — reszta danych
             # jest nadal użyteczna, a serwis bywa chwilowo niedostępny.

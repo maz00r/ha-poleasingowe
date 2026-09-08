@@ -22,6 +22,7 @@ from psycopg.rows import dict_row
 from app.application.read_models import (
     Kryteria,
     Kursor,
+    PorownanieRynkowe,
     PozycjaListy,
     Sortowanie,
     StanZrodla,
@@ -97,6 +98,34 @@ FROM app.auction AS a
 JOIN app.source AS s ON s.id = a.source_id
 LEFT JOIN app.watchlist AS w ON w.auction_id = a.id
 WHERE a.id = %s
+""")
+
+SQL_POROWNANIA_RYNKOWE = sql.SQL("""
+WITH cel AS (
+    SELECT id, make, model, year
+    FROM app.auction
+    WHERE id = %s
+)
+SELECT
+    a.year,
+    percentile_cont(0.5) WITHIN GROUP (ORDER BY a.price_current)
+        FILTER (WHERE a.final_price_state = 'CONFIRMED') AS mediana_potwierdzona,
+    count(*) FILTER (WHERE a.final_price_state = 'CONFIRMED') AS n_potwierdzone,
+    percentile_cont(0.5) WITHIN GROUP (ORDER BY a.price_current)
+        FILTER (WHERE a.final_price_state = 'LAST_SEEN') AS mediana_ostatnia,
+    count(*) FILTER (WHERE a.final_price_state = 'LAST_SEEN') AS n_ostatnie
+FROM app.auction AS a
+CROSS JOIN cel
+WHERE a.id <> cel.id
+  AND a.make = cel.make
+  AND a.model = cel.model
+  AND a.price_current IS NOT NULL
+  AND a.final_price_state IN ('CONFIRMED', 'LAST_SEEN')
+  AND a.duplicate_of IS NULL
+  AND (cel.year IS NULL OR a.year BETWEEN cel.year - 2 AND cel.year + 2)
+GROUP BY a.year
+ORDER BY a.year DESC NULLS LAST
+LIMIT 7
 """)
 
 # COLLATE "pl-PL-x-icu" — bez tego "Ż" ląduje za "Z" wg bajtów, a nie wg
@@ -355,6 +384,31 @@ class PgZapytania:
             poll_tier=PollTier(wiersz["poll_tier"]),
             last_price_lead_seconds=wiersz["last_price_lead_seconds"],
             duplicate_of=wiersz["duplicate_of"],
+        )
+
+    async def porownania_rynkowe(
+        self, auction_id: int
+    ) -> tuple[PorownanieRynkowe, ...]:
+        async with self._conn.cursor(row_factory=dict_row) as cur:
+            await cur.execute(SQL_POROWNANIA_RYNKOWE, (auction_id,))
+            wiersze = await cur.fetchall()
+        return tuple(
+            PorownanieRynkowe(
+                year=w["year"],
+                mediana_potwierdzona=(
+                    None
+                    if w["mediana_potwierdzona"] is None
+                    else round(w["mediana_potwierdzona"])
+                ),
+                liczba_potwierdzonych=w["n_potwierdzone"],
+                mediana_ostatnia=(
+                    None
+                    if w["mediana_ostatnia"] is None
+                    else round(w["mediana_ostatnia"])
+                ),
+                liczba_ostatnich=w["n_ostatnie"],
+            )
+            for w in wiersze
         )
 
     async def wartosci_filtrow(self) -> dict[str, tuple[str, ...]]:

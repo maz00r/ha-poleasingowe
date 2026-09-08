@@ -8,9 +8,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <base href="{{ baza_sciezek(request) }}">
   <title>{% block tytul %}Aukcje poleasingowe{% endblock %}</title>
-  <link rel="stylesheet" href="{{ sciezka(request, 'static', path='/styl.css') }}">
+  <link rel="stylesheet" href="{{ sciezka(request, 'static', path='/styl.css') }}?v=0.8.0">
   {# HTMX z lokalnego pliku (SPEC.md §12). Zadnych CDN-ow. #}
-  <script src="{{ sciezka(request, 'static', path='/htmx.min.js') }}" defer></script>
+  <script src="{{ sciezka(request, 'static', path='/htmx.min.js') }}?v=0.8.0" defer></script>
 </head>
 <body>
   <header class="pasek">

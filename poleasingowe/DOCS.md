@@ -97,6 +97,28 @@ Gdy serwis przestaje odpowiadać, dodatek odstawia **to jedno źródło** na
 rosnącą przerwę i pracuje dalej z pozostałymi. Widać to w panelu
 diagnostycznym w kolumnie ostatniego przebiegu.
 
+### Zdjęcia i wycena AI
+
+Lista pokazuje miniaturę pierwszego zdjęcia. Obrazy są pobierane przez add-on
+i trafiają do rotowanego cache'u `/data/cache/zdjecia` o maksymalnym rozmiarze
+100 MB — przeglądarka nie łączy się bezpośrednio z serwisem aukcyjnym. Po
+wejściu w szczegóły widoczna jest pełna galeria udostępniona przez źródło.
+
+Wycena AI jest opcjonalna. W konfiguracji dodatku ustaw:
+
+```yaml
+openai_api_key: "sk-..."
+ai_model: "gpt-5.4-mini"
+```
+
+Po ponownym uruchomieniu szczegóły pojazdu pokażą szacowaną wartość w PLN,
+przedział, pewność i założenia. Wynik jest zapisywany w lokalnym cache'u, więc
+ponowne otwarcie tej samej wyceny nie wykonuje kolejnego płatnego żądania.
+Zmiana danych auta, lokalnych porównań albo modelu automatycznie unieważnia
+cache. Do OpenAI nie są wysyłane VIN, identyfikator aukcji ani dane
+sprzedającego. Wycena jest orientacyjna i nie zastępuje oględzin ani opinii
+rzeczoznawcy.
+
 ## Interfejs
 
 Dodatek otwiera się z paska bocznego Home Assistanta. Uwierzytelnia Ingress —

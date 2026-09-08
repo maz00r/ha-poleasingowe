@@ -352,6 +352,49 @@ async def test_szczegoly_lacza_aukcje_z_watchlista(
     assert dane.pozycja.notatka == "sprawdzić lakier"
 
 
+async def test_porownania_rynkowe_oddzielaja_ceny_pewne_od_ostatnich(
+    pusta_baza: psycopg.AsyncConnection,
+) -> None:
+    identyfikatory = await _dane(pusta_baza)
+    uow = PgUnitOfWork(pusta_baza)
+    efl = await uow.source.po_kluczu("efl")
+    assert efl is not None and efl.id is not None
+
+    for external_id, cena, stan in (
+        ("a6-pewna", "100000", FinalPriceState.CONFIRMED),
+        ("a6-ostatnia", "90000", FinalPriceState.LAST_SEEN),
+    ):
+        await uow.auction.zapisz(
+            Auction(
+                source_id=efl.id,
+                external_id=external_id,
+                url=f"https://przyklad.test/{external_id}",
+                status=AuctionStatus.ENDED,
+                first_seen_at=TERAZ,
+                last_seen_at=TERAZ,
+                make="Audi",
+                model="A6",
+                year=2020,
+                price_current=_pln(cena),
+                final_price_state=stan,
+                last_price_lead_seconds=(
+                    None if stan is FinalPriceState.CONFIRMED else 30
+                ),
+            )
+        )
+
+    wynik = await PgZapytania(pusta_baza).porownania_rynkowe(
+        identyfikatory["audi-za-godzine"]
+    )
+
+    assert len(wynik) == 1
+    assert wynik[0].year == 2020
+    assert wynik[0].mediana_potwierdzona == 100_000
+    assert wynik[0].liczba_potwierdzonych == 1
+    assert wynik[0].mediana_ostatnia == 90_000
+    assert wynik[0].liczba_ostatnich == 1
+
+
 async def test_szczegoly_duplikatu_wskazuja_oryginal(
     pusta_baza: psycopg.AsyncConnection,
 ) -> None:

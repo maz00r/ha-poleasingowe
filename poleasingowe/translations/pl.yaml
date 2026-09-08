@@ -24,6 +24,14 @@ configuration:
     name: Adres Grafany
     description: >-
       Uzywany tylko do budowania linkow do dashboardow. Puste = brak linkow.
+  openai_api_key:
+    name: Klucz API OpenAI
+    description: >-
+      Opcjonalny. Wlacza wycene AI na karcie pojazdu. Klucz nie jest
+      wyswietlany ani zapisywany w logach.
+  ai_model:
+    name: Model wyceny AI
+    description: Model OpenAI uzywany do wyceny. Domyslnie gpt-5.4-mini.
   credentials:
     name: Poswiadczenia do serwisow
     description: >-

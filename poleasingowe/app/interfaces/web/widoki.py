@@ -40,6 +40,7 @@ from app.domain.logowanie import (
 )
 from app.domain.value_objects import Money, NieprawidlowaWartosc
 from app.infrastructure.supervisor.proces import rss_bajty
+from app.infrastructure.wycena_ai import BladWyceny
 from app.interfaces.web import filtry_szablonu
 from app.interfaces.web.formularze import (
     kursor_z_parametrow,
@@ -420,8 +421,46 @@ async def zdjecia_aukcji(request: Request, auction_id: int) -> Response:
     )
 
 
+@router.get("/aukcja/{auction_id}/wycena", response_class=HTMLResponse)
+async def wycena_aukcji(request: Request, auction_id: int) -> Response:
+    """Generuje raz i potem pokazuje cache'owaną wycenę orientacyjną."""
+    usluga = getattr(request.app.state, "wycena_ai", None)
+    kontekst_szablonu = {
+        **_kontekst_bazowy(request),
+        "auction_id": auction_id,
+        "wycena": None,
+        "blad": None,
+        "brak_konfiguracji": usluga is None,
+    }
+    if usluga is None:
+        return SZABLONY.TemplateResponse(
+            request=request,
+            name="fragmenty/wycena.html",
+            context=kontekst_szablonu,
+        )
+    if _fabryka(request) is None:
+        kontekst_szablonu["blad"] = "Baza danych jest teraz niedostępna."
+    else:
+        async with _fabryka(request)() as kontekst:
+            dane = await kontekst.zapytania.szczegoly(auction_id)
+            porownania = await kontekst.zapytania.porownania_rynkowe(auction_id)
+        if dane is None:
+            return HTMLResponse("", status_code=404)
+        try:
+            kontekst_szablonu["wycena"] = await usluga.wycen(dane, porownania)
+        except BladWyceny as exc:
+            kontekst_szablonu["blad"] = str(exc)
+    return SZABLONY.TemplateResponse(
+        request=request,
+        name="fragmenty/wycena.html",
+        context=kontekst_szablonu,
+    )
+
+
 @router.get("/aukcja/{auction_id}/zdjecie/{indeks}")
-async def zdjecie(request: Request, auction_id: int, indeks: int) -> Response:
+async def zdjecie(
+    request: Request, auction_id: int, indeks: int, miniatura: bool = False
+) -> Response:
     """Pojedyncze zdjęcie z cache'u na dysku (SPEC.md §12 — nie hotlink).
 
     Trasa przyjmuje **indeks**, nie adres. Gdyby przyjmowała adres, add-on
@@ -430,23 +469,37 @@ async def zdjecie(request: Request, auction_id: int, indeks: int) -> Response:
     """
     galeria = getattr(request.app.state, "galeria", None)
     if galeria is None or _fabryka(request) is None:
-        return Response(status_code=404)
+        return _brak_zdjecia() if miniatura else Response(status_code=404)
 
     async with _fabryka(request)() as kontekst:
         dane = await kontekst.zapytania.szczegoly(auction_id)
     if dane is None:
-        return Response(status_code=404)
+        return _brak_zdjecia() if miniatura else Response(status_code=404)
 
     wynik = await galeria.obraz(
         dane.pozycja.source_key, dane.pozycja.external_id, indeks
     )
     if wynik is None:
-        return Response(status_code=404)
+        return _brak_zdjecia() if miniatura else Response(status_code=404)
     tresc, typ = wynik
     # Zdjęcie aukcji nie zmienia się w trakcie jej trwania, a add-on i tak
     # trzyma je na dysku — niech przeglądarka nie pyta o nie przy każdym
     # otwarciu karty.
     return Response(tresc, media_type=typ, headers={"Cache-Control": "max-age=86400"})
+
+
+def _brak_zdjecia() -> Response:
+    """Neutralna miniatura zamiast ikony uszkodzonego obrazu w tabeli."""
+    svg = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 64">
+<rect width="96" height="64" rx="6" fill="#2c3339"/>
+<path d="M24 43h48l-8-12-10 8-12-17z" fill="#6b7280"/>
+<circle cx="66" cy="20" r="5" fill="#9aa3ad"/>
+</svg>"""
+    return Response(
+        svg,
+        media_type="image/svg+xml",
+        headers={"Cache-Control": "max-age=900"},
+    )
 
 
 @router.post("/aukcja/{auction_id}/przelacz", response_class=HTMLResponse)

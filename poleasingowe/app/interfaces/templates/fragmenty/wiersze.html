@@ -3,6 +3,12 @@
 {% for p in strona.pozycje %}
 <tr class="{{ 'ponizej-progu' if p.ponizej_progu }} {{ p.ends_at | pilnosc(teraz) }}">
   <td class="kol-obserwacja">{% include "fragmenty/gwiazdka.html" %}</td>
+  <td class="kol-miniatura">
+    <a href="{{ sciezka(request, 'szczegoly', auction_id=p.id) }}" tabindex="-1">
+      <img class="miniatura" loading="lazy" fetchpriority="low" alt=""
+           src="{{ sciezka(request, 'zdjecie', auction_id=p.id, indeks=0) }}?miniatura=1">
+    </a>
+  </td>
   <td>
     <a class="nazwa" href="{{ sciezka(request, 'szczegoly', auction_id=p.id) }}">{{ p.nazwa }}</a>
     <div class="pod-nazwa">
@@ -38,7 +44,7 @@
 {# Paginacja keyset (SPEC.md §12): kursor zamiast numeru strony. Wiersz
    podmienia sam siebie, wiec kolejne strony dokladaja sie do tabeli. #}
 <tr id="dalej">
-  <td colspan="5">
+  <td colspan="6">
     <button type="button" class="wczytaj-wiecej"
             hx-get="{{ sciezka(request, 'lista_fragment') }}?{{ parametry | urlencode }}&amp;kursor={{ strona.kursor_dalej }}"
             hx-target="#dalej"

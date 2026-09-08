@@ -214,6 +214,17 @@ class Szczegoly:
 
 
 @dataclass(slots=True, frozen=True)
+class PorownanieRynkowe:
+    """Zagregowana cena podobnych, zakończonych aukcji dla wyceny AI."""
+
+    year: int | None
+    mediana_potwierdzona: int | None
+    liczba_potwierdzonych: int
+    mediana_ostatnia: int | None
+    liczba_ostatnich: int
+
+
+@dataclass(slots=True, frozen=True)
 class StanZrodla:
     """Wiersz panelu diagnostycznego (SPEC.md §12)."""
 

@@ -43,6 +43,7 @@ def utworz_aplikacje(
     zadania_tla: list[ZadanieTla] | None = None,
     fabryka: FabrykaKontekstu | None = None,
     galeria: Any = None,
+    wycena_ai: Any = None,
 ) -> FastAPI:
     """Buduje aplikację. Zależności wstrzykiwane, bez globalnych singletonów.
 
@@ -81,6 +82,8 @@ def utworz_aplikacje(
                 await fabryka.zamknij()
             if galeria is not None:
                 await galeria.zamknij()
+            if wycena_ai is not None:
+                await wycena_ai.zamknij()
 
     app = FastAPI(
         title="Aukcje poleasingowe",
@@ -94,6 +97,7 @@ def utworz_aplikacje(
     # Galeria zdjęć jest opcjonalna: bez niej karta aukcji po prostu
     # nie pokazuje zdjęć (SPEC.md §12).
     app.state.galeria = galeria
+    app.state.wycena_ai = wycena_ai
     # `html=False`: to katalog na CSS i HTMX, nie na strony. Bez tego
     # StaticFiles zaczalby serwowac index.html z dowolnego podkatalogu.
     app.mount("/static", StaticFiles(directory=str(STATYKI), html=False), name="static")

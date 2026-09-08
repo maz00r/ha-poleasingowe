@@ -77,6 +77,7 @@ async def test_lista_pokazuje_aukcje_i_zapamietuje_wizyte(
     # Znacznik wizyty musi zostać ustawiony, inaczej widok „nowe od
     # ostatniej wizyty" nigdy nie miałby punktu odniesienia (§12).
     assert "poleasingowe_ostatnia_wizyta" in odp.cookies
+    assert "miniatura=1" in odp.text
 
 
 async def test_filtr_z_adresu_dziala_na_liscie(
@@ -117,6 +118,8 @@ async def test_szczegoly_linkuja_do_oferty_i_do_grafany(
     assert odp.status_code == 200
     assert "WAUZZZ4G7KN123456" in odp.text
     assert "https://przyklad.test/audi-za-godzine" in odp.text
+    assert "Wycena AI" in odp.text
+    assert f"aukcja/{identyfikatory['audi-za-godzine']}/wycena" in odp.text
     assert (
         f"https://grafana.example/d/poleasingowe-aukcja?var-auction_id="
         f"{identyfikatory['audi-za-godzine']}" in odp.text

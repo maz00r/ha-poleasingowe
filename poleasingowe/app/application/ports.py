@@ -16,6 +16,7 @@ from typing import Protocol, runtime_checkable
 from app.application.read_models import (
     Kryteria,
     Kursor,
+    PorownanieRynkowe,
     StanZrodla,
     Strona,
     Szczegoly,
@@ -224,6 +225,10 @@ class Zapytania(Protocol):
     ) -> Strona: ...
 
     async def szczegoly(self, auction_id: int) -> Szczegoly | None: ...
+
+    async def porownania_rynkowe(
+        self, auction_id: int
+    ) -> tuple[PorownanieRynkowe, ...]: ...
 
     async def wartosci_filtrow(self) -> dict[str, tuple[str, ...]]:
         """Wartości do list rozwijanych — marki, paliwa, skrzynie, lokalizacje.

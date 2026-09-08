@@ -1,5 +1,20 @@
 # Historia zmian
 
+## 0.8.0 — w przygotowaniu
+
+**Zdjęcia i wycena AI.** Lista pokazuje leniwie ładowaną miniaturę pierwszego
+zdjęcia, pobieraną przez bezpieczne proxy add-onu. Brak zdjęcia daje neutralny
+placeholder zamiast ikony uszkodzonego obrazu. Karta aukcji pokazuje całą
+galerię — bez wcześniejszego limitu 20 zdjęć — a twardy limit 100 MB cache'u
+na dysku nadal obowiązuje.
+
+Po ustawieniu `openai_api_key` karta automatycznie generuje orientacyjną
+wycenę: wartość, realistyczny przedział, poziom pewności, uzasadnienie i
+założenia. Model dostaje parametry techniczne auta oraz zagregowane ceny
+zakończonych aukcji tego samego modelu i zbliżonych roczników. VIN, zewnętrzny
+identyfikator i dane sprzedającego nie opuszczają add-onu. Wynik jest
+cache'owany według danych pojazdu, porównań, modelu i wersji promptu.
+
 ## 0.7.3 — w przygotowaniu
 
 **Naprawa: CSS i HTMX pod Ingressem bez zależności od nagłówka proxy.**

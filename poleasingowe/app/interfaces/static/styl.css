@@ -160,6 +160,16 @@ th .sortuj { color: inherit; text-decoration: none; white-space: nowrap; }
 th .sortuj:hover { color: var(--akcent); }
 
 .kol-obserwacja { width: 34px; text-align: center; }
+.kol-miniatura { width: 112px; }
+.miniatura {
+  display: block;
+  width: 96px;
+  height: 64px;
+  object-fit: cover;
+  border-radius: 6px;
+  border: 1px solid var(--obramowanie);
+  background: var(--tlo);
+}
 .kol-czas { white-space: nowrap; }
 .pod-nazwa {
   display: flex;
@@ -263,3 +273,20 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0
   display: block;
 }
 .galeria a:hover img { border-color: var(--akcent); }
+
+.wycena-wynik {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.wycena-wynik > div { display: flex; flex-direction: column; }
+.wycena-wynik span { color: var(--przygaszony); font-size: 12px; }
+.wycena-wynik strong { font-size: 18px; }
+
+@media (max-width: 700px) {
+  main { padding: 8px; }
+  .kol-miniatura { width: 84px; }
+  .miniatura { width: 72px; height: 52px; }
+  table.lista th, table.lista td { padding: 6px; }
+}

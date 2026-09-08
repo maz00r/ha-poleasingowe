@@ -71,6 +71,8 @@ class Opcje(BaseModel):
     db_password: str
 
     grafana_base_url: str = ""
+    openai_api_key: str = ""
+    ai_model: str = "gpt-5.4-mini"
     credentials: list[Poswiadczenia] = Field(default_factory=list)
     sources: list[OpcjeZrodla] = Field(default_factory=list)
 

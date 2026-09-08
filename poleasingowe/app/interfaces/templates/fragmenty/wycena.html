@@ -1,0 +1,26 @@
+{% if brak_konfiguracji %}
+  <p class="uwaga">Wycena jest wyłączona. Uzupełnij <code>openai_api_key</code>
+    w konfiguracji dodatku i uruchom go ponownie.</p>
+{% elif blad %}
+  <p class="ostrzezenie-inline">{{ blad }}</p>
+  <button type="button"
+          hx-get="{{ sciezka(request, 'wycena_aukcji', auction_id=auction_id) }}"
+          hx-target="#wycena-ai > div" hx-swap="innerHTML">Spróbuj ponownie</button>
+{% else %}
+  <div class="wycena-wynik">
+    <div><span>Szacowana wartość</span>
+      <strong>{{ wycena.wartosc | liczba }} PLN</strong></div>
+    <div><span>Realistyczny przedział</span>
+      <strong>{{ wycena.minimum | liczba }}–{{ wycena.maksimum | liczba }} PLN</strong></div>
+    <div><span>Pewność</span><strong>{{ wycena.pewnosc }}</strong></div>
+  </div>
+  <p>{{ wycena.uzasadnienie }}</p>
+  {% if wycena.zalozenia %}
+    <details>
+      <summary>Założenia wyceny</summary>
+      <ul>{% for zalozenie in wycena.zalozenia %}<li>{{ zalozenie }}</li>{% endfor %}</ul>
+    </details>
+  {% endif %}
+  <p class="drobne">Wycena orientacyjna wygenerowana przez {{ wycena.model }};
+    nie zastępuje oględzin ani opinii rzeczoznawcy.</p>
+{% endif %}

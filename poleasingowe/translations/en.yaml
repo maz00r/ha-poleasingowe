@@ -23,6 +23,14 @@ configuration:
   grafana_base_url:
     name: Grafana base URL
     description: Used only to build dashboard links. Empty disables the links.
+  openai_api_key:
+    name: OpenAI API key
+    description: >-
+      Optional. Enables AI valuation on vehicle detail pages. The key is never
+      displayed or written to logs.
+  ai_model:
+    name: AI valuation model
+    description: OpenAI model used for valuation. Defaults to gpt-5.4-mini.
   credentials:
     name: Site credentials
     description: >-

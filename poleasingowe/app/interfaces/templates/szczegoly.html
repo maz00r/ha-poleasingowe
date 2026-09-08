@@ -64,6 +64,15 @@
   </p>
 </article>
 
+<section class="karta" id="wycena-ai">
+  <h2>Wycena AI</h2>
+  <div hx-get="{{ sciezka(request, 'wycena_aukcji', auction_id=p.id) }}"
+       hx-trigger="load" hx-swap="innerHTML">
+    <p class="uwaga">Obliczanie wyceny…</p>
+    <p><a href="{{ sciezka(request, 'wycena_aukcji', auction_id=p.id) }}">Pokaż wycenę</a></p>
+  </div>
+</section>
+
 <section class="karta" id="obserwacja">
   {% include "fragmenty/obserwacja.html" %}
 </section>

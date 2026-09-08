@@ -45,7 +45,9 @@ Kolejność etapów jest w `SPEC.md` §14. Zrobione:
   Pozycja „RSS w szczycie (20 obserwowanych w dogrywce) < 250 MB" da się
   zmierzyć dopiero po etapie 9.
 - **ETAP 7** — interfejs: lista z filtrami i paginacją keyset, szczegóły,
-  watchlist, zapisane filtry, panel diagnostyczny. ← tutaj jesteśmy.
+  watchlist, zapisane filtry, panel diagnostyczny, miniatury, pełna galeria
+  i cache'owana wycena AI na podstawie danych auta oraz lokalnych porównań.
+  ← tutaj jesteśmy.
 
 - **ETAP 8** — mechanizm logowania: port `AuthenticatedSource`, trwały
   magazyn sesji (`/data/sessions/<key>.json`, 0600), reguły przejść

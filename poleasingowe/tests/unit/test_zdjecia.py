@@ -73,10 +73,10 @@ async def test_indeks_poza_zakresem_to_brak_zdjecia(tmp_path: pathlib.Path) -> N
     assert await g.obraz("atrapa", "a1", -1) is None
 
 
-async def test_liczba_zdjec_ma_sufit(tmp_path: pathlib.Path) -> None:
-    """Dwadzieścia wystarczy do obejrzenia auta; reszta to koszt bez pożytku."""
+async def test_galeria_zwraca_wszystkie_zdjecia(tmp_path: pathlib.Path) -> None:
+    """Karta szczegółów ma pokazać całą dokumentację fotograficzną."""
     zrodlo = ZrodloZeZdjeciami([f"https://x.test/{i}.jpg" for i in range(60)])
-    assert len(await galeria(zrodlo, tmp_path).adresy("atrapa", "a1")) == 20
+    assert len(await galeria(zrodlo, tmp_path).adresy("atrapa", "a1")) == 60
 
 
 def test_nazwa_pliku_w_cache_nie_pochodzi_od_adresu(tmp_path: pathlib.Path) -> None:

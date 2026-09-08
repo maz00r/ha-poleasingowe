@@ -91,6 +91,7 @@ def test_domyslne_z_configu_zgadzaja_sie_z_sekcja_0(config: dict[str, Any]) -> N
 def test_haslo_ma_typ_password_w_schemacie(config: dict[str, Any]) -> None:
     """SPEC.md §10.2 — typ `password` sprawia, że HA nie pokazuje go jawnie."""
     assert config["schema"]["db_password"] == "password"
+    assert config["schema"]["openai_api_key"] == "password?"
     assert config["schema"]["credentials"][0]["password"] == "password"
 
 
