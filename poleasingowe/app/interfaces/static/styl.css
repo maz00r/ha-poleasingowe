@@ -160,11 +160,11 @@ th .sortuj { color: inherit; text-decoration: none; white-space: nowrap; }
 th .sortuj:hover { color: var(--akcent); }
 
 .kol-obserwacja { width: 34px; text-align: center; }
-.kol-miniatura { width: 112px; }
+.kol-miniatura { width: 176px; }
 .miniatura {
   display: block;
-  width: 96px;
-  height: 64px;
+  width: 160px;
+  height: 106px;
   object-fit: cover;
   border-radius: 6px;
   border: 1px solid var(--obramowanie);
@@ -286,7 +286,7 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0
 
 @media (max-width: 700px) {
   main { padding: 8px; }
-  .kol-miniatura { width: 84px; }
-  .miniatura { width: 72px; height: 52px; }
+  .kol-miniatura { width: 116px; }
+  .miniatura { width: 104px; height: 78px; }
   table.lista th, table.lista td { padding: 6px; }
 }

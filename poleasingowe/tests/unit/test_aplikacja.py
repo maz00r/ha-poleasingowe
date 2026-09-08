@@ -66,8 +66,8 @@ def test_przegladarka_trafia_do_statyk_przez_prefiks_bez_naglowka() -> None:
     skrypt = urljoin(baza, _atrybut(strona.text, "script", "src"))
 
     prefiks = "https://ha.test/api/hassio_ingress/abc123/"
-    assert styl == prefiks + "static/styl.css?v=0.8.0"
-    assert skrypt == prefiks + "static/htmx.min.js?v=0.8.0"
+    assert styl == prefiks + "static/styl.css?v=0.8.1"
+    assert skrypt == prefiks + "static/htmx.min.js?v=0.8.1"
 
 
 def test_base_z_karty_aukcji_wraca_do_korzenia_ingressu() -> None:
@@ -164,7 +164,7 @@ def test_adresy_sa_wzgledne_wobec_origin_a_nie_bezwzgledne() -> None:
         wewnetrzny_host not in odp.text
     ), "adres z wewnętrznym hostem kontenera — przeglądarka tam nie trafi"
     assert "http://testserver" not in odp.text
-    assert 'href="static/styl.css?v=0.8.0"' in odp.text
-    assert 'src="static/htmx.min.js?v=0.8.0"' in odp.text
+    assert 'href="static/styl.css?v=0.8.1"' in odp.text
+    assert 'src="static/htmx.min.js?v=0.8.1"' in odp.text
     assert 'href="/static' not in odp.text
     assert 'src="/static' not in odp.text

@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+import io
 import logging
 import os
 import pathlib
@@ -33,6 +34,7 @@ import time
 from collections.abc import Mapping, Sequence
 
 import httpx
+from PIL import Image, ImageOps, UnidentifiedImageError
 
 from app.application.ports import AuctionSource
 
@@ -45,6 +47,8 @@ LIMIT_PLIKU_BAJTY = 4 * 1024 * 1024
 WAZNOSC_LISTY_S = 900.0
 """Jak długo pamiętamy adresy galerii. Zdjęcia nie zmieniają się w trakcie
 trwania aukcji, a bez tego każde odświeżenie karty to nowe żądanie strony."""
+ROZMIAR_MINIATURY = (240, 160)
+JAKOSC_MINIATURY = 78
 
 TYPY = {
     ".jpg": "image/jpeg",
@@ -114,7 +118,12 @@ class GaleriaZdjec:
         return adresy
 
     async def obraz(
-        self, source_key: str, external_id: str, indeks: int
+        self,
+        source_key: str,
+        external_id: str,
+        indeks: int,
+        *,
+        miniatura: bool = False,
     ) -> tuple[bytes, str] | None:
         """Bajty zdjęcia i jego typ MIME. `None`, gdy takiego zdjęcia nie ma.
 
@@ -123,7 +132,44 @@ class GaleriaZdjec:
         adresy = await self.adresy(source_key, external_id)
         if not 0 <= indeks < len(adresy):
             return None
-        return await self._z_cache_lub_sieci(adresy[indeks])
+        url = adresy[indeks]
+        if miniatura:
+            return await self._miniatura(url)
+        return await self._z_cache_lub_sieci(url)
+
+    async def _miniatura(self, url: str) -> tuple[bytes, str] | None:
+        """Mały JPEG 3:2 do listy; nigdy oryginał tylko pomniejszony CSS-em."""
+        sciezka = self._sciezka_miniatury(url)
+        try:
+            return sciezka.read_bytes(), "image/jpeg"
+        except OSError:
+            pass
+
+        oryginal = await self._z_cache_lub_sieci(url)
+        if oryginal is None:
+            return None
+        try:
+            dane = await asyncio.to_thread(self._pomniejsz, oryginal[0])
+        except (OSError, UnidentifiedImageError, Image.DecompressionBombError) as exc:
+            log.info("nie udało się utworzyć miniatury %s: %s", url, exc)
+            return None
+        await asyncio.to_thread(self._zapisz, sciezka, dane)
+        return dane, "image/jpeg"
+
+    @staticmethod
+    def _pomniejsz(dane: bytes) -> bytes:
+        with Image.open(io.BytesIO(dane)) as oryginal:
+            poprawiony = ImageOps.exif_transpose(oryginal)
+            miniatura = ImageOps.fit(
+                poprawiony.convert("RGB"),
+                ROZMIAR_MINIATURY,
+                method=Image.Resampling.LANCZOS,
+            )
+            wynik = io.BytesIO()
+            miniatura.save(
+                wynik, format="JPEG", quality=JAKOSC_MINIATURY, optimize=True
+            )
+            return wynik.getvalue()
 
     async def _z_cache_lub_sieci(self, url: str) -> tuple[bytes, str] | None:
         sciezka = self._sciezka_cache(url)
@@ -157,6 +203,10 @@ class GaleriaZdjec:
             (r for r in TYPY if url.lower().split("?")[0].endswith(r)), ".jpg"
         )
         return self._katalog / f"{odcisk}{rozszerzenie}"
+
+    def _sciezka_miniatury(self, url: str) -> pathlib.Path:
+        odcisk = hashlib.sha256(url.encode("utf-8")).hexdigest()
+        return self._katalog / f"{odcisk}.miniatura.jpg"
 
     def _zapisz(self, sciezka: pathlib.Path, dane: bytes) -> None:
         try:

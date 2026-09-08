@@ -1,5 +1,12 @@
 # Historia zmian
 
+## 0.8.1 — w przygotowaniu
+
+**Prawdziwe miniatury na liście.** Add-on generuje i cache'uje osobny JPEG
+240×160 zamiast wysyłać do przeglądarki pełne zdjęcie i zmniejszać je samym
+CSS-em. Lista ma większy, stały kadr 3:2 podobny do kart popularnych serwisów
+ogłoszeniowych; galeria szczegółów nadal korzysta z pełnych zdjęć.
+
 ## 0.8.0 — w przygotowaniu
 
 **Poprawione archiwum.** Pokazuje teraz tylko auta pozostawione na watchliście,

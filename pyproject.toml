@@ -32,6 +32,8 @@ dependencies = [
   # pakietu w chwili DEFINIOWANIA trasy z `Form`, nie przy zadaniu — brak
   # konczy sie bledem przy imporcie, nie przy kliknieciu.
   "python-multipart==0.0.32",
+  # Lista dostaje prawdziwe, małe miniatury zamiast skalowania oryginału CSS-em.
+  "pillow==12.3.0",
 ]
 
 [project.optional-dependencies]

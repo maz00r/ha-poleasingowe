@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import io
 import pathlib
+
+from PIL import Image
 
 from app.infrastructure.zdjecia import GaleriaZdjec
 
@@ -106,3 +109,17 @@ def test_typ_mime_bierze_sie_z_rozszerzenia(tmp_path: pathlib.Path) -> None:
     assert g._sciezka_cache("https://x.test/a.png").suffix == ".png"
     assert g._sciezka_cache("https://x.test/a.webp").suffix == ".webp"
     assert g._sciezka_cache("https://x.test/a").suffix == ".jpg"
+
+
+def test_miniatura_jest_faktycznie_malym_obrazem_jpeg(
+    tmp_path: pathlib.Path,
+) -> None:
+    wejscie = io.BytesIO()
+    Image.new("RGB", (2400, 1600), "#56789a").save(wejscie, format="PNG")
+
+    wynik = GaleriaZdjec._pomniejsz(wejscie.getvalue())
+
+    with Image.open(io.BytesIO(wynik)) as obraz:
+        assert obraz.size == (240, 160)
+        assert obraz.format == "JPEG"
+    assert len(wynik) < len(wejscie.getvalue())

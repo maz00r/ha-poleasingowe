@@ -477,7 +477,10 @@ async def zdjecie(
         return _brak_zdjecia() if miniatura else Response(status_code=404)
 
     wynik = await galeria.obraz(
-        dane.pozycja.source_key, dane.pozycja.external_id, indeks
+        dane.pozycja.source_key,
+        dane.pozycja.external_id,
+        indeks,
+        miniatura=miniatura,
     )
     if wynik is None:
         return _brak_zdjecia() if miniatura else Response(status_code=404)
