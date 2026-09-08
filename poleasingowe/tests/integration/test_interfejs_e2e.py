@@ -103,14 +103,14 @@ async def test_archiwum_pokazuje_znacznik_pewnosci_ceny(
     assert "CONFIRMED" in odp.text
 
 
-async def test_paginacja_htmx_doklada_kolejne_wiersze(
+async def test_paginacja_htmx_doklada_kolejne_kafelki(
     klient: httpx.AsyncClient, pusta_baza: psycopg.AsyncConnection
 ) -> None:
-    """Fragment ma zwracać SAME wiersze — trafia do środka `<tbody>`."""
+    """Fragment ma zwracać SAME kafelki — trafia do środka siatki `.lista`."""
     await _dane(pusta_baza)
     pierwsza = await klient.get("/lista", params={"kursor": ""})
     assert "<html" not in pierwsza.text.lower(), "fragment nie jest cała stroną"
-    assert pierwsza.text.lstrip().startswith("<tr")
+    assert pierwsza.text.lstrip().startswith('<article class="oferta')
 
 
 async def test_szczegoly_linkuja_do_oferty_i_do_grafany(

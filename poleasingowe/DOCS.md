@@ -160,7 +160,10 @@ rzeczoznawcy.
 ## Interfejs
 
 Dodatek otwiera się z paska bocznego Home Assistanta. Uwierzytelnia Ingress —
-nie ma osobnego logowania.
+nie ma osobnego logowania. Wygląd idzie za motywem HA (jasny/ciemny), a krój
+pisma (Montserrat, licencja SIL OFL 1.1, treść w
+`app/interfaces/static/fonty/OFL.txt`) jest w dodatku — nic nie ładuje się
+z internetu, więc panel wygląda tak samo bez połączenia.
 
 ### Lista
 

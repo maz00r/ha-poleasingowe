@@ -1,30 +1,103 @@
-/* Styl interfejsu operacyjnego (SPEC.md §12).
-   Bez frameworka: add-on jedzie na Pentium Silver J5005, a strona ma sie
-   wyswietlic, nie zaimponowac. Kolory idą za motywem Home Assistanta przez
-   prefers-color-scheme, bo add-on siedzi w jego ramce. */
+/* Styl interfejsu (SPEC.md §12).
+   ==========================================================================
+
+   Bez frameworka — add-on jedzie na Pentium Silver J5005, a strona ma się
+   wyświetlić, nie zaimponować. Cały wygląd stoi na trzech rzeczach:
+   siatce, jednym kroju i wąskiej palecie.
+
+   JĘZYK WIZUALNY. Wzorem są dwa serwisy, z których zbieramy dane:
+   poleasingowe.pl (granat #1f2548, czerwony akcent, Poppins) i
+   autoprzetarg.pl (Montserrat, kafelki ze zdjęciem i cieniem). Stąd granat
+   jako kolor konstrukcyjny, geometryczny grotesk i lista jako **siatka
+   kafelków ze zdjęciem**, a nie tabela. Nie kopiujemy ich arkuszy ani
+   znaków firmowych — bierzemy kształt, nie własność.
+
+   KOLOR NIESIE INFORMACJĘ, nie dekorację. Czerwień znaczy wyłącznie
+   „kończy się zaraz", zieleń wyłącznie „poniżej Twojego progu". Gdyby
+   czerwień pojawiła się także na przycisku, przestałaby cokolwiek znaczyć
+   w liście kilkudziesięciu pozycji.
+
+   Motyw idzie za Home Assistantem przez `prefers-color-scheme` — add-on
+   siedzi w jego ramce i ma nie migać na biało w ciemnym panelu. */
+
+/* --------------------------------------------------------------------------
+   Krój — hostowany lokalnie. Żadnych CDN-ów: Ingress nie wypuszcza żądań na
+   zewnątrz, a strona ma wyglądać tak samo bez internetu. Dwie podrodziny,
+   bo polskie znaki (ą, ć, ę, ł, ń, ś, ż, ź) siedzą w `latin-ext`, a nie
+   w `latin` — bez drugiego pliku przeglądarka podstawiłaby zamiennik i
+   diakrytyki odjechałyby od reszty słowa.
+   Montserrat, SIL OFL 1.1 — treść licencji w `fonty/OFL.txt`.
+   -------------------------------------------------------------------------- */
+@font-face {
+  font-family: "Montserrat";
+  font-style: normal;
+  font-weight: 400 800;
+  font-display: swap;
+  src: url("fonty/montserrat-latin.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6,
+    U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122,
+    U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Montserrat";
+  font-style: normal;
+  font-weight: 400 800;
+  font-display: swap;
+  src: url("fonty/montserrat-latin-ext.woff2") format("woff2");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7,
+    U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F,
+    U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F,
+    U+A720-A7FF;
+}
 
 :root {
   color-scheme: light dark;
-  --tlo: #f6f7f9;
+
+  --tlo: #eef1f6;
   --karta: #ffffff;
-  --tekst: #212121;
-  --przygaszony: #6b7280;
-  --obramowanie: #dfe3e8;
-  --akcent: #03a9f4;
-  --alarm: #d32f2f;
-  --sukces: #2e7d32;
+  --karta-2: #f7f8fb;
+  --tekst: #161c30;
+  --przygaszony: #626b86;
+  --obramowanie: #e0e4ee;
+  --obramowanie-mocna: #ccd2e0;
+
+  /* Granat konstrukcyjny — pasek, przyciski, akcenty aktywnego stanu. */
+  --granat: #1f2548;
+  --granat-jasny: #33406f;
+  --akcent: #2c3767;
+  --akcent-tekst: #ffffff;
+
+  --alarm: #cc2b28;
+  --sukces: #10714a;
+
+  --cien: 0 1px 2px rgb(22 28 48 / 6%), 0 6px 16px -8px rgb(22 28 48 / 18%);
+  --cien-uniesiona: 0 2px 4px rgb(22 28 48 / 8%), 0 14px 28px -12px rgb(22 28 48 / 26%);
+  --promien: 12px;
+  --promien-maly: 8px;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --tlo: #111418;
-    --karta: #1c2126;
-    --tekst: #e6e8ea;
-    --przygaszony: #9aa3ad;
-    --obramowanie: #2c3339;
-    --akcent: #4fc3f7;
-    --alarm: #ef5350;
-    --sukces: #66bb6a;
+    --tlo: #0e1220;
+    --karta: #161b2c;
+    --karta-2: #1b2134;
+    --tekst: #e7eaf3;
+    --przygaszony: #98a1bd;
+    --obramowanie: #262d44;
+    --obramowanie-mocna: #333c58;
+
+    --granat: #131828;
+    --granat-jasny: #232b4a;
+    /* W ciemnym motywie granat nie odróżnia się od tła, więc rolę akcentu
+       przejmuje rozjaśniony indygo — ta sama rodzina, inna jasność. */
+    --akcent: #8ea2ff;
+    --akcent-tekst: #101426;
+
+    --alarm: #ff6b60;
+    --sukces: #4fc48d;
+
+    --cien: 0 1px 2px rgb(0 0 0 / 40%), 0 8px 20px -10px rgb(0 0 0 / 60%);
+    --cien-uniesiona: 0 2px 6px rgb(0 0 0 / 45%), 0 18px 34px -14px rgb(0 0 0 / 70%);
   }
 }
 
@@ -34,242 +107,557 @@ body {
   margin: 0;
   background: var(--tlo);
   color: var(--tekst);
-  font: 14px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-family: "Montserrat", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
 }
 
-main { padding: 16px; }
+main {
+  max-width: 1560px;
+  margin: 0 auto;
+  padding: 20px 24px 56px;
+}
+
+a { color: var(--akcent); }
+
+/* --------------------------------------------------------------------------
+   Pasek górny
+   -------------------------------------------------------------------------- */
 
 .pasek {
+  position: sticky;
+  top: 0;
+  z-index: 20;
   display: flex;
   flex-wrap: wrap;
-  gap: 16px;
+  gap: 8px 28px;
   align-items: center;
-  padding: 12px 16px;
-  background: var(--karta);
-  border-bottom: 1px solid var(--obramowanie);
+  padding: 12px 24px;
+  background: var(--granat);
+  color: #eef0f8;
+  box-shadow: var(--cien);
 }
 
-.marka { font-weight: 600; text-decoration: none; color: var(--tekst); }
-.pasek nav { display: flex; flex-wrap: wrap; gap: 12px; }
-.pasek nav a { color: var(--akcent); text-decoration: none; }
-.pasek nav a:hover { text-decoration: underline; }
+.marka {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 700;
+  font-size: 15px;
+  letter-spacing: -0.01em;
+  text-decoration: none;
+  color: #fff;
+}
+
+/* Znak firmowy: dwa prostokąty jak tablica rejestracyjna widziana z boku.
+   Rysowany CSS-em, bo jeden plik mniej to jedno żądanie mniej. */
+.marka::before {
+  content: "";
+  width: 22px;
+  height: 15px;
+  border-radius: 3px;
+  border: 2px solid currentcolor;
+  border-left-width: 6px;
+  opacity: 0.9;
+}
+
+.pasek nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-left: auto;
+}
+
+.pasek nav a {
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #c3c9e2;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+.pasek nav a:hover { background: rgb(255 255 255 / 10%); color: #fff; }
+
+/* --------------------------------------------------------------------------
+   Powierzchnie
+   -------------------------------------------------------------------------- */
 
 .karta {
   background: var(--karta);
   border: 1px solid var(--obramowanie);
-  border-radius: 8px;
-  padding: 16px;
-  margin-bottom: 16px;
+  border-radius: var(--promien);
+  padding: 20px 22px;
+  margin-bottom: 18px;
+  box-shadow: var(--cien);
 }
 
-h1 { font-size: 20px; margin: 0 0 4px; }
-h2 { font-size: 16px; margin: 0 0 12px; }
-.podtytul { color: var(--przygaszony); margin: 0 0 16px; }
+h1 { font-size: 22px; font-weight: 700; letter-spacing: -0.015em; margin: 0 0 4px; }
+h2 {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--przygaszony);
+  margin: 0 0 14px;
+}
+.podtytul { color: var(--przygaszony); margin: 0 0 18px; font-size: 13px; }
+
+/* --------------------------------------------------------------------------
+   Filtry
+   -------------------------------------------------------------------------- */
 
 .filtry {
   background: var(--karta);
   border: 1px solid var(--obramowanie);
-  border-radius: 8px;
-  padding: 12px 16px;
-  margin-bottom: 12px;
+  border-radius: var(--promien);
+  padding: 16px 18px;
+  margin-bottom: 14px;
+  box-shadow: var(--cien);
 }
+
 .pasek-filtrow {
   display: flex;
   flex-wrap: wrap;
-  gap: 12px;
+  gap: 14px;
   align-items: flex-end;
 }
-.pole.rosnie { flex: 1 1 260px; }
+.pole.rosnie { flex: 1 1 240px; }
 
-/* Rzadko uzywane filtry zwiniete: czternascie pol rozwinietych na staly
-   zajmowalo pol ekranu nad lista, ktora jest tu wlasciwa trescia. */
-.wiecej-filtrow { margin-top: 12px; }
+/* Rzadko używane filtry zwinięte: czternaście pól rozwiniętych na stałe
+   zajmowało pół ekranu nad listą, która jest tu właściwą treścią. */
+.wiecej-filtrow { margin-top: 14px; border-top: 1px solid var(--obramowanie); }
 .wiecej-filtrow > summary {
   cursor: pointer;
   color: var(--akcent);
-  font-size: 13px;
-  padding: 4px 0;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  padding: 10px 0 0;
   list-style-position: inside;
 }
-.wiecej-filtrow[open] > summary { margin-bottom: 10px; }
+.wiecej-filtrow[open] > summary { margin-bottom: 14px; }
 
-.podsumowanie { color: var(--przygaszony); margin: 0 0 8px; font-size: 13px; }
-
-.pole { display: flex; flex-direction: column; gap: 4px; min-width: 150px; }
+.pole { display: flex; flex-direction: column; gap: 5px; min-width: 148px; }
 .pole.szerokie { min-width: 280px; flex: 1; }
-.pole.waskie { min-width: 90px; }
-.pole label { font-size: 12px; color: var(--przygaszony); }
-.pole.przelaczniki { gap: 6px; justify-content: flex-end; }
-.pole.przelaczniki label { color: var(--tekst); font-size: 13px; }
+.pole.waskie { min-width: 92px; }
+.pole label {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--przygaszony);
+}
+.pole.przelaczniki { gap: 7px; justify-content: flex-end; }
+.pole.przelaczniki label {
+  color: var(--tekst);
+  font-size: 13px;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
 
 input, select, button {
   font: inherit;
-  padding: 6px 8px;
-  border: 1px solid var(--obramowanie);
-  border-radius: 6px;
-  background: var(--tlo);
-  color: var(--tekst);
-}
-
-button { cursor: pointer; background: var(--akcent); border-color: var(--akcent); color: #06121a; }
-button:hover { filter: brightness(1.08); }
-.przyciski { display: flex; gap: 8px; align-items: center; }
-.przycisk-lekki {
-  display: inline-block;
-  padding: 6px 8px;
-  border: 1px solid var(--obramowanie);
-  border-radius: 6px;
+  padding: 8px 10px;
+  border: 1px solid var(--obramowanie-mocna);
+  border-radius: var(--promien-maly);
   background: var(--karta);
   color: var(--tekst);
+}
+input:focus-visible, select:focus-visible, button:focus-visible, a:focus-visible {
+  outline: 2px solid var(--akcent);
+  outline-offset: 2px;
+}
+select { cursor: pointer; }
+input::placeholder { color: var(--przygaszony); opacity: 0.75; }
+
+button {
+  cursor: pointer;
+  font-weight: 600;
+  background: var(--akcent);
+  border-color: var(--akcent);
+  color: var(--akcent-tekst);
+}
+button:hover { filter: brightness(1.1); }
+
+.przyciski { display: flex; gap: 10px; align-items: center; }
+.przycisk-lekki {
+  display: inline-block;
+  padding: 8px 12px;
+  border: 1px solid var(--obramowanie-mocna);
+  border-radius: var(--promien-maly);
+  background: var(--karta);
+  color: var(--tekst);
+  font-weight: 500;
   text-decoration: none;
   cursor: pointer;
 }
+.przycisk-lekki:hover { border-color: var(--akcent); color: var(--akcent); }
 
-.zapisane { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-bottom: 12px; }
+/* Zapisane filtry */
+.zapisane {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 16px;
+}
 .zapisane form { display: flex; gap: 8px; }
 .chipsy { display: flex; flex-wrap: wrap; gap: 8px; list-style: none; margin: 0; padding: 0; }
 .chipsy li {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 2px;
   background: var(--karta);
   border: 1px solid var(--obramowanie);
   border-radius: 999px;
-  padding: 2px 6px 2px 12px;
+  padding: 3px 6px 3px 14px;
+  box-shadow: var(--cien);
 }
-.chipsy a { color: var(--tekst); text-decoration: none; }
-.chipsy button { background: none; border: none; color: var(--przygaszony); padding: 0 4px; }
+.chipsy a { color: var(--tekst); text-decoration: none; font-size: 13px; font-weight: 500; }
+.chipsy button {
+  background: none;
+  border: none;
+  color: var(--przygaszony);
+  padding: 0 6px;
+  font-size: 15px;
+  line-height: 1;
+}
+.chipsy button:hover { color: var(--alarm); filter: none; }
 
-table.lista {
-  width: 100%;
-  border-collapse: collapse;
+/* --------------------------------------------------------------------------
+   Pasek nad listą: liczba pozycji i sortowanie
+   -------------------------------------------------------------------------- */
+
+.nad-lista {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: baseline;
+  justify-content: space-between;
+  margin: 0 2px 12px;
+}
+.podsumowanie {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--przygaszony);
+}
+.sortowanie-szybkie { display: flex; gap: 6px; align-items: center; }
+.sortowanie-szybkie .etykieta-sortu {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--przygaszony);
+}
+.sortuj {
+  padding: 4px 11px;
+  border: 1px solid var(--obramowanie);
+  border-radius: 999px;
+  background: var(--karta);
+  color: var(--przygaszony);
+  font-size: 12px;
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.sortuj:hover { border-color: var(--akcent); color: var(--akcent); }
+.sortuj.aktywny {
+  background: var(--akcent);
+  border-color: var(--akcent);
+  color: var(--akcent-tekst);
+}
+
+/* --------------------------------------------------------------------------
+   Siatka kafelków — główna treść aplikacji
+   -------------------------------------------------------------------------- */
+
+.lista {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(272px, 1fr));
+  gap: 18px;
+}
+
+.oferta {
+  position: relative;
+  display: flex;
+  flex-direction: column;
   background: var(--karta);
   border: 1px solid var(--obramowanie);
-  border-radius: 8px;
+  border-radius: var(--promien);
   overflow: hidden;
+  box-shadow: var(--cien);
+  transition: box-shadow 0.18s ease, transform 0.18s ease, border-color 0.18s ease;
 }
-table.lista th, table.lista td {
-  padding: 8px 10px;
-  text-align: left;
-  border-bottom: 1px solid var(--obramowanie);
-  vertical-align: top;
+.oferta:hover {
+  box-shadow: var(--cien-uniesiona);
+  transform: translateY(-2px);
+  border-color: var(--obramowanie-mocna);
 }
-table.lista th { font-size: 12px; color: var(--przygaszony); font-weight: 600; }
-table.lista td { vertical-align: middle; }
-th .sortuj { color: inherit; text-decoration: none; white-space: nowrap; }
-th .sortuj:hover { color: var(--akcent); }
 
-.kol-obserwacja { width: 34px; text-align: center; }
-.kol-miniatura { width: 176px; }
-.miniatura {
+/* Zdjęcie w stałych proporcjach 3:2 — dokładnie takich, w jakich add-on
+   generuje miniatury (240×160). Stały kadr znaczy, że układ nie skacze
+   w trakcie doładowywania obrazów. */
+.oferta-zdjecie {
+  position: relative;
   display: block;
-  width: 160px;
-  height: 106px;
-  object-fit: cover;
-  border-radius: 6px;
-  border: 1px solid var(--obramowanie);
-  background: var(--tlo);
+  aspect-ratio: 3 / 2;
+  background: var(--karta-2);
 }
-.kol-czas { white-space: nowrap; }
+.oferta-zdjecie img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* Przyciemnienie pod plakietkami: bez niego biały samochód zjada biały
+   tekst licznika. Gradient tylko u dołu, żeby nie brudzić całego zdjęcia. */
+.oferta-zdjecie::after {
+  content: "";
+  position: absolute;
+  inset: auto 0 0;
+  height: 58%;
+  background: linear-gradient(to top, rgb(10 14 28 / 78%), rgb(10 14 28 / 0%));
+  pointer-events: none;
+}
+
+.plakietki {
+  position: absolute;
+  inset: auto 10px 10px;
+  z-index: 1;
+  display: flex;
+  gap: 6px;
+  align-items: flex-end;
+  justify-content: space-between;
+  pointer-events: none;
+}
+
+.plakietka {
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: #fff;
+  background: rgb(15 20 38 / 72%);
+  backdrop-filter: blur(4px);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.plakietka.zrodlo {
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  font-size: 10px;
+  color: #d5dbf2;
+}
+/* Kolor tu NIE jest ozdobą: czerwień znaczy „ostatni kwadrans". */
+.plakietka.konczy-sie { background: var(--alarm); color: #fff; }
+.plakietka.dzis { background: rgb(15 20 38 / 82%); color: #ffd9a3; }
+.plakietka.po-terminie { background: rgb(15 20 38 / 62%); color: #c3c9e2; }
+
+/* Gwiazdka obserwacji leży na zdjęciu — jak w serwisach aukcyjnych. */
+.gwiazdka {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 2;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: rgb(15 20 38 / 62%);
+  backdrop-filter: blur(4px);
+  color: #fff;
+  font-size: 16px;
+  line-height: 1;
+  box-shadow: none;
+}
+.gwiazdka:hover { background: rgb(15 20 38 / 85%); filter: none; }
+.gwiazdka.wlaczona { background: #f5b301; color: #21170a; }
+
+.oferta-tresc {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 16px 16px;
+  flex: 1;
+}
+
+.nazwa {
+  display: block;
+  color: var(--tekst);
+  font-weight: 600;
+  font-size: 14.5px;
+  line-height: 1.35;
+  letter-spacing: -0.005em;
+  text-decoration: none;
+  /* Dwie linie i wielokropek: tytuły bywają długie, a kafelki w rzędzie
+     mają kończyć się na tej samej wysokości. */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  min-height: 2.7em;
+}
+.nazwa:hover { color: var(--akcent); }
+
 .pod-nazwa {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 3px;
+  gap: 4px 8px;
   font-size: 12px;
   color: var(--przygaszony);
 }
-.pod-nazwa > span:not(:last-child)::after { content: " ·"; }
-.pod-nazwa .zrodlo { color: var(--akcent); }
-.drobne { font-size: 11px; color: var(--przygaszony); margin-top: 2px; }
-.zostalo { font-weight: 600; }
-
-/* Gwiazdka obserwacji — przycisk, ale ma wygladac jak ikona, nie jak
-   przycisk formularza. */
-.gwiazdka {
-  background: none;
-  border: none;
-  padding: 2px 4px;
-  font-size: 17px;
-  line-height: 1;
-  color: var(--przygaszony);
+.pod-nazwa > span:not(:last-child)::after {
+  content: "·";
+  margin-left: 8px;
+  opacity: 0.55;
 }
-.gwiazdka:hover { color: var(--akcent); filter: none; }
-.gwiazdka.wlaczona { color: var(--akcent); }
 
-.wczytaj-wiecej { width: 100%; }
+.oferta-stopka {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: auto;
+  padding-top: 12px;
+  border-top: 1px solid var(--obramowanie);
+}
 
-/* Pilnosc: w liscie kilkudziesieciu pozycji to, ze cos konczy sie za
-   kwadrans, musi byc widoczne bez czytania kolumny z data. */
-tr.dzis .zostalo { color: var(--akcent); }
-tr.konczy-sie .zostalo { color: var(--alarm); font-weight: 700; }
-tr.konczy-sie td { background: color-mix(in srgb, var(--alarm) 7%, transparent); }
-tr.po-terminie { opacity: 0.65; }
+.kwota {
+  font-size: 19px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.drobne { font-size: 11px; color: var(--przygaszony); }
+.termin { text-align: right; font-size: 11px; color: var(--przygaszony); white-space: nowrap; }
+.link-oferta {
+  font-size: 12px;
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.link-oferta:hover { text-decoration: underline; }
 
-.pusto-karta { text-align: center; padding: 32px 16px; }
-.pusto-karta p { color: var(--przygaszony); max-width: 52ch; margin: 8px auto; }
-table.lista tr:last-child td { border-bottom: none; }
-.kwota { white-space: nowrap; font-variant-numeric: tabular-nums; }
-.nazwa { color: var(--tekst); font-weight: 600; text-decoration: none; }
-.nazwa:hover { text-decoration: underline; }
+/* Stany, które mają być widoczne bez czytania: poniżej progu ceny
+   docelowej (SPEC.md §12) i po terminie. */
+.oferta.ponizej-progu { border-color: var(--sukces); }
+.oferta.ponizej-progu .kwota { color: var(--sukces); }
+.oferta.po-terminie { opacity: 0.72; }
+.oferta.po-terminie:hover { opacity: 1; }
 
-/* Wyroznienie po przekroczeniu progu ceny docelowej (SPEC.md §12). */
-tr.ponizej-progu td { background: color-mix(in srgb, var(--sukces) 14%, transparent); }
-.ponizej-progu-info { color: var(--sukces); font-weight: 600; }
-
-.znacznik { color: var(--akcent); }
 .etykieta {
   display: inline-block;
-  font-size: 11px;
-  padding: 1px 6px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  padding: 1px 7px;
   border-radius: 999px;
-  border: 1px solid var(--obramowanie);
+  border: 1px solid var(--obramowanie-mocna);
   color: var(--przygaszony);
 }
 .etykieta.pewna { border-color: var(--sukces); color: var(--sukces); }
 .etykieta.niepewna { border-color: var(--alarm); color: var(--alarm); }
 
+/* Doładowanie kolejnej strony (paginacja keyset, §12). Element rozciąga się
+   na całą szerokość siatki, żeby nie udawał kafelka. */
+.dalej { grid-column: 1 / -1; display: flex; justify-content: center; padding: 6px 0 2px; }
+.wczytaj-wiecej { min-width: 280px; padding: 12px 20px; }
+
+.pusto-karta { text-align: center; padding: 44px 20px; }
+.pusto-karta h2 {
+  font-size: 17px;
+  letter-spacing: -0.01em;
+  text-transform: none;
+  color: var(--tekst);
+  margin-bottom: 10px;
+}
+.pusto-karta p { color: var(--przygaszony); max-width: 54ch; margin: 10px auto; }
+
+/* --------------------------------------------------------------------------
+   Karta aukcji
+   -------------------------------------------------------------------------- */
+
+.naglowek-aukcji {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 18px;
+}
+.cena-glowna { text-align: right; }
+.cena-glowna .kwota { font-size: 28px; display: block; }
+.cena-glowna .drobne { margin-top: 2px; }
+
+/* Dane techniczne: etykieta nad wartością, w równych kolumnach. Klinicznie
+   i systematycznie — tabela pomiarowa, nie akapit.
+
+   Linie rysują SAME KOMÓRKI, a nie tło pod siatką. Tło działało, dopóki
+   ostatni rząd był pełny: przy siedemnastu polach i czterech kolumnach
+   puste miejsce po prawej stronie zostawało jako jasny prostokąt, który
+   wyglądał jak brakująca dana. */
 .siatka {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(168px, 1fr));
+  border-top: 1px solid var(--obramowanie);
 }
-/* min-width: 0 jest konieczne: domyslne `auto` w gridzie nie pozwala
-   komorce zwezic sie ponizej tresci, wiec dlugi DSN nachodzil na sasiednia
-   kolumne zamiast sie zawinac. */
-.siatka > div { display: flex; flex-direction: column; min-width: 0; }
-.siatka span { font-size: 12px; color: var(--przygaszony); }
-.siatka strong { overflow-wrap: anywhere; }
+/* min-width: 0 jest konieczne: domyślne `auto` w gridzie nie pozwala
+   komórce zwęzić się poniżej treści, więc długi DSN nachodził na sąsiednią
+   kolumnę zamiast się zawinąć. */
+.siatka > div {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  padding: 11px 14px 11px 0;
+  border-bottom: 1px solid var(--obramowanie);
+}
+.siatka span {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--przygaszony);
+}
+.siatka strong { overflow-wrap: anywhere; font-weight: 600; }
 
-.linki { margin-top: 16px; }
-.linki a { color: var(--akcent); }
+.linki { margin-top: 18px; font-size: 13px; }
+.linki a { font-weight: 600; text-decoration: none; }
+.linki a:hover { text-decoration: underline; }
 
-.ostrzezenie { border-color: var(--alarm); }
-/* Na wierszu tabeli samo obramowanie jest niewidoczne — zablokowane zrodlo
-   ma rzucac sie w oczy, bo to stan wymagajacy decyzji operatora (§10.2). */
-tr.ostrzezenie td { background: color-mix(in srgb, var(--alarm) 12%, transparent); }
-.ostrzezenie-inline { color: var(--alarm); }
-.uwaga { color: var(--przygaszony); }
-.pusto { color: var(--przygaszony); padding: 16px 0; }
-
-code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.92em; }
-
-/* Galeria zdjec (SPEC.md §12). Obrazy ida przez add-on, wiec pierwsze
-   otwarcie karty jest wolniejsze — stad `loading="lazy"` i staly rozmiar
-   kafelka, zeby uklad nie skakal w trakcie doladowywania. */
+/* Galeria zdjęć (SPEC.md §12). Obrazy idą przez add-on, więc pierwsze
+   otwarcie karty jest wolniejsze — stąd `loading="lazy"` i stały kadr. */
 .galeria {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-  gap: 8px;
-  margin-top: 16px;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 10px;
+  margin-top: 18px;
 }
 .galeria img {
   width: 100%;
-  height: 110px;
+  aspect-ratio: 3 / 2;
   object-fit: cover;
-  border-radius: 6px;
+  border-radius: var(--promien-maly);
   border: 1px solid var(--obramowanie);
-  background: var(--tlo);
+  background: var(--karta-2);
   display: block;
 }
 .galeria a:hover img { border-color: var(--akcent); }
@@ -277,16 +665,88 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0
 .wycena-wynik {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 12px;
-  margin-bottom: 12px;
+  gap: 14px;
+  margin-bottom: 14px;
 }
-.wycena-wynik > div { display: flex; flex-direction: column; }
-.wycena-wynik span { color: var(--przygaszony); font-size: 12px; }
-.wycena-wynik strong { font-size: 18px; }
+.wycena-wynik > div { display: flex; flex-direction: column; gap: 3px; }
+.wycena-wynik span {
+  color: var(--przygaszony);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+.wycena-wynik strong { font-size: 20px; font-weight: 700; letter-spacing: -0.02em; }
 
-@media (max-width: 700px) {
-  main { padding: 8px; }
-  .kol-miniatura { width: 116px; }
-  .miniatura { width: 104px; height: 78px; }
-  table.lista th, table.lista td { padding: 6px; }
+/* --------------------------------------------------------------------------
+   Diagnostyka — jedyne miejsce, gdzie tabela jest właściwą formą
+   -------------------------------------------------------------------------- */
+
+table.zestawienie {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+table.zestawienie th,
+table.zestawienie td {
+  padding: 9px 12px;
+  text-align: left;
+  border-bottom: 1px solid var(--obramowanie);
+  vertical-align: middle;
+}
+table.zestawienie th {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--przygaszony);
+}
+table.zestawienie tr:last-child td { border-bottom: none; }
+table.zestawienie tr.ostrzezenie td {
+  background: color-mix(in srgb, var(--alarm) 12%, transparent);
+}
+
+.znacznik { color: var(--akcent); }
+.ostrzezenie { border-color: var(--alarm); }
+.ostrzezenie-inline { color: var(--alarm); font-weight: 600; }
+.uwaga { color: var(--przygaszony); }
+.pusto { color: var(--przygaszony); padding: 16px 0; }
+.ponizej-progu-info { color: var(--sukces); font-weight: 600; }
+
+code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.9em;
+  background: var(--karta-2);
+  padding: 1px 5px;
+  border-radius: 4px;
+}
+
+/* --------------------------------------------------------------------------
+   Wąski ekran — telefon w kieszeni przy oglądaniu auta
+   -------------------------------------------------------------------------- */
+
+@media (max-width: 760px) {
+  main { padding: 14px 12px 40px; }
+  .pasek { padding: 10px 12px; gap: 8px 14px; }
+  /* Jeden przewijany rząd zamiast trzech zawiniętych: na telefonie
+     nawigacja zjadała pół pierwszego ekranu, na którym ma być lista. */
+  .pasek nav {
+    margin-left: 0;
+    width: 100%;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+  .pasek nav::-webkit-scrollbar { display: none; }
+  .karta, .filtry { padding: 14px; border-radius: var(--promien-maly); }
+  .lista { grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; }
+  .naglowek-aukcji { flex-direction: column; gap: 10px; }
+  .cena-glowna { text-align: left; }
+  .cena-glowna .kwota { font-size: 24px; }
+  h1 { font-size: 19px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .oferta, .oferta:hover { transition: none; transform: none; }
 }

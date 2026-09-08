@@ -48,6 +48,7 @@ from app.interfaces.web.formularze import (
     na_parametry,
     zbuduj_kryteria,
 )
+from app.wersja import WERSJA
 
 log = logging.getLogger(__name__)
 
@@ -132,6 +133,7 @@ def _kontekst_bazowy(request: Request) -> dict[str, Any]:
         "sortowania": list(Sortowanie),
         "etykiety_sortowania": ETYKIETY_SORTOWANIA,
         "etykiety_rodzaju": ETYKIETY_RODZAJU,
+        "wersja": WERSJA,
     }
 
 
@@ -222,14 +224,18 @@ async def _pobierz_liste(
     return strona, wartosci, zapisane, cokolwiek
 
 
-def _linki_sortowania(kryteria: Kryteria) -> dict[str, dict[str, str]]:
-    """Dla każdej sortowalnej kolumny: dokąd prowadzi klik i czy jest aktywna.
+def _linki_sortowania(kryteria: Kryteria) -> dict[str, dict[str, str | bool]]:
+    """Dla każdego klucza sortowania: dokąd prowadzi klik i czy jest aktywny.
 
-    Klik w aktywną kolumnę odwraca kierunek — tak działa każda tabela, którą
+    Klik w aktywny klucz odwraca kierunek — tak działa każda lista, którą
     użytkownik już zna. Filtry zostają, bo idą tym samym adresem.
+
+    `aktywna` wychodzi na zewnątrz, bo w siatce kafelków nie ma nagłówków
+    kolumn: bieżący klucz musi być widoczny sam z siebie, inaczej nie
+    wiadomo, po czym lista jest ułożona.
     """
     parametry = na_parametry(kryteria)
-    wynik: dict[str, dict[str, str]] = {}
+    wynik: dict[str, dict[str, str | bool]] = {}
     for kolumna, (rosnaco, malejaco) in SORTOWANIE_KOLUMN.items():
         aktywna = kryteria.sortowanie in (rosnaco, malejaco)
         nastepne = malejaco if kryteria.sortowanie is rosnaco else rosnaco
@@ -239,6 +245,7 @@ def _linki_sortowania(kryteria: Kryteria) -> dict[str, dict[str, str]]:
             "strzalka": ("↑" if kryteria.sortowanie is rosnaco else "↓")
             if aktywna
             else "",
+            "aktywna": aktywna,
         }
     return wynik
 
@@ -291,7 +298,7 @@ async def lista_fragment(request: Request) -> Response:
     strona, _, _, _ = await _pobierz_liste(request, kryteria)
     return SZABLONY.TemplateResponse(
         request=request,
-        name="fragmenty/wiersze.html",
+        name="fragmenty/karty.html",
         context={
             **_kontekst_bazowy(request),
             "strona": strona,
@@ -497,11 +504,33 @@ async def zdjecie(
 
 
 def _brak_zdjecia() -> Response:
-    """Neutralna miniatura zamiast ikony uszkodzonego obrazu w tabeli."""
-    svg = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 64">
-<rect width="96" height="64" rx="6" fill="#2c3339"/>
-<path d="M24 43h48l-8-12-10 8-12-17z" fill="#6b7280"/>
-<circle cx="66" cy="20" r="5" fill="#9aa3ad"/>
+    """Neutralne wypełnienie kadru zamiast ikony uszkodzonego obrazu.
+
+    Znak jest **mały i cichy**, a nie na całą kafelkę: w siatce kilkudziesięciu
+    ofert brak zdjęcia to informacja poboczna, a duża ikona krzyczałaby
+    głośniej niż cena i termin, czyli rzeczy, po które się tu przychodzi.
+    Stąd sylwetka auta w środku pustego kadru, w kolorze ledwie odcinającym
+    się od tła.
+
+    SVG jest osobnym dokumentem, więc ma własne `prefers-color-scheme` —
+    inaczej jasna plama świeciłaby w ciemnym panelu Home Assistanta.
+    """
+    svg = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 160">
+<style>
+  .tlo { fill: #f7f8fb }
+  .znak { fill: #c3c9d8 }
+  @media (prefers-color-scheme: dark) {
+    .tlo { fill: #1b2134 }
+    .znak { fill: #39415c }
+  }
+</style>
+<rect class="tlo" width="240" height="160"/>
+<g class="znak" transform="translate(120 80)">
+  <path d="M-30-6 -24-17q1-3 4-3h40q3 0 4 3l6 11h3q3 0 3 3v11q0 3-3 3h-4
+           a8 8 0 0 0-16 0h-20a8 8 0 0 0-16 0h-4q-3 0-3-3V-3q0-3 3-3z"/>
+  <circle cx="-18" cy="5" r="5"/>
+  <circle cx="18" cy="5" r="5"/>
+</g>
 </svg>"""
     return Response(
         svg,

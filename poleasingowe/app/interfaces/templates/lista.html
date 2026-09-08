@@ -146,28 +146,27 @@
 </section>
 
 {% if strona.pozycje %}
-<p class="podsumowanie">
-  {{ strona.pozycje | length }} {{ 'pozycja' if strona.pozycje | length == 1 else 'pozycji' }}
-  {%- if strona.ma_wiecej %}, jest więcej — dociągnij na dole listy{% endif %}
-</p>
+<div class="nad-lista">
+  <p class="podsumowanie">
+    {{ strona.pozycje | length }} {{ 'pozycja' if strona.pozycje | length == 1 else 'pozycji' }}
+    {%- if strona.ma_wiecej %} · jest więcej{% endif %}
+  </p>
+  {# Sortowanie klikane obok listy: klik w aktywne odwraca kierunek,
+     a filtry ida tym samym adresem. W siatce kafelkow nie ma naglowkow
+     kolumn, wiec to jedyne miejsce, gdzie kierunek da sie przelaczyc
+     jednym kliknieciem. #}
+  <div class="sortowanie-szybkie">
+    <span class="etykieta-sortu">Sortuj</span>
+    <a class="sortuj {{ 'aktywny' if sortowanie_kolumn.koniec.aktywna }}"
+       href="{{ sciezka(request, 'lista') }}?{{ sortowanie_kolumn.koniec.parametry }}">Koniec {{ sortowanie_kolumn.koniec.strzalka }}</a>
+    <a class="sortuj {{ 'aktywny' if sortowanie_kolumn.cena.aktywna }}"
+       href="{{ sciezka(request, 'lista') }}?{{ sortowanie_kolumn.cena.parametry }}">Cena {{ sortowanie_kolumn.cena.strzalka }}</a>
+  </div>
+</div>
 
-<table class="lista">
-  <thead>
-    <tr>
-      <th class="kol-obserwacja" title="Obserwowane">★</th>
-      <th class="kol-miniatura">Zdjęcie</th>
-      <th>Pojazd</th>
-      {# Sortowanie klikane w naglowku: klik w aktywna kolumne odwraca
-         kierunek, filtry ida tym samym adresem. #}
-      <th><a class="sortuj" href="{{ sciezka(request, 'lista') }}?{{ sortowanie_kolumn.cena.parametry }}">Cena {{ sortowanie_kolumn.cena.strzalka }}</a></th>
-      <th><a class="sortuj" href="{{ sciezka(request, 'lista') }}?{{ sortowanie_kolumn.koniec.parametry }}">Koniec {{ sortowanie_kolumn.koniec.strzalka }}</a></th>
-      <th></th>
-    </tr>
-  </thead>
-  <tbody id="wiersze">
-    {% include "fragmenty/wiersze.html" %}
-  </tbody>
-</table>
+<div class="lista" id="wiersze">
+  {% include "fragmenty/karty.html" %}
+</div>
 {% else %}
   <section class="karta pusto-karta">
     {% if pusta_baza %}

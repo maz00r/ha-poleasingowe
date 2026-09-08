@@ -1,5 +1,23 @@
 # Historia zmian
 
+## 0.10.0 — w przygotowaniu
+
+**Nowy wygląd interfejsu.** Język wizualny idzie za serwisami, z których
+zbieramy dane: granat jako kolor konstrukcyjny, geometryczny grotesk
+(Montserrat, hostowany lokalnie — żadnych CDN-ów) i **lista jako siatka
+kafelków ze zdjęciem** zamiast tabeli. Na kafelku: zdjęcie w stałym kadrze
+3:2, źródło i licznik do końca na zdjęciu, cena jako największy element.
+
+Kolor niesie w tej palecie wyłącznie informację: czerwień znaczy „kończy się
+w ciągu kwadransa", zieleń „poniżej Twojej ceny docelowej". Gdyby czerwień
+trafiła też na przycisk, przestałaby cokolwiek znaczyć w liście kilkudziesięciu
+pozycji.
+
+Karta aukcji dostała cenę obok tytułu, a dane techniczne układają się
+w równe kolumny etykieta–wartość. Na telefonie nawigacja jest jednym
+przewijanym rzędem zamiast trzech zawiniętych, a placeholder braku zdjęcia
+jest cichy i podąża za motywem Home Assistanta.
+
 ## 0.9.0 — w przygotowaniu
 
 **Rodzaj pojazdu i filtr.** Źródła sprzedają w jednej kategorii samochody

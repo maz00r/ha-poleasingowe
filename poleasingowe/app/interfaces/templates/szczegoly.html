@@ -4,13 +4,27 @@
 {% block tresc %}
 
 <article class="karta">
-  <h1>{{ p.nazwa }}</h1>
-  <p class="podtytul">
-    {{ p.source_key }} · <code>{{ p.external_id }}</code>
-    {% if p.status.value != 'ACTIVE' %}
-      · {{ p.status.value }} · cena {{ p.final_price_state.value }}
-    {% endif %}
-  </p>
+  {# Cena stoi obok tytulu, nie w tabeli danych: przy aukcji to ona jest
+     pierwsza informacja, po ktora siega oko — tak samo jak w serwisach,
+     z ktorych zbieramy oferty. #}
+  <div class="naglowek-aukcji">
+    <div>
+      <h1>{{ p.nazwa }}</h1>
+      <p class="podtytul">
+        {{ p.source_key }} · <code>{{ p.external_id }}</code>
+        {% if p.status.value != 'ACTIVE' %}
+          · {{ p.status.value }} · cena {{ p.final_price_state.value }}
+        {% endif %}
+      </p>
+    </div>
+    <div class="cena-glowna">
+      <span class="kwota">{{ p.price_current | kwota }}</span>
+      <div class="drobne">
+        {% if p.ends_at %}{{ p.ends_at | do_konca(teraz) }} · {% endif %}
+        {% if p.bid_count is not none %}{{ p.bid_count }} ofert{% else %}liczba ofert nieznana{% endif %}
+      </div>
+    </div>
+  </div>
 
   {% if dane.duplicate_of %}
     {# Deduplikacja po VIN (SPEC.md §8.4). Duplikat nie znika z bazy —

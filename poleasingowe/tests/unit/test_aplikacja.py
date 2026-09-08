@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import pathlib
 import re
 from urllib.parse import urljoin
 
@@ -49,6 +50,33 @@ def _atrybut(html: str, tag: str, atrybut: str) -> str:
     return dopasowanie.group(1)
 
 
+def _arkusz(html: str) -> str:
+    """`href` arkusza stylów — a nie pierwszego lepszego `<link>`.
+
+    W nagłówku stoi jeszcze `preload` kroju, więc wybór „pierwszy link"
+    trafiałby w plik fontu.
+    """
+    dopasowanie = re.search(r"<link[^>]*rel=\"stylesheet\"[^>]*href=\"([^\"]+)\"", html)
+    assert dopasowanie is not None, "brak arkusza stylów"
+    return dopasowanie.group(1)
+
+
+def _wersja_dodatku() -> str:
+    """Wersja z `config.yaml` — jedyne źródło prawdy (SPEC.md §7.1).
+
+    Adresy statyk niosą ją jako znacznik cache'u: bez niego przeglądarka po
+    aktualizacji dodatku pokazuje stary arkusz i panel wygląda na zepsuty.
+    Test czyta ją z konfiguracji zamiast powtarzać — powtórzona rozjechałaby
+    się przy pierwszym wydaniu.
+    """
+    konfiguracja = (
+        pathlib.Path(__file__).resolve().parents[2] / "config.yaml"
+    ).read_text(encoding="utf-8")
+    dopasowanie = re.search(r'^version:\s*"([^"]+)"', konfiguracja, re.M)
+    assert dopasowanie is not None
+    return dopasowanie.group(1)
+
+
 def test_przegladarka_trafia_do_statyk_przez_prefiks_bez_naglowka() -> None:
     """Odtwarza błąd: HTML działał, ale CSS i HTMX nie dochodziły.
 
@@ -62,12 +90,13 @@ def test_przegladarka_trafia_do_statyk_przez_prefiks_bez_naglowka() -> None:
         strona = c.get("/diagnostyka")  # celowo bez X-Ingress-Path
 
     baza = urljoin(publiczny_dokument, _atrybut(strona.text, "base", "href"))
-    styl = urljoin(baza, _atrybut(strona.text, "link", "href"))
+    styl = urljoin(baza, _arkusz(strona.text))
     skrypt = urljoin(baza, _atrybut(strona.text, "script", "src"))
 
     prefiks = "https://ha.test/api/hassio_ingress/abc123/"
-    assert styl == prefiks + "static/styl.css?v=0.8.1"
-    assert skrypt == prefiks + "static/htmx.min.js?v=0.8.1"
+    wersja = _wersja_dodatku()
+    assert styl == f"{prefiks}static/styl.css?v={wersja}"
+    assert skrypt == f"{prefiks}static/htmx.min.js?v={wersja}"
 
 
 def test_base_z_karty_aukcji_wraca_do_korzenia_ingressu() -> None:
@@ -167,7 +196,7 @@ def test_adresy_sa_wzgledne_wobec_origin_a_nie_bezwzgledne() -> None:
         wewnetrzny_host not in odp.text
     ), "adres z wewnętrznym hostem kontenera — przeglądarka tam nie trafi"
     assert "http://testserver" not in odp.text
-    assert 'href="static/styl.css?v=0.8.1"' in odp.text
-    assert 'src="static/htmx.min.js?v=0.8.1"' in odp.text
+    assert f'href="static/styl.css?v={_wersja_dodatku()}"' in odp.text
+    assert f'src="static/htmx.min.js?v={_wersja_dodatku()}"' in odp.text
     assert 'href="/static' not in odp.text
     assert 'src="/static' not in odp.text

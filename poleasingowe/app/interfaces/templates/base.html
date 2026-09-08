@@ -8,9 +8,15 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <base href="{{ baza_sciezek(request) }}">
   <title>{% block tytul %}Aukcje poleasingowe{% endblock %}</title>
-  <link rel="stylesheet" href="{{ sciezka(request, 'static', path='/styl.css') }}?v=0.8.1">
+  {# Krój wczytujemy z wyprzedzeniem: bez tego pierwszy rzut oka na liste
+     jest w foncie systemowym, a po chwili caly uklad drga przy podmianie.
+     `crossorigin` jest wymagane nawet dla wlasnego pliku — bez niego
+     przegladarka pobiera font drugi raz. #}
+  <link rel="preload" as="font" type="font/woff2" crossorigin
+        href="{{ sciezka(request, 'static', path='/fonty/montserrat-latin.woff2') }}">
+  <link rel="stylesheet" href="{{ sciezka(request, 'static', path='/styl.css') }}?v={{ wersja }}">
   {# HTMX z lokalnego pliku (SPEC.md §12). Zadnych CDN-ow. #}
-  <script src="{{ sciezka(request, 'static', path='/htmx.min.js') }}?v=0.8.1" defer></script>
+  <script src="{{ sciezka(request, 'static', path='/htmx.min.js') }}?v={{ wersja }}" defer></script>
 </head>
 <body>
   <header class="pasek">

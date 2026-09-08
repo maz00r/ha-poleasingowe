@@ -337,3 +337,16 @@ def test_zapis_do_share_ograniczony_do_wlasnego_podkatalogu() -> None:
     assert not re.search(
         r"^\s*/share/\*\*", tresc, re.MULTILINE
     ), "w /share mieszkają też inne dodatki"
+
+
+def test_wersja_w_kodzie_zgadza_sie_z_config_yaml(config: dict[str, Any]) -> None:
+    """`app/wersja.py` niesie tę samą liczbę co `config.yaml`.
+
+    Interfejs dokleja ją do adresów arkusza stylów i HTMX-a jako znacznik
+    cache'u. Rozjazd nie wywala niczego od razu — po prostu przeglądarka
+    zostaje przy starym arkuszu do nowego HTML-a, co wygląda jak zepsuty
+    panel. Dlatego pilnuje tego test, a nie czujność.
+    """
+    from app.wersja import WERSJA
+
+    assert config["version"] == WERSJA
