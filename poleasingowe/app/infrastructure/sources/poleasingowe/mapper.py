@@ -24,6 +24,7 @@ from app.domain.errors import ParseFailed
 from app.domain.value_objects import Mileage, Money, NieprawidlowaWartosc, Vin
 from app.infrastructure.sources.marki import podziel_marke_model
 from app.infrastructure.sources.paliwa import kanoniczne_paliwo
+from app.infrastructure.sources.rodzaje import rozpoznaj
 
 # Serwis podaje `endDate` z jawną strefą: `moment('...').tz("Europe/Warsaw")`.
 # Do bazy idzie UTC (SPEC.md §8.2).
@@ -115,6 +116,16 @@ def na_aukcje(surowa: SurowaOferta, source_id: int, teraz: dt.datetime) -> Aucti
     trwa = pola.get("auction_pending")
     status = AuctionStatus.ENDED if trwa == "false" else AuctionStatus.ACTIVE
 
+    # Kategoria listy rozstrzyga tylko dla motocykli — `vehicles` mieszają
+    # osobowe, dostawcze i ciągniki siodłowe, więc tam decyduje nazwa.
+    # `Typ` (nadwozie) stoi wyłącznie na stronie szczegółów, której dla
+    # większości aukcji nigdy nie pobieramy (§11.2), więc przy zwykłym
+    # przemiataniu jedynym sygnałem jest nadwozie wpisane w tytuł.
+    rodzaj = rozpoznaj(
+        kategoria=pola.get("kategoria"),
+        nazwa=" ".join(x for x in (pola.get("nazwa"), pola.get("Typ")) if x),
+    )
+
     return Auction(
         source_id=source_id,
         external_id=surowa.external_id,
@@ -133,6 +144,7 @@ def na_aukcje(surowa: SurowaOferta, source_id: int, teraz: dt.datetime) -> Aucti
         engine_hp=_int_lub_none(pola.get("Moc silnika")),
         vin=_vin(pola),
         body=pola.get("Typ"),
+        vehicle_kind=rodzaj,
         color=pola.get("Kolor"),
         location=pola.get("Lokalizacja"),
         price_current=_cena(pola),

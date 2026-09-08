@@ -11,12 +11,14 @@ import datetime as dt
 import pathlib
 from decimal import Decimal
 
+import httpx
 import pytest
 
-from app.domain.enums import AuctionStatus, Currency
+from app.application.ports import SurowaOferta
+from app.domain.enums import AuctionStatus, Currency, RodzajPojazdu
 from app.domain.errors import ParseFailed
 from app.domain.value_objects import Money
-from app.infrastructure.sources.poleasingowe import mapper, parser
+from app.infrastructure.sources.poleasingowe import mapper, parser, source
 from app.infrastructure.sources.poleasingowe.source import hash_tresci
 
 FIXTURES = pathlib.Path(__file__).resolve().parents[3] / "fixtures" / "poleasingowe"
@@ -300,3 +302,41 @@ def test_zdjecia_pojazdu_odsiane_od_logotypow() -> None:
     assert all("sgallery_" in u for u in adresy)
     assert all(u.startswith("https://poleasingowe.pl/") for u in adresy)
     assert len(adresy) == len(set(adresy)), "bez duplikatów"
+
+
+async def test_przemiat_obejmuje_takze_liste_motocykli() -> None:
+    """Motocykle stoją na poleasingowe.pl pod OSOBNYM adresem listy.
+
+    Przemiatanie samego `vehicles` znaczyło, że filtr „motocykle" w
+    interfejsie był dla tego źródła zawsze pusty — nie dlatego, że motocykli
+    nie ma, tylko dlatego, że nigdy po nie nie poszliśmy (RECON.md §4.2).
+    """
+    odwiedzone: list[str] = []
+
+    def obsluz(request: httpx.Request) -> httpx.Response:
+        odwiedzone.append(request.url.path)
+        # Pusta lista kończy stronicowanie po pierwszym żądaniu każdej
+        # kategorii — tu chodzi o to, KTÓRE adresy odwiedzamy.
+        return httpx.Response(200, text="<html><body></body></html>")
+
+    klient = httpx.AsyncClient(
+        base_url=parser.BAZOWY_URL, transport=httpx.MockTransport(obsluz)
+    )
+    async with source.PoleasingoweSource(klient) as zrodlo:
+        await zrodlo.przemiec_liste()
+
+    assert odwiedzone == [
+        "/pl/auctions/list/pub/all/vehicles",
+        "/pl/auctions/list/pub/all/ECR_motorcycles",
+    ]
+
+
+async def test_pozycja_z_listy_motocykli_dostaje_rodzaj_motocykl() -> None:
+    """Kategoria listy jest jedyną deklaracją rodzaju, jaką ten serwis daje."""
+    surowa = SurowaOferta(
+        external_id="9abc1234",
+        url="https://poleasingowe.pl/pl/auctions/details/bmw-r1250/9abc1234",
+        pola={"nazwa": "BMW R 1250 GS", "kategoria": "ECR_motorcycles"},
+    )
+    aukcja = mapper.na_aukcje(surowa, source_id=1, teraz=TERAZ)
+    assert aukcja.vehicle_kind is RodzajPojazdu.MOTOCYKL

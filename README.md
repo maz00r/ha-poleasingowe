@@ -206,10 +206,22 @@ python3 tools/recon_0b.py --dry-run --source efl --url "<URL>"
   i `bid_history_ttl_seconds` czekają wypełnione, ale nikt ich jeszcze
   nie czyta.
 - **Nie ma wykrywania zniknięcia z listy.** Aukcja, która przestała się
-  pojawiać w przemiatach, zostaje `ACTIVE` bez końca.
+  pojawiać w przemiatach, nie jest z tego powodu oznaczana. Od 0.9.0 zamyka
+  ją natomiast **zegar**: po upływie okna dogrywki źródła dispatcher
+  ustawia `ENDED` i `final_price_state = LAST_SEEN`. To nie zastępuje fazy
+  domknięcia — cena końcowa nadal nie jest odczytywana po zamknięciu.
 - **Logowanie do serwisów** — mechanizm z etapu 8 stoi gotowy, ale żaden
   adapter go nie używa. Realnie zyskałby na tym tylko autoprzetarg
   (liczba i historia ofert).
+- **Rodzaj pojazdu z poleasingowe.pl zgaduje się z nazwy.** Serwis nie podaje
+  go osobnym polem na liście, więc pojazd bez nadwozia w tytule zostaje
+  `NIEZNANY` i wypada z domyślnego filtru „osobowe". Widać go po przełączeniu
+  na „wszystkie" albo „nierozpoznane" — to sygnał, żeby dopisać słowo do
+  `sources/rodzaje.py`.
+- **Zdjęcia z EFL nie zostały potwierdzone na żywo.** Poprawka (adres aukcji
+  z bazy zamiast składanego) powstała na fixtures — serwis był w tym czasie
+  nieosiągalny z maszyny deweloperskiej. Nieudane pobranie galerii loguje się
+  teraz jako WARNING, więc gdyby przyczyna była inna, będzie ją widać.
 
 ## Znane odstępstwa od SPEC.md
 

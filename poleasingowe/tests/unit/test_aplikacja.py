@@ -136,10 +136,13 @@ def test_miniatura_bez_zdjecia_ma_placeholder() -> None:
 
 
 def test_wycena_bez_klucza_pokazuje_instrukcje() -> None:
+    """Wyłączona wycena ma mówić, CO ustawić — z nazwą opcji, która
+    obsługuje też dostawców innych niż OpenAI."""
     with klient() as c:
         odp = c.get("/aukcja/7/wycena")
     assert odp.status_code == 200
-    assert "openai_api_key" in odp.text
+    assert "ai_api_key" in odp.text
+    assert "ai_provider" in odp.text
 
 
 def test_adresy_sa_wzgledne_wobec_origin_a_nie_bezwzgledne() -> None:

@@ -29,7 +29,13 @@ from app.application.read_models import (
     Strona,
     Szczegoly,
 )
-from app.domain.enums import AuctionStatus, Currency, FinalPriceState, PollTier
+from app.domain.enums import (
+    AuctionStatus,
+    Currency,
+    FinalPriceState,
+    PollTier,
+    RodzajPojazdu,
+)
 from app.domain.value_objects import Money
 
 
@@ -71,6 +77,7 @@ KLUCZE: Final[dict[Sortowanie, _Klucz]] = {
 KOLUMNY_LISTY = sql.SQL("""
     a.id, s.key AS source_key, a.external_id, a.url, a.status,
     a.make, a.model, a.variant, a.year, a.mileage_km, a.fuel, a.gearbox,
+    a.vehicle_kind,
     a.location, a.price_start, a.price_current, a.currency, a.bid_count,
     a.ends_at, a.first_seen_at, a.final_price_state,
     (w.auction_id IS NOT NULL) AS obserwowana,
@@ -87,6 +94,7 @@ SQL_SZCZEGOLY = sql.SQL("""
 SELECT
     a.id, s.key AS source_key, a.external_id, a.url, a.status,
     a.make, a.model, a.variant, a.year, a.mileage_km, a.fuel, a.gearbox,
+    a.vehicle_kind,
     a.location, a.price_start, a.price_current, a.currency, a.bid_count,
     a.ends_at, a.first_seen_at, a.final_price_state,
     (w.auction_id IS NOT NULL) AS obserwowana,
@@ -189,6 +197,7 @@ def _na_pozycje(w: dict[str, Any]) -> PozycjaListy:
         mileage_km=w["mileage_km"],
         fuel=w["fuel"],
         gearbox=w["gearbox"],
+        vehicle_kind=RodzajPojazdu(w["vehicle_kind"]),
         location=w["location"],
         price_start=_money(w["price_start"], w["currency"]),
         price_current=_money(w["price_current"], w["currency"]),
@@ -250,6 +259,9 @@ def _warunki(kryteria: Kryteria) -> tuple[list[sql.Composable], dict[str, Any]]:
     if kryteria.zrodlo:
         warunki.append(sql.SQL("s.key = %(zrodlo)s"))
         parametry["zrodlo"] = kryteria.zrodlo
+    if kryteria.rodzaj is not None:
+        warunki.append(sql.SQL("a.vehicle_kind = %(rodzaj)s"))
+        parametry["rodzaj"] = kryteria.rodzaj.value
     if kryteria.paliwo:
         warunki.append(sql.SQL("a.fuel = %(paliwo)s"))
         parametry["paliwo"] = kryteria.paliwo

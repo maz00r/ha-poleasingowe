@@ -17,8 +17,9 @@ class ZrodloZeZdjeciami:
         self._adresy = adresy
         self.wywolania = 0
 
-    async def zdjecia(self, external_id: str) -> list[str]:
+    async def zdjecia(self, external_id: str, url: str | None = None) -> list[str]:
         self.wywolania += 1
+        self.ostatni_url = url
         return self._adresy
 
 
@@ -59,7 +60,7 @@ async def test_awaria_zrodla_nie_psuje_karty_aukcji(tmp_path: pathlib.Path) -> N
     class Padniete:
         key = "atrapa"
 
-        async def zdjecia(self, external_id: str) -> list[str]:
+        async def zdjecia(self, external_id: str, url: str | None = None) -> list[str]:
             raise RuntimeError("serwis nie odpowiada")
 
     assert await galeria(Padniete(), tmp_path).adresy("atrapa", "a1") == ()
@@ -123,3 +124,22 @@ def test_miniatura_jest_faktycznie_malym_obrazem_jpeg(
         assert obraz.size == (240, 160)
         assert obraz.format == "JPEG"
     assert len(wynik) < len(wejscie.getvalue())
+
+
+async def test_adres_aukcji_z_bazy_trafia_do_adaptera(
+    tmp_path: pathlib.Path,
+) -> None:
+    """Adapter ma dostać adres, który serwis podał nam sam.
+
+    To jest naprawa braku zdjęć z EFL: adapter składał `/Auction/x-id<id>`
+    z założenia o routingu, którego rekonesans nigdy nie potwierdził, a błąd
+    pobrania galerii jest połykany — więc jedynym objawem było puste miejsce
+    na zdjęcia (`sources/adresy.py`).
+    """
+    zrodlo = ZrodloZeZdjeciami(["https://x.test/1.jpg"])
+    await galeria(zrodlo, tmp_path).adresy(
+        "atrapa", "a1", "https://aukcje.efl.com.pl/Auction/Audi-A4-...-id435663"
+    )
+    assert (
+        zrodlo.ostatni_url == "https://aukcje.efl.com.pl/Auction/Audi-A4-...-id435663"
+    )

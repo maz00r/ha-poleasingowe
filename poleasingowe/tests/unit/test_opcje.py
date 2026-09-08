@@ -155,3 +155,72 @@ def test_opcje_da_sie_zbudowac_wprost_w_testach() -> None:
     opcje = Opcje(db_password="x")
     assert opcje.sources == []
     assert opcje.credentials == []
+
+
+# --------------------------------------------------------------------------
+# Wybór dostawcy wyceny AI
+# --------------------------------------------------------------------------
+
+
+def test_stara_nazwa_klucza_nadal_wlacza_wycene(tmp_path: pathlib.Path) -> None:
+    """Aktualizacja dodatku nie ma prawa wyłączyć działającej wyceny.
+
+    Supervisor nie przepisuje opcji sam, a `extra="forbid"` odrzuciłby pole,
+    którego model nie zna — czyli usunięcie `openai_api_key` zatrzymałoby
+    add-on osobom, które go mają.
+    """
+    opcje = wczytaj_opcje(
+        zapisz(tmp_path, {"db_password": "x", "openai_api_key": "sk-stare"})
+    )
+    assert opcje.klucz_ai == "sk-stare"
+    assert opcje.ai_provider == "openai"
+
+
+def test_nowa_nazwa_klucza_ma_pierwszenstwo(tmp_path: pathlib.Path) -> None:
+    opcje = wczytaj_opcje(
+        zapisz(
+            tmp_path,
+            {
+                "db_password": "x",
+                "ai_api_key": "sk-nowe",
+                "openai_api_key": "sk-stare",
+            },
+        )
+    )
+    assert opcje.klucz_ai == "sk-nowe"
+
+
+def test_wlasny_dostawca_bez_adresu_zatrzymuje_dodatek(
+    tmp_path: pathlib.Path,
+) -> None:
+    """Cisze wolimy tu od domysłu: bez adresu dane poleciałyby do OpenAI,
+    czyli nie tam, gdzie użytkownik chciał (SPEC.md §7.1)."""
+    with pytest.raises(BladKonfiguracji, match="ai_base_url"):
+        wczytaj_opcje(
+            zapisz(
+                tmp_path,
+                {
+                    "db_password": "x",
+                    "ai_api_key": "k",
+                    "ai_provider": "zgodny_z_openai",
+                    "ai_model": "qwen3:14b",
+                },
+            )
+        )
+
+
+def test_bez_klucza_konfiguracja_ai_nie_jest_sprawdzana(
+    tmp_path: pathlib.Path,
+) -> None:
+    """Wycena wyłączona to normalny stan, nie błąd konfiguracji."""
+    opcje = wczytaj_opcje(
+        zapisz(tmp_path, {"db_password": "x", "ai_provider": "zgodny_z_openai"})
+    )
+    assert opcje.klucz_ai == ""
+
+
+def test_nieznany_dostawca_jest_odrzucany(tmp_path: pathlib.Path) -> None:
+    with pytest.raises(BladKonfiguracji):
+        wczytaj_opcje(
+            zapisz(tmp_path, {"db_password": "x", "ai_provider": "moj-wlasny-model"})
+        )

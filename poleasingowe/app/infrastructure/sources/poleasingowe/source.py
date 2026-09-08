@@ -19,6 +19,7 @@ import httpx
 from app.application.ports import SurowaOferta
 from app.domain.entities import Auction
 from app.domain.errors import SourceUnavailable
+from app.infrastructure.sources.adresy import strona_aukcji
 from app.infrastructure.sources.poleasingowe import mapper, parser
 
 KLUCZ = "poleasingowe"
@@ -110,16 +111,21 @@ class PoleasingoweSource:
         """
         wszystkie: list[SurowaOferta] = []
         widziane: set[str] = set()
-        for strona in range(1, MAKS_STRON + 1):
-            tresc = await self._pobierz(
-                parser.SCIEZKA_LISTY, {"page": strona, "sort": SORTOWANIE_PO_KONCU}
-            )
-            pozycje = parser.sparsuj_liste(tresc.decode("utf-8", "replace"))
-            nowe = [p for p in pozycje if p.external_id not in widziane]
-            if not nowe:
-                break
-            widziane.update(p.external_id for p in nowe)
-            wszystkie.extend(nowe)
+        for kategoria, sciezka in parser.SCIEZKI_LIST:
+            for strona in range(1, MAKS_STRON + 1):
+                tresc = await self._pobierz(
+                    sciezka, {"page": strona, "sort": SORTOWANIE_PO_KONCU}
+                )
+                pozycje = parser.sparsuj_liste(tresc.decode("utf-8", "replace"))
+                nowe = [p for p in pozycje if p.external_id not in widziane]
+                if not nowe:
+                    break
+                widziane.update(p.external_id for p in nowe)
+                # Kategoria listy jest jedyną deklaracją rodzaju, jaką ten
+                # serwis daje — na samej stronie aukcji jej nie ma.
+                wszystkie.extend(
+                    replace(p, pola={**p.pola, "kategoria": kategoria}) for p in nowe
+                )
         return wszystkie
 
     async def pobierz_szczegoly(
@@ -148,14 +154,18 @@ class PoleasingoweSource:
         )
         return replace(surowa, content_hash=biezacy)
 
-    async def zdjecia(self, external_id: str) -> Sequence[str]:
+    async def zdjecia(self, external_id: str, url: str | None = None) -> Sequence[str]:
         """Adresy zdjęć pojazdu (SPEC.md §12).
 
         Wywoływane **na żądanie**, gdy ktoś otworzy kartę aukcji — nie przy
         zbieraniu. Adresy nie trafiają do bazy: to jedno żądanie na obejrzaną
         aukcję zamiast kolumny utrzymywanej dla wszystkich.
         """
-        sciezka = f"/pl/auctions/details/x/{external_id}"
+        sciezka = strona_aukcji(
+            url,
+            bazowy=parser.BAZOWY_URL,
+            zapasowa=f"/pl/auctions/details/x/{external_id}",
+        )
         return parser.zdjecia((await self._pobierz(sciezka)).decode("utf-8", "replace"))
 
     def na_aukcje(

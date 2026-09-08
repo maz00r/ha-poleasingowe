@@ -16,7 +16,7 @@ import pytest
 
 from app.application.read_models import Kryteria, Kursor, Sortowanie
 from app.domain.entities import Auction, WatchlistEntry
-from app.domain.enums import AuctionStatus, Currency, FinalPriceState
+from app.domain.enums import AuctionStatus, Currency, FinalPriceState, RodzajPojazdu
 from app.domain.value_objects import Mileage, Money, Vin
 from app.infrastructure.persistence.queries import PgZapytania
 from app.infrastructure.persistence.repositories import PgUnitOfWork
@@ -51,6 +51,9 @@ async def _dane(baza: psycopg.AsyncConnection) -> dict[str, int]:
             "status": AuctionStatus.ACTIVE,
             "first_seen_at": TERAZ - dt.timedelta(days=3),
             "last_seen_at": TERAZ,
+            # Zestaw jest o samochodach osobowych — pojazdy innych rodzajów
+            # dopisujemy jawnie, bo domyślny filtr listy je odsiewa.
+            "vehicle_kind": RodzajPojazdu.OSOBOWY,
         }
         dane.update(pola)
         return Auction(**dane)  # type: ignore[arg-type]
@@ -479,3 +482,37 @@ async def test_rozmiar_bazy_i_czas_serwera(
     assert czas.tzinfo is not None, "zegar bez strefy nie nadaje się do porównań"
     dryf = abs((dt.datetime.now(dt.UTC) - czas).total_seconds())
     assert dryf < 60, "lokalny Postgres i proces testów stoją na tej samej maszynie"
+
+
+async def test_domyslny_filtr_pokazuje_tylko_osobowe(
+    pusta_baza: psycopg.AsyncConnection,
+) -> None:
+    """Serwisy sprzedają naczepy i motocykle w tej samej kategorii co auta.
+
+    Bez zawężenia lista wygląda tak, jak zgłosił to użytkownik: samochody
+    wymieszane z przyczepami. `rodzaj=None` musi nadal pokazywać wszystko —
+    zawężenie ma być wyborem, nie ukryciem danych.
+    """
+    zapytania = PgZapytania(pusta_baza)
+    identyfikatory = await _dane(pusta_baza)
+
+    async with pusta_baza.cursor() as cur:
+        await cur.execute(
+            "INSERT INTO app.auction (source_id, external_id, url, make, model,"
+            " vehicle_kind, ends_at, first_seen_at, last_seen_at)"
+            " SELECT source_id, 'naczepa-krone', 'https://przyklad.test/naczepa',"
+            " 'Krone', 'SD', 'PRZYCZEPA', ends_at, first_seen_at, last_seen_at"
+            " FROM app.auction WHERE id = %s",
+            (identyfikatory["audi-za-godzine"],),
+        )
+
+    domyslne = await _wszystkie_klucze(zapytania, Kryteria())
+    assert "naczepa-krone" not in domyslne
+
+    wszystkie = await _wszystkie_klucze(zapytania, Kryteria(rodzaj=None))
+    assert "naczepa-krone" in wszystkie
+
+    tylko_przyczepy = await _wszystkie_klucze(
+        zapytania, Kryteria(rodzaj=RodzajPojazdu.PRZYCZEPA)
+    )
+    assert tylko_przyczepy == ["naczepa-krone"]

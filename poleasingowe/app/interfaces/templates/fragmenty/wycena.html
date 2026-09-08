@@ -1,6 +1,7 @@
 {% if brak_konfiguracji %}
-  <p class="uwaga">Wycena jest wyłączona. Uzupełnij <code>openai_api_key</code>
-    w konfiguracji dodatku i uruchom go ponownie.</p>
+  <p class="uwaga">Wycena jest wyłączona. Uzupełnij <code>ai_api_key</code>
+    (i&nbsp;<code>ai_provider</code>, jeśli to nie OpenAI) w konfiguracji
+    dodatku i uruchom go ponownie.</p>
 {% elif blad %}
   <p class="ostrzezenie-inline">{{ blad }}</p>
   <button type="button"

@@ -154,3 +154,30 @@ def test_adapter_nie_wpisuje_accept_encoding_recznie(klucz: str) -> None:
     # Szukamy KLUCZA w słowniku nagłówków, nie samej nazwy — o samym
     # nagłówku wolno pisać w komentarzu, bo to on jest tu tematem.
     assert '"Accept-Encoding":' not in inspect.getsource(modul)
+
+
+def test_adres_z_bazy_ma_pierwszenstwo_przed_skladanym() -> None:
+    """Adres zapamiętany przy zbieraniu jest pewniejszy niż złożony (§12).
+
+    Ale tylko z tego samego serwisu: wiersz z podmienionym adresem nie ma
+    prawa kazać add-onowi pobrać czegokolwiek z obcego hosta.
+    """
+    from app.infrastructure.sources.adresy import strona_aukcji, ten_sam_serwis
+
+    baza = "https://aukcje.efl.com.pl"
+    assert (
+        strona_aukcji(
+            "https://aukcje.efl.com.pl/Auction/Audi-id435663",
+            bazowy=baza,
+            zapasowa="/Auction/x-id435663",
+        )
+        == "https://aukcje.efl.com.pl/Auction/Audi-id435663"
+    )
+    # Obcy host, pusty adres i adres bez schematu — wszystkie wracają
+    # do ścieżki składanej przez adapter.
+    for podejrzany in (None, "", "https://zly.example/podszywam", "javascript:x"):
+        assert (
+            strona_aukcji(podejrzany, bazowy=baza, zapasowa="/Auction/x-id435663")
+            == "/Auction/x-id435663"
+        )
+    assert not ten_sam_serwis("https://aukcje.efl.com.pl.zly.example/x", baza)

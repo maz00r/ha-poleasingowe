@@ -20,6 +20,7 @@ import sys
 import uvicorn
 
 from app.application.use_cases.rejestracja import zarejestruj_zrodla
+from app.infrastructure.ai_klienci import utworz_klienta
 from app.infrastructure.persistence.migrations import Migracja
 from app.infrastructure.persistence.polaczenie import polacz_i_zmigruj
 from app.infrastructure.persistence.pula import PgFabrykaKontekstu
@@ -73,12 +74,36 @@ def _skonfiguruj_logi(opcje: Opcje) -> None:
     )
     sekrety = [
         opcje.db_password,
+        opcje.ai_api_key,
         opcje.openai_api_key,
         *(p.password for p in opcje.credentials),
     ]
     filtr = _FiltrRedakcji(sekrety)
     for nazwa in ("", "poleasingowe", "app", "uvicorn", "uvicorn.error"):
         logging.getLogger(nazwa).addFilter(filtr)
+
+
+def _wycena(opcje: Opcje) -> WycenaAI | None:
+    """Wycena AI, jeśli użytkownik podał klucz. Bez klucza — po prostu jej nie ma.
+
+    Zły dostawca albo brak adresu NIE zatrzymuje add-onu: zbieranie danych
+    jest tu funkcją główną, a wycena dodatkiem. Powód ląduje w logu i na
+    karcie aukcji (SPEC.md §2 pkt 8).
+    """
+    if not opcje.klucz_ai:
+        return None
+    try:
+        klient = utworz_klienta(
+            opcje.ai_provider,
+            opcje.klucz_ai,
+            model=opcje.ai_model,
+            base_url=opcje.ai_base_url,
+        )
+    except ValueError as exc:
+        log.error("wycena AI wyłączona — %s", exc)
+        return None
+    log.info("wycena AI: dostawca %s, model %s", opcje.ai_provider, klient.model)
+    return WycenaAI(klient)
 
 
 def main() -> int:
@@ -164,11 +189,7 @@ def main() -> int:
     # zrodlo, tworzony raz (SPEC.md §11.3).
     adaptery_ui: dict[str, object] = {}
     galeria = GaleriaZdjec(adaptery_ui)  # type: ignore[arg-type]
-    wycena_ai = (
-        WycenaAI(opcje.openai_api_key, model=opcje.ai_model)
-        if opcje.openai_api_key
-        else None
-    )
+    wycena_ai = _wycena(opcje)
 
     aplikacja = utworz_aplikacje(
         opcje,

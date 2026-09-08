@@ -6,7 +6,7 @@ import datetime as dt
 from decimal import Decimal
 
 from app.application.ports import SurowaOferta
-from app.domain.enums import Currency
+from app.domain.enums import Currency, RodzajPojazdu
 from app.domain.value_objects import Mileage, Money
 from app.infrastructure.sources.efl import mapper, parser
 from tests.unit.test_efl_parser import wczytaj
@@ -87,3 +87,85 @@ def test_cala_lista_mapuje_sie_bez_wyjatku() -> None:
     assert len(aukcje) == len(pozycje)
     assert all(a.make for a in aukcje)
     assert all(a.price_current is not None for a in aukcje)
+
+
+# --------------------------------------------------------------------------
+# Tytuł z listy: nazwa pojazdu, rocznik, tablica i adres w jednym zdaniu
+# --------------------------------------------------------------------------
+
+
+def test_tytul_z_listy_rozbija_sie_na_nazwe_i_lokalizacje() -> None:
+    """To jest naprawa „dziwnych tytułów" widocznych w interfejsie.
+
+    Cały ten napis szedł wcześniej do `podziel_marke_model`, więc wersja
+    wyposażenia kończyła się adresem firmy, w której stoi pojazd.
+    """
+    nazwa, lokalizacja = mapper.rozbierz_tytul(
+        "Audi A4 35 TDI mHEV Advanced S tronic 2022r. FAT0933N Pojazd znajduje "
+        "się w firmie ARCTOS GROUP sp. z o.o. Al. Krakowska 7, 02-183 Warszawa"
+    )
+    assert nazwa == "Audi A4 35 TDI mHEV Advanced S tronic"
+    assert lokalizacja == "Warszawa"
+
+
+def test_krotszy_wariant_tytulu_konczy_sie_sama_miejscowoscia() -> None:
+    nazwa, lokalizacja = mapper.rozbierz_tytul(
+        "Audi A3 30 TDI S tronic Hatchback 2022r. UY5XE05 Magnice"
+    )
+    assert nazwa == "Audi A3 30 TDI S tronic Hatchback"
+    assert lokalizacja == "Magnice"
+
+
+def test_tytul_ze_szczegolow_ma_tablice_z_przodu() -> None:
+    """Strona szczegółów pisze to odwrotnie — bez rocznika, z tablicą na
+    początku. Oba kształty muszą dać tę samą nazwę."""
+    nazwa, lokalizacja = mapper.rozbierz_tytul("UY5XE05 Audi A3 30 TDI S tronic")
+    assert nazwa == "Audi A3 30 TDI S tronic"
+    assert lokalizacja is None
+
+
+def test_model_nie_jest_mylony_z_tablica_rejestracyjna() -> None:
+    """`RS6`, `A4`, `X6`, `M60I` są krótsze niż tablica i muszą przeżyć."""
+    nazwa, _ = mapper.rozbierz_tytul("Audi RS6 Avant 2024r. GD1234A Gdańsk")
+    assert nazwa == "Audi RS6 Avant"
+    nazwa, _ = mapper.rozbierz_tytul("BMW X6 M60I xDrive 2023r. WA5678B Warszawa")
+    assert nazwa == "BMW X6 M60I xDrive"
+
+
+def test_wersja_wyposazenia_nie_niesie_juz_adresu_firmy() -> None:
+    """Dane osobowe i adresowe osób trzecich nie mają czego szukać w bazie
+    ani w podpowiedzi wyceny (SPEC.md §10.2)."""
+    pozycje = parser.sparsuj_liste(wczytaj("lista-01.html"))
+    aukcje = [mapper.na_aukcje(p, source_id=1, teraz=TERAZ) for p in pozycje]
+    assert all("ARCTOS" not in (a.variant or "") for a in aukcje)
+    assert all("Krakowska" not in (a.variant or "") for a in aukcje)
+    # Przy okazji odzyskana lokalizacja: lista nie ma jej jako pola.
+    assert {a.location for a in aukcje} == {"Warszawa", "Magnice"}
+
+
+def test_nadwozie_znika_z_wersji_skoro_stoi_w_osobnym_polu() -> None:
+    """Bez tego ta sama Audi A3 wygląda na dwa warianty zależnie od tego,
+    czy tytuł akurat zawierał „Hatchback"."""
+    surowa = SurowaOferta(
+        external_id="1",
+        url="u",
+        pola={
+            "tytul": "Audi A3 30 TDI S tronic Hatchback 2022r. UY5XE05 Magnice",
+            "Typ nadwozia": "Hatchback",
+        },
+    )
+    a = mapper.na_aukcje(surowa, source_id=1, teraz=TERAZ)
+    assert a.variant == "30 TDI S tronic"
+    assert a.body == "Hatchback"
+
+
+def test_rodzaj_pojazdu_bierze_sie_z_pola_serwisu() -> None:
+    """EFL jako jedyny podaje rodzaj wprost — i pisze go na trzy sposoby."""
+    for zapis in ("osobowy", "Osobowy", "Samochód osobowy"):
+        surowa = SurowaOferta(
+            external_id="1",
+            url="u",
+            pola={"tytul": "Audi A4", "Rodzaj pojazdu": zapis},
+        )
+        a = mapper.na_aukcje(surowa, source_id=1, teraz=TERAZ)
+        assert a.vehicle_kind is RodzajPojazdu.OSOBOWY

@@ -15,7 +15,7 @@ import datetime as dt
 from collections.abc import Mapping
 
 from app.application.read_models import Kryteria, Kursor, Sortowanie
-from app.domain.enums import AuctionStatus
+from app.domain.enums import AuctionStatus, RodzajPojazdu
 
 STATUS_Z_PARAMETRU = {
     "aktywne": AuctionStatus.ACTIVE,
@@ -29,6 +29,13 @@ PARAMETR_ZE_STATUSU = {v: k for k, v in STATUS_Z_PARAMETRU.items()}
 
 MAKS_GODZIN = 24 * 30
 """Sufit dla „kończy się w N h" — bez niego pole staje się filtrem na wszystko."""
+
+RODZAJ_WSZYSTKIE = "wszystkie"
+"""Jawna wartość „nie filtruj po rodzaju".
+
+Potrzebna, bo `rodzaj` jest jedynym filtrem z niepustą wartością domyślną:
+brak parametru znaczy tu „osobowe", więc „wszystkie" musi dać się powiedzieć
+wprost, inaczej nie dałoby się go wyłączyć."""
 
 
 def _tekst(parametry: Mapping[str, str], nazwa: str) -> str | None:
@@ -78,11 +85,25 @@ def zbuduj_kryteria(
 
     nowe_od = ostatnia_wizyta if _flaga(parametry, "nowe") else None
 
+    surowy_rodzaj = parametry.get("rodzaj", "").strip()
+    if surowy_rodzaj == RODZAJ_WSZYSTKIE:
+        rodzaj: RodzajPojazdu | None = None
+    elif surowy_rodzaj:
+        try:
+            rodzaj = RodzajPojazdu(surowy_rodzaj.upper())
+        except ValueError:
+            # Śmieć w adresie nie ma prawa dać 500 ani po cichu pokazać
+            # wszystkiego — wracamy do wartości domyślnej.
+            rodzaj = RodzajPojazdu.OSOBOWY
+    else:
+        rodzaj = RodzajPojazdu.OSOBOWY
+
     return Kryteria(
         szukaj=_tekst(parametry, "szukaj"),
         marka=_tekst(parametry, "marka"),
         model=_tekst(parametry, "model"),
         zrodlo=_tekst(parametry, "zrodlo"),
+        rodzaj=rodzaj,
         paliwo=_tekst(parametry, "paliwo"),
         skrzynia=_tekst(parametry, "skrzynia"),
         lokalizacja=_tekst(parametry, "lokalizacja"),
@@ -141,6 +162,12 @@ def na_parametry(kryteria: Kryteria) -> dict[str, str]:
     for nazwa, liczba in liczby:
         if liczba is not None:
             wynik[nazwa] = str(liczba)
+
+    # Rodzaj wpisujemy ZAWSZE, także domyślny: bez tego „Wyczyść" i linki
+    # nawigacji gubiłyby wybór „wszystkie rodzaje" przy pierwszym kliknięciu.
+    wynik["rodzaj"] = (
+        RODZAJ_WSZYSTKIE if kryteria.rodzaj is None else kryteria.rodzaj.value
+    )
 
     if kryteria.status is None:
         wynik["status"] = "wszystkie"

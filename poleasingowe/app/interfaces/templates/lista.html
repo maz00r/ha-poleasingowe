@@ -15,6 +15,18 @@
       <input id="szukaj" name="szukaj" value="{{ kryteria.szukaj or '' }}"
              placeholder="marka, model, VIN, identyfikator">
     </div>
+    {# Rodzaj stoi w GLOWNYM pasku, a nie w „wiecej filtrow": zrodla sprzedaja
+       naczepy i ciagniki siodlowe w tej samej kategorii co samochody, wiec to
+       jest pierwsza rzecz, ktora sie tu ustawia. Domyslnie: osobowe. #}
+    <div class="pole">
+      <label for="rodzaj">Rodzaj</label>
+      <select id="rodzaj" name="rodzaj">
+        <option value="wszystkie" {% if kryteria.rodzaj is none %}selected{% endif %}>wszystkie</option>
+        {% for wartosc, etykieta in etykiety_rodzaju.items() %}
+          <option value="{{ wartosc.value }}" {% if wartosc == kryteria.rodzaj %}selected{% endif %}>{{ etykieta }}</option>
+        {% endfor %}
+      </select>
+    </div>
     <div class="pole">
       <label for="zrodlo">Źródło</label>
       <select id="zrodlo" name="zrodlo">

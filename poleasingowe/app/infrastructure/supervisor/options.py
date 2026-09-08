@@ -71,8 +71,22 @@ class Opcje(BaseModel):
     db_password: str
 
     grafana_base_url: str = ""
+
+    # --- wycena AI (SPEC.md §12) ---------------------------------------
+    ai_provider: Literal["openai", "anthropic", "zgodny_z_openai"] = "openai"
+    """Kto liczy wycenę. `zgodny_z_openai` obejmuje OpenRouter, Groq,
+    DeepSeek, Mistral, xAI i modele lokalne (Ollama, LM Studio) — wszystko,
+    co wystawia `/chat/completions`."""
+    ai_api_key: str = ""
+    ai_base_url: str = ""
+    """Wymagany TYLKO dla `zgodny_z_openai`; dla pozostałych pozwala wskazać
+    proxy albo bramkę firmową."""
+    ai_model: str = ""
+    """Pusty znaczy „domyślny dla dostawcy" (`ai_klienci.MODELE`)."""
     openai_api_key: str = ""
-    ai_model: str = "gpt-5.4-mini"
+    """Poprzednia nazwa `ai_api_key`. Zostaje, żeby aktualizacja add-onu nie
+    wyłączyła wyceny osobom, które mają ją już ustawioną — Supervisor nie
+    przepisuje opcji sam, a `extra="forbid"` odrzuciłby nieznane pole."""
     credentials: list[Poswiadczenia] = Field(default_factory=list)
     sources: list[OpcjeZrodla] = Field(default_factory=list)
 
@@ -87,6 +101,11 @@ class Opcje(BaseModel):
             f"postgresql://{self.db_user}:{self.db_password}"
             f"@{self.db_host}:{self.db_port}/{self.db_name}"
         )
+
+    @property
+    def klucz_ai(self) -> str:
+        """Klucz do API modelu, z nową nazwą opcji przed starą."""
+        return self.ai_api_key or self.openai_api_key
 
     def bezpieczny_opis(self) -> str:
         """Opis połączenia nadający się do logu (SPEC.md §10.2)."""
@@ -129,4 +148,18 @@ def wczytaj_opcje(sciezka: pathlib.Path = SCIEZKA_OPCJI) -> Opcje:
         raise BladKonfiguracji(
             f"Zduplikowane klucze źródeł w opcjach: {sorted(klucze)}"
         )
+    # Wycena jest opcjonalna, ale WŁĄCZONA I ŹLE SKONFIGUROWANA to co innego
+    # niż wyłączona: bez adresu poleciałaby do OpenAI, czyli nie tam, gdzie
+    # użytkownik chciał (§7.1 — żadnych cichych wartości domyślnych).
+    if opcje.klucz_ai and opcje.ai_provider == "zgodny_z_openai":
+        if not opcje.ai_base_url.strip():
+            raise BladKonfiguracji(
+                "ai_provider = 'zgodny_z_openai' wymaga ai_base_url, np. "
+                "https://openrouter.ai/api/v1 albo http://localhost:11434/v1"
+            )
+        if not opcje.ai_model.strip():
+            raise BladKonfiguracji(
+                "ai_provider = 'zgodny_z_openai' wymaga ai_model — nie ma tu "
+                "modelu domyślnego, bo zależy od wybranego dostawcy"
+            )
     return opcje

@@ -27,6 +27,7 @@ from app.domain.errors import ParseFailed
 from app.domain.value_objects import Mileage, Money, NieprawidlowaWartosc, Vin
 from app.infrastructure.sources.marki import podziel_marke_model
 from app.infrastructure.sources.paliwa import kanoniczne_paliwo
+from app.infrastructure.sources.rodzaje import rozpoznaj
 
 # RECON.md §4.4: strefa nie jest podana przy `auctionEndDate`. Zakładamy czas
 # lokalny Polski, bo taki serwis pokazuje użytkownikowi. Do bazy idzie UTC.
@@ -146,6 +147,12 @@ def na_aukcje(surowa: SurowaOferta, source_id: int, teraz: dt.datetime) -> Aucti
         engine_ccm=_liczba(pojemnosc.group(1)) if pojemnosc else None,
         engine_hp=int(moc.group(1)) if moc else None,
         vin=_vin(pola),
+        # Kategoria z adresu aukcji jest deklaracją serwisu, więc wystarcza
+        # sama — nazwa jest tu tylko zapasem, gdyby adres kiedyś zmienił
+        # kształt (parser: `kategoria_z_url`).
+        vehicle_kind=rozpoznaj(
+            kategoria=pola.get("kategoria"), nazwa=pola.get("nazwa")
+        ),
         location=pola.get("Lokalizacja"),
         seller=pola.get("Sprzedający"),
         price_current=_cena(pola),

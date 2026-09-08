@@ -24,6 +24,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from fastapi.templating import Jinja2Templates
 
 from app.application.read_models import (
+    ETYKIETY_RODZAJU,
     ETYKIETY_SORTOWANIA,
     LIMIT_STRONY,
     SORTOWANIE_KOLUMN,
@@ -130,6 +131,7 @@ def _kontekst_bazowy(request: Request) -> dict[str, Any]:
         "grafana": stan.opcje.grafana_base_url.rstrip("/"),
         "sortowania": list(Sortowanie),
         "etykiety_sortowania": ETYKIETY_SORTOWANIA,
+        "etykiety_rodzaju": ETYKIETY_RODZAJU,
     }
 
 
@@ -409,7 +411,9 @@ async def zdjecia_aukcji(request: Request, auction_id: int) -> Response:
     if dane is None:
         return HTMLResponse("")
 
-    adresy = await galeria.adresy(dane.pozycja.source_key, dane.pozycja.external_id)
+    adresy = await galeria.adresy(
+        dane.pozycja.source_key, dane.pozycja.external_id, dane.pozycja.url
+    )
     return SZABLONY.TemplateResponse(
         request=request,
         name="fragmenty/zdjecia.html",
@@ -481,6 +485,7 @@ async def zdjecie(
         dane.pozycja.external_id,
         indeks,
         miniatura=miniatura,
+        url=dane.pozycja.url,
     )
     if wynik is None:
         return _brak_zdjecia() if miniatura else Response(status_code=404)

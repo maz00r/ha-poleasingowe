@@ -104,18 +104,45 @@ i trafiają do rotowanego cache'u `/data/cache/zdjecia` o maksymalnym rozmiarze
 100 MB — przeglądarka nie łączy się bezpośrednio z serwisem aukcyjnym. Po
 wejściu w szczegóły widoczna jest pełna galeria udostępniona przez źródło.
 
-Wycena AI jest opcjonalna. W konfiguracji dodatku ustaw:
+Wycena AI jest opcjonalna i **nie jest przywiązana do OpenAI**. Wybierasz
+dostawcę opcją `ai_provider`:
+
+| `ai_provider` | Dla kogo | Co ustawić |
+|---|---|---|
+| `openai` (domyślnie) | OpenAI | `ai_api_key` |
+| `anthropic` | Anthropic (Claude) | `ai_api_key` |
+| `zgodny_z_openai` | wszystko, co wystawia `/chat/completions`: OpenRouter, Groq, DeepSeek, Mistral, xAI, Together, a także **model lokalny** (Ollama, LM Studio) | `ai_api_key`, `ai_base_url`, `ai_model` |
 
 ```yaml
-openai_api_key: "sk-..."
-ai_model: "gpt-5.4-mini"
+# OpenAI — wystarczy klucz
+ai_provider: openai
+ai_api_key: "sk-..."
+
+# Anthropic
+ai_provider: anthropic
+ai_api_key: "sk-ant-..."
+ai_model: ""            # puste = domyślny model dostawcy
+
+# Model lokalny — dane pojazdu nie opuszczają sieci domowej
+ai_provider: zgodny_z_openai
+ai_base_url: "http://ollama:11434/v1"
+ai_model: "qwen3:14b"
+ai_api_key: "cokolwiek"  # lokalne serwery zwykle nie sprawdzają klucza
 ```
+
+`ai_model` puste znaczy „model domyślny dostawcy"; przy `zgodny_z_openai`
+trzeba go podać, bo tam żadnego domyślnego nie ma. Brak `ai_base_url` przy
+tym dostawcy **zatrzymuje dodatek z jasnym komunikatem** zamiast po cichu
+wysłać dane do OpenAI.
+
+Starsza opcja `openai_api_key` nadal działa jako `ai_api_key` — aktualizacja
+dodatku nie wyłącza wyceny osobom, które miały ją już ustawioną.
 
 Po ponownym uruchomieniu szczegóły pojazdu pokażą szacowaną wartość w PLN,
 przedział, pewność i założenia. Wynik jest zapisywany w lokalnym cache'u, więc
 ponowne otwarcie tej samej wyceny nie wykonuje kolejnego płatnego żądania.
 Zmiana danych auta, lokalnych porównań albo modelu automatycznie unieważnia
-cache. Do OpenAI nie są wysyłane VIN, identyfikator aukcji ani dane
+cache. Do dostawcy nie są wysyłane VIN, identyfikator aukcji ani dane
 sprzedającego. Wycena jest orientacyjna i nie zastępuje oględzin ani opinii
 rzeczoznawcy.
 

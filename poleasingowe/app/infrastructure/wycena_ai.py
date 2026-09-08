@@ -1,8 +1,15 @@
-"""Wycena pojazdu przez OpenAI Responses API, z lokalnym cache'em.
+"""Wycena pojazdu przez model językowy, z lokalnym cache'em.
 
 Model dostaje wyłącznie techniczne dane pojazdu i zagregowane ceny z naszej
 bazy. Nie wysyłamy VIN-u, identyfikatora aukcji ani danych sprzedającego.
 Wynik jest pomocą przy analizie, nie opinią rzeczoznawcy.
+
+**Dostawca jest wyborem użytkownika** (`ai_provider`): OpenAI, Anthropic albo
+dowolny endpoint zgodny z OpenAI — z modelem lokalnym włącznie. Ten plik
+o tym wyborze nie wie nic poza tym, że dostaje `KlientModelu`: prompt, cache
+i walidacja wyniku są wspólne, a różnice protokołów siedzą w
+`ai_klienci.py`. Dzięki temu odcisk cache'u zależy od modelu, nie od
+dostawcy — zmiana dostawcy przy tym samym modelu nie unieważnia wycen.
 """
 
 from __future__ import annotations
@@ -18,11 +25,46 @@ from typing import Any
 import httpx
 
 from app.application.read_models import PorownanieRynkowe, Szczegoly
+from app.infrastructure.ai_klienci import BladModelu, KlientModelu
 
 log = logging.getLogger(__name__)
 
 KATALOG_CACHE = pathlib.Path("/data/cache/wyceny")
 WERSJA_PROMPTU = 1
+"""Podbij, gdy zmienisz `INSTRUKCJE` albo `SCHEMAT` — inaczej cache oddawałby
+wyniki wygenerowane starym poleceniem."""
+
+NAZWA_SCHEMATU = "wycena_pojazdu"
+
+INSTRUKCJE = (
+    "Jesteś analitykiem polskiego rynku samochodów używanych. "
+    "Oszacuj uczciwą cenę detaliczną pojazdu w PLN na dziś. "
+    "Największą wagę nadaj porównaniom z zakończonych aukcji, "
+    "ale uwzględnij różnice rocznika i przebiegu. Jeśli danych "
+    "jest mało, poszerz przedział i obniż pewność. Nie zakładaj "
+    "idealnego stanu technicznego; jasno wypisz założenia."
+)
+
+SCHEMAT: dict[str, Any] = {
+    "type": "object",
+    "properties": {
+        "wartosc": {"type": "integer", "minimum": 0},
+        "minimum": {"type": "integer", "minimum": 0},
+        "maksimum": {"type": "integer", "minimum": 0},
+        "pewnosc": {"type": "string", "enum": ["niska", "średnia", "wysoka"]},
+        "uzasadnienie": {"type": "string"},
+        "zalozenia": {"type": "array", "items": {"type": "string"}, "maxItems": 5},
+    },
+    "required": [
+        "wartosc",
+        "minimum",
+        "maksimum",
+        "pewnosc",
+        "uzasadnienie",
+        "zalozenia",
+    ],
+    "additionalProperties": False,
+}
 
 
 @dataclass(slots=True, frozen=True)
@@ -43,22 +85,16 @@ class BladWyceny(RuntimeError):
 class WycenaAI:
     def __init__(
         self,
-        api_key: str,
+        klient: KlientModelu,
         *,
-        model: str,
         katalog: pathlib.Path = KATALOG_CACHE,
-        klient: httpx.AsyncClient | None = None,
     ) -> None:
-        self._api_key = api_key
-        self._model = model
-        self._katalog = katalog
         self._klient = klient
-        self._wlasny_klient = klient is None
+        self._model = klient.model
+        self._katalog = katalog
 
     async def zamknij(self) -> None:
-        if self._wlasny_klient and self._klient is not None:
-            await self._klient.aclose()
-            self._klient = None
+        await self._klient.zamknij()
 
     async def wycen(
         self, dane: Szczegoly, porownania: tuple[PorownanieRynkowe, ...]
@@ -69,20 +105,15 @@ class WycenaAI:
         if z_cache is not None:
             return z_cache
 
-        klient = self._klient
-        if klient is None:
-            klient = httpx.AsyncClient(timeout=60.0)
-            self._klient = klient
-
         try:
-            odpowiedz = await klient.post(
-                "https://api.openai.com/v1/responses",
-                headers={"Authorization": f"Bearer {self._api_key}"},
-                json=self._zadanie(wejscie),
+            tekst = await self._klient.json_wg_schematu(
+                instrukcje=INSTRUKCJE,
+                wejscie=json.dumps(wejscie, ensure_ascii=False),
+                nazwa_schematu=NAZWA_SCHEMATU,
+                schemat=SCHEMAT,
             )
-            odpowiedz.raise_for_status()
-            wynik = self._z_odpowiedzi(odpowiedz.json())
-        except (httpx.HTTPError, ValueError, KeyError, TypeError) as exc:
+            wynik = self._z_tekstu(tekst)
+        except (httpx.HTTPError, BladModelu, ValueError, KeyError, TypeError) as exc:
             log.warning("wycena AI nie powiodła się: %s", exc)
             raise BladWyceny("Nie udało się teraz wygenerować wyceny AI.") from exc
 
@@ -147,72 +178,20 @@ class WycenaAI:
         except OSError as exc:
             log.warning("nie udało się zapisać cache'u wyceny: %s", exc)
 
-    def _zadanie(self, wejscie: dict[str, Any]) -> dict[str, Any]:
-        return {
-            "model": self._model,
-            "store": False,
-            "instructions": (
-                "Jesteś analitykiem polskiego rynku samochodów używanych. "
-                "Oszacuj uczciwą cenę detaliczną pojazdu w PLN na dziś. "
-                "Największą wagę nadaj porównaniom z zakończonych aukcji, "
-                "ale uwzględnij różnice rocznika i przebiegu. Jeśli danych "
-                "jest mało, poszerz przedział i obniż pewność. Nie zakładaj "
-                "idealnego stanu technicznego; jasno wypisz założenia."
-            ),
-            "input": json.dumps(wejscie, ensure_ascii=False),
-            "text": {
-                "format": {
-                    "type": "json_schema",
-                    "name": "wycena_pojazdu",
-                    "strict": True,
-                    "schema": {
-                        "type": "object",
-                        "properties": {
-                            "wartosc": {"type": "integer", "minimum": 0},
-                            "minimum": {"type": "integer", "minimum": 0},
-                            "maksimum": {"type": "integer", "minimum": 0},
-                            "pewnosc": {
-                                "type": "string",
-                                "enum": ["niska", "średnia", "wysoka"],
-                            },
-                            "uzasadnienie": {"type": "string"},
-                            "zalozenia": {
-                                "type": "array",
-                                "items": {"type": "string"},
-                                "maxItems": 5,
-                            },
-                        },
-                        "required": [
-                            "wartosc",
-                            "minimum",
-                            "maksimum",
-                            "pewnosc",
-                            "uzasadnienie",
-                            "zalozenia",
-                        ],
-                        "additionalProperties": False,
-                    },
-                }
-            },
-        }
+    def _z_tekstu(self, tekst: str) -> Wycena:
+        """Sprawdza wynik modelu, zamiast mu wierzyć.
 
-    def _z_odpowiedzi(self, odpowiedz: dict[str, Any]) -> Wycena:
-        tekst: str | None = None
-        for element in odpowiedz.get("output", []):
-            if element.get("type") != "message":
-                continue
-            for tresc in element.get("content", []):
-                if tresc.get("type") == "output_text":
-                    tekst = tresc.get("text")
-                    break
-        if not tekst:
-            raise BladWyceny("API nie zwróciło treści wyceny.")
+        Schemat wymusza dostawca, ale nie każdy endpoint zgodny z OpenAI go
+        honoruje, a `minimum <= wartosc <= maksimum` nie da się wyrazić
+        w JSON Schema. Niespójny przedział jest gorszy niż brak wyceny —
+        wygląda wiarygodnie.
+        """
         dane = json.loads(tekst)
         minimum = int(dane["minimum"])
         wartosc = int(dane["wartosc"])
         maksimum = int(dane["maksimum"])
         if not 0 <= minimum <= wartosc <= maksimum:
-            raise BladWyceny("API zwróciło niespójny przedział wyceny.")
+            raise BladWyceny("Model zwrócił niespójny przedział wyceny.")
         return Wycena(
             wartosc=wartosc,
             minimum=minimum,

@@ -129,6 +129,15 @@ class Dispatcher:
         for do_przemiatu in zrodla.values():
             await self._moze_przemiec(kontekst, do_przemiatu, teraz)
 
+        # Aukcja nieobserwowana nie jest odpytywana po raz drugi (§11.2),
+        # a marker końca stoi wyłącznie na stronie szczegółów — bez tego
+        # kroku zostawałaby `ACTIVE` na zawsze i siedziała w widoku
+        # „Aktywne" długo po swoim terminie.
+        async with kontekst.uow as uow:
+            zamkniete = await uow.auction.zamknij_po_terminie(teraz)
+        if zamkniete:
+            log.info("zamknięto %s aukcji po terminie", zamkniete)
+
         async with kontekst.uow as uow:
             zalegle = await uow.auction.do_odpytu(teraz, self._limit)
 

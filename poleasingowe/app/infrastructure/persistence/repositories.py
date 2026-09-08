@@ -38,6 +38,7 @@ from app.domain.enums import (
     Currency,
     FinalPriceState,
     PollTier,
+    RodzajPojazdu,
 )
 from app.domain.value_objects import Mileage, Money, Vin
 
@@ -100,7 +101,8 @@ FROM app.source WHERE enabled ORDER BY key
 SQL_AUCTION_UPSERT = """
 INSERT INTO app.auction (
     source_id, external_id, url, make, model, variant, year, mileage_km,
-    fuel, gearbox, engine_ccm, engine_hp, vin, body, color, location, seller,
+    fuel, gearbox, engine_ccm, engine_hp, vin, body, vehicle_kind, color,
+    location, seller,
     price_start, price_current, currency, bid_count, bid_increment_raw,
     ends_at, status, first_seen_at, last_seen_at, content_hash, raw_json,
     next_poll_at, poll_tier, consecutive_failures, final_price_state,
@@ -108,7 +110,8 @@ INSERT INTO app.auction (
 ) VALUES (
     %(source_id)s, %(external_id)s, %(url)s, %(make)s, %(model)s, %(variant)s,
     %(year)s, %(mileage_km)s, %(fuel)s, %(gearbox)s, %(engine_ccm)s,
-    %(engine_hp)s, %(vin)s, %(body)s, %(color)s, %(location)s, %(seller)s,
+    %(engine_hp)s, %(vin)s, %(body)s, %(vehicle_kind)s, %(color)s, %(location)s,
+    %(seller)s,
     %(price_start)s, %(price_current)s, %(currency)s, %(bid_count)s,
     %(bid_increment_raw)s, %(ends_at)s, %(status)s, %(first_seen_at)s,
     %(last_seen_at)s, %(content_hash)s, %(raw_json)s, %(next_poll_at)s,
@@ -121,7 +124,8 @@ ON CONFLICT (source_id, external_id) DO UPDATE SET
     year = EXCLUDED.year, mileage_km = EXCLUDED.mileage_km,
     fuel = EXCLUDED.fuel, gearbox = EXCLUDED.gearbox,
     engine_ccm = EXCLUDED.engine_ccm, engine_hp = EXCLUDED.engine_hp,
-    vin = EXCLUDED.vin, body = EXCLUDED.body, color = EXCLUDED.color,
+    vin = EXCLUDED.vin, body = EXCLUDED.body,
+    vehicle_kind = EXCLUDED.vehicle_kind, color = EXCLUDED.color,
     location = EXCLUDED.location, seller = EXCLUDED.seller,
     price_start = EXCLUDED.price_start, price_current = EXCLUDED.price_current,
     currency = EXCLUDED.currency, bid_count = EXCLUDED.bid_count,
@@ -135,7 +139,8 @@ ON CONFLICT (source_id, external_id) DO UPDATE SET
     last_price_lead_seconds = EXCLUDED.last_price_lead_seconds,
     duplicate_of = EXCLUDED.duplicate_of
 RETURNING id, source_id, external_id, url, make, model, variant, year, mileage_km,
-    fuel, gearbox, engine_ccm, engine_hp, vin, body, color, location, seller,
+    fuel, gearbox, engine_ccm, engine_hp, vin, body, vehicle_kind, color,
+    location, seller,
     price_start, price_current, currency, bid_count, bid_increment_raw,
     ends_at, status, first_seen_at, last_seen_at, content_hash, raw_json,
     next_poll_at, poll_tier, consecutive_failures, final_price_state,
@@ -158,13 +163,15 @@ RETURNING id, source_id, external_id, url, make, model, variant, year, mileage_k
 SQL_AUCTION_Z_PRZEMIATU = """
 INSERT INTO app.auction (
     source_id, external_id, url, make, model, variant, year, mileage_km,
-    fuel, gearbox, engine_ccm, engine_hp, vin, body, color, location, seller,
+    fuel, gearbox, engine_ccm, engine_hp, vin, body, vehicle_kind, color,
+    location, seller,
     price_start, price_current, currency, bid_count, bid_increment_raw,
     ends_at, status, first_seen_at, last_seen_at, next_poll_at, poll_tier
 ) VALUES (
     %(source_id)s, %(external_id)s, %(url)s, %(make)s, %(model)s, %(variant)s,
     %(year)s, %(mileage_km)s, %(fuel)s, %(gearbox)s, %(engine_ccm)s,
-    %(engine_hp)s, %(vin)s, %(body)s, %(color)s, %(location)s, %(seller)s,
+    %(engine_hp)s, %(vin)s, %(body)s, %(vehicle_kind)s, %(color)s, %(location)s,
+    %(seller)s,
     %(price_start)s, %(price_current)s, %(currency)s, %(bid_count)s,
     %(bid_increment_raw)s, %(ends_at)s, %(status)s, %(first_seen_at)s,
     %(last_seen_at)s, %(next_poll_at)s, %(poll_tier)s
@@ -182,6 +189,13 @@ ON CONFLICT (source_id, external_id) DO UPDATE SET
     engine_hp = COALESCE(EXCLUDED.engine_hp, app.auction.engine_hp),
     vin = COALESCE(EXCLUDED.vin, app.auction.vin),
     body = COALESCE(EXCLUDED.body, app.auction.body),
+    -- `NIEZNANY` z przemiatu nie kasuje rodzaju rozpoznanego wczesniej ze
+    -- strony szczegolow. COALESCE tu nie wystarcza: kolumna jest NOT NULL,
+    -- wiec „nie wiem" przychodzi jako wartosc, a nie jako NULL.
+    vehicle_kind = CASE
+        WHEN EXCLUDED.vehicle_kind = 'NIEZNANY' THEN app.auction.vehicle_kind
+        ELSE EXCLUDED.vehicle_kind
+    END,
     color = COALESCE(EXCLUDED.color, app.auction.color),
     location = COALESCE(EXCLUDED.location, app.auction.location),
     seller = COALESCE(EXCLUDED.seller, app.auction.seller),
@@ -199,7 +213,8 @@ RETURNING id, (xmax = 0) AS nowa
 SQL_AUCTION_PO_KLUCZU = """
 SELECT
     id, source_id, external_id, url, make, model, variant, year, mileage_km, fuel,
-    gearbox, engine_ccm, engine_hp, vin, body, color, location, seller, price_start,
+    gearbox, engine_ccm, engine_hp, vin, body, vehicle_kind, color, location,
+    seller, price_start,
     price_current, currency, bid_count, bid_increment_raw, ends_at, status,
     first_seen_at, last_seen_at, content_hash, raw_json, next_poll_at, poll_tier,
     consecutive_failures, final_price_state, last_price_lead_seconds, duplicate_of
@@ -210,7 +225,8 @@ FROM app.auction WHERE source_id = %s AND external_id = %s
 # czesciowy auction_next_poll_active_idx (SPEC.md §8.3).
 SQL_AUCTION_DO_ODPYTU = """
 SELECT id, source_id, external_id, url, make, model, variant, year, mileage_km,
-    fuel, gearbox, engine_ccm, engine_hp, vin, body, color, location, seller,
+    fuel, gearbox, engine_ccm, engine_hp, vin, body, vehicle_kind, color,
+    location, seller,
     price_start, price_current, currency, bid_count, bid_increment_raw,
     ends_at, status, first_seen_at, last_seen_at, content_hash, raw_json,
     next_poll_at, poll_tier, consecutive_failures, final_price_state,
@@ -228,7 +244,8 @@ WHERE status = 'ACTIVE' AND next_poll_at IS NOT NULL
 SQL_AUCTION_PO_VIN = """
 SELECT
     id, source_id, external_id, url, make, model, variant, year, mileage_km, fuel,
-    gearbox, engine_ccm, engine_hp, vin, body, color, location, seller, price_start,
+    gearbox, engine_ccm, engine_hp, vin, body, vehicle_kind, color, location,
+    seller, price_start,
     price_current, currency, bid_count, bid_increment_raw, ends_at, status,
     first_seen_at, last_seen_at, content_hash, raw_json, next_poll_at, poll_tier,
     consecutive_failures, final_price_state, last_price_lead_seconds, duplicate_of
@@ -237,6 +254,45 @@ FROM app.auction WHERE vin = %s ORDER BY id
 
 SQL_AUCTION_ZAPLANUJ = """
 UPDATE app.auction SET next_poll_at = %s, poll_tier = %s WHERE id = %s
+"""
+
+# Zamkniecie aukcji, ktora dawno minela swoj termin (SPEC.md §11.5, §12).
+#
+# Bez tego aukcja nieobserwowana zostaje `ACTIVE` NA ZAWSZE: odpytujemy ja
+# raz i wiecej nie wracamy (§11.2), a marker konca (`auction_pending:false`
+# w poleasingowe.pl) stoi wylacznie na stronie szczegolow. Skutek widoczny
+# w interfejsie: zakonczone aukcje siedza w widoku „Aktywne".
+#
+# Karencja liczy sie PER ZRODLO z jego okna dogrywki: poleasingowe.pl
+# przedluza aukcje maksymalnie o `overtime_cap_seconds` (1800 s), wiec przed
+# uplywem tego czasu „po terminie" nie znaczy jeszcze „zakonczona". Gdy
+# serwis nie deklaruje sufitu (EFL), bierzemy godzine.
+#
+# `final_price_state` schodzi na LAST_SEEN, nie CONFIRMED: ceny po zamknieciu
+# nikt nie odczytal, wiec to dolne oszacowanie (§8.2). `last_price_lead_seconds`
+# mowi, jak bardzo ostatni odczyt wyprzedzil koniec — im wiecej, tym mniej
+# wart jest ten pomiar.
+SQL_AUCTION_ZAMKNIJ_PO_TERMINIE = """
+UPDATE app.auction AS a
+SET status = 'ENDED',
+    next_poll_at = NULL,
+    poll_tier = 'IDLE',
+    final_price_state = CASE
+        WHEN a.final_price_state = 'UNKNOWN' THEN 'LAST_SEEN'
+        ELSE a.final_price_state
+    END,
+    last_price_lead_seconds = CASE
+        WHEN a.final_price_state = 'UNKNOWN'
+        THEN GREATEST(0, EXTRACT(EPOCH FROM (a.ends_at - a.last_seen_at)))::int
+        ELSE a.last_price_lead_seconds
+    END
+FROM app.source AS s
+WHERE s.id = a.source_id
+  AND a.status = 'ACTIVE'
+  AND a.ends_at IS NOT NULL
+  AND a.ends_at < %s - make_interval(
+      secs => COALESCE(s.overtime_cap_seconds, 3600) + 600
+  )
 """
 SQL_AUCTION_ODNOTUJ_WIDZIANA = "UPDATE app.auction SET last_seen_at = %s WHERE id = %s"
 
@@ -354,6 +410,7 @@ def _na_auction(w: dict[str, Any]) -> Auction:
         engine_hp=w["engine_hp"],
         vin=None if w["vin"] is None else Vin(w["vin"]),
         body=w["body"],
+        vehicle_kind=RodzajPojazdu(w["vehicle_kind"]),
         color=w["color"],
         location=w["location"],
         seller=w["seller"],
@@ -462,6 +519,7 @@ class PgAuctionRepository:
                     "engine_hp": auction.engine_hp,
                     "vin": None if auction.vin is None else auction.vin.value,
                     "body": auction.body,
+                    "vehicle_kind": auction.vehicle_kind.value,
                     "color": auction.color,
                     "location": auction.location,
                     "seller": auction.seller,
@@ -545,6 +603,7 @@ class PgAuctionRepository:
             "engine_hp": auction.engine_hp,
             "vin": None if auction.vin is None else auction.vin.value,
             "body": auction.body,
+            "vehicle_kind": auction.vehicle_kind.value,
             "color": auction.color,
             "location": auction.location,
             "seller": auction.seller,
@@ -618,6 +677,16 @@ class PgAuctionRepository:
             await cur.execute(
                 SQL_AUCTION_ZAPLANUJ, (next_poll_at, poll_tier.value, auction_id)
             )
+
+    async def zamknij_po_terminie(self, teraz: dt.datetime) -> int:
+        """Zamyka aukcje, które dawno minęły termin. Zwraca ile.
+
+        Jedno zapytanie na obrót dispatchera, bez pobierania wierszy do
+        Pythona — to sprzątanie stanu, nie odczyt danych.
+        """
+        async with self._conn.cursor() as cur:
+            await cur.execute(SQL_AUCTION_ZAMKNIJ_PO_TERMINIE, (teraz,))
+            return cur.rowcount
 
     async def odnotuj_widziana(self, auction_id: int, teraz: dt.datetime) -> None:
         """Odpyt bez zmiany aktualizuje tylko `last_seen_at` (SPEC.md §8.4)."""

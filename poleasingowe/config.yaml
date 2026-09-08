@@ -1,6 +1,6 @@
 # Konfiguracja add-onu (SPEC.md §7.1).
 name: Aukcje poleasingowe
-version: "0.8.1"
+version: "0.9.0"
 slug: poleasingowe
 description: >-
   Zbiera oferty z polskich serwisow aukcji samochodow poleasingowych,
@@ -41,8 +41,14 @@ options:
   db_user: poleasingowe_app
   db_password: ""
   grafana_base_url: ""
+  # Wycena AI jest opcjonalna: bez klucza karta aukcji po prostu jej nie ma.
+  # `ai_provider` decyduje, dokad ida dane pojazdu — `zgodny_z_openai`
+  # z adresem lokalnym (np. http://ollama:11434/v1) nie wypuszcza ich z domu.
+  ai_provider: openai
+  ai_api_key: ""
+  ai_base_url: ""
+  ai_model: ""
   openai_api_key: ""
-  ai_model: gpt-5.4-mini
   credentials: []
   sources: []
   log_level: INFO
@@ -56,8 +62,13 @@ schema:
   db_user: str
   db_password: password
   grafana_base_url: str?
+  ai_provider: list(openai|anthropic|zgodny_z_openai)
+  ai_api_key: password?
+  ai_base_url: str?
+  ai_model: str?
+  # Poprzednia nazwa `ai_api_key`; zostaje, zeby aktualizacja nie wylaczyla
+  # wyceny osobom, ktore maja ja juz ustawiona.
   openai_api_key: password?
-  ai_model: str
   credentials:
     - source: str
       username: str

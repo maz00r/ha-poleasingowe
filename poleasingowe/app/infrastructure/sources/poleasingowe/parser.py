@@ -29,6 +29,21 @@ from app.domain.errors import ParseFailed
 BAZOWY_URL = "https://poleasingowe.pl"
 SCIEZKA_LISTY = "/pl/auctions/list/pub/all/vehicles"
 
+# Serwis dzieli oferty na kategorie osobnymi listami (RECON.md §4.2):
+# `vehicles`, `ECR_motorcycles`, `ECR_trailers1`, `ECR_bus`, maszyny,
+# rolnictwo, medyczne. Przemiatamy DWIE — pojazdy na kołach i motocykle —
+# bo to one są przedmiotem tej aplikacji; reszta (maszyny, nieruchomości)
+# to inny rynek i inne pola.
+#
+# Klucz mapy trafia do `pola["kategoria"]` i stamtąd do rozpoznania rodzaju
+# pojazdu. `vehicles` NIE przesądza rodzaju — mieszają się w nim osobowe,
+# dostawcze i ciągniki siodłowe, więc tam decyduje nazwa
+# (`sources/rodzaje.py`).
+SCIEZKI_LIST: tuple[tuple[str, str], ...] = (
+    ("vehicles", SCIEZKA_LISTY),
+    ("ECR_motorcycles", "/pl/auctions/list/pub/all/ECR_motorcycles"),
+)
+
 # `external_id` to ostatni segment adresu: /pl/auctions/details/<slug>/<id>.
 # Alfanumeryczny, 8 znaków — NIE liczba (RECON.md §4.2).
 _ID_Z_URL = re.compile(r"/auctions/details/[^/]+/([A-Za-z0-9]+)\s*$")

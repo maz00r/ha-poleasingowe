@@ -1,5 +1,43 @@
 # Historia zmian
 
+## 0.9.0 — w przygotowaniu
+
+**Rodzaj pojazdu i filtr.** Źródła sprzedają w jednej kategorii samochody
+osobowe, furgony, ciągniki siodłowe i naczepy — lista mieszała je ze sobą.
+Każda aukcja ma teraz rozpoznany rodzaj, a w głównym pasku filtrów stoi jego
+wybór. **Domyślnie widać osobowe**; „wszystkie" jest jednym kliknięciem obok.
+Rozpoznanie bierze się z tego, co dane źródło faktycznie mówi: autoprzetarg
+ma kategorię w adresie aukcji, EFL osobne pole, a poleasingowe wyłącznie
+nazwę pojazdu. Migracja uzupełnia wiersze już zebrane.
+
+**Motocykle z poleasingowe.pl.** Serwis trzyma je pod osobnym adresem listy,
+którego nie przemiataliśmy — filtr „motocykle" był dla tego źródła zawsze
+pusty. Teraz przemiat obejmuje obie kategorie.
+
+**Koniec „dziwnych tytułów" z EFL.** Serwis podaje na liście jedno zdanie:
+nazwa pojazdu, rocznik, tablica rejestracyjna i adres firmy, w której stoi
+auto. Całość szła do rozbioru na markę i model, więc wersja wyposażenia
+kończyła się adresem obcej firmy. Tytuł jest teraz rozbierany na części,
+a z ogona odzyskujemy **lokalizację**, której lista w ogóle nie podaje jako
+pola. Tablicy rejestracyjnej nie zapisujemy.
+
+**Zdjęcia z EFL.** Galeria szła pod adres składany z identyfikatora
+(`/Auction/x-id<id>`) — założenie o routingu, którego rekonesans nigdy nie
+potwierdził. Teraz adapter idzie pod adres zapamiętany przy zbieraniu, a gdy
+pobranie galerii się nie uda, widać to w logu na poziomie WARNING zamiast
+niewidocznego INFO.
+
+**Zakończone aukcje przestają udawać aktywne.** Aukcji nieobserwowanej nie
+odpytujemy po raz drugi, a marker końca stoi tylko na stronie szczegółów —
+więc po terminie zostawała `ACTIVE` na zawsze. Dispatcher zamyka je po
+upływie okna dogrywki źródła, oznaczając cenę jako ostatnią widzianą, nigdy
+jako potwierdzoną.
+
+**Wycena AI u dowolnego dostawcy.** `ai_provider` wybiera między OpenAI,
+Anthropic i dowolnym endpointem zgodnym z OpenAI — z modelem lokalnym
+(Ollama, LM Studio) włącznie, co pozwala nie wypuszczać danych pojazdu poza
+sieć domową. Stara opcja `openai_api_key` nadal działa.
+
 ## 0.8.1 — w przygotowaniu
 
 **Prawdziwe miniatury na liście.** Add-on generuje i cache'uje osobny JPEG

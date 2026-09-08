@@ -41,6 +41,12 @@ KAFELEK = "a.section-list-auctions-block-item"
 # żądania (RECON.md §4.4).
 _ID_Z_URL = re.compile(r"/aukcja/[^,]*,([^,/]+),")
 
+# Ten sam adres niesie kategorię w OSTATNIM segmencie: `Samochody-osobowe`,
+# `Naczepy-i-przyczepy`, `Motocykle`. To jedyne źródło rodzaju pojazdu w tym
+# serwisie i jest darmowe — kategoria stoi już na liście, więc rozpoznanie
+# nie kosztuje ani jednego żądania więcej (SPEC.md §12).
+_KATEGORIA_Z_URL = re.compile(r"/aukcja/[^,]*,[^,/]+,([^,/?#]+)")
+
 # Pary `<b>Etykieta:</b> wartość<br>`. Wartość bywa pusta — „Przebieg:" bez
 # liczby to normalny stan w tym serwisie i musi zostać pusty, a nie zerowy.
 _PARA = re.compile(r"<b>\s*([^<:]{1,60}?)\s*:\s*</b>\s*([^<]{0,120})")
@@ -54,6 +60,12 @@ def _tekst(wezel: Node | None) -> str:
 
 def id_z_url(url: str) -> str | None:
     trafienie = _ID_Z_URL.search(url.strip())
+    return trafienie.group(1) if trafienie else None
+
+
+def kategoria_z_url(url: str) -> str | None:
+    """Kategoria pojazdu z adresu aukcji, np. `Naczepy-i-przyczepy`."""
+    trafienie = _KATEGORIA_Z_URL.search(url.strip())
     return trafienie.group(1) if trafienie else None
 
 
@@ -116,6 +128,10 @@ def sparsuj_liste(html: str) -> list[SurowaOferta]:
         pola = _pary_etykiet(wnetrze)
         pola.update(_cena_i_koniec(kafelek))
 
+        kategoria = kategoria_z_url(url)
+        if kategoria:
+            pola["kategoria"] = kategoria
+
         naglowek = kafelek.css_first("h3")
         if naglowek is not None:
             pola["nazwa"] = _tekst(naglowek)
@@ -162,6 +178,10 @@ def sparsuj_szczegoly(html: str, external_id: str, url: str) -> SurowaOferta:
     naglowek = drzewo.css_first("h1")
     if naglowek is not None:
         pola["nazwa"] = re.sub(r"\s+", " ", _tekst(naglowek))
+
+    kategoria = kategoria_z_url(url)
+    if kategoria:
+        pola["kategoria"] = kategoria
 
     if "end_date" not in pola and "Aktualna cena aukcji" not in pola:
         raise ParseFailed(

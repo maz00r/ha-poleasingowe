@@ -19,7 +19,7 @@ import json
 from dataclasses import dataclass, field
 from enum import StrEnum
 
-from app.domain.enums import AuctionStatus, FinalPriceState, PollTier
+from app.domain.enums import AuctionStatus, FinalPriceState, PollTier, RodzajPojazdu
 from app.domain.value_objects import Money
 
 LIMIT_STRONY = 50
@@ -54,6 +54,18 @@ ETYKIETY_SORTOWANIA: dict[Sortowanie, str] = {
     Sortowanie.NAJNOWSZE: "ostatnio dodane",
 }
 """Nazwy dla człowieka. `koniec-desc` w liście rozwijanej to nie interfejs."""
+
+ETYKIETY_RODZAJU: dict[RodzajPojazdu, str] = {
+    RodzajPojazdu.OSOBOWY: "osobowe",
+    RodzajPojazdu.DOSTAWCZY: "dostawcze",
+    RodzajPojazdu.CIEZAROWY: "ciężarowe",
+    RodzajPojazdu.MOTOCYKL: "motocykle",
+    RodzajPojazdu.PRZYCZEPA: "przyczepy i naczepy",
+    RodzajPojazdu.AUTOBUS: "autobusy",
+    RodzajPojazdu.INNY: "inne",
+    RodzajPojazdu.NIEZNANY: "nierozpoznane",
+}
+"""Kolejność ma znaczenie — tak wypada lista rozwijana w filtrach."""
 
 # Sortowania osiągalne z nagłówka kolumny: klik przełącza kierunek.
 SORTOWANIE_KOLUMN: dict[str, tuple[Sortowanie, Sortowanie]] = {
@@ -114,6 +126,15 @@ class Kryteria:
     marka: str | None = None
     model: str | None = None
     zrodlo: str | None = None
+    rodzaj: RodzajPojazdu | None = RodzajPojazdu.OSOBOWY
+    """Rodzaj pojazdu; `None` znaczy „wszystkie rodzaje".
+
+    **Domyślnie zawężone do osobowych** — to jedyny filtr z niepustą
+    wartością domyślną i jest to decyzja świadoma: źródła sprzedają
+    w tej samej kategorii naczepy i ciągniki siodłowe, więc lista bez
+    zawężenia pokazuje je wymieszane z samochodami. Wybór „wszystkie"
+    stoi w pasku filtrów obok, jednym kliknięciem.
+    """
     paliwo: str | None = None
     skrzynia: str | None = None
     lokalizacja: str | None = None
@@ -147,6 +168,7 @@ class PozycjaListy:
     mileage_km: int | None = None
     fuel: str | None = None
     gearbox: str | None = None
+    vehicle_kind: RodzajPojazdu = RodzajPojazdu.NIEZNANY
     location: str | None = None
     price_start: Money | None = None
     price_current: Money | None = None

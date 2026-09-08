@@ -18,6 +18,7 @@ from app.domain.enums import (
     BidCountSemantics,
     FinalPriceState,
     PollTier,
+    RodzajPojazdu,
 )
 from app.domain.value_objects import Mileage, Money, Vin
 
@@ -123,6 +124,13 @@ class Auction:
     color: str | None = None
     location: str | None = None
     seller: str | None = None
+    vehicle_kind: RodzajPojazdu = RodzajPojazdu.NIEZNANY
+    """Osobowy, dostawczy, motocykl, przyczepa… (SPEC.md §12).
+
+    Ustala go warstwa antykorupcyjna źródła — patrz `sources/rodzaje.py`.
+    Domyślne `NIEZNANY` jest świadome: aukcja bez rozpoznanego rodzaju ma
+    być widoczna, a nie po cichu odfiltrowana.
+    """
 
     price_start: Money | None = None
     price_current: Money | None = None

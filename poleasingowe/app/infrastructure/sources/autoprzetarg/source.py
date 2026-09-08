@@ -23,6 +23,7 @@ import httpx
 from app.application.ports import SurowaOferta
 from app.domain.entities import Auction
 from app.domain.errors import SourceUnavailable
+from app.infrastructure.sources.adresy import strona_aukcji
 from app.infrastructure.sources.autoprzetarg import mapper, parser
 
 KLUCZ = "autoprzetarg"
@@ -147,14 +148,16 @@ class AutoprzetargSource:
         )
         return replace(surowa, content_hash=biezacy)
 
-    async def zdjecia(self, external_id: str) -> Sequence[str]:
+    async def zdjecia(self, external_id: str, url: str | None = None) -> Sequence[str]:
         """Adresy zdjęć pojazdu (SPEC.md §12).
 
         Wywoływane **na żądanie**, gdy ktoś otworzy kartę aukcji — nie przy
         zbieraniu. Adresy nie trafiają do bazy: to jedno żądanie na obejrzaną
         aukcję zamiast kolumny utrzymywanej dla wszystkich.
         """
-        sciezka = f"/aukcja/x,{external_id},x"
+        sciezka = strona_aukcji(
+            url, bazowy=parser.BAZOWY_URL, zapasowa=f"/aukcja/x,{external_id},x"
+        )
         return parser.zdjecia((await self._pobierz(sciezka)).text)
 
     def na_aukcje(

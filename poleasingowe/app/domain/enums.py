@@ -82,3 +82,35 @@ class BidCountSemantics(StrEnum):
     """Licznik zlicza uczestników licytacji proxy — `bid_gap` zostaje `NULL`."""
     UNKNOWN = "UNKNOWN"
     """Rekonesans nie dał dowodu. Domyślne: niewiedza, nie założenie."""
+
+
+class RodzajPojazdu(StrEnum):
+    """Czym jest pojazd (SPEC.md §8.2, §12).
+
+    Serwisy sprzedają w jednej kategorii samochody, ciągniki siodłowe,
+    furgony i naczepy — bez tego rozróżnienia lista aukcji miesza je ze sobą
+    i filtr „marka" nie pomaga, bo naczepa też ma markę.
+
+    Klasyfikacja idzie przez warstwę antykorupcyjną, bo każde źródło mówi
+    o tym samym inaczej: autoprzetarg kategorią w adresie, EFL polem
+    `Rodzaj pojazdu`, poleasingowe wyłącznie nazwą nadwozia w tytule.
+    """
+
+    OSOBOWY = "OSOBOWY"
+    DOSTAWCZY = "DOSTAWCZY"
+    """Do 3,5 t: furgon, blaszak, plandeka, brygadówka."""
+    CIEZAROWY = "CIEZAROWY"
+    """Powyżej 3,5 t, razem z ciągnikami siodłowymi."""
+    MOTOCYKL = "MOTOCYKL"
+    PRZYCZEPA = "PRZYCZEPA"
+    """Przyczepy i naczepy — bez własnego napędu."""
+    AUTOBUS = "AUTOBUS"
+    INNY = "INNY"
+    """Rozpoznane, ale poza powyższymi: maszyny, quady, kampery."""
+    NIEZNANY = "NIEZNANY"
+    """Źródło nic nie powiedziało i nazwa nic nie zdradza.
+
+    Osobna wartość od `INNY`: „nie wiem" to nie to samo co „wiem, że inny",
+    a filtr domyślny nie ma prawa ukrywać pojazdów tylko dlatego, że nie
+    umieliśmy ich nazwać.
+    """

@@ -32,6 +32,7 @@ import pathlib
 import tempfile
 import time
 from collections.abc import Mapping, Sequence
+from urllib.parse import urlsplit
 
 import httpx
 from PIL import Image, ImageOps, UnidentifiedImageError
@@ -90,8 +91,14 @@ class GaleriaZdjec:
             await self._klient.aclose()
             self._klient = None
 
-    async def adresy(self, source_key: str, external_id: str) -> tuple[str, ...]:
-        """Adresy zdjęć aukcji. Pusta krotka, gdy źródło ich nie udostępnia."""
+    async def adresy(
+        self, source_key: str, external_id: str, url: str | None = None
+    ) -> tuple[str, ...]:
+        """Adresy zdjęć aukcji. Pusta krotka, gdy źródło ich nie udostępnia.
+
+        `url` to adres aukcji z bazy — adapter woli go od adresu składanego
+        z identyfikatora (`sources/adresy.py`).
+        """
         klucz = (source_key, external_id)
         wpis = self._listy.get(klucz)
         if wpis is not None and time.monotonic() - wpis[0] < WAZNOSC_LISTY_S:
@@ -105,11 +112,16 @@ class GaleriaZdjec:
         try:
             # Pełna dokumentacja fotograficzna pojazdu. Limit przestrzeni
             # dotyczy cache'u bajtów, nie liczby adresów w galerii.
-            adresy = tuple(await pobierz(external_id))
+            adresy = tuple(await pobierz(external_id, url))
         except Exception as exc:
             # Brak zdjęć nie ma prawa zepsuć karty aukcji — reszta danych
             # jest nadal użyteczna, a serwis bywa chwilowo niedostępny.
-            log.info(
+            #
+            # WARNING, nie INFO: przy domyślnym poziomie logów INFO było
+            # niewidoczne, więc źródło, które NIGDY nie oddaje zdjęć,
+            # wyglądało tak samo jak źródło bez galerii — puste miejsce
+            # na karcie i cisza w logach.
+            log.warning(
                 "nie udało się pobrać galerii %s/%s: %s", source_key, external_id, exc
             )
             return ()
@@ -124,12 +136,13 @@ class GaleriaZdjec:
         indeks: int,
         *,
         miniatura: bool = False,
+        url: str | None = None,
     ) -> tuple[bytes, str] | None:
         """Bajty zdjęcia i jego typ MIME. `None`, gdy takiego zdjęcia nie ma.
 
         Indeks, nie adres — patrz uwaga o otwartym proxy w opisie modułu.
         """
-        adresy = await self.adresy(source_key, external_id)
+        adresy = await self.adresy(source_key, external_id, url)
         if not 0 <= indeks < len(adresy):
             return None
         url = adresy[indeks]
@@ -181,10 +194,10 @@ class GaleriaZdjec:
 
         try:
             klient = await self._klient_http()
-            odpowiedz = await klient.get(url)
+            odpowiedz = await klient.get(url, headers=self._naglowki(url))
             odpowiedz.raise_for_status()
         except httpx.HTTPError as exc:
-            log.info("nie udało się pobrać zdjęcia %s: %s", url, exc)
+            log.warning("nie udało się pobrać zdjęcia %s: %s", url, exc)
             return None
 
         dane = odpowiedz.content
@@ -194,6 +207,18 @@ class GaleriaZdjec:
 
         await asyncio.to_thread(self._zapisz, sciezka, dane)
         return dane, typ
+
+    @staticmethod
+    def _naglowki(url: str) -> dict[str, str]:
+        """`Referer` z własnego serwisu — inaczej część serwerów oddaje 403.
+
+        Obrazy stoją zwykle za tą samą ochroną co strona: żądanie bez
+        `Referer` wygląda jak hotlink z obcej witryny. Nie udajemy tu
+        przeglądarki dla samego udawania — wskazujemy stronę, z której
+        zdjęcie faktycznie pochodzi.
+        """
+        rozbity = urlsplit(url)
+        return {"Referer": f"{rozbity.scheme}://{rozbity.netloc}/"}
 
     def _sciezka_cache(self, url: str) -> pathlib.Path:
         # Nazwa z hasha adresu: adresy bywają długie, mają znaki spoza

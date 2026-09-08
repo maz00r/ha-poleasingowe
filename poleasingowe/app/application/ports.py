@@ -69,6 +69,7 @@ class AuctionRepository(Protocol):
     async def zaplanuj(
         self, auction_id: int, next_poll_at: dt.datetime | None, poll_tier: PollTier
     ) -> None: ...
+    async def zamknij_po_terminie(self, teraz: dt.datetime) -> int: ...
 
 
 class SnapshotRepository(Protocol):
@@ -289,8 +290,13 @@ class ZrodloZeZdjeciami(AuctionSource, Protocol):
     `AuthenticatedSource`).
     """
 
-    async def zdjecia(self, external_id: str) -> Sequence[str]:
-        """Adresy zdjęć. Pobierane **na żądanie**, nie przy zbieraniu."""
+    async def zdjecia(self, external_id: str, url: str | None = None) -> Sequence[str]:
+        """Adresy zdjęć. Pobierane **na żądanie**, nie przy zbieraniu.
+
+        `url` to adres aukcji zapamiętany przy zbieraniu. Gdy go podamy,
+        adapter idzie pod niego zamiast składać adres z identyfikatora —
+        patrz `infrastructure/sources/adresy.py`.
+        """
         ...
 
 

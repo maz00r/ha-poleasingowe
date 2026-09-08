@@ -9,7 +9,7 @@ import psycopg
 import pytest
 
 from app.domain.entities import Auction, PriceSnapshot, RunLog, Source, WatchlistEntry
-from app.domain.enums import AuctionStatus, AuthState, Currency
+from app.domain.enums import AuctionStatus, AuthState, Currency, FinalPriceState
 from app.domain.value_objects import Mileage, Money, Vin
 from app.infrastructure.persistence.repositories import PgUnitOfWork
 from tests.conftest import wymaga_postgresa
@@ -485,3 +485,78 @@ async def test_source_zapisuje_parametry_domkniecia(
     odczytane = await uow.source.po_kluczu("autoprzetarg")
     assert odczytane is not None
     assert odczytane.closing_ladder_seconds == (2, 5, 8, 11, 14)
+
+
+async def test_aukcja_po_terminie_przestaje_byc_aktywna(
+    pusta_baza: psycopg.AsyncConnection,
+) -> None:
+    """Zgłoszenie z użytkowania: zakończona aukcja siedziała w „Aktywne".
+
+    Mechanizm: aukcji nieobserwowanej nie odpytujemy po raz drugi (§11.2),
+    a marker końca stoi wyłącznie na stronie szczegółów — więc bez zegara
+    status `ACTIVE` nie miał jak się nigdy zmienić.
+    """
+    uow = PgUnitOfWork(pusta_baza)
+    # Karencja liczy się z okna dogrywki źródła: poleasingowe.pl przedłuża
+    # aukcję maksymalnie o pół godziny, więc przed jej upływem „po terminie"
+    # nie znaczy jeszcze „zakończona".
+    zapisane = await uow.source.zapisz(
+        zrodlo(
+            "poleasingowe",
+            overtime_window_seconds=30,
+            overtime_extension_seconds=30,
+            overtime_cap_seconds=1800,
+        )
+    )
+    assert zapisane.id is not None
+    teraz = TERAZ + dt.timedelta(days=1)
+
+    swieżo_po = await uow.auction.zapisz(
+        aukcja(
+            zapisane.id,
+            "swiezo-po-terminie",
+            ends_at=teraz - dt.timedelta(minutes=20),
+            last_seen_at=teraz - dt.timedelta(minutes=25),
+        )
+    )
+    dawno_po = await uow.auction.zapisz(
+        aukcja(
+            zapisane.id,
+            "dawno-po-terminie",
+            ends_at=teraz - dt.timedelta(hours=3),
+            last_seen_at=teraz - dt.timedelta(hours=4),
+        )
+    )
+    trwajaca = await uow.auction.zapisz(
+        aukcja(zapisane.id, "trwa", ends_at=teraz + dt.timedelta(hours=2))
+    )
+    bez_terminu = await uow.auction.zapisz(aukcja(zapisane.id, "bez-terminu"))
+
+    assert await uow.auction.zamknij_po_terminie(teraz) == 1
+
+    async def stan(auction_id: int | None) -> Auction:
+        assert auction_id is not None
+        wynik = await uow.auction.po_kluczu_naturalnym(
+            zapisane.id,  # type: ignore[arg-type]
+            next(
+                a.external_id
+                for a in (swieżo_po, dawno_po, trwajaca, bez_terminu)
+                if a.id == auction_id
+            ),
+        )
+        assert wynik is not None
+        return wynik
+
+    zamknieta = await stan(dawno_po.id)
+    assert zamknieta.status is AuctionStatus.ENDED
+    # Ceny po zamknięciu nikt nie odczytał, więc to dolne oszacowanie —
+    # nigdy `CONFIRMED` (SPEC.md §8.2, §11.5).
+    assert zamknieta.final_price_state is FinalPriceState.LAST_SEEN
+    assert zamknieta.last_price_lead_seconds == 3600
+    assert zamknieta.next_poll_at is None
+
+    # W oknie dogrywki jeszcze nie zamykamy: aukcja mogła zostać przedłużona.
+    assert (await stan(swieżo_po.id)).status is AuctionStatus.ACTIVE
+    assert (await stan(trwajaca.id)).status is AuctionStatus.ACTIVE
+    # Bez `ends_at` nie ma czego mierzyć — zgadywanie byłoby gorsze.
+    assert (await stan(bez_terminu.id)).status is AuctionStatus.ACTIVE

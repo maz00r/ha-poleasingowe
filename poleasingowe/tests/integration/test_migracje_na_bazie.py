@@ -277,3 +277,102 @@ async def test_domyslna_semantyka_to_niewiedza_a_nie_zalozenie(
             )
             wiersz = await cur.fetchone()
     assert wiersz == ("UNKNOWN", [2, 5, 10, 20, 40], None)
+
+
+async def test_migracja_rozpoznaje_rodzaj_pojazdu_w_zebranych_wierszach(
+    pusta_baza: psycopg.AsyncConnection,
+) -> None:
+    """Backfill `009_rodzaje.sql` na danych w kształcie, w jakim są w bazie.
+
+    Trzy różne reguły, bo trzy źródła wiedzą o rodzaju co innego:
+    autoprzetarg ma kategorię **w adresie** już zapisanej aukcji, EFL
+    przemiata wyłącznie kategorię osobowych, a poleasingowe nie mówi nic
+    poza nazwą.
+    """
+    async with pusta_baza.cursor() as cur:
+        zrodla: dict[str, int] = {}
+        for klucz in ("autoprzetarg", "efl", "poleasingowe"):
+            await cur.execute(
+                "INSERT INTO app.source (key, name) VALUES (%s, %s) RETURNING id",
+                (klucz, klucz),
+            )
+            zrodla[klucz] = (await cur.fetchone())[0]  # type: ignore[index]
+
+        await cur.executemany(
+            "INSERT INTO app.auction (source_id, external_id, url, make, model,"
+            " variant, body) VALUES (%s, %s, %s, %s, %s, %s, %s)",
+            [
+                # autoprzetarg — kategoria w ostatnim segmencie adresu
+                (
+                    zrodla["autoprzetarg"],
+                    "ap-naczepa",
+                    "https://autoprzetarg.pl/aukcja/krone-sd,abc123,Naczepy-i-przyczepy",
+                    "Krone",
+                    "SD",
+                    None,
+                    None,
+                ),
+                (
+                    zrodla["autoprzetarg"],
+                    "ap-motocykl",
+                    "https://autoprzetarg.pl/aukcja/suzuki,def456,Motocykle",
+                    "Suzuki",
+                    "GSX-S1000S",
+                    None,
+                    None,
+                ),
+                (
+                    zrodla["autoprzetarg"],
+                    "ap-osobowy",
+                    "https://autoprzetarg.pl/aukcja/audi-a4,ghi789,Samochody-osobowe",
+                    "Audi",
+                    "A4",
+                    None,
+                    None,
+                ),
+                # EFL — adapter przemiata tylko kategorię osobowych
+                (zrodla["efl"], "efl-1", "https://efl/1", "Audi", "A3", None, None),
+                # poleasingowe — wyłącznie nazwa i nadwozie
+                (
+                    zrodla["poleasingowe"],
+                    "pol-ciagnik",
+                    "https://poleasingowe/1",
+                    "MAN",
+                    "TGX",
+                    None,
+                    "CIĄGNIK SIODŁOWY",
+                ),
+                (
+                    zrodla["poleasingowe"],
+                    "pol-kombi",
+                    "https://poleasingowe/2",
+                    "Škoda",
+                    "Superb",
+                    "KOMBI",
+                    None,
+                ),
+                (
+                    zrodla["poleasingowe"],
+                    "pol-nieznany",
+                    "https://poleasingowe/3",
+                    "Tesla",
+                    "Model Y",
+                    None,
+                    None,
+                ),
+            ],
+        )
+        await cur.execute((MIGRACJE / "009_rodzaje.sql").read_text())
+        await cur.execute(
+            "SELECT external_id, vehicle_kind FROM app.auction ORDER BY external_id"
+        )
+        assert await cur.fetchall() == [
+            ("ap-motocykl", "MOTOCYKL"),
+            ("ap-naczepa", "PRZYCZEPA"),
+            ("ap-osobowy", "OSOBOWY"),
+            ("efl-1", "OSOBOWY"),
+            ("pol-ciagnik", "CIEZAROWY"),
+            ("pol-kombi", "OSOBOWY"),
+            # Nazwa bez nadwozia zostaje nierozpoznana, a nie zgadnięta.
+            ("pol-nieznany", "NIEZNANY"),
+        ]
