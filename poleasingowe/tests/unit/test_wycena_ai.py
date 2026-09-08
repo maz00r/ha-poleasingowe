@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import datetime as dt
 import json
 import pathlib
 
@@ -18,6 +19,8 @@ from app.infrastructure.ai_klienci import (
     utworz_klienta,
 )
 from app.infrastructure.wycena_ai import BladWyceny, WycenaAI
+
+TERAZ = dt.datetime(2026, 9, 9, 12, 0, tzinfo=dt.UTC)
 
 
 def _dane() -> Szczegoly:
@@ -85,16 +88,18 @@ async def test_wycena_ma_strukturalny_wynik_i_nie_wysyla_vin(
             base_url="https://api.openai.com/v1",
             klient=klient,
         ),
-        katalog=tmp_path,
     )
     porownania = (PorownanieRynkowe(2022, 77_000, 2, None, 0),)
 
-    wynik = await usluga.wycen(_dane(), porownania)
-    ponownie = await usluga.wycen(_dane(), porownania)
+    wynik = await usluga.wycen(_dane(), porownania, teraz=TERAZ)
 
-    assert wynik.wartosc == 78_000
-    assert ponownie == wynik
-    assert len(zadania) == 1, "drugi odczyt powinien trafić do cache'u"
+    assert wynik.wartosc.amount == 78_000
+    assert wynik.auction_id == 7
+    assert wynik.utworzono == TERAZ
+    # Trwałość NIE jest już rolą tej klasy — wycena zapisuje się w bazie
+    # (`test_repozytoria.py`), a karta liczy ją tylko wtedy, gdy jeszcze
+    # jej nie ma (`test_interfejs_e2e.py`).
+    assert len(zadania) == 1
     wyslane = json.dumps(zadania, ensure_ascii=False)
     assert "TMBTA7NE0N0123456" not in wyslane
     assert "Jan Kowalski" not in wyslane
@@ -150,11 +155,10 @@ async def test_anthropic_wymusza_strukture_narzedziem(
             base_url="https://api.anthropic.com/v1",
             klient=klient,
         ),
-        katalog=tmp_path,
     )
 
-    wynik = await usluga.wycen(_dane(), ())
-    assert wynik.wartosc == 78_000
+    wynik = await usluga.wycen(_dane(), (), teraz=TERAZ)
+    assert wynik.wartosc.amount == 78_000
     assert wynik.model == "claude-sonnet-5"
 
     zadanie = zadania[0]
@@ -186,11 +190,10 @@ async def test_dostawca_zgodny_z_openai_uzywa_chat_completions(
             base_url="http://localhost:11434/v1",
             klient=klient,
         ),
-        katalog=tmp_path,
     )
 
-    wynik = await usluga.wycen(_dane(), ())
-    assert wynik.wartosc == 78_000
+    wynik = await usluga.wycen(_dane(), (), teraz=TERAZ)
+    assert wynik.wartosc.amount == 78_000
     assert str(zadania[0].url) == "http://localhost:11434/v1/chat/completions"
     tresc = json.loads(zadania[0].content)
     # Schemat idzie i w `response_format`, i w poleceniu — część dostawców
@@ -215,10 +218,9 @@ async def test_niespojny_przedzial_jest_odrzucany(tmp_path: pathlib.Path) -> Non
         KlientZgodnyZOpenAI(
             "klucz", model="m", base_url="http://localhost:1234/v1", klient=klient
         ),
-        katalog=tmp_path,
     )
     with pytest.raises(BladWyceny):
-        await usluga.wycen(_dane(), ())
+        await usluga.wycen(_dane(), (), teraz=TERAZ)
     await klient.aclose()
 
 
@@ -284,11 +286,10 @@ async def test_odrzucony_json_schema_konczy_sie_ponowieniem_w_json_object(
             base_url="https://api.deepseek.com/v1",
             klient=klient,
         ),
-        katalog=tmp_path,
     )
 
-    wynik = await usluga.wycen(_dane(), ())
-    assert wynik.wartosc == 78_000
+    wynik = await usluga.wycen(_dane(), (), teraz=TERAZ)
+    assert wynik.wartosc.amount == 78_000
     assert formaty == ["json_schema", "json_object"]
     await klient.aclose()
 
@@ -311,10 +312,9 @@ async def test_zly_klucz_nie_jest_ponawiany(tmp_path: pathlib.Path) -> None:
             base_url="https://api.deepseek.com/v1",
             klient=klient,
         ),
-        katalog=tmp_path,
     )
     with pytest.raises(BladWyceny):
-        await usluga.wycen(_dane(), ())
+        await usluga.wycen(_dane(), (), teraz=TERAZ)
     assert proby == 1
     await klient.aclose()
 
@@ -338,10 +338,9 @@ async def test_powod_odmowy_dociera_do_uzytkownika(tmp_path: pathlib.Path) -> No
             base_url="https://api.deepseek.com/v1",
             klient=klient,
         ),
-        katalog=tmp_path,
     )
     with pytest.raises(BladWyceny, match="Model Not Exist"):
-        await usluga.wycen(_dane(), ())
+        await usluga.wycen(_dane(), (), teraz=TERAZ)
     await klient.aclose()
 
 
@@ -368,10 +367,9 @@ async def test_odmowa_klucza_nie_odbija_tresci_od_dostawcy(
             base_url="https://api.deepseek.com/v1",
             klient=klient,
         ),
-        katalog=tmp_path,
     )
     with pytest.raises(BladWyceny) as blad:
-        await usluga.wycen(_dane(), ())
+        await usluga.wycen(_dane(), (), teraz=TERAZ)
     assert "odrzucił klucz" in str(blad.value)
     assert "****jne" not in str(blad.value)
     await klient.aclose()
@@ -430,12 +428,10 @@ async def test_poziom_cen_z_portali_trafia_do_wyniku(
         KlientZgodnyZOpenAI(
             "k", model="m", base_url="https://api.deepseek.com/v1", klient=klient
         ),
-        katalog=tmp_path,
     )
-    wynik = await usluga.wycen(_dane(), ())
-    assert wynik.cena_portale == 91_000
-    # Cache musi przenieść pole razem z resztą.
-    assert (await usluga.wycen(_dane(), ())).cena_portale == 91_000
+    wynik = await usluga.wycen(_dane(), (), teraz=TERAZ)
+    assert wynik.cena_portale is not None
+    assert wynik.cena_portale.amount == 91_000
     await klient.aclose()
 
 
@@ -464,9 +460,8 @@ async def test_brak_szacunku_nie_wywraca_wyceny(
         KlientZgodnyZOpenAI(
             "k", model="m", base_url="https://api.deepseek.com/v1", klient=klient
         ),
-        katalog=tmp_path,
     )
-    wynik = await usluga.wycen(_dane(), ())
+    wynik = await usluga.wycen(_dane(), (), teraz=TERAZ)
     assert wynik.cena_portale is None
-    assert wynik.wartosc == 78_000
+    assert wynik.wartosc.amount == 78_000
     await klient.aclose()

@@ -169,7 +169,12 @@ ORDER BY pole, wartosc COLLATE "pl-PL-x-icu"
 # odfiltrowac pojazdu, ktorego suwak nie umie pokazac.
 SQL_ZAKRESY_FILTROW = sql.SQL("""
 SELECT
-    min(year)::int AS rocznik_min,
+    -- Dolna granica rocznika to 1980, nawet gdy w bazie stoja same nowe
+    -- auta: suwak zaczynajacy sie od najstarszego ZEBRANEGO rocznika
+    -- przeskakuje przy kazdej nowej aukcji i nie da sie go zapamietac.
+    -- `least` zostawia miejsce na wiersz starszy niz 1980, gdyby sie
+    -- trafil — granica ma poszerzac zakres, nie ucinac danych.
+    least(1980, min(year))::int AS rocznik_min,
     max(year)::int AS rocznik_max,
     least(
         percentile_disc(0.01) WITHIN GROUP (ORDER BY engine_hp),

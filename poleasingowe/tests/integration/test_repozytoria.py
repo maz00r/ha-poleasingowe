@@ -8,7 +8,14 @@ from decimal import Decimal
 import psycopg
 import pytest
 
-from app.domain.entities import Auction, PriceSnapshot, RunLog, Source, WatchlistEntry
+from app.domain.entities import (
+    Auction,
+    PriceSnapshot,
+    RunLog,
+    Source,
+    WatchlistEntry,
+    WycenaAukcji,
+)
 from app.domain.enums import AuctionStatus, AuthState, Currency, FinalPriceState
 from app.domain.value_objects import Mileage, Money, Vin
 from app.infrastructure.persistence.repositories import PgUnitOfWork
@@ -560,3 +567,107 @@ async def test_aukcja_po_terminie_przestaje_byc_aktywna(
     assert (await stan(trwajaca.id)).status is AuctionStatus.ACTIVE
     # Bez `ends_at` nie ma czego mierzyć — zgadywanie byłoby gorsze.
     assert (await stan(bez_terminu.id)).status is AuctionStatus.ACTIVE
+
+
+async def test_wycena_ai_zapisuje_sie_na_stale(
+    pusta_baza: psycopg.AsyncConnection,
+) -> None:
+    """Wycena ma przetrwać i **nie zmieniać się sama** (SPEC.md §12).
+
+    Wcześniej leżała w cache'u na dysku kluczowanym danymi wejściowymi —
+    razem z porównaniami z zakończonych aukcji. Każda kolejna zakończona
+    aukcja tego modelu zmieniała klucz, więc karta liczyła wycenę od nowa:
+    inna kwota i kolejne płatne żądanie przy każdym wejściu.
+    """
+    uow = PgUnitOfWork(pusta_baza)
+    zapisane_zrodlo = await uow.source.zapisz(zrodlo("efl"))
+    assert zapisane_zrodlo.id is not None
+    zapisana_aukcja = await uow.auction.zapisz(aukcja(zapisane_zrodlo.id))
+    assert zapisana_aukcja.id is not None
+
+    assert await uow.wycena.dla_aukcji(zapisana_aukcja.id) is None
+
+    await uow.wycena.zapisz(
+        WycenaAukcji(
+            auction_id=zapisana_aukcja.id,
+            wartosc=Money(Decimal("78000"), Currency.PLN),
+            minimum=Money(Decimal("72000"), Currency.PLN),
+            maksimum=Money(Decimal("84000"), Currency.PLN),
+            cena_portale=Money(Decimal("91000"), Currency.PLN),
+            pewnosc="średnia",
+            uzasadnienie="Dwie podobne aukcje.",
+            zalozenia=("Brak poważnych szkód.",),
+            model="model-testowy",
+            wersja_promptu=2,
+            utworzono=TERAZ,
+        )
+    )
+
+    odczytana = await uow.wycena.dla_aukcji(zapisana_aukcja.id)
+    assert odczytana is not None
+    assert odczytana.wartosc.amount == Decimal("78000.00")
+    assert odczytana.cena_portale is not None
+    assert odczytana.zalozenia == ("Brak poważnych szkód.",)
+    assert odczytana.model == "model-testowy"
+    assert odczytana.utworzono == TERAZ
+
+
+async def test_przeliczenie_nadpisuje_poprzednia_wycene(
+    pusta_baza: psycopg.AsyncConnection,
+) -> None:
+    """Jedna wycena na aukcję. Dwie różniłyby się kwotą i nie byłoby
+    wiadomo, która obowiązuje."""
+    uow = PgUnitOfWork(pusta_baza)
+    zapisane_zrodlo = await uow.source.zapisz(zrodlo("efl"))
+    assert zapisane_zrodlo.id is not None
+    zapisana_aukcja = await uow.auction.zapisz(aukcja(zapisane_zrodlo.id))
+    identyfikator = zapisana_aukcja.id
+    assert identyfikator is not None
+
+    def wycena(kwota: str, kiedy: dt.datetime) -> WycenaAukcji:
+        return WycenaAukcji(
+            auction_id=identyfikator,
+            wartosc=Money(Decimal(kwota), Currency.PLN),
+            minimum=Money(Decimal(kwota), Currency.PLN),
+            maksimum=Money(Decimal(kwota), Currency.PLN),
+            pewnosc="niska",
+            uzasadnienie="—",
+            zalozenia=(),
+            model="m",
+            wersja_promptu=2,
+            utworzono=kiedy,
+        )
+
+    await uow.wycena.zapisz(wycena("70000", TERAZ))
+    await uow.wycena.zapisz(wycena("81000", TERAZ + dt.timedelta(days=1)))
+
+    odczytana = await uow.wycena.dla_aukcji(identyfikator)
+    assert odczytana is not None
+    assert odczytana.wartosc.amount == Decimal("81000.00")
+
+    async with pusta_baza.cursor() as cur:
+        await cur.execute("SELECT count(*) FROM app.ai_valuation")
+        wiersz = await cur.fetchone()
+    assert wiersz is not None and wiersz[0] == 1
+
+
+async def test_niespojna_wycena_nie_wchodzi_do_bazy(
+    pusta_baza: psycopg.AsyncConnection,
+) -> None:
+    """Ostatnia linia obrony: `minimum > wartosc` wygląda wiarygodnie, więc
+    nie ma prawa wejść nawet, gdyby kod to przepuścił."""
+    uow = PgUnitOfWork(pusta_baza)
+    zapisane_zrodlo = await uow.source.zapisz(zrodlo("efl"))
+    assert zapisane_zrodlo.id is not None
+    zapisana_aukcja = await uow.auction.zapisz(aukcja(zapisane_zrodlo.id))
+    assert zapisana_aukcja.id is not None
+
+    with pytest.raises(psycopg.errors.CheckViolation):
+        async with pusta_baza.cursor() as cur:
+            await cur.execute(
+                "INSERT INTO app.ai_valuation (auction_id, value_amount,"
+                " min_amount, max_amount, confidence, rationale, model,"
+                " prompt_version)"
+                " VALUES (%s, 100, 200, 300, 'niska', '—', 'm', 2)",
+                (zapisana_aukcja.id,),
+            )

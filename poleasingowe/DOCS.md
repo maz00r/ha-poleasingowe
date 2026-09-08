@@ -149,6 +149,10 @@ wysłać dane do OpenAI.
 Starsza opcja `openai_api_key` nadal działa jako `ai_api_key` — aktualizacja
 dodatku nie wyłącza wyceny osobom, które miały ją już ustawioną.
 
+Wycena liczy się **raz na aukcję i zostaje zapisana w bazie**; karta pokazuje
+datę i model, którym ją policzono. Zmienia ją tylko przycisk „Przelicz" —
+samo wejście na kartę nie generuje kolejnego płatnego żądania.
+
 Po ponownym uruchomieniu szczegóły pojazdu pokażą szacowaną wartość w PLN,
 przedział, pewność i założenia, a obok **orientacyjny poziom cen ofertowych
 na OtoMoto i OLX**. Ta ostatnia liczba pochodzi z wiedzy modelu, a nie

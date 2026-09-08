@@ -14,25 +14,28 @@ dostawcy — zmiana dostawcy przy tym samym modelu nie unieważnia wycen.
 
 from __future__ import annotations
 
-import hashlib
+import datetime as dt
 import json
 import logging
-import pathlib
-import tempfile
-from dataclasses import asdict, dataclass
+from dataclasses import asdict
+from decimal import Decimal
 from typing import Any
 
 import httpx
 
 from app.application.read_models import PorownanieRynkowe, Szczegoly
+from app.domain.entities import WycenaAukcji
+from app.domain.enums import Currency
+from app.domain.value_objects import Money
 from app.infrastructure.ai_klienci import BladModelu, BladOdpowiedzi, KlientModelu
 
 log = logging.getLogger(__name__)
 
-KATALOG_CACHE = pathlib.Path("/data/cache/wyceny")
 WERSJA_PROMPTU = 2
-"""Podbij, gdy zmienisz `INSTRUKCJE` albo `SCHEMAT` — inaczej cache oddawałby
-wyniki wygenerowane starym poleceniem.
+"""Podbij, gdy zmienisz `INSTRUKCJE` albo `SCHEMAT`.
+
+Zapisana wycena niesie wersję, którą policzono — dzięki temu widać, że
+powstała starym poleceniem, i można ją świadomie przeliczyć.
 
 2: doszedł szacunek poziomu cen ofertowych na polskich portalach."""
 
@@ -87,25 +90,6 @@ SCHEMAT: dict[str, Any] = {
 }
 
 
-@dataclass(slots=True, frozen=True)
-class Wycena:
-    wartosc: int
-    minimum: int
-    maksimum: int
-    pewnosc: str
-    uzasadnienie: str
-    zalozenia: tuple[str, ...]
-    model: str
-    cena_portale: int | None = None
-    """Poziom cen ofertowych na portalach — **z wiedzy modelu, nie z sieci**.
-
-    Trzymane osobno od `wartosc` właśnie dlatego, że ma inną wiarygodność:
-    reszta wyceny stoi na zmierzonych cenach z naszej bazy, a to jest
-    pamięć modelu o rynku. Interfejs musi je pokazywać jako dwie różne
-    rzeczy, inaczej szacunek udawałby pomiar.
-    """
-
-
 def _liczba_lub_none(wartosc: object) -> int | None:
     """Liczba całkowita albo `None` — bez wyjątku na śmieciach.
 
@@ -127,28 +111,35 @@ class BladWyceny(RuntimeError):
 
 
 class WycenaAI:
-    def __init__(
-        self,
-        klient: KlientModelu,
-        *,
-        katalog: pathlib.Path = KATALOG_CACHE,
-    ) -> None:
+    """Liczy wycenę. **Nie przechowuje jej** — od tego jest baza.
+
+    Wcześniej wynik siedział w cache'u na dysku kluczowanym hashem danych
+    wejściowych, razem z porównaniami z zakończonych aukcji. Każda kolejna
+    zakończona aukcja tego modelu zmieniała porównania, klucz przestawał
+    pasować i karta liczyła wycenę od nowa — inna kwota przy każdym wejściu
+    i kolejne płatne żądanie. Trwałość należy do warstwy zapisu, nie do
+    klienta modelu.
+    """
+
+    def __init__(self, klient: KlientModelu) -> None:
         self._klient = klient
         self._model = klient.model
-        self._katalog = katalog
+
+    @property
+    def model(self) -> str:
+        return self._model
 
     async def zamknij(self) -> None:
         await self._klient.zamknij()
 
     async def wycen(
-        self, dane: Szczegoly, porownania: tuple[PorownanieRynkowe, ...]
-    ) -> Wycena:
+        self,
+        dane: Szczegoly,
+        porownania: tuple[PorownanieRynkowe, ...],
+        *,
+        teraz: dt.datetime,
+    ) -> WycenaAukcji:
         wejscie = self._wejscie(dane, porownania)
-        sciezka = self._sciezka_cache(wejscie)
-        z_cache = self._odczytaj(sciezka)
-        if z_cache is not None:
-            return z_cache
-
         try:
             tekst = await self._klient.json_wg_schematu(
                 instrukcje=INSTRUKCJE,
@@ -156,7 +147,7 @@ class WycenaAI:
                 nazwa_schematu=NAZWA_SCHEMATU,
                 schemat=SCHEMAT,
             )
-            wynik = self._z_tekstu(tekst)
+            return self._z_tekstu(tekst, dane.pozycja.id, teraz)
         except (httpx.HTTPError, BladModelu, ValueError, KeyError, TypeError) as exc:
             log.warning("wycena AI nie powiodła się: %s", exc)
             # Powód od dostawcy idzie NA KARTĘ, nie tylko do logu. „Nie udało
@@ -168,9 +159,6 @@ class WycenaAI:
                 if powod
                 else "Nie udało się teraz wygenerować wyceny AI."
             ) from exc
-
-        self._zapisz(sciezka, wynik)
-        return wynik
 
     def _wejscie(
         self, dane: Szczegoly, porownania: tuple[PorownanieRynkowe, ...]
@@ -193,45 +181,9 @@ class WycenaAI:
             "porownania_z_zakonczonych_aukcji": [asdict(x) for x in porownania],
         }
 
-    def _sciezka_cache(self, wejscie: dict[str, Any]) -> pathlib.Path:
-        surowe = json.dumps(
-            {"prompt": WERSJA_PROMPTU, "model": self._model, "dane": wejscie},
-            sort_keys=True,
-            ensure_ascii=False,
-            separators=(",", ":"),
-        )
-        odcisk = hashlib.sha256(surowe.encode()).hexdigest()
-        return self._katalog / f"{odcisk}.json"
-
-    def _odczytaj(self, sciezka: pathlib.Path) -> Wycena | None:
-        try:
-            dane = json.loads(sciezka.read_text(encoding="utf-8"))
-            return Wycena(
-                wartosc=int(dane["wartosc"]),
-                minimum=int(dane["minimum"]),
-                maksimum=int(dane["maksimum"]),
-                pewnosc=str(dane["pewnosc"]),
-                uzasadnienie=str(dane["uzasadnienie"]),
-                zalozenia=tuple(str(x) for x in dane["zalozenia"]),
-                model=str(dane["model"]),
-                cena_portale=_liczba_lub_none(dane.get("cena_portale")),
-            )
-        except (OSError, ValueError, KeyError, TypeError):
-            return None
-
-    def _zapisz(self, sciezka: pathlib.Path, wynik: Wycena) -> None:
-        try:
-            self._katalog.mkdir(parents=True, exist_ok=True)
-            with tempfile.NamedTemporaryFile(
-                "w", encoding="utf-8", dir=self._katalog, delete=False
-            ) as plik:
-                json.dump(asdict(wynik), plik, ensure_ascii=False)
-                tymczasowy = pathlib.Path(plik.name)
-            tymczasowy.replace(sciezka)
-        except OSError as exc:
-            log.warning("nie udało się zapisać cache'u wyceny: %s", exc)
-
-    def _z_tekstu(self, tekst: str) -> Wycena:
+    def _z_tekstu(
+        self, tekst: str, auction_id: int, teraz: dt.datetime
+    ) -> WycenaAukcji:
         """Sprawdza wynik modelu, zamiast mu wierzyć.
 
         Schemat wymusza dostawca, ale nie każdy endpoint zgodny z OpenAI go
@@ -245,15 +197,19 @@ class WycenaAI:
         maksimum = int(dane["maksimum"])
         if not 0 <= minimum <= wartosc <= maksimum:
             raise BladWyceny("Model zwrócił niespójny przedział wyceny.")
-        return Wycena(
-            wartosc=wartosc,
-            minimum=minimum,
-            maksimum=maksimum,
+        portale = _liczba_lub_none(dane.get("cena_portale"))
+        return WycenaAukcji(
+            auction_id=auction_id,
+            wartosc=Money(Decimal(wartosc), Currency.PLN),
+            minimum=Money(Decimal(minimum), Currency.PLN),
+            maksimum=Money(Decimal(maksimum), Currency.PLN),
+            cena_portale=(
+                None if portale is None else Money(Decimal(portale), Currency.PLN)
+            ),
             pewnosc=str(dane["pewnosc"]),
             uzasadnienie=str(dane["uzasadnienie"]),
             zalozenia=tuple(str(x) for x in dane["zalozenia"]),
             model=self._model,
-            # Część dostawców zignoruje `null` i odeśle napis albo zero —
-            # jedno i drugie znaczy tu „nie wiem", a nie „auto za 0 zł".
-            cena_portale=_liczba_lub_none(dane.get("cena_portale")),
+            wersja_promptu=WERSJA_PROMPTU,
+            utworzono=teraz,
         )

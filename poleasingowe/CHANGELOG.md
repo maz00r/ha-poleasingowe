@@ -1,5 +1,32 @@
 # Historia zmian
 
+## 0.13.0 — w przygotowaniu
+
+**Wycena AI zapisuje się na stałe.** Do tej pory leżała w cache'u na dysku
+kluczowanym danymi wejściowymi — razem z porównaniami z zakończonych aukcji.
+Każda kolejna zakończona aukcja tego modelu zmieniała te porównania, więc
+klucz przestawał pasować i karta liczyła wycenę **od nowa**: inna kwota przy
+każdym wejściu i kolejne płatne żądanie do dostawcy.
+
+Wycena jest teraz wierszem w bazie, jednym na aukcję. Raz policzona zostaje,
+karta pokazuje datę i model, którym ją policzono, a zmienia ją wyłącznie
+przycisk **Przelicz**. Zapisana wycena wyświetla się także wtedy, gdy klucz
+API został usunięty — raz policzona nie przestaje być prawdziwa.
+
+**Przycisk „Wróć do listy".** Add-on siedzi w ramce Home Assistanta, więc
+„wstecz" przeglądarki cofa cały panel, a nie zawartość ramki. Powrót wraca
+w to samo miejsce: odtwarza doładowane strony listy i pozycję przewinięcia,
+a nie tylko pierwsze pięćdziesiąt ofert od góry.
+
+**Suwak rocznika zaczyna się od 1980.** Granica z danych przeskakiwała przy
+każdej nowej aukcji, więc nie dało się jej zapamiętać.
+
+**„Benzyna + gaz" to to samo co „benzyna + LPG" i samo „LPG".** Instalacja
+gazowa jest zawsze dodatkiem do benzyny, a serwisy zapisują to na kilka
+sposobów — filtr robił z tego trzy osobne pozycje, z których każda gubiła
+część ofert. Separator (`+`, `/`, „i", „z") nie tworzy już nowego paliwa.
+Migracja porządkuje wiersze już zebrane.
+
 ## 0.12.0 — w przygotowaniu
 
 **Filtry wielokrotnego wyboru.** Marka, źródło, paliwo, skrzynia, lokalizacja

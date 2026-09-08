@@ -20,6 +20,9 @@
   {# Suwaki zakresu. `defer`, bo skrypt dorabia tor do pol, ktore musza juz
      istniec — a bez niego filtr nadal dziala jako dwa pola liczbowe. #}
   <script src="{{ sciezka(request, 'static', path='/suwaki.js') }}?v={{ wersja }}" defer></script>
+  {# Powrot na liste w to samo miejsce. Add-on siedzi w ramce HA, wiec
+     „wstecz" przegladarki cofa caly panel, nie zawartosc ramki. #}
+  <script src="{{ sciezka(request, 'static', path='/powrot.js') }}?v={{ wersja }}" defer></script>
 </head>
 <body>
   <header class="pasek">

@@ -589,7 +589,10 @@ async def test_zakresy_suwakow_biora_sie_z_danych(
         )
 
     zakresy = await zapytania.zakresy_filtrow()
-    assert (zakresy["rocznik"].minimum, zakresy["rocznik"].maksimum) == (2018, 2021)
+    # Dolna granica rocznika jest STAŁA (1980), a nie brana z danych: suwak
+    # zaczynający się od najstarszego zebranego rocznika przeskakiwałby przy
+    # każdej nowej aukcji.
+    assert (zakresy["rocznik"].minimum, zakresy["rocznik"].maksimum) == (1980, 2021)
     assert zakresy["moc"].minimum == 150
     assert zakresy["moc"].uzyteczny is False, "jedna wartość to nie jest zakres"
 

@@ -475,33 +475,78 @@ async def zdjecia_aukcji(request: Request, auction_id: int) -> Response:
 
 @router.get("/aukcja/{auction_id}/wycena", response_class=HTMLResponse)
 async def wycena_aukcji(request: Request, auction_id: int) -> Response:
-    """Generuje raz i potem pokazuje cache'owaną wycenę orientacyjną."""
+    """Pokazuje zapisaną wycenę; liczy tylko wtedy, gdy jeszcze jej nie ma."""
+    return await _wycena(request, auction_id, przelicz=False)
+
+
+@router.post("/aukcja/{auction_id}/wycena", response_class=HTMLResponse)
+async def przelicz_wycene(request: Request, auction_id: int) -> Response:
+    """Świadome przeliczenie na nowo — jedyny sposób na zmianę wyceny.
+
+    Osobne żądanie i osobny przycisk, bo każde przeliczenie kosztuje
+    u dostawcy i daje inną kwotę. Samo wejście na kartę nie ma prawa tego
+    uruchamiać.
+    """
+    return await _wycena(request, auction_id, przelicz=True)
+
+
+async def _wycena(request: Request, auction_id: int, *, przelicz: bool) -> Response:
     usluga = getattr(request.app.state, "wycena_ai", None)
-    kontekst_szablonu = {
+    kontekst_szablonu: dict[str, Any] = {
         **_kontekst_bazowy(request),
         "auction_id": auction_id,
         "wycena": None,
         "blad": None,
-        "brak_konfiguracji": usluga is None,
+        "brak_konfiguracji": False,
+        # Przeliczyć da się tylko z działającym dostawcą; POKAZAĆ zapisaną
+        # wycenę można zawsze.
+        "mozna_przeliczyc": usluga is not None,
     }
-    if usluga is None:
+    if _fabryka(request) is None:
+        kontekst_szablonu["blad"] = "Baza danych jest teraz niedostępna."
+        kontekst_szablonu["brak_konfiguracji"] = usluga is None
         return SZABLONY.TemplateResponse(
             request=request,
             name="fragmenty/wycena.html",
             context=kontekst_szablonu,
         )
-    if _fabryka(request) is None:
-        kontekst_szablonu["blad"] = "Baza danych jest teraz niedostępna."
-    else:
-        async with _fabryka(request)() as kontekst:
-            dane = await kontekst.zapytania.szczegoly(auction_id)
-            porownania = await kontekst.zapytania.porownania_rynkowe(auction_id)
+
+    async with _fabryka(request)() as kontekst:
+        async with kontekst.uow as uow:
+            zapisana = await uow.wycena.dla_aukcji(auction_id)
+        # Zapisana wycena wystarcza: to jest opinia o konkretnym aucie,
+        # a nie odczyt, który trzeba odświeżać. Pokazujemy ją także wtedy,
+        # gdy dostawca jest wyłączony — raz policzona wycena nie przestaje
+        # być prawdziwa dlatego, że ktoś usunął klucz API.
+        if zapisana is not None and not (przelicz and usluga is not None):
+            kontekst_szablonu["wycena"] = zapisana
+            return SZABLONY.TemplateResponse(
+                request=request,
+                name="fragmenty/wycena.html",
+                context=kontekst_szablonu,
+            )
+        if usluga is None:
+            kontekst_szablonu["brak_konfiguracji"] = True
+            return SZABLONY.TemplateResponse(
+                request=request,
+                name="fragmenty/wycena.html",
+                context=kontekst_szablonu,
+            )
+
+        dane = await kontekst.zapytania.szczegoly(auction_id)
+        porownania = await kontekst.zapytania.porownania_rynkowe(auction_id)
         if dane is None:
             return HTMLResponse("", status_code=404)
         try:
-            kontekst_szablonu["wycena"] = await usluga.wycen(dane, porownania)
+            nowa = await usluga.wycen(dane, porownania, teraz=dt.datetime.now(dt.UTC))
         except BladWyceny as exc:
             kontekst_szablonu["blad"] = str(exc)
+            # Nieudane przeliczenie nie ma kasować tego, co już mamy.
+            kontekst_szablonu["wycena"] = zapisana
+        else:
+            async with kontekst.uow as uow:
+                kontekst_szablonu["wycena"] = await uow.wycena.zapisz(nowa)
+
     return SZABLONY.TemplateResponse(
         request=request,
         name="fragmenty/wycena.html",

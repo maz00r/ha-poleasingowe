@@ -65,14 +65,48 @@ def test_pusta_wartosc_nie_wybucha() -> None:
 
 
 def test_migracja_i_kod_maja_ten_sam_slownik() -> None:
-    """Migracja `007_paliwa.sql` POWTARZA słownik za kodem Pythona.
+    """Najnowsza migracja paliw POWTARZA słownik za kodem Pythona.
 
     SQL nie zawoła funkcji z `paliwa.py`, więc powtórzenie jest konieczne —
     ale rozjazd byłby cichy, bo obie strony nadal by działały. Ten test jest
     jedynym miejscem, w którym boli od razu.
+
+    Porównujemy z `011`, a nie z `007`: starych migracji nie wolno zmieniać
+    (mają zapisane sumy kontrolne), więc to najnowsza z nich niesie aktualny
+    słownik.
     """
     sql = (
-        pathlib.Path(__file__).resolve().parents[2] / "app/migrations/007_paliwa.sql"
+        pathlib.Path(__file__).resolve().parents[2]
+        / "app/migrations/011_paliwa_gaz.sql"
     ).read_text(encoding="utf-8")
     z_sql = dict(re.findall(r"\('([^']+)',\s*'([^']+)'\)", sql))
     assert z_sql == paliwa.SLOWNIK, "słownik paliw rozjechał się z kodem"
+
+
+@pytest.mark.parametrize(
+    "zapis",
+    [
+        "LPG",
+        "lpg",
+        "Gaz",
+        "Benzyna+LPG",
+        "Benzyna + LPG",
+        "Benzyna / LPG",
+        "Benzyna + gaz",
+        "benzyna i gaz",
+        "Benzyna z instalacją gazową",
+    ],
+)
+def test_benzyna_z_gazem_i_samo_lpg_to_jedno_paliwo(zapis: str) -> None:
+    """Instalacja gazowa jest zawsze DODATKIEM do benzyny.
+
+    Serwisy piszą to na kilka sposobów, a filtr robił z tego kilka osobnych
+    pozycji, z których każda gubiła część ofert.
+    """
+    assert paliwa.kanoniczne_paliwo(zapis) == "LPG"
+
+
+def test_separator_nie_tworzy_nowego_paliwa() -> None:
+    """`+`, `/` i „i" to ten sam znak sklejenia, nie inna wartość."""
+    warianty = {"Hybryda/benzyna", "Hybryda + benzyna", "Hybryda i benzyna"}
+    assert {paliwa.kanoniczne_paliwo(w) for w in warianty} == {"Hybryda"}

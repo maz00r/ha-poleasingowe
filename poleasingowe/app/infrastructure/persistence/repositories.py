@@ -22,6 +22,7 @@ from app.application.ports import (
     SnapshotRepository,
     SourceRepository,
     WatchlistRepository,
+    WycenaRepository,
 )
 from app.domain.entities import (
     Auction,
@@ -30,6 +31,7 @@ from app.domain.entities import (
     SavedFilter,
     Source,
     WatchlistEntry,
+    WycenaAukcji,
 )
 from app.domain.enums import (
     AuctionStatus,
@@ -331,6 +333,42 @@ SQL_WATCHLIST_JEST = "SELECT 1 FROM app.watchlist WHERE auction_id = %s"
 SQL_WATCHLIST_WPIS = """
 SELECT id, auction_id, note, target_price, currency, added_at
 FROM app.watchlist WHERE auction_id = %s
+"""
+
+# Wycena AI — JEDEN wiersz na aukcje. `ON CONFLICT DO UPDATE`, bo "Przelicz"
+# ma nadpisac poprzednia opinie, a nie odkladac kolejna: dwie wyceny tej samej
+# aukcji roznilyby sie kwota i nie byloby wiadomo, ktora obowiazuje.
+SQL_WYCENA_ZAPISZ = """
+INSERT INTO app.ai_valuation (
+    auction_id, value_amount, min_amount, max_amount, currency, portal_amount,
+    confidence, rationale, assumptions, model, prompt_version, created_at
+) VALUES (
+    %(auction_id)s, %(value_amount)s, %(min_amount)s, %(max_amount)s,
+    %(currency)s, %(portal_amount)s, %(confidence)s, %(rationale)s,
+    %(assumptions)s, %(model)s, %(prompt_version)s, %(created_at)s
+)
+ON CONFLICT (auction_id) DO UPDATE SET
+    value_amount = EXCLUDED.value_amount,
+    min_amount = EXCLUDED.min_amount,
+    max_amount = EXCLUDED.max_amount,
+    currency = EXCLUDED.currency,
+    portal_amount = EXCLUDED.portal_amount,
+    confidence = EXCLUDED.confidence,
+    rationale = EXCLUDED.rationale,
+    assumptions = EXCLUDED.assumptions,
+    model = EXCLUDED.model,
+    prompt_version = EXCLUDED.prompt_version,
+    created_at = EXCLUDED.created_at
+RETURNING auction_id, value_amount, min_amount, max_amount, currency,
+    portal_amount, confidence, rationale, assumptions, model, prompt_version,
+    created_at
+"""
+
+SQL_WYCENA_DLA_AUKCJI = """
+SELECT auction_id, value_amount, min_amount, max_amount, currency,
+       portal_amount, confidence, rationale, assumptions, model,
+       prompt_version, created_at
+FROM app.ai_valuation WHERE auction_id = %s
 """
 
 SQL_SAVED_FILTER_ZAPISZ = """
@@ -810,6 +848,65 @@ class PgWatchlistRepository:
         )
 
 
+def _na_wycene(w: dict[str, Any]) -> WycenaAukcji:
+    waluta = Currency(w["currency"])
+    return WycenaAukcji(
+        auction_id=w["auction_id"],
+        wartosc=Money(w["value_amount"], waluta),
+        minimum=Money(w["min_amount"], waluta),
+        maksimum=Money(w["max_amount"], waluta),
+        cena_portale=(
+            None if w["portal_amount"] is None else Money(w["portal_amount"], waluta)
+        ),
+        pewnosc=w["confidence"],
+        uzasadnienie=w["rationale"],
+        zalozenia=tuple(w["assumptions"] or ()),
+        model=w["model"],
+        wersja_promptu=w["prompt_version"],
+        utworzono=w["created_at"],
+    )
+
+
+class PgWycenaRepository:
+    """Trwała wycena AI (SPEC.md §12) — zapis, nie cache."""
+
+    def __init__(self, conn: AsyncConnection) -> None:
+        self._conn = conn
+
+    async def zapisz(self, wycena: WycenaAukcji) -> WycenaAukcji:
+        async with self._conn.cursor(row_factory=dict_row) as cur:
+            await cur.execute(
+                SQL_WYCENA_ZAPISZ,
+                {
+                    "auction_id": wycena.auction_id,
+                    "value_amount": wycena.wartosc.amount,
+                    "min_amount": wycena.minimum.amount,
+                    "max_amount": wycena.maksimum.amount,
+                    "currency": wycena.wartosc.currency.value,
+                    "portal_amount": (
+                        None
+                        if wycena.cena_portale is None
+                        else wycena.cena_portale.amount
+                    ),
+                    "confidence": wycena.pewnosc,
+                    "rationale": wycena.uzasadnienie,
+                    "assumptions": list(wycena.zalozenia),
+                    "model": wycena.model,
+                    "prompt_version": wycena.wersja_promptu,
+                    "created_at": wycena.utworzono,
+                },
+            )
+            w = await cur.fetchone()
+        assert w is not None
+        return _na_wycene(w)
+
+    async def dla_aukcji(self, auction_id: int) -> WycenaAukcji | None:
+        async with self._conn.cursor(row_factory=dict_row) as cur:
+            await cur.execute(SQL_WYCENA_DLA_AUKCJI, (auction_id,))
+            w = await cur.fetchone()
+        return None if w is None else _na_wycene(w)
+
+
 class PgSavedFilterRepository:
     """Zapisane filtry (SPEC.md §12). Kryteria jako `jsonb` (§8.2)."""
 
@@ -919,6 +1016,7 @@ class PgUnitOfWork:
         self.snapshot: SnapshotRepository = PgSnapshotRepository(conn)
         self.watchlist: WatchlistRepository = PgWatchlistRepository(conn)
         self.saved_filter: SavedFilterRepository = PgSavedFilterRepository(conn)
+        self.wycena: WycenaRepository = PgWycenaRepository(conn)
         self.run_log: RunLogRepository = PgRunLogRepository(conn)
 
     async def __aenter__(self) -> PgUnitOfWork:

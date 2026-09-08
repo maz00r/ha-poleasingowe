@@ -599,6 +599,23 @@ button:hover { filter: brightness(1.1); }
    Karta aukcji
    -------------------------------------------------------------------------- */
 
+.wstecz {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 12px;
+  padding: 6px 12px 6px 8px;
+  border: 1px solid var(--obramowanie);
+  border-radius: 999px;
+  background: var(--karta);
+  color: var(--tekst);
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+  box-shadow: var(--cien);
+}
+.wstecz:hover { border-color: var(--akcent); color: var(--akcent); }
+
 .naglowek-aukcji {
   display: flex;
   flex-wrap: wrap;
@@ -909,7 +926,24 @@ code {
   .pasek nav::-webkit-scrollbar { display: none; }
   .karta, .filtry { padding: 14px; border-radius: var(--promien-maly); }
   .lista { grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; }
-  .naglowek-aukcji { flex-direction: column; gap: 10px; }
+  .wstecz {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 12px;
+  padding: 6px 12px 6px 8px;
+  border: 1px solid var(--obramowanie);
+  border-radius: 999px;
+  background: var(--karta);
+  color: var(--tekst);
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+  box-shadow: var(--cien);
+}
+.wstecz:hover { border-color: var(--akcent); color: var(--akcent); }
+
+.naglowek-aukcji { flex-direction: column; gap: 10px; }
   .cena-glowna { text-align: left; }
   .cena-glowna .kwota { font-size: 24px; }
   h1 { font-size: 19px; }

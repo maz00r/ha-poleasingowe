@@ -3,6 +3,11 @@
 {% block tytul %}{{ p.nazwa }}{% endblock %}
 {% block tresc %}
 
+{# Wstecz na liste. `href` dziala bez JavaScriptu (wraca na czysta liste),
+   a `powrot.js` podmienia go na `history.back()`, ktore przywraca rowniez
+   doladowane kafelki i pozycje przewiniecia. #}
+<a class="wstecz" data-wstecz href="{{ sciezka(request, 'lista') }}">← Wróć do listy</a>
+
 <article class="karta">
   {# Cena stoi obok tytulu, nie w tabeli danych: przy aukcji to ona jest
      pierwsza informacja, po ktora siega oko — tak samo jak w serwisach,

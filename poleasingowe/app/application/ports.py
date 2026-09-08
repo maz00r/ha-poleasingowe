@@ -29,6 +29,7 @@ from app.domain.entities import (
     SavedFilter,
     Source,
     WatchlistEntry,
+    WycenaAukcji,
 )
 from app.domain.enums import PollTier
 from app.domain.value_objects import Vin
@@ -95,6 +96,17 @@ class SavedFilterRepository(Protocol):
     async def usun(self, filter_id: int) -> bool: ...
 
 
+class WycenaRepository(Protocol):
+    """Trwała wycena AI, jedna na aukcję (SPEC.md §12).
+
+    Zapis, nie cache: wycena ma przetrwać restart add-onu i **nie zmieniać
+    się sama** przy każdym wejściu na kartę.
+    """
+
+    async def zapisz(self, wycena: WycenaAukcji) -> WycenaAukcji: ...
+    async def dla_aukcji(self, auction_id: int) -> WycenaAukcji | None: ...
+
+
 class RunLogRepository(Protocol):
     async def rozpocznij(self, wpis: RunLog) -> RunLog: ...
     async def zakoncz(self, wpis: RunLog) -> RunLog: ...
@@ -111,6 +123,7 @@ class UnitOfWork(Protocol):
     snapshot: SnapshotRepository
     watchlist: WatchlistRepository
     saved_filter: SavedFilterRepository
+    wycena: WycenaRepository
     run_log: RunLogRepository
 
     async def __aenter__(self) -> UnitOfWork: ...

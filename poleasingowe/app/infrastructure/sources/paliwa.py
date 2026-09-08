@@ -42,9 +42,9 @@ SLOWNIK: dict[str, str] = {
     # osobno gwarantowałoby duplikat między serwisami, a rodzaj silnika
     # i tak widać w danych technicznych aukcji.
     "hybryda": "Hybryda",
-    "hybryda/benzyna": "Hybryda",
-    "hybryda/olej napedowy": "Hybryda",
-    "hybryda/olej napędowy": "Hybryda",
+    "hybryda benzyna": "Hybryda",
+    "hybryda olej napedowy": "Hybryda",
+    "hybryda olej napędowy": "Hybryda",
     "hybrid": "Hybryda",
     # Hybryda ładowana z gniazdka to osobna kategoria — inaczej się jej
     # używa i inaczej wycenia, więc nie zlewamy jej ze zwykłą hybrydą.
@@ -56,12 +56,27 @@ SLOWNIK: dict[str, str] = {
     "elektryczne": "Elektryczny",
     "electric": "Elektryczny",
     "ev": "Elektryczny",
-    # Gaz
+    # Gaz. Instalacja LPG jest zawsze DODATKIEM do benzyny, więc „LPG",
+    # „benzyna+LPG" i „benzyna + gaz" opisują to samo auto — serwisy piszą
+    # to raz tak, raz tak, a filtr rozbijał je na trzy osobne pozycje.
     "lpg": "LPG",
-    "benzyna+lpg": "LPG",
-    "benzyna/lpg": "LPG",
+    "gaz": "LPG",
+    "benzyna lpg": "LPG",
+    "benzyna gaz": "LPG",
+    "benzyna z instalacja gazowa": "LPG",
+    "benzyna instalacja gazowa": "LPG",
+    "lpg benzyna": "LPG",
     "cng": "CNG",
+    "benzyna cng": "CNG",
 }
+
+
+# Serwisy sklejają paliwa różnymi znakami: „Benzyna+LPG", „Benzyna / LPG",
+# „Benzyna i gaz". Wszystkie znaczą to samo, więc separator sprowadzamy do
+# pojedynczej spacji, zanim zajrzymy do słownika — inaczej każdy wariant
+# zapisu byłby osobnym wpisem w liście filtrów.
+_SEPARATORY = re.compile(r"\s*(?:[+/,&]|\bi\b|\bz\b)\s*")
+_BEZ_OGONKOW = str.maketrans("ąćęłńóśżź", "acelnoszz")
 
 
 def kanoniczne_paliwo(wartosc: str) -> str:
@@ -75,6 +90,14 @@ def kanoniczne_paliwo(wartosc: str) -> str:
     oczyszczone = re.sub(r"\s+", " ", wartosc).strip()
     if not oczyszczone:
         return oczyszczone
+
+    klucz = _SEPARATORY.sub(" ", oczyszczone.lower()).strip()
+    if (kanoniczne := SLOWNIK.get(klucz)) is not None:
+        return kanoniczne
+    # Drugie podejście bez ogonków: „Benzyna + gaz ziemny" bywa zapisane
+    # z diakrytykami, a rozszerzenia `unaccent` nie mamy (§8.3).
+    if (kanoniczne := SLOWNIK.get(klucz.translate(_BEZ_OGONKOW))) is not None:
+        return kanoniczne
     if (kanoniczne := SLOWNIK.get(oczyszczone.lower())) is not None:
         return kanoniczne
     return oczyszczone[:1].upper() + oczyszczone[1:].lower()

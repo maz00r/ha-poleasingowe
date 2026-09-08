@@ -10,15 +10,15 @@
 {% else %}
   <div class="wycena-wynik">
     <div><span>Szacowana wartość</span>
-      <strong>{{ wycena.wartosc | liczba }} PLN</strong></div>
+      <strong>{{ wycena.wartosc | kwota }}</strong></div>
     <div><span>Realistyczny przedział</span>
-      <strong>{{ wycena.minimum | liczba }}–{{ wycena.maksimum | liczba }} PLN</strong></div>
+      <strong>{{ wycena.minimum | kwota }} – {{ wycena.maksimum | kwota }}</strong></div>
     {% if wycena.cena_portale %}
       {# Osobna kratka i osobna etykieta, bo to inny rodzaj liczby: reszta
          wyceny stoi na cenach zmierzonych w naszej bazie, a to jest pamiec
          modelu o rynku. Zlanie ich w jedno kazaloby brac szacunek za pomiar. #}
       <div><span>Poziom ofert na portalach</span>
-        <strong>~{{ wycena.cena_portale | liczba }} PLN</strong></div>
+        <strong>~{{ wycena.cena_portale | kwota }}</strong></div>
     {% endif %}
     <div><span>Pewność</span><strong>{{ wycena.pewnosc }}</strong></div>
   </div>
@@ -35,6 +35,20 @@
       <ul>{% for zalozenie in wycena.zalozenia %}<li>{{ zalozenie }}</li>{% endfor %}</ul>
     </details>
   {% endif %}
-  <p class="drobne">Wycena orientacyjna wygenerowana przez {{ wycena.model }};
-    nie zastępuje oględzin ani opinii rzeczoznawcy.</p>
+  {# Wycena jest ZAPISANA i sie nie zmienia sama — stad data i przycisk.
+     Bez nich nie dalo sie odroznic "policzone dzis" od "policzone miesiac
+     temu przy zupelnie innej cenie licytacji". #}
+  <p class="drobne">
+    Wyceniono {{ wycena.utworzono | czas_lokalny }} modelem
+    <code>{{ wycena.model }}</code>. Wycena orientacyjna — nie zastępuje
+    oględzin ani opinii rzeczoznawcy.
+  </p>
+  {% if mozna_przeliczyc %}
+    <button type="button" class="przycisk-lekki"
+            hx-post="{{ sciezka(request, 'przelicz_wycene', auction_id=auction_id) }}"
+            hx-target="#wycena-ai > div" hx-swap="innerHTML"
+            hx-confirm="Przeliczyć wycenę od nowa? To kolejne płatne zapytanie do dostawcy.">
+      Przelicz
+    </button>
+  {% endif %}
 {% endif %}

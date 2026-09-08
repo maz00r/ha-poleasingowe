@@ -228,6 +228,42 @@ class SavedFilter:
 
 
 @dataclass(slots=True, frozen=True)
+class WycenaAukcji:
+    """Wycena z modelu językowego — **opinia**, nie zmierzony fakt.
+
+    Encja, a nie model odczytu, bo od 0.13 wycena jest trwała: liczy się raz
+    i zostaje. Wcześniej leżała w cache'u kluczowanym danymi wejściowymi,
+    a te zmieniały się przy każdej zakończonej aukcji tego modelu — więc
+    karta pokazywała za każdym razem inną kwotę i generowała kolejne płatne
+    żądanie.
+
+    `pewnosc` i waluta są ograniczone także w bazie (`010_wyceny.sql`):
+    niespójny przedział wygląda wiarygodnie i dlatego jest groźniejszy niż
+    brak wyceny.
+    """
+
+    auction_id: int
+    wartosc: Money
+    minimum: Money
+    maksimum: Money
+    pewnosc: str
+    uzasadnienie: str
+    zalozenia: tuple[str, ...]
+    model: str
+    wersja_promptu: int
+    utworzono: dt.datetime
+    cena_portale: Money | None = None
+    """Poziom cen ofertowych na portalach — szacunek modelu, nie odczyt."""
+
+    def __post_init__(self) -> None:
+        _wymagaj_utc("utworzono", self.utworzono)
+        if not (self.minimum.amount <= self.wartosc.amount <= self.maksimum.amount):
+            raise ValueError(
+                "przedział wyceny musi spełniać minimum <= wartość <= maksimum"
+            )
+
+
+@dataclass(slots=True, frozen=True)
 class RunLog:
     """Przebieg odpytu. SPEC.md §13 — budżet z §1.1 ma być mierzalny."""
 
