@@ -388,3 +388,85 @@ def test_komunikat_bledu_radzi_sobie_z_roznymi_ksztaltami() -> None:
     assert _komunikat_bledu(httpx.Response(502, text="<html>proxy</html>")).startswith(
         "<html>"
     )
+
+
+# --------------------------------------------------------------------------
+# Poziom cen na portalach ogłoszeniowych — szacunek, nie pomiar
+# --------------------------------------------------------------------------
+
+
+def test_prompt_pyta_o_portale_i_zabrania_zmyslania_ogloszen() -> None:
+    """Model nie ma dostępu do sieci, więc pytanie musi to mówić wprost.
+
+    Bez tego zdania model dopisuje konkretne oferty z cenami, których nikt
+    nigdy nie widział — a one wyglądają jak dowód. Zakaz jest tu ważniejszy
+    niż samo pytanie o poziom cen.
+    """
+    from app.infrastructure.wycena_ai import INSTRUKCJE, SCHEMAT, WERSJA_PROMPTU
+
+    assert "OtoMoto" in INSTRUKCJE and "OLX" in INSTRUKCJE
+    assert "NIE MASZ dostępu do internetu" in INSTRUKCJE
+    assert "nie podawaj konkretnych ogłoszeń" in INSTRUKCJE
+    # Pole musi dopuszczać `null`: „nie umiem oszacować" to poprawna
+    # odpowiedź, a wymuszona liczba byłaby zmyślona.
+    assert SCHEMAT["properties"]["cena_portale"]["type"] == ["integer", "null"]
+    assert "cena_portale" in SCHEMAT["required"]
+    # Zmiana polecenia musi unieważnić cache, inaczej stare wyceny udawałyby
+    # nowe (i nie miałyby tego pola).
+    assert WERSJA_PROMPTU >= 2
+
+
+async def test_poziom_cen_z_portali_trafia_do_wyniku(
+    tmp_path: pathlib.Path,
+) -> None:
+    klient, _ = _przechwyc(
+        {
+            "choices": [
+                {"message": {"content": json.dumps({**WYNIK, "cena_portale": 91000})}}
+            ]
+        }
+    )
+    usluga = WycenaAI(
+        KlientZgodnyZOpenAI(
+            "k", model="m", base_url="https://api.deepseek.com/v1", klient=klient
+        ),
+        katalog=tmp_path,
+    )
+    wynik = await usluga.wycen(_dane(), ())
+    assert wynik.cena_portale == 91_000
+    # Cache musi przenieść pole razem z resztą.
+    assert (await usluga.wycen(_dane(), ())).cena_portale == 91_000
+    await klient.aclose()
+
+
+@pytest.mark.parametrize("odpowiedz", [None, 0, "nie wiem", "", True])
+async def test_brak_szacunku_nie_wywraca_wyceny(
+    tmp_path: pathlib.Path, odpowiedz: object
+) -> None:
+    """„Nie wiem" w tym polu jest poprawną odpowiedzią.
+
+    Część dostawców odeśle zamiast `null` pusty napis albo zero — jedno
+    i drugie znaczy „nie oszacowałem", a nie „auto warte 0 zł". Reszta
+    wyceny jest wtedy nadal użyteczna.
+    """
+    klient, _ = _przechwyc(
+        {
+            "choices": [
+                {
+                    "message": {
+                        "content": json.dumps({**WYNIK, "cena_portale": odpowiedz})
+                    }
+                }
+            ]
+        }
+    )
+    usluga = WycenaAI(
+        KlientZgodnyZOpenAI(
+            "k", model="m", base_url="https://api.deepseek.com/v1", klient=klient
+        ),
+        katalog=tmp_path,
+    )
+    wynik = await usluga.wycen(_dane(), ())
+    assert wynik.cena_portale is None
+    assert wynik.wartosc == 78_000
+    await klient.aclose()

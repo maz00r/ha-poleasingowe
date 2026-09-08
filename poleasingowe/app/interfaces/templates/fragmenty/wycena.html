@@ -13,9 +13,22 @@
       <strong>{{ wycena.wartosc | liczba }} PLN</strong></div>
     <div><span>Realistyczny przedział</span>
       <strong>{{ wycena.minimum | liczba }}–{{ wycena.maksimum | liczba }} PLN</strong></div>
+    {% if wycena.cena_portale %}
+      {# Osobna kratka i osobna etykieta, bo to inny rodzaj liczby: reszta
+         wyceny stoi na cenach zmierzonych w naszej bazie, a to jest pamiec
+         modelu o rynku. Zlanie ich w jedno kazaloby brac szacunek za pomiar. #}
+      <div><span>Poziom ofert na portalach</span>
+        <strong>~{{ wycena.cena_portale | liczba }} PLN</strong></div>
+    {% endif %}
     <div><span>Pewność</span><strong>{{ wycena.pewnosc }}</strong></div>
   </div>
   <p>{{ wycena.uzasadnienie }}</p>
+  {% if wycena.cena_portale %}
+    <p class="uwaga">Poziom cen ofertowych z OtoMoto i OLX jest
+      <strong>szacunkiem modelu z jego wiedzy o rynku</strong> — add-on nie
+      odpytuje tych portali. Ceny ofertowe są zwykle wyższe od uzyskiwanych
+      na aukcjach.</p>
+  {% endif %}
   {% if wycena.zalozenia %}
     <details>
       <summary>Założenia wyceny</summary>

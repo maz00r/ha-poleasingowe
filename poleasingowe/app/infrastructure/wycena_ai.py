@@ -30,9 +30,11 @@ from app.infrastructure.ai_klienci import BladModelu, BladOdpowiedzi, KlientMode
 log = logging.getLogger(__name__)
 
 KATALOG_CACHE = pathlib.Path("/data/cache/wyceny")
-WERSJA_PROMPTU = 1
+WERSJA_PROMPTU = 2
 """Podbij, gdy zmienisz `INSTRUKCJE` albo `SCHEMAT` — inaczej cache oddawałby
-wyniki wygenerowane starym poleceniem."""
+wyniki wygenerowane starym poleceniem.
+
+2: doszedł szacunek poziomu cen ofertowych na polskich portalach."""
 
 NAZWA_SCHEMATU = "wycena_pojazdu"
 
@@ -42,7 +44,19 @@ INSTRUKCJE = (
     "Największą wagę nadaj porównaniom z zakończonych aukcji, "
     "ale uwzględnij różnice rocznika i przebiegu. Jeśli danych "
     "jest mało, poszerz przedział i obniż pewność. Nie zakładaj "
-    "idealnego stanu technicznego; jasno wypisz założenia."
+    "idealnego stanu technicznego; jasno wypisz założenia.\n\n"
+    # Poziom cen na portalach ogłoszeniowych — z WIEDZY modelu, nie z sieci.
+    # Reguła „nie zmyślaj ogłoszeń" jest tu najważniejszym zdaniem: bez niej
+    # model dopisuje konkretne oferty z cenami i linkami, których nikt nigdy
+    # nie widział, a wyglądają jak dowód.
+    "W polu `cena_portale` podaj orientacyjny poziom cen OFERTOWYCH "
+    "podobnego auta na polskich portalach ogłoszeniowych (OtoMoto, OLX). "
+    "NIE MASZ dostępu do internetu — to szacunek z Twojej wiedzy o rynku, "
+    "więc nie podawaj konkretnych ogłoszeń, linków, nazw sprzedających ani "
+    "liczby ofert. Jeśli nie potrafisz tego rozsądnie oszacować, wpisz null. "
+    "Pamiętaj, że ceny ofertowe na portalach są zwykle wyższe od cen "
+    "uzyskiwanych na aukcjach poleasingowych; w uzasadnieniu napisz krótko, "
+    "jak duża jest ta różnica dla tego auta."
 )
 
 SCHEMAT: dict[str, Any] = {
@@ -51,14 +65,20 @@ SCHEMAT: dict[str, Any] = {
         "wartosc": {"type": "integer", "minimum": 0},
         "minimum": {"type": "integer", "minimum": 0},
         "maksimum": {"type": "integer", "minimum": 0},
+        # `null` jest tu wartością pełnoprawną: „nie umiem oszacować" musi
+        # dać się powiedzieć, inaczej model wypełni pole byle czym.
+        "cena_portale": {"type": ["integer", "null"], "minimum": 0},
         "pewnosc": {"type": "string", "enum": ["niska", "średnia", "wysoka"]},
         "uzasadnienie": {"type": "string"},
         "zalozenia": {"type": "array", "items": {"type": "string"}, "maxItems": 5},
     },
+    # Tryb `strict` u OpenAI wymaga, żeby KAŻDE pole było w `required` —
+    # opcjonalność wyraża się typem `null`, nie brakiem klucza.
     "required": [
         "wartosc",
         "minimum",
         "maksimum",
+        "cena_portale",
         "pewnosc",
         "uzasadnienie",
         "zalozenia",
@@ -76,6 +96,30 @@ class Wycena:
     uzasadnienie: str
     zalozenia: tuple[str, ...]
     model: str
+    cena_portale: int | None = None
+    """Poziom cen ofertowych na portalach — **z wiedzy modelu, nie z sieci**.
+
+    Trzymane osobno od `wartosc` właśnie dlatego, że ma inną wiarygodność:
+    reszta wyceny stoi na zmierzonych cenach z naszej bazy, a to jest
+    pamięć modelu o rynku. Interfejs musi je pokazywać jako dwie różne
+    rzeczy, inaczej szacunek udawałby pomiar.
+    """
+
+
+def _liczba_lub_none(wartosc: object) -> int | None:
+    """Liczba całkowita albo `None` — bez wyjątku na śmieciach.
+
+    Pole jest z definicji opcjonalne, więc niepoprawna wartość ma znaczyć
+    „model nie oszacował", a nie wywracać całą wycenę, która poza tym jest
+    dobra.
+    """
+    if wartosc is None or isinstance(wartosc, bool):
+        return None
+    try:
+        liczba = int(wartosc)  # type: ignore[call-overload]
+    except (TypeError, ValueError):
+        return None
+    return liczba if liczba > 0 else None
 
 
 class BladWyceny(RuntimeError):
@@ -170,6 +214,7 @@ class WycenaAI:
                 uzasadnienie=str(dane["uzasadnienie"]),
                 zalozenia=tuple(str(x) for x in dane["zalozenia"]),
                 model=str(dane["model"]),
+                cena_portale=_liczba_lub_none(dane.get("cena_portale")),
             )
         except (OSError, ValueError, KeyError, TypeError):
             return None
@@ -208,4 +253,7 @@ class WycenaAI:
             uzasadnienie=str(dane["uzasadnienie"]),
             zalozenia=tuple(str(x) for x in dane["zalozenia"]),
             model=self._model,
+            # Część dostawców zignoruje `null` i odeśle napis albo zero —
+            # jedno i drugie znaczy tu „nie wiem", a nie „auto za 0 zł".
+            cena_portale=_liczba_lub_none(dane.get("cena_portale")),
         )

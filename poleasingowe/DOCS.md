@@ -150,7 +150,10 @@ Starsza opcja `openai_api_key` nadal działa jako `ai_api_key` — aktualizacja
 dodatku nie wyłącza wyceny osobom, które miały ją już ustawioną.
 
 Po ponownym uruchomieniu szczegóły pojazdu pokażą szacowaną wartość w PLN,
-przedział, pewność i założenia. Wynik jest zapisywany w lokalnym cache'u, więc
+przedział, pewność i założenia, a obok **orientacyjny poziom cen ofertowych
+na OtoMoto i OLX**. Ta ostatnia liczba pochodzi z wiedzy modelu, a nie
+z odpytania portali — dodatek do nich nie sięga — więc jest podpisana jako
+szacunek i bywa pusta, gdy model nie potrafi jej rozsądnie podać. Wynik jest zapisywany w lokalnym cache'u, więc
 ponowne otwarcie tej samej wyceny nie wykonuje kolejnego płatnego żądania.
 Zmiana danych auta, lokalnych porównań albo modelu automatycznie unieważnia
 cache. Do dostawcy nie są wysyłane VIN, identyfikator aukcji ani dane

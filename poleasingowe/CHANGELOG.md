@@ -1,5 +1,18 @@
 # Historia zmian
 
+## 0.11.0 — w przygotowaniu
+
+**Wycena odnosi się do cen na portalach ogłoszeniowych.** Model podaje teraz
+dodatkowo orientacyjny poziom cen ofertowych podobnego auta na OtoMoto i OLX
+oraz pisze, jak duża jest różnica wobec aukcji poleasingowych — bo to ona
+jest właściwą miarą okazji.
+
+Ta liczba stoi na karcie **osobno i jest podpisana jako szacunek**: model
+nie ma dostępu do internetu, więc jest to jego wiedza o rynku, a nie odczyt
+z portali. Polecenie wprost zakazuje wymyślania konkretnych ogłoszeń, linków
+i liczby ofert, a „nie umiem oszacować" jest poprawną odpowiedzią — pole
+zostaje wtedy puste zamiast wypełnić się zmyśloną kwotą.
+
 ## 0.10.1 — w przygotowaniu
 
 **Widać, dlaczego wycena AI odmówiła.** Dotąd w logu było samo „400 Bad
