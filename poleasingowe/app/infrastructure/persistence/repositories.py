@@ -230,7 +230,23 @@ ON CONFLICT (source_id, external_id) DO UPDATE SET
         EXCLUDED.bid_increment_raw, app.auction.bid_increment_raw
     ),
     ends_at = COALESCE(EXCLUDED.ends_at, app.auction.ends_at),
-    last_seen_at = EXCLUDED.last_seen_at
+    last_seen_at = EXCLUDED.last_seen_at,
+    -- POWROT Z `DISAPPEARED`. Aukcje oznaczamy jako znikniete po dwoch
+    -- przemiatach bez niej, ale przemiat potrafi urwac sie w polowie
+    -- (paginacja, timeout, WAF) DWA RAZY POD RZAD. Bez tej linii aukcja,
+    -- ktora znowu stoi na liscie, zostawala w archiwum na zawsze — bo nic
+    -- w calym systemie nie cofalo tego statusu.
+    --
+    -- Wracamy WYLACZNIE z `DISAPPEARED` i wylacznie przed terminem.
+    -- `ENDED` zostaje `ENDED`: poleasingowe trzyma zakonczone aukcje na
+    -- liscie jeszcze dlugo po koncu i wskrzeszanie ich byloby gorszym
+    -- bledem niz ten, ktory naprawiamy.
+    status = CASE
+        WHEN app.auction.status = 'DISAPPEARED'
+             AND (EXCLUDED.ends_at IS NULL OR EXCLUDED.ends_at > now())
+        THEN 'ACTIVE'
+        ELSE app.auction.status
+    END
 RETURNING id, source_id, (xmax = 0) AS nowa,
           price_current, currency, bid_count, ends_at
 ),

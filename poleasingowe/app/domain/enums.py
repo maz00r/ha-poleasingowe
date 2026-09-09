@@ -16,7 +16,17 @@ class AuctionStatus(StrEnum):
 
     ACTIVE = "ACTIVE"
     ENDING = "ENDING"
-    """Po `ends_at`, w trakcie domykania (SPEC.md §11.5)."""
+    """Po `ends_at`, w trakcie domykania (SPEC.md §11.5).
+
+    **Nie jest nigdzie zapisywany do bazy — i tak ma zostać.** Fazę domykania
+    rozpoznajemy z porównania `ends_at` z zegarem, bo aukcji nieobserwowanej
+    nikt nie odpytuje (§11.2), więc nie ma kto przestawić jej statusu.
+    Kolumna oparta na zapisie kłamałaby dokładnie tam, gdzie najbardziej
+    zależy na prawdzie: na liście „aktywne" godzinę po terminie.
+
+    Wartość zostaje jako **kryterium filtra** („domykane" w interfejsie)
+    i jako dopuszczalny stan w CHECK-u migracji.
+    """
     ENDED = "ENDED"
     DISAPPEARED = "DISAPPEARED"
     """Zniknęła z serwisu bez pokazania ceny końcowej."""

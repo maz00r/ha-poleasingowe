@@ -1198,3 +1198,56 @@ async def test_cena_wywolawcza_zapisuje_sie_i_przezywa_pierwsza_oferte(
     assert po_drugim.price_current.amount == Decimal("95050")
     assert po_drugim.price_start is not None, "cena wywoławcza nie ma prawa zniknąć"
     assert po_drugim.price_start.amount == Decimal("94950")
+
+
+async def test_aukcja_wraca_z_archiwum_gdy_znowu_stoi_na_liscie(
+    pusta_baza: psycopg.AsyncConnection,
+) -> None:
+    """Zgłoszenie z użytkowania: „w archiwum są aktywne aukcje".
+
+    Aukcję oznaczamy jako zniknioną po dwóch przemiatach bez niej, ale
+    przemiat potrafi urwać się w połowie — paginacja, timeout, WAF — i to
+    dwa razy pod rząd. Żywa aukcja lądowała wtedy w archiwum i **nic w całym
+    systemie nie cofało tego statusu**: sam wpis wracał na listę przy każdym
+    kolejnym przemiacie, a `DISAPPEARED` zostawało na zawsze.
+    """
+    adapter = ZrodloAtrapa()
+    adapter.na_liscie = ["sztuczna-1"]
+    adapter.ends_at_na_liscie = None
+    auction_id, _ = await przygotuj(pusta_baza, adapter, do_konca_min=180)
+
+    async with pusta_baza.cursor() as cur:
+        await cur.execute(
+            "UPDATE app.auction SET status = 'DISAPPEARED' WHERE id = %s",
+            (auction_id,),
+        )
+        await cur.execute("UPDATE app.source SET last_sweep_at = NULL")
+
+    await dispatcher(pusta_baza, adapter).jeden_obrot()
+
+    wrocila = await wczytaj(pusta_baza, auction_id)
+    assert wrocila.status is AuctionStatus.ACTIVE, "znowu jest na liście, więc żyje"
+
+
+async def test_zakonczonej_aukcji_przemiat_nie_wskrzesza(
+    pusta_baza: psycopg.AsyncConnection,
+) -> None:
+    """poleasingowe trzyma zakończone aukcje na liście jeszcze długo po końcu.
+
+    Powrót ze `DISAPPEARED` nie może więc obejmować `ENDED` — to byłby
+    gorszy błąd niż ten, który naprawia.
+    """
+    adapter = ZrodloAtrapa()
+    adapter.na_liscie = ["sztuczna-1"]
+    adapter.ends_at_na_liscie = None
+    auction_id, _ = await przygotuj(pusta_baza, adapter, do_konca_min=180)
+
+    async with pusta_baza.cursor() as cur:
+        await cur.execute(
+            "UPDATE app.auction SET status = 'ENDED' WHERE id = %s", (auction_id,)
+        )
+        await cur.execute("UPDATE app.source SET last_sweep_at = NULL")
+
+    await dispatcher(pusta_baza, adapter).jeden_obrot()
+
+    assert (await wczytaj(pusta_baza, auction_id)).status is AuctionStatus.ENDED

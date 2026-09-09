@@ -792,3 +792,57 @@ async def test_wystawione_ponownie_pokazuje_tylko_pewne_trafienia_po_vin(
     assert ponownie in znalezione, "drugie wystawienie tego samego VIN-u"
     assert identyfikatory["audi-za-godzine"] in znalezione, "i pierwsze też"
     assert identyfikatory["bez-terminu-a"] not in znalezione, "auto bez pary"
+
+
+async def test_lista_aktywnych_nie_pokazuje_aukcji_po_terminie(
+    pusta_baza: psycopg.AsyncConnection,
+) -> None:
+    """Zgłoszenie z użytkowania: „w trwających nie może być zakończonych".
+
+    Status jest NASZĄ księgowością i z założenia się spóźnia: aukcji
+    nieobserwowanej nie odpytujemy pojedynczo (SPEC.md §11.2), a zegar zamyka
+    ją dopiero po karencji na dogrywkę (§11.5). Wiersz zostaje wtedy `ACTIVE`
+    długo po tym, jak licytacja się skończyła — i o tym, na której liście ma
+    stać, musi decydować termin, a nie nasza księgowość.
+    """
+    zapytania = PgZapytania(pusta_baza)
+    identyfikatory = await _dane(pusta_baza)
+    # Aukcja WCIĄŻ oznaczona jako aktywna, ale po terminie — dokładnie stan
+    # z okna karencji.
+    async with pusta_baza.cursor() as cur:
+        await cur.execute(
+            "UPDATE app.auction SET status = 'ACTIVE',"
+            " ends_at = now() - interval '20 minutes' WHERE id = %s",
+            (identyfikatory["audi-za-godzine"],),
+        )
+
+    aktywne = await zapytania.lista(Kryteria(status=AuctionStatus.ACTIVE), None, 50)
+    archiwum = await zapytania.lista(Kryteria(status=AuctionStatus.ENDED), None, 50)
+
+    assert identyfikatory["audi-za-godzine"] not in {p.id for p in aktywne.pozycje}
+    assert identyfikatory["audi-za-godzine"] in {
+        p.id for p in archiwum.pozycje
+    }, "aukcja po terminie ma być w archiwum, a nie znikać z obu list"
+
+
+async def test_archiwum_nie_pokazuje_aukcji_ktora_wciaz_trwa(
+    pusta_baza: psycopg.AsyncConnection,
+) -> None:
+    """Druga połowa tego samego zgłoszenia: „w archiwum nie mogą być aktywne".
+
+    Taki wiersz powstawał z `DISAPPEARED` po dwóch urwanych przemiatach —
+    aukcja żyła, a leżała w archiwum. Naprawa jest po stronie zapisu
+    (powrót ze `DISAPPEARED`), ale odczyt ma nie pokazywać w archiwum
+    niczego, czego termin jeszcze nie minął.
+    """
+    zapytania = PgZapytania(pusta_baza)
+    identyfikatory = await _dane(pusta_baza)
+    async with pusta_baza.cursor() as cur:
+        await cur.execute(
+            "UPDATE app.auction SET status = 'ACTIVE',"
+            " ends_at = now() + interval '3 hours' WHERE id = %s",
+            (identyfikatory["audi-za-godzine"],),
+        )
+
+    archiwum = await zapytania.lista(Kryteria(status=AuctionStatus.ENDED), None, 50)
+    assert identyfikatory["audi-za-godzine"] not in {p.id for p in archiwum.pozycje}

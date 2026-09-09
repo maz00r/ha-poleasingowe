@@ -377,10 +377,43 @@ def _warunki(kryteria: Kryteria) -> tuple[list[sql.Composable], dict[str, Any]]:
     ]
     parametry: dict[str, Any] = {}
 
-    if kryteria.status is AuctionStatus.ENDED:
-        # Autoprzetarg po zakończeniu usuwa stronę aukcji, więc dispatcher
-        # zapisuje DISAPPEARED. Dla użytkownika to wciąż pozycja archiwalna.
-        warunki.append(sql.SQL("a.status IN ('ENDED', 'DISAPPEARED')"))
+    # KATEGORIA LISTY WYNIKA Z TERMINU, NIE TYLKO ZE STATUSU.
+    #
+    # Status jest NASZA ksiegowoscia i z zalozenia sie spoznia: aukcji
+    # nieobserwowanej nie odpytujemy pojedynczo (§11.2), a zegar zamyka ja
+    # dopiero po karencji na dogrywke (§11.5). Miedzy `ends_at` a tym
+    # momentem wiersz zostaje `ACTIVE` — i lezal w "Aktywnych" godzine po
+    # tym, jak licytacja sie skonczyla.
+    #
+    # Dlatego o przynaleznosci do listy decyduje to, co uzytkownik moze
+    # sprawdzic sam: czy termin juz minal. Kubelki sa rozlaczne i pokrywaja
+    # calosc, wiec zadna aukcja nie wypada z obu naraz.
+    if kryteria.status is AuctionStatus.ACTIVE:
+        warunki.append(
+            sql.SQL(
+                "a.status NOT IN ('ENDED', 'DISAPPEARED')"
+                " AND (a.ends_at IS NULL OR a.ends_at > now())"
+            )
+        )
+    elif kryteria.status is AuctionStatus.ENDED:
+        # Autoprzetarg po zakonczeniu usuwa strone aukcji, wiec dispatcher
+        # zapisuje DISAPPEARED. Dla uzytkownika to wciaz pozycja archiwalna.
+        # Po terminie — takze wtedy, gdy nie zdazylismy jeszcze domknac.
+        warunki.append(
+            sql.SQL(
+                "(a.status IN ('ENDED', 'DISAPPEARED')"
+                " OR (a.ends_at IS NOT NULL AND a.ends_at <= now()))"
+            )
+        )
+    elif kryteria.status is AuctionStatus.ENDING:
+        # "Domykane": termin minal, ale konca jeszcze nie potwierdzilismy.
+        # Podzbior archiwum, przydatny do diagnostyki fazy 2 z §11.5.
+        warunki.append(
+            sql.SQL(
+                "a.status NOT IN ('ENDED', 'DISAPPEARED')"
+                " AND a.ends_at IS NOT NULL AND a.ends_at <= now()"
+            )
+        )
     elif kryteria.status is not None:
         warunki.append(sql.SQL("a.status = %(status)s"))
         parametry["status"] = kryteria.status.value

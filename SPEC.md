@@ -895,11 +895,37 @@ Add-on obsługuje **operacje**. Analityka jest w Grafanie.
   progu.
 - Widoki „kończą się w 24 h" i „nowe od ostatniej wizyty". Znacznik
   ostatniej wizyty siedzi w **ciasteczku przeglądarki**, nie w bazie:
-  to stan przeglądarki, a nie fakt o aukcjach. Przestawia się przy
-  wejściu na listę, ale nie przy doładowaniu kolejnej strony — inaczej
-  widok kasowałby się w trakcie przeglądania.
+  to stan przeglądarki, a nie fakt o aukcjach. Przesuwa się dopiero przy
+  **nowej wizycie** — po 30 minutach bez ruchu — i ląduje wtedy na końcu
+  poprzedniej. Przestawianie go przy każdym wyświetleniu listy sprawiało,
+  że znacznik cofał się przed samego siebie i widok był pusty zawsze.
+
+- **Do której listy trafia aukcja, rozstrzyga TERMIN, a nie zapisany
+  status.** `status` jest naszą księgowością i z założenia się spóźnia:
+  aukcji nieobserwowanej nie odpytujemy pojedynczo (§11.2), a zegar zamyka
+  ją dopiero po karencji na dogrywkę (§11.5) — między `ends_at` a tym
+  momentem wiersz zostaje `ACTIVE`. Kategorię wyznaczamy więc z tego, co
+  użytkownik może sprawdzić sam:
+
+  | Lista | Warunek |
+  |---|---|
+  | aktywne | nie `ENDED`/`DISAPPEARED` **i** `ends_at` w przyszłości albo pusty |
+  | domykane | nie `ENDED`/`DISAPPEARED` **i** `ends_at` już minął |
+  | archiwum | `ENDED`/`DISAPPEARED` **albo** `ends_at` już minął |
+
+  Kubełki „aktywne" i „archiwum" są rozłączne i pokrywają całość, więc
+  żadna aukcja nie wypada z obu naraz. `AuctionStatus.ENDING` **nie jest
+  nigdzie zapisywany** — istnieje jako kryterium filtra, bo statusu aukcji
+  nieobserwowanej nie ma kto przestawić.
 - Zapisane filtry.
 - Archiwum zakończonych z ceną końcową i znacznikiem pewności.
+- **Powrót ze `DISAPPEARED`.** Aukcja wraca do `ACTIVE`, gdy znowu pojawi
+  się w przemiacie, a jej termin jeszcze nie minął. Oznaczenie „zniknęła"
+  wymaga dwóch przemiatów bez niej, ale przemiat potrafi urwać się w połowie
+  (paginacja, timeout, WAF) dwa razy pod rząd — i bez powrotu żywa aukcja
+  zostawała w archiwum na zawsze, bo nic tego statusu nie cofało. Powrót
+  **nie obejmuje** `ENDED`: poleasingowe trzyma zakończone aukcje na liście
+  długo po końcu, więc wskrzeszanie ich byłoby gorszym błędem.
 - Link do dashboardu rynkowego z `?var-make=&var-model=`.
 - **Panel diagnostyczny**: stan każdego źródła, ostatni `run_log`, licznik
   `AUTH_LOCKED` z przyciskiem resetu, stan puli połączeń, rozmiar bazy,

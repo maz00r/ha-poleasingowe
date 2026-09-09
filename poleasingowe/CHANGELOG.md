@@ -1,5 +1,26 @@
 # Historia zmian
 
+## 0.25.0 — w przygotowaniu
+
+**Aukcja trafia na listę według terminu, nie według naszej księgowości.**
+„Aktywne" pokazywało pozycje godzinę po ich zakończeniu, bo status zmienia
+się z opóźnieniem: aukcji nieobserwowanej nie odpytujemy pojedynczo, a zegar
+zamyka ją dopiero po karencji na możliwą dogrywkę. Teraz o przynależności do
+listy decyduje to, co widać samemu — czy termin już minął. „Aktywne"
+i „Archiwum" są rozłączne i pokrywają całość, więc żadna aukcja nie wypada
+z obu naraz.
+
+**Poprawka: żywa aukcja nie zostaje w archiwum na zawsze.** Aukcję uznajemy
+za zniknioną po dwóch przemiatach bez niej, ale przemiat potrafi urwać się
+w połowie — i to dwa razy pod rząd. Trafiała wtedy do archiwum mimo że żyła,
+a **nic w całym systemie tego nie cofało**: wracała na listę przy każdym
+kolejnym przemiacie i nadal leżała w archiwum. Teraz wraca do aktywnych, o ile
+jej termin jeszcze nie minął. Zakończonych to nie dotyczy — poleasingowe
+trzyma je na liście długo po końcu i wskrzeszanie ich byłoby gorszym błędem.
+
+Aukcje błędnie zarchiwizowane wcześniej wrócą same, przy najbliższym
+przemiacie źródła.
+
 ## 0.24.0 — w przygotowaniu
 
 **Wejście na kartę aukcji prosi o świeże dane.** Do tej pory karta pokazywała
