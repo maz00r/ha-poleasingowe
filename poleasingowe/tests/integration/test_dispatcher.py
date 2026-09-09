@@ -903,3 +903,82 @@ async def test_wyczerpana_drabinka_konczy_na_ostatniej_widzianej_cenie(
     assert po.final_price_state is FinalPriceState.LAST_SEEN
     assert po.last_price_lead_seconds is not None
     assert po.next_poll_at is None
+
+
+async def test_aukcja_znika_z_listy_dopiero_po_dwoch_przemiatach(
+    pusta_baza: psycopg.AsyncConnection,
+) -> None:
+    """Ostrożnie, bo fałszywy alarm kasuje ofertę z widoku aktywnych.
+
+    Jeden przemiat potrafi urwać się w połowie — paginacja, timeout, WAF —
+    i wtedy „brak na liście" znaczy tylko „nie doszliśmy do tej strony".
+    Dlatego aukcja musi wypaść z DWÓCH kolejnych przemiatów: warunkiem jest
+    `last_seen_at < poprzedni przemiat`, a nie „nie ma jej teraz".
+    """
+    adapter = ZrodloAtrapa()
+    auction_id, _ = await przygotuj(pusta_baza, adapter, do_konca_min=600)
+    adapter.na_liscie = ["sztuczna-1", "sztuczna-2"]
+    adapter.ends_at_na_liscie = adapter.ends_at
+    disp = dispatcher(pusta_baza, adapter)
+
+    await disp.jeden_obrot()
+    assert (await wczytaj(pusta_baza, auction_id)).status is AuctionStatus.ACTIVE
+
+    # Oś czasu: aukcja ostatni raz widziana 9 h temu, ostatni przemiat 7 h
+    # temu — czyli JEDEN przemiat już jej nie zastał.
+    adapter.na_liscie = ["sztuczna-2"]
+    async with pusta_baza.cursor() as cur:
+        await cur.execute(
+            "UPDATE app.auction SET last_seen_at = now() - interval '9 hours',"
+            " next_poll_at = NULL WHERE id = %s",
+            (auction_id,),
+        )
+        await cur.execute(
+            "UPDATE app.source SET last_sweep_at = now() - interval '9 hours'"
+        )
+
+    await disp.jeden_obrot()
+    assert (
+        (await wczytaj(pusta_baza, auction_id)).status is AuctionStatus.ACTIVE
+    ), "jeden brak na liście to za mało — mógł to być urwany przemiat"
+
+    # Kolejny przemiat, znowu bez niej. Teraz `last_seen_at` jest starsze niż
+    # POPRZEDNI przemiat, więc to już nie przypadek.
+    async with pusta_baza.cursor() as cur:
+        await cur.execute(
+            "UPDATE app.source SET last_sweep_at = now() - interval '7 hours'"
+        )
+    await disp.jeden_obrot()
+
+    po = await wczytaj(pusta_baza, auction_id)
+    assert po.status is AuctionStatus.DISAPPEARED
+    assert po.final_price_state is FinalPriceState.LAST_SEEN
+    assert po.next_poll_at is None
+
+
+async def test_aukcja_po_terminie_nie_jest_oznaczana_jako_znikniona(
+    pusta_baza: psycopg.AsyncConnection,
+) -> None:
+    """Po terminie rządzi faza domknięcia z §11.5, nie brak na liście.
+
+    autoprzetarg kasuje stronę 10-15 s po końcu — gdyby to od razu znaczyło
+    `DISAPPEARED`, odebralibyśmy sobie szansę na cenę końcową.
+    """
+    adapter = ZrodloAtrapa()
+    auction_id, _ = await przygotuj(pusta_baza, adapter, do_konca_min=600)
+    async with pusta_baza.cursor() as cur:
+        await cur.execute(
+            "UPDATE app.auction SET last_seen_at = now() - interval '9 hours',"
+            " ends_at = now() - interval '1 minute' WHERE id = %s",
+            (auction_id,),
+        )
+
+    async with PgUnitOfWork(pusta_baza) as uow:
+        zrodlo_z_bazy = await uow.source.po_kluczu(adapter.key)
+        assert zrodlo_z_bazy is not None and zrodlo_z_bazy.id is not None
+        teraz = await _czas_bazy(pusta_baza)
+        oznaczone = await uow.auction.oznacz_zniknione(
+            zrodlo_z_bazy.id, teraz - dt.timedelta(hours=7), teraz
+        )
+    assert oznaczone == 0
+    assert (await wczytaj(pusta_baza, auction_id)).status is AuctionStatus.ACTIVE

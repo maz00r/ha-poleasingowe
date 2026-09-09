@@ -212,6 +212,38 @@ ON CONFLICT (source_id, external_id) DO UPDATE SET
 RETURNING id, (xmax = 0) AS nowa
 """
 
+# Aukcja, ktora przestala pojawiac sie na liscie zrodla (SPEC.md §11.2).
+#
+# autoprzetarg.pl kasuje strone aukcji 10-15 s po terminie (RECON.md §3.4),
+# ale zniknac moze tez oferta wycofana przez sprzedajacego — i wtedy nikt
+# nam tego nie powie. Bez tego zapytania taka aukcja zostawala `ACTIVE`
+# w nieskonczonosc.
+#
+# WARUNEK JEST OSTROZNY CELOWO: wymagamy, zeby aukcja nie pojawila sie
+# w DWOCH kolejnych przemiatach (`last_seen_at < poprzedni przemiat`).
+# Jeden przemiat potrafi urwac sie w polowie — paginacja, timeout, WAF —
+# a wtedy "brak na liscie" znaczylby tylko "nie doszlismy do tej strony".
+# Falszywe DISAPPEARED kasuje aukcje z widoku aktywnych, wiec wolimy sie
+# spoznic o jeden cykl niz skasowac cos, co trwa.
+#
+# Aukcji PO TERMINIE nie ruszamy — nia zajmuje sie faza domkniecia z §11.5,
+# ktora ma szanse zlapac cene koncowa. Nadpisanie jej statusem DISAPPEARED
+# zabraloby te szanse.
+SQL_AUCTION_OZNACZ_ZNIKNIETE = """
+UPDATE app.auction
+SET status = 'DISAPPEARED',
+    next_poll_at = NULL,
+    poll_tier = 'IDLE',
+    final_price_state = CASE
+        WHEN final_price_state = 'UNKNOWN' THEN 'LAST_SEEN'
+        ELSE final_price_state
+    END
+WHERE source_id = %(source_id)s
+  AND status = 'ACTIVE'
+  AND last_seen_at < %(poprzedni_przemiat)s
+  AND (ends_at IS NULL OR ends_at > %(teraz)s)
+"""
+
 SQL_AUCTION_PO_KLUCZU = """
 SELECT
     id, source_id, external_id, url, make, model, variant, year, mileage_km, fuel,
@@ -715,6 +747,21 @@ class PgAuctionRepository:
             await cur.execute(
                 SQL_AUCTION_ZAPLANUJ, (next_poll_at, poll_tier.value, auction_id)
             )
+
+    async def oznacz_zniknione(
+        self, source_id: int, poprzedni_przemiat: dt.datetime, teraz: dt.datetime
+    ) -> int:
+        """Aukcje, których nie było w dwóch ostatnich przemiatach. Zwraca ile."""
+        async with self._conn.cursor() as cur:
+            await cur.execute(
+                SQL_AUCTION_OZNACZ_ZNIKNIETE,
+                {
+                    "source_id": source_id,
+                    "poprzedni_przemiat": poprzedni_przemiat,
+                    "teraz": teraz,
+                },
+            )
+            return cur.rowcount
 
     async def zamknij_po_terminie(self, teraz: dt.datetime) -> int:
         """Zamyka aukcje, które dawno minęły termin. Zwraca ile.

@@ -1,5 +1,15 @@
 # Historia zmian
 
+## 0.15.1 — w przygotowaniu
+
+**Aukcja zdjęta z serwisu przestaje udawać aktywną.** Oferta wycofana przez
+sprzedającego znikała z listy i nikt nam tego nie mówił — zostawała `ACTIVE`
+bez końca. Teraz dostaje `DISAPPEARED`, ale dopiero po **dwóch** kolejnych
+przemiatach bez niej: jeden potrafi urwać się w połowie i wtedy „brak na
+liście" znaczy tylko „nie doszliśmy do tej strony". Aukcji po terminie ta
+reguła nie dotyczy — tam rządzi faza domknięcia, która ma szansę złapać cenę
+końcową.
+
 ## 0.15.0 — w przygotowaniu
 
 **Ceny końcowe są wreszcie łapane (faza domknięcia z §11.5).** To była

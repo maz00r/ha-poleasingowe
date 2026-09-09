@@ -212,11 +212,11 @@ python3 tools/recon_0b.py --dry-run --source efl --url "<URL>"
   rocznika, silnika, koloru i przebiegu — i tak jest oznaczone w interfejsie.
   Auta z floty kupionej hurtem mogą się nie powiązać wcale (różny przebieg)
   i to jest bezpieczniejszy błąd niż sklejenie dwóch różnych sztuk.
-- **Nie ma wykrywania zniknięcia z listy.** Aukcja, która przestała się
-  pojawiać w przemiatach, nie jest z tego powodu oznaczana. Od 0.9.0 zamyka
-  ją natomiast **zegar**: po upływie okna dogrywki źródła dispatcher
-  ustawia `ENDED` i `final_price_state = LAST_SEEN`. To nie zastępuje fazy
-  domknięcia — cena końcowa nadal nie jest odczytywana po zamknięciu.
+- **Zniknięcie z listy wykrywane jest z jednym cyklem opóźnienia.** Aukcja
+  musi wypaść z **dwóch** kolejnych przemiatów, żeby dostała `DISAPPEARED` —
+  jeden przemiat potrafi urwać się w połowie (paginacja, timeout, WAF),
+  a fałszywy alarm kasuje ofertę z widoku aktywnych. Aukcji po terminie ta
+  reguła nie dotyczy: tam rządzi faza domknięcia.
 - **Logowanie do serwisów** — mechanizm z etapu 8 stoi gotowy, ale żaden
   adapter go nie używa. Realnie zyskałby na tym tylko autoprzetarg
   (liczba i historia ofert).

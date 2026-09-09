@@ -74,6 +74,9 @@ class AuctionRepository(Protocol):
         self, auction_id: int, next_poll_at: dt.datetime | None, poll_tier: PollTier
     ) -> None: ...
     async def zamknij_po_terminie(self, teraz: dt.datetime) -> int: ...
+    async def oznacz_zniknione(
+        self, source_id: int, poprzedni_przemiat: dt.datetime, teraz: dt.datetime
+    ) -> int: ...
 
 
 class SnapshotRepository(Protocol):

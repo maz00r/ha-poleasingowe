@@ -226,11 +226,21 @@ class Dispatcher:
         if pozycje:
             async with kontekst.uow as uow:
                 nowe = await uow.auction.zapisz_z_przemiatu(pozycje)
+                # Czego NIE BYŁO na liście. Warunek jest ostrożny: aukcja
+                # musi wypaść z dwóch kolejnych przemiatów, bo jeden potrafi
+                # urwać się w połowie (paginacja, timeout, WAF) i wtedy
+                # „brak na liście" znaczy tylko „nie doszliśmy tam".
+                zniknione = 0
+                if zrodlo.last_sweep_at is not None and zrodlo.id is not None:
+                    zniknione = await uow.auction.oznacz_zniknione(
+                        zrodlo.id, zrodlo.last_sweep_at, teraz
+                    )
             log.info(
-                "przemiat %s: %s pozycji, w tym %s nowych",
+                "przemiat %s: %s pozycji, w tym %s nowych%s",
                 zrodlo.key,
                 len(pozycje),
                 nowe,
+                f", {zniknione} zniknęło z listy" if zniknione else "",
             )
 
         async with kontekst.uow as uow:
