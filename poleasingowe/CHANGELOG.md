@@ -1,5 +1,31 @@
 # Historia zmian
 
+## 0.19.0 — w przygotowaniu
+
+**Prawdziwe oferty zamiast zgadywania.** Karta aukcji EFL pokazuje teraz
+sekcję „Oferty": kwotę i moment złożenia każdej oferty tak, jak podaje je
+serwis — zamiast wnioskowania z różnic licznika między naszymi odpytami.
+Zakładka „Oferty" jest w HTML-u strony i nie wymaga logowania, więc lista
+przyjeżdża **tą samą odpowiedzią**, którą i tak pobieramy po cenę: ani
+jednego żądania więcej.
+
+Przy okazji archiwum wie więcej niż serwis. EFL trzyma jeden wiersz na
+uczestnika i nadpisuje go w miejscu, więc gdy ktoś podniesie swoją ofertę,
+poprzednia znika ze strony bez śladu. U nas zostają obie — przebieg
+licytacji odtwarza się w całości.
+
+Licytanci są oznaczeni literami („Licytant A", „Licytant B") w kolejności
+pojawienia się. Identyfikatory nadane przez serwis **nie trafiają do bazy**:
+zapisujemy skrót związany z konkretną aukcją, więc widać, kto kogo przebijał
+w tej licytacji, i nie da się z tego złożyć listy aukcji, w których ktoś
+brał udział.
+
+**Poprawka: „przegapione oferty" znikły tam, gdzie nic nie znaczyły.**
+Licznik ofert w EFL liczy uczestników licytacji proxy, a nie postąpienia,
+więc wyliczana z niego liczba przegapionych ofert była pozbawiona sensu —
+i wyglądała wiarygodnie, co jest gorsze niż jej brak. Teraz pokazuje się
+wyłącznie dla źródeł, o których wiadomo, że licznik liczy oferty.
+
 ## 0.18.0 — w przygotowaniu
 
 **Dashboardy Grafany w repozytorium.** Trzy gotowe do zaimportowania:
