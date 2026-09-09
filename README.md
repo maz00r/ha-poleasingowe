@@ -146,6 +146,19 @@ Wszystkie cztery chodzą tak samo lokalnie i w CI:
 .venv/bin/pytest
 ```
 
+### Piąta bramka, której nie sprawdzi żaden linter
+
+**Każdy push zmieniający zachowanie dodatku musi podbić wersję.** Home
+Assistant rozpoznaje dostępną aktualizację **wyłącznie po numerze wersji**
+z `config.yaml` — bez podbicia poprawka leży w repo, a użytkownik nigdy się
+o niej nie dowie. Kod wygląda wtedy na dostarczony i nie jest.
+
+Numer stoi w trzech miejscach (`app/wersja.py`, `config.yaml`, `Dockerfile`);
+ich zgodności pilnuje `tests/unit/test_pakowanie_addonu.py`, ale **samego
+podbicia nie pilnuje nic**, bo żaden test nie wie, czy zmiana jest widoczna
+dla użytkownika. Do tego wpis w `CHANGELOG.md` — do nowej sekcji, jeśli
+poprzednia wersja została już wypchnięta.
+
 Warto włączyć hooki, żeby nie dowiadywać się o tym z CI:
 
 ```bash
