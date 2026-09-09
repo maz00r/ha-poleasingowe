@@ -74,11 +74,22 @@ Kolejność etapów jest w `SPEC.md` §14. Zrobione:
   Heurystyka marki i modelu wyniesiona do `sources/marki.py`, wspólna dla
   adapterów. Dołożony adapter **autoprzetarg.pl** — czyta anonimowo wszystko
   poza liczbą ofert, bo tej serwis nie podaje bez sesji.
-  ← tutaj jesteśmy; zostaje leasygroup (po pomiarze 2026-09-10).
+  ← zostaje leasygroup (po pomiarze 2026-09-10).
 
-Następny: dokończenie **ETAPU 10** (autoprzetarg wymaga sesji — patrz
-etap 8), potem **ETAP 11** — backup `pg_dump`, dashboardy Grafany jako JSON
-w repo, statystyki, eksport.
+- **ETAP 11** — backup `pg_dump` własnej bazy raz na dobę do `/share`
+  (siedem kopii, data w diagnostyce), trzy dashboardy Grafany jako JSON
+  w repo wraz z testem wykonującym ich zapytania na prawdziwych widokach,
+  eksport listy do CSV z tymi samymi filtrami, co widok.
+  ← tutaj jesteśmy; **XLSX pominięty** — CSV z BOM-em i średnikiem otwiera
+  się w Excelu bez pośrednika, a osobny format znaczyłby nową zależność.
+
+Poza etapami doszła **faza domknięcia z §11.5** (drabinka prób po terminie,
+`CONFIRMED` tylko z potwierdzenia serwisu), **wykrywanie zniknięcia z listy**,
+**powiązania ponownych wystawień** tego samego auta i **przebieg licytacji**
+na karcie.
+
+Następny: **leasygroup** po pomiarze, potem historia ofert z §11.8 (EFL
+udostępnia ją inline, więc `bid_gap` da się mieć bez zgadywania).
 
 Repozytorium add-onu: <https://github.com/maz00r/ha-poleasingowe> —
 instrukcja instalacji w [`poleasingowe/DOCS.md`](poleasingowe/DOCS.md).
