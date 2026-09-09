@@ -20,6 +20,14 @@ zapisujemy skrót związany z konkretną aukcją, więc widać, kto kogo przebij
 w tej licytacji, i nie da się z tego złożyć listy aukcji, w których ktoś
 brał udział.
 
+**Poprawka: zakończone aukcje EFL znikają z „Aktywnych" po dziesięciu
+minutach, nie po siedemdziesięciu.** Aukcji nieobserwowanej nie odpytujemy
+po raz drugi, więc jej koniec rozpoznaje zegar — a ten czekał na możliwą
+dogrywkę nawet tam, gdzie serwis dogrywki w ogóle nie ma. EFL kończy aukcje
+twardo, więc czekanie godziny „na wszelki wypadek" trzymało je na samej
+górze listy, która jest sortowana po najbliższym terminie. Źródła
+z dogrywką (poleasingowe.pl) czekają tyle, ile trzeba — bez zmian.
+
 **Poprawka: „przegapione oferty" znikły tam, gdzie nic nie znaczyły.**
 Licznik ofert w EFL liczy uczestników licytacji proxy, a nie postąpienia,
 więc wyliczana z niego liczba przegapionych ofert była pozbawiona sensu —
