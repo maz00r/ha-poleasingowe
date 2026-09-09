@@ -10,13 +10,14 @@ import datetime as dt
 import pathlib
 from decimal import Decimal
 
+import httpx
 import pytest
 
 from app.application.ports import SurowaOferta
 from app.domain.enums import AuctionStatus, Currency
 from app.domain.errors import ParseFailed
 from app.domain.value_objects import Money
-from app.infrastructure.sources.autoprzetarg import mapper, parser
+from app.infrastructure.sources.autoprzetarg import mapper, parser, source
 
 FIXTURES = pathlib.Path(__file__).resolve().parents[3] / "fixtures" / "autoprzetarg"
 TERAZ = dt.datetime(2026, 9, 8, 12, 0, tzinfo=dt.UTC)
@@ -36,6 +37,25 @@ def test_lista_daje_dwanascie_pozycji_na_strone() -> None:
     pozycje = parser.sparsuj_liste(html("lista-01.html"))
     assert len(pozycje) == 12
     assert parser.numery_stron(html("lista-01.html"))[:3] == [2, 3, 4]
+
+
+def test_strona_waf_nie_jest_pusta_lista() -> None:
+    with pytest.raises(ParseFailed, match="listę aukcji"):
+        parser.sparsuj_liste("<html><body>Just a moment…</body></html>")
+
+
+async def test_zapetlona_paginacja_przerywa_przemiat() -> None:
+    """Powtórzona strona nie może udawać drugiej pełnej listy."""
+
+    def obsluz(_: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, text=html("lista-01.html"))
+
+    klient = httpx.AsyncClient(
+        base_url=parser.BAZOWY_URL, transport=httpx.MockTransport(obsluz)
+    )
+    async with source.AutoprzetargSource(klient) as adapter:
+        with pytest.raises(ParseFailed, match="zapętlona paginacja"):
+            await adapter.przemiec_liste()
 
 
 def test_identyfikator_to_srodkowy_segment_adresu() -> None:

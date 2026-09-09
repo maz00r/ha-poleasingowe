@@ -108,6 +108,11 @@ def sparsuj_liste(html: str) -> list[SurowaOferta]:
     Dokładny `endDate` przychodzi dopiero ze strony szczegółów.
     """
     drzewo = HTMLParser(html)
+    if not drzewo.css(_KAFELEK) and not any(
+        tekst in drzewo.text().lower()
+        for tekst in ("brak ofert", "nie znaleziono", "brak wyników")
+    ):
+        raise ParseFailed("poleasingowe: strona nie wygląda na listę aukcji")
     oferty: list[SurowaOferta] = []
     widziane: set[str] = set()
 

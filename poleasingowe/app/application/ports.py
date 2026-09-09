@@ -8,7 +8,7 @@ kiedyś", więc nie definiujemy go, dopóki nie ma implementacji.
 from __future__ import annotations
 
 import datetime as dt
-from collections.abc import Sequence
+from collections.abc import AsyncIterator, Sequence
 from contextlib import AbstractAsyncContextManager
 from dataclasses import dataclass
 from typing import Protocol, runtime_checkable
@@ -199,6 +199,18 @@ class SurowaOferta:
 
 
 @dataclass(slots=True, frozen=True)
+class StronaPrzemiatu:
+    """Jedna prawidłowo rozpoznana strona listy aukcji.
+
+    Adapter oddaje strony osobno, aby dispatcher mógł między nimi obsłużyć
+    aukcje w dogrywce. Normalne zakończenie iteratora znaczy pełny przemiat;
+    wyjątek po części stron daje wynik `PARTIAL`, a przed pierwszą `FAILED`.
+    """
+
+    pozycje: tuple[SurowaOferta, ...]
+
+
+@dataclass(slots=True, frozen=True)
 class Ciastko:
     """Jedno ciasteczko sesji, w postaci niezależnej od klienta HTTP.
 
@@ -254,6 +266,10 @@ class AuctionSource(Protocol):
 
     async def przemiec_liste(self) -> Sequence[SurowaOferta]:
         """Zbiorczy przemiat listy — główna oszczędność systemu (§11.2)."""
+        ...
+
+    def strony_przemiatu(self) -> AsyncIterator[StronaPrzemiatu]:
+        """Strony jednego przemiatu, od pierwszej do poprawnego końca."""
         ...
 
     async def pobierz_szczegoly(

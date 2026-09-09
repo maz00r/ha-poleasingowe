@@ -29,7 +29,7 @@
           "refId": "A",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT source_key AS \"zrodlo\", enabled AS \"wlaczone\",\n       auth_state AS \"logowanie\",\n       aktywne_aukcje AS \"aktywnych\",\n       last_run_started_at AS \"ostatni przebieg\",\n       last_run_new AS \"nowych\",\n       last_run_changed AS \"zmienionych\",\n       last_run_errors AS \"bledow\",\n       last_run_rss_bytes AS \"RSS\"\nFROM reporting.v_source_health\nORDER BY source_key"
+          "rawSql": "SELECT source_key AS \"zrodlo\", enabled AS \"wlaczone\",\n       auth_state AS \"logowanie\",\n       aktywne_aukcje AS \"aktywnych\",\n       last_sweep_status AS \"skan listy\",\n       last_sweep_attempt_at AS \"ostatnia proba listy\",\n       last_complete_sweep_at AS \"ostatni pelny skan\",\n       last_run_started_at AS \"ostatni przebieg\",\n       last_run_duration_seconds AS \"czas odczytu [s]\",\n       last_run_new AS \"nowych\",\n       last_run_changed AS \"zmienionych\",\n       last_run_errors AS \"bledow\",\n       last_run_rss_bytes AS \"RSS\"\nFROM reporting.v_source_health\nORDER BY source_key"
         }
       ]
     }

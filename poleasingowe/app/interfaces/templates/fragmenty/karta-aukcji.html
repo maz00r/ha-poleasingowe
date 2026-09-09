@@ -26,8 +26,12 @@
       <h1>{{ p.nazwa }}</h1>
       <p class="podtytul">
         {{ p.source_key }} · <code>{{ p.external_id }}</code>
-        {% if p.status.value != 'ACTIVE' %}
-          · {{ p.status.value }} · cena {{ p.final_price_state.value }}
+        {% if p.final_price_state.value == 'CONFIRMED' %}
+          · cena końcowa potwierdzona przez serwis
+        {% elif p.final_price_state.value == 'LAST_SEEN' %}
+          · ostatnia cena przed końcem — dolne oszacowanie
+        {% elif p.status.value != 'ACTIVE' %}
+          · {{ p.status.value }} · cena końcowa niepotwierdzona
         {% endif %}
       </p>
     </div>
@@ -57,6 +61,7 @@
     <div><span>Postąpienie</span><strong>{{ dane.bid_increment_raw or '—' }}</strong></div>
     <div><span>Koniec</span><strong>{{ p.ends_at | czas_lokalny(z_sekundami=True) }}</strong></div>
     <div><span>Zostało</span><strong>{{ p.ends_at | do_konca(teraz) }}</strong></div>
+    <div><span>Świeżość danych</span><strong>{{ dane.last_seen_at | czas_lokalny(z_sekundami=True) }}</strong></div>
     <div><span>Rocznik</span><strong>{{ p.year or '—' }}</strong></div>
     <div><span>Przebieg</span><strong>{{ p.mileage_km | liczba }}{% if p.mileage_km %} km{% endif %}</strong></div>
     <div><span>Paliwo</span><strong>{{ p.fuel or '—' }}</strong></div>

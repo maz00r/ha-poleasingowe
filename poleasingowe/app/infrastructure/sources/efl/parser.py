@@ -55,6 +55,14 @@ def _pary_z_tabeli(korzen: Node) -> dict[str, str]:
 def sparsuj_liste(html: str) -> list[SurowaOferta]:
     """Zwraca pozycje z jednej strony listy aukcji."""
     drzewo = HTMLParser(html)
+    # Pusta lista jest prawidłowym końcem paginacji, ale dowolny HTML bez
+    # kontenera (WAF, strona logowania, błąd serwera) nie może udawać pustej
+    # listy — dispatcher wyciągnąłby z tego fałszywe zniknięcia.
+    if not drzewo.css("div.OfferList") and not any(
+        tekst in drzewo.text().lower()
+        for tekst in ("brak ofert", "nie znaleziono", "brak wyników")
+    ):
+        raise ParseFailed("EFL: strona nie wygląda na listę aukcji")
     oferty: list[SurowaOferta] = []
 
     for kafelek in drzewo.css("div.OfferList"):

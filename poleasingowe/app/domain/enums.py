@@ -70,6 +70,20 @@ class AuthState(StrEnum):
     """Przekroczony twardy limit 3 nieudanych logowań. Wymaga resetu z UI."""
 
 
+class SweepStatus(StrEnum):
+    """Wynik ostatniej próby zebrania całej listy źródła.
+
+    To nie jest status aukcji. Dispatcher może bezpiecznie wyciągać nowe
+    aukcje z częściowego przebiegu, lecz wyłącznie pełny przebieg jest dowodem,
+    że pozostałe pozycje rzeczywiście zniknęły z listy.
+    """
+
+    UNKNOWN = "UNKNOWN"
+    COMPLETE = "COMPLETE"
+    PARTIAL = "PARTIAL"
+    FAILED = "FAILED"
+
+
 class Currency(StrEnum):
     """Waluty, w których serwisy podają kwoty (RECON.md §4.2)."""
 

@@ -4,15 +4,15 @@ from __future__ import annotations
 
 import datetime as dt
 import hashlib
-from collections.abc import Mapping, Sequence
+from collections.abc import AsyncIterator, Mapping, Sequence
 from dataclasses import replace
 from types import TracebackType
 
 import httpx
 
-from app.application.ports import SurowaOferta, SurowaOfertaUczestnika
+from app.application.ports import StronaPrzemiatu, SurowaOferta, SurowaOfertaUczestnika
 from app.domain.entities import Auction, OfertaUczestnika
-from app.domain.errors import SourceUnavailable
+from app.domain.errors import ParseFailed, SourceUnavailable
 from app.infrastructure.sources.adresy import strona_aukcji
 from app.infrastructure.sources.efl import mapper, parser
 
@@ -23,6 +23,8 @@ KATEGORIA_OSOBOWE = 16
 # perPage do 64 — jeden przemiat calej kategorii to wtedy kilkanascie zadan
 # zamiast kilkudziesieciu (RECON.md §2.1).
 NA_STRONE = 64
+MAKS_STRON = 100
+"""Bezpiecznik przed zmianą paginatora, która dawałaby nieskończoną listę."""
 
 
 def hash_tresci(bajty: bytes) -> str:
@@ -98,9 +100,15 @@ class EflSource:
         im ten przemiat (SPEC.md §11.2). To główna oszczędność systemu.
         """
         wszystkie: list[SurowaOferta] = []
+        async for strona in self.strony_przemiatu():
+            wszystkie.extend(strona.pozycje)
+        return wszystkie
+
+    async def strony_przemiatu(self) -> AsyncIterator[StronaPrzemiatu]:
+        """Oddaje strony osobno; powtórzona strona jest częściowym wynikiem."""
         widziane: set[str] = set()
         strona = 0
-        while True:
+        while strona < MAKS_STRON:
             tresc = await self._pobierz(
                 "/AuctionList",
                 {
@@ -111,13 +119,15 @@ class EflSource:
                 },
             )
             pozycje = parser.sparsuj_liste(tresc.decode("utf-8", "replace"))
+            if not pozycje:
+                return
             nowe = [p for p in pozycje if p.external_id not in widziane]
             if not nowe:
-                break
+                raise ParseFailed(f"EFL: zapętlona paginacja na stronie {strona}")
             widziane.update(p.external_id for p in nowe)
-            wszystkie.extend(nowe)
+            yield StronaPrzemiatu(tuple(nowe))
             strona += 1
-        return wszystkie
+        raise ParseFailed(f"EFL: osiągnięto limit {MAKS_STRON} stron")
 
     async def pobierz_szczegoly(
         self, external_id: str, znany_hash: str | None = None

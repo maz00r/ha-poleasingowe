@@ -24,6 +24,7 @@ panelu, mógłby przez add-on odpytywać dowolny adres w sieci lokalnej.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import hashlib
 import io
 import logging
@@ -31,7 +32,8 @@ import os
 import pathlib
 import tempfile
 import time
-from collections.abc import Mapping, Sequence
+from collections.abc import AsyncIterator, Callable, Mapping, Sequence
+from contextlib import AbstractAsyncContextManager
 from urllib.parse import urlsplit
 
 import httpx
@@ -58,6 +60,8 @@ TYPY = {
     ".webp": "image/webp",
 }
 
+BramkaSieci = Callable[[str], AbstractAsyncContextManager[None]]
+
 
 class GaleriaZdjec:
     """Pobiera i cache'uje zdjęcia aukcji."""
@@ -70,14 +74,28 @@ class GaleriaZdjec:
         limit_katalogu: int = LIMIT_KATALOGU_BAJTY,
         limit_pliku: int = LIMIT_PLIKU_BAJTY,
         timeout: float = 20.0,
+        bramka: BramkaSieci | None = None,
     ) -> None:
         self._adaptery = adaptery
         self._katalog = katalog
         self._limit_katalogu = limit_katalogu
         self._limit_pliku = limit_pliku
         self._timeout = timeout
+        self._bramka = bramka
         self._listy: dict[tuple[str, str], tuple[float, tuple[str, ...]]] = {}
         self._klient: httpx.AsyncClient | None = None
+
+    def ustaw_bramke(self, bramka: BramkaSieci) -> None:
+        """Podpina wspólny limit dispatchera po jego utworzeniu."""
+        self._bramka = bramka
+
+    @contextlib.asynccontextmanager
+    async def _wejdz_do_sieci(self, source_key: str) -> AsyncIterator[None]:
+        if self._bramka is None:
+            yield
+            return
+        async with self._bramka(source_key):
+            yield
 
     async def _klient_http(self) -> httpx.AsyncClient:
         if self._klient is None:
@@ -112,7 +130,8 @@ class GaleriaZdjec:
         try:
             # Pełna dokumentacja fotograficzna pojazdu. Limit przestrzeni
             # dotyczy cache'u bajtów, nie liczby adresów w galerii.
-            adresy = tuple(await pobierz(external_id, url))
+            async with self._wejdz_do_sieci(source_key):
+                adresy = tuple(await pobierz(external_id, url))
         except Exception as exc:
             # Brak zdjęć nie ma prawa zepsuć karty aukcji — reszta danych
             # jest nadal użyteczna, a serwis bywa chwilowo niedostępny.
@@ -147,10 +166,10 @@ class GaleriaZdjec:
             return None
         url = adresy[indeks]
         if miniatura:
-            return await self._miniatura(url)
-        return await self._z_cache_lub_sieci(url)
+            return await self._miniatura(source_key, url)
+        return await self._z_cache_lub_sieci(source_key, url)
 
-    async def _miniatura(self, url: str) -> tuple[bytes, str] | None:
+    async def _miniatura(self, source_key: str, url: str) -> tuple[bytes, str] | None:
         """Mały JPEG 3:2 do listy; nigdy oryginał tylko pomniejszony CSS-em."""
         sciezka = self._sciezka_miniatury(url)
         try:
@@ -158,7 +177,7 @@ class GaleriaZdjec:
         except OSError:
             pass
 
-        oryginal = await self._z_cache_lub_sieci(url)
+        oryginal = await self._z_cache_lub_sieci(source_key, url)
         if oryginal is None:
             return None
         try:
@@ -184,7 +203,9 @@ class GaleriaZdjec:
             )
             return wynik.getvalue()
 
-    async def _z_cache_lub_sieci(self, url: str) -> tuple[bytes, str] | None:
+    async def _z_cache_lub_sieci(
+        self, source_key: str, url: str
+    ) -> tuple[bytes, str] | None:
         sciezka = self._sciezka_cache(url)
         typ = TYPY.get(sciezka.suffix, "application/octet-stream")
         try:
@@ -193,9 +214,10 @@ class GaleriaZdjec:
             pass
 
         try:
-            klient = await self._klient_http()
-            odpowiedz = await klient.get(url, headers=self._naglowki(url))
-            odpowiedz.raise_for_status()
+            async with self._wejdz_do_sieci(source_key):
+                klient = await self._klient_http()
+                odpowiedz = await klient.get(url, headers=self._naglowki(url))
+                odpowiedz.raise_for_status()
         except httpx.HTTPError as exc:
             log.warning("nie udało się pobrać zdjęcia %s: %s", url, exc)
             return None

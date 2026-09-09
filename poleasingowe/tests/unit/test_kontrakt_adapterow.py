@@ -31,7 +31,9 @@ def test_adapter_ma_klucz_zgodny_z_rejestrem(klucz: str) -> None:
 
 
 @pytest.mark.parametrize("klucz", KLUCZE)
-@pytest.mark.parametrize("metoda", ["przemiec_liste", "pobierz_szczegoly", "na_aukcje"])
+@pytest.mark.parametrize(
+    "metoda", ["przemiec_liste", "strony_przemiatu", "pobierz_szczegoly", "na_aukcje"]
+)
 def test_adapter_ma_metody_portu(klucz: str, metoda: str) -> None:
     adapter = registry.utworz(klucz)
     assert callable(
@@ -47,6 +49,9 @@ def test_metody_sieciowe_sa_asynchroniczne(klucz: str) -> None:
         assert inspect.iscoroutinefunction(
             getattr(adapter, metoda)
         ), f"{klucz}.{metoda} musi być async"
+    assert inspect.isasyncgenfunction(
+        adapter.strony_przemiatu
+    ), f"{klucz}.strony_przemiatu musi zwracać strony asynchronicznie"
 
 
 @pytest.mark.parametrize("klucz", KLUCZE)

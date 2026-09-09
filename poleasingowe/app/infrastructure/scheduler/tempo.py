@@ -81,10 +81,15 @@ class KubelekTokenow:
         brakuje = 1.0 - self._tokeny
         return brakuje / self._tempo_na_s + self._jitter() * MAKS_JITTER_S
 
-    def zuzyj(self) -> None:
-        """Zabiera token. Wywoływane po odczekaniu `ile_czekac()`."""
+    def zuzyj(self, *, pozycz: bool = False) -> None:
+        """Zabiera token; domknięcie może zapisać dług do przyszłego tempa.
+
+        Poprzednia implementacja obcinała saldo do zera. W praktyce wyjątek
+        dla końcówki aukcji przepuszczał żądanie, ale kolejne nie czekało za
+        nie, więc limit nie był rozliczony. Ujemne saldo jest tym długiem.
+        """
         self._dolej()
-        self._tokeny = max(0.0, self._tokeny - 1.0)
+        self._tokeny = self._tokeny - 1.0 if pozycz else max(0.0, self._tokeny - 1.0)
 
 
 def _domyslny_jitter() -> float:

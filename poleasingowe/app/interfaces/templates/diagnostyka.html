@@ -35,6 +35,9 @@
     <p class="uwaga">Kopii jeszcze nie ma. Powstaje raz na dobę w
       <code>/share/poleasingowe/backup</code> i trzymamy siedem ostatnich.</p>
   {% endif %}
+  {% if dane.ostatni_blad_kopii %}
+    <p class="ostrzezenie-inline">Ostatni błąd pg_dump: <code>{{ dane.ostatni_blad_kopii }}</code></p>
+  {% endif %}
 </section>
 
 <section class="karta">
@@ -59,7 +62,8 @@
         <th>Źródło</th><th>Włączone</th><th>Uwierzytelnienie</th>
         <th>Aktywne</th><th>Limit/min</th><th>Floor</th>
         <th>Drabinka domknięcia</th><th>bid_count</th>
-        <th>Ostatni przebieg</th><th>Nowe / zmienione / błędy</th><th></th>
+        <th>Ostatni przebieg</th><th>Czas odczytu</th><th>Ostatnia próba listy</th><th>Ostatni pełny skan</th>
+        <th>Nowe / zmienione / błędy</th><th></th>
       </tr>
     </thead>
     <tbody>
@@ -79,6 +83,9 @@
         <td><code>{{ z.closing_ladder_seconds | join(', ') or '—' }}</code></td>
         <td>{{ z.bid_count_semantics }}</td>
         <td>{{ z.last_run_finished_at | czas_lokalny }}</td>
+        <td>{% if z.last_run_duration_seconds is not none %}{{ '%.1f s' | format(z.last_run_duration_seconds) }}{% else %}—{% endif %}</td>
+        <td>{{ z.last_sweep_status }} · {{ z.last_sweep_attempt_at | czas_lokalny }}</td>
+        <td>{{ z.last_complete_sweep_at | czas_lokalny }}</td>
         <td>
           {{ z.last_run_new if z.last_run_new is not none else '—' }} /
           {{ z.last_run_changed if z.last_run_changed is not none else '—' }} /

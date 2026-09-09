@@ -186,6 +186,9 @@ def main() -> int:
             log.warning("żadne źródło nie jest włączone — dispatcher nie startuje")
             return
         petla = Dispatcher(fabryka, adaptery, kopia=kopia)
+        # Galeria korzysta z tej samej blokady i kubełka, co listy oraz
+        # szczegóły. Wejście na kartę nie może ominąć limitu źródła.
+        galeria.ustaw_bramke(petla.bramka_sieci)
         # Od tej chwili karta aukcji moze poprosic o wczesniejszy obrot.
         budzik.podepnij(petla)
         await petla.uruchom()

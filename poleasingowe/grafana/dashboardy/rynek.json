@@ -53,7 +53,7 @@
           "refId": "A",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT year AS \"rocznik\",\n       median_confirmed AS \"mediana potwierdzona\",\n       n_confirmed AS \"sztuk potwierdzonych\",\n       median_last_seen AS \"mediana ostatnia widziana\",\n       n_last_seen AS \"sztuk\",\n       median_lead_seconds AS \"wyprzedzenie [s]\"\nFROM reporting.v_market_stats\nWHERE make = '$make' AND ('$model' = '' OR model = '$model')\nORDER BY year DESC"
+          "rawSql": "SELECT year AS \"rocznik\",\n       median_confirmed AS \"mediana potwierdzona\",\n       n_confirmed AS \"sztuk potwierdzonych\",\n       confirmed_share AS \"udzial potwierdzonych\",\n       median_last_seen AS \"mediana ostatnia widziana\",\n       n_last_seen AS \"sztuk\",\n       last_seen_share AS \"udzial ostatnio widzianych\",\n       median_lead_seconds AS \"wyprzedzenie [s]\"\nFROM reporting.v_market_stats\nWHERE make = '$make' AND ('$model' = '' OR model = '$model')\nORDER BY year DESC"
         }
       ]
     }

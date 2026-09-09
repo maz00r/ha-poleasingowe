@@ -83,6 +83,15 @@ Kolejność etapów jest w `SPEC.md` §14. Zrobione:
   ← tutaj jesteśmy; **XLSX pominięty** — CSV z BOM-em i średnikiem otwiera
   się w Excelu bez pośrednika, a osobny format znaczyłby nową zależność.
 
+- **Stabilizacja zbierania (0.27.0)** — wynik przemiatu jest rozróżniany na
+  pełny, częściowy i nieudany; tylko dwa kolejne pełne przebiegi mogą oznaczyć
+  aukcję jako znikniętą. Dispatcher najpierw łapie kończące się aukcje,
+  następnie skanuje listy stronami, a backup idzie w tle z backoffem po błędzie.
+  Pełny zestaw automatycznych testów przechodzi na lokalnym PostgreSQL 17.
+  Przed uznaniem zachowania produkcyjnego za potwierdzone pozostaje
+  siedmiodniowa obserwacja na HA, porównanie domknięć ze źródłami oraz pomiar
+  RSS względem limitów 170 MB w spoczynku i 250 MB w szczycie.
+
 Poza etapami doszła **faza domknięcia z §11.5** (drabinka prób po terminie,
 `CONFIRMED` tylko z potwierdzenia serwisu), **wykrywanie zniknięcia z listy**,
 **powiązania ponownych wystawień** tego samego auta oraz **przebieg

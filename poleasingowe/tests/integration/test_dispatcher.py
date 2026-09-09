@@ -11,14 +11,17 @@ stronie sieci. Parsery mają własne testy na fixtures.
 
 from __future__ import annotations
 
+import asyncio
 import datetime as dt
+from collections.abc import AsyncIterator
 from dataclasses import replace
 from decimal import Decimal
+from typing import cast
 
 import psycopg
 import pytest
 
-from app.application.ports import SurowaOferta, SurowaOfertaUczestnika
+from app.application.ports import StronaPrzemiatu, SurowaOferta, SurowaOfertaUczestnika
 from app.domain.entities import (
     Auction,
     OfertaUczestnika,
@@ -31,12 +34,15 @@ from app.domain.enums import (
     Currency,
     FinalPriceState,
     PollTier,
+    SweepStatus,
 )
 from app.domain.errors import SourceUnavailable
 from app.domain.value_objects import Money
+from app.infrastructure.kopia import KopiaZapasowa
+from app.infrastructure.persistence.pula import PgFabrykaKontekstu
 from app.infrastructure.persistence.repositories import PgUnitOfWork
 from app.infrastructure.scheduler.dispatcher import MAKS_SEN_S, Dispatcher
-from tests.conftest import wymaga_postgresa
+from tests.conftest import _dsn, wymaga_postgresa
 from tests.integration.test_interfejs_e2e import FabrykaNaPolaczeniu
 
 pytestmark = wymaga_postgresa
@@ -62,20 +68,36 @@ class ZrodloAtrapa:
         self.przemiaty = 0
         self.podane_hashe: list[str | None] = []
         self.na_liscie: list[str] = []
+        self.strony_listy: list[list[str]] | None = None
+        self.blad_po_stronie: int | None = None
         self.ends_at_na_liscie: dt.datetime | None = None
 
     async def przemiec_liste(self) -> list[SurowaOferta]:
+        wynik: list[SurowaOferta] = []
+        async for strona in self.strony_przemiatu():
+            wynik.extend(strona.pozycje)
+        return wynik
+
+    async def strony_przemiatu(self) -> AsyncIterator[StronaPrzemiatu]:
         self.przemiaty += 1
         if self.blad is not None:
             raise self.blad
-        return [
-            SurowaOferta(
-                external_id=eid,
-                url=f"https://atrapa.test/{eid}",
-                pola={"z_listy": "1"},
+        strony = (
+            self.strony_listy if self.strony_listy is not None else [self.na_liscie]
+        )
+        for numer, identyfikatory in enumerate(strony, start=1):
+            yield StronaPrzemiatu(
+                tuple(
+                    SurowaOferta(
+                        external_id=eid,
+                        url=f"https://atrapa.test/{eid}",
+                        pola={"z_listy": "1"},
+                    )
+                    for eid in identyfikatory
+                )
             )
-            for eid in self.na_liscie
-        ]
+            if self.blad_po_stronie == numer:
+                raise SourceUnavailable("przerwana paginacja")
 
     async def pobierz_szczegoly(
         self, external_id: str, znany_hash: str | None = None
@@ -117,6 +139,41 @@ class ZrodloAtrapa:
             ends_at=self.ends_at_na_liscie if z_listy else self.ends_at,
             content_hash=surowa.content_hash,
         )
+
+
+class WolneZrodlo(ZrodloAtrapa):
+    """Adapter, który zatrzymuje jedno żądanie, aż test go zwolni."""
+
+    def __init__(self, key: str) -> None:
+        super().__init__(key)
+        self.rozpoczeto = asyncio.Event()
+        self.zezwol = asyncio.Event()
+
+    async def pobierz_szczegoly(
+        self, external_id: str, znany_hash: str | None = None
+    ) -> SurowaOferta | None:
+        self.rozpoczeto.set()
+        await self.zezwol.wait()
+        return await super().pobierz_szczegoly(external_id, znany_hash)
+
+
+class KopiaWTrakcie:
+    """Atrapa długiego pg_dump: ma nie zatrzymywać następnego obrotu."""
+
+    def __init__(self) -> None:
+        self.rozpoczeto = asyncio.Event()
+        self.zezwol = asyncio.Event()
+        self.blad: str | None = None
+
+    def czas_na_kopie(self, _: dt.datetime) -> bool:
+        return True
+
+    def odnotuj_blad(self, blad: str | None) -> None:
+        self.blad = blad
+
+    async def wykonaj(self, _: dt.datetime) -> None:
+        self.rozpoczeto.set()
+        await self.zezwol.wait()
 
 
 def zrodlo(key: str, **nadpisz: object) -> Source:
@@ -456,6 +513,117 @@ async def test_zdrowe_zrodlo_pracuje_mimo_awarii_sasiada(
 
     assert padniete.pobrania == 1
     assert zdrowe.sparsowane == 1, "awaria sąsiada nie ma prawa go zablokować"
+
+
+async def test_wolne_zrodlo_nie_opoznia_odczytu_obserwowanej_aukcji_innego(
+    pusta_baza: psycopg.AsyncConnection,
+) -> None:
+    """Źródła mają osobne zadania i połączenia, lecz własny limit żądań."""
+    wolne = WolneZrodlo("wolne")
+    szybkie = ZrodloAtrapa("szybkie")
+    teraz = await _czas_bazy(pusta_baza)
+    async with PgUnitOfWork(pusta_baza) as uow:
+        for adapter in (wolne, szybkie):
+            zapisane = await uow.source.zapisz(zrodlo(adapter.key))
+            assert zapisane.id is not None
+            adapter.ends_at = teraz + dt.timedelta(minutes=20)
+            aukcja = await uow.auction.zapisz(
+                Auction(
+                    source_id=zapisane.id,
+                    external_id=f"{adapter.key}-1",
+                    url=f"https://atrapa.test/{adapter.key}",
+                    status=AuctionStatus.ACTIVE,
+                    first_seen_at=teraz,
+                    last_seen_at=teraz,
+                    price_current=Money(Decimal("1000"), Currency.PLN),
+                    ends_at=adapter.ends_at,
+                    next_poll_at=teraz - dt.timedelta(seconds=1),
+                )
+            )
+            assert aukcja.id is not None
+            await uow.watchlist.dodaj(
+                WatchlistEntry(auction_id=aukcja.id, added_at=teraz)
+            )
+    await pusta_baza.commit()
+
+    fabryka = PgFabrykaKontekstu(_dsn(pusta_baza.info.dbname), opis="test tempa")
+    await fabryka.otworz()
+    petla = Dispatcher(fabryka, {wolne.key: wolne, szybkie.key: szybkie})
+    zadanie = asyncio.create_task(petla.jeden_obrot())
+    try:
+        await asyncio.wait_for(wolne.rozpoczeto.wait(), timeout=1)
+        for _ in range(100):
+            if szybkie.pobrania == 1:
+                break
+            await asyncio.sleep(0.01)
+        assert szybkie.pobrania == 1
+    finally:
+        wolne.zezwol.set()
+        await asyncio.wait_for(zadanie, timeout=2)
+        await fabryka.zamknij()
+
+
+async def test_dwadzieścia_obserwowanych_aukcji_ma_pierwszenstwo_przed_lista(
+    pusta_baza: psycopg.AsyncConnection,
+) -> None:
+    """Partia pilnych odczytów jest pełna, zanim dispatcher zacznie skan."""
+    adapter = ZrodloAtrapa()
+    teraz = await _czas_bazy(pusta_baza)
+    async with PgUnitOfWork(pusta_baza) as uow:
+        zapisane = await uow.source.zapisz(zrodlo(adapter.key))
+        assert zapisane.id is not None
+        adapter.ends_at = teraz + dt.timedelta(minutes=20)
+        for numer in range(20):
+            aukcja = await uow.auction.zapisz(
+                Auction(
+                    source_id=zapisane.id,
+                    external_id=f"obserwowana-{numer}",
+                    url=f"https://atrapa.test/{numer}",
+                    status=AuctionStatus.ACTIVE,
+                    first_seen_at=teraz,
+                    last_seen_at=teraz,
+                    price_current=Money(Decimal("1000"), Currency.PLN),
+                    ends_at=adapter.ends_at,
+                    next_poll_at=teraz - dt.timedelta(seconds=1),
+                )
+            )
+            assert aukcja.id is not None
+            await uow.watchlist.dodaj(
+                WatchlistEntry(auction_id=aukcja.id, added_at=teraz)
+            )
+
+    await dispatcher(pusta_baza, adapter).jeden_obrot()
+    assert adapter.pobrania == 20
+
+
+async def test_trwajaca_kopia_nie_zatrzymuje_kolejnego_odczytu(
+    pusta_baza: psycopg.AsyncConnection,
+) -> None:
+    adapter = ZrodloAtrapa()
+    auction_id, _ = await przygotuj(pusta_baza, adapter, do_konca_min=20)
+    kopia = KopiaWTrakcie()
+    petla = Dispatcher(
+        FabrykaNaPolaczeniu(pusta_baza),
+        {adapter.key: adapter},
+        kopia=cast(KopiaZapasowa, kopia),
+    )
+
+    await petla.jeden_obrot()
+    await asyncio.wait_for(kopia.rozpoczeto.wait(), timeout=1)
+
+    teraz = await _czas_bazy(pusta_baza)
+    async with PgUnitOfWork(pusta_baza) as uow:
+        biezaca = await wczytaj(pusta_baza, auction_id)
+        await uow.auction.zapisz(
+            replace(biezaca, next_poll_at=teraz - dt.timedelta(seconds=1))
+        )
+
+    try:
+        await petla.jeden_obrot()
+        assert adapter.pobrania == 2
+    finally:
+        kopia.zezwol.set()
+        await petla._anuluj_kopie()
 
 
 async def test_brak_zaleglych_aukcji_konczy_sie_snem_bez_zadan(
@@ -942,7 +1110,9 @@ async def test_aukcja_znika_z_listy_dopiero_po_dwoch_przemiatach(
             (auction_id,),
         )
         await cur.execute(
-            "UPDATE app.source SET last_sweep_at = now() - interval '9 hours'"
+            "UPDATE app.source SET last_sweep_at = now() - interval '9 hours', "
+            "last_sweep_attempt_at = now() - interval '9 hours', "
+            "last_sweep_status = 'COMPLETE'"
         )
 
     await disp.jeden_obrot()
@@ -954,7 +1124,9 @@ async def test_aukcja_znika_z_listy_dopiero_po_dwoch_przemiatach(
     # POPRZEDNI przemiat, więc to już nie przypadek.
     async with pusta_baza.cursor() as cur:
         await cur.execute(
-            "UPDATE app.source SET last_sweep_at = now() - interval '7 hours'"
+            "UPDATE app.source SET last_sweep_at = now() - interval '7 hours', "
+            "last_sweep_attempt_at = now() - interval '7 hours', "
+            "last_sweep_status = 'COMPLETE'"
         )
     await disp.jeden_obrot()
 
@@ -962,6 +1134,45 @@ async def test_aukcja_znika_z_listy_dopiero_po_dwoch_przemiatach(
     assert po.status is AuctionStatus.DISAPPEARED
     assert po.final_price_state is FinalPriceState.LAST_SEEN
     assert po.next_poll_at is None
+
+
+async def test_czesciowy_przemiat_nie_jest_dowodem_znikniecia(
+    pusta_baza: psycopg.AsyncConnection,
+) -> None:
+    """WAF lub timeout po stronie 1 zapisuje odkryte aukcje, nie zniknięcia."""
+    adapter = ZrodloAtrapa()
+    auction_id, _ = await przygotuj(pusta_baza, adapter, do_konca_min=600)
+    adapter.strony_listy = [["sztuczna-2"], ["sztuczna-3"]]
+    adapter.blad_po_stronie = 1
+
+    async with pusta_baza.cursor() as cur:
+        await cur.execute(
+            "UPDATE app.auction SET last_seen_at = now() - interval '12 hours' "
+            "WHERE id = %s",
+            (auction_id,),
+        )
+        await cur.execute(
+            "UPDATE app.source SET last_sweep_at = now() - interval '9 hours', "
+            "last_sweep_attempt_at = now() - interval '9 hours', "
+            "last_sweep_status = 'COMPLETE'"
+        )
+
+    await dispatcher(pusta_baza, adapter).jeden_obrot()
+    assert (await wczytaj(pusta_baza, auction_id)).status is AuctionStatus.ACTIVE
+
+    async with pusta_baza.cursor() as cur:
+        await cur.execute(
+            "SELECT last_sweep_status FROM app.source WHERE key = %s", (adapter.key,)
+        )
+        assert await cur.fetchone() == (SweepStatus.PARTIAL.value,)
+        # Kolejny kompletny skan po częściowym nadal jest dopiero pierwszym.
+        await cur.execute(
+            "UPDATE app.source SET last_sweep_attempt_at = now() - interval '9 hours'"
+        )
+    adapter.blad_po_stronie = None
+    adapter.strony_listy = []
+    await dispatcher(pusta_baza, adapter).jeden_obrot()
+    assert (await wczytaj(pusta_baza, auction_id)).status is AuctionStatus.ACTIVE
 
 
 async def test_aukcja_po_terminie_nie_jest_oznaczana_jako_znikniona(
@@ -1141,7 +1352,9 @@ async def test_przemiat_zapisuje_snapshot_gdy_zmieni_sie_licznik_ofert(
     # w ogole sie odbyl.
     adapter.cena = Decimal("41000")
     async with pusta_baza.cursor() as cur:
-        await cur.execute("UPDATE app.source SET last_sweep_at = NULL")
+        await cur.execute(
+            "UPDATE app.source SET last_sweep_at = NULL, last_sweep_attempt_at = NULL"
+        )
     await dispatcher(pusta_baza, adapter).jeden_obrot()
 
     async with PgUnitOfWork(pusta_baza) as uow:
@@ -1221,7 +1434,9 @@ async def test_aukcja_wraca_z_archiwum_gdy_znowu_stoi_na_liscie(
             "UPDATE app.auction SET status = 'DISAPPEARED' WHERE id = %s",
             (auction_id,),
         )
-        await cur.execute("UPDATE app.source SET last_sweep_at = NULL")
+        await cur.execute(
+            "UPDATE app.source SET last_sweep_at = NULL, last_sweep_attempt_at = NULL"
+        )
 
     await dispatcher(pusta_baza, adapter).jeden_obrot()
 
@@ -1246,7 +1461,9 @@ async def test_zakonczonej_aukcji_przemiat_nie_wskrzesza(
         await cur.execute(
             "UPDATE app.auction SET status = 'ENDED' WHERE id = %s", (auction_id,)
         )
-        await cur.execute("UPDATE app.source SET last_sweep_at = NULL")
+        await cur.execute(
+            "UPDATE app.source SET last_sweep_at = NULL, last_sweep_attempt_at = NULL"
+        )
 
     await dispatcher(pusta_baza, adapter).jeden_obrot()
 

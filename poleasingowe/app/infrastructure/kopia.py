@@ -68,6 +68,15 @@ class KopiaZapasowa:
         self._katalog = katalog
         self._ile_trzymac = ile_trzymac
         self._limit = limit_czasu_s
+        self._ostatni_blad: str | None = None
+
+    @property
+    def ostatni_blad(self) -> str | None:
+        """Ostatni błąd zadania kopii, do pokazania operatorowi w diagnostyce."""
+        return self._ostatni_blad
+
+    def odnotuj_blad(self, blad: str | None) -> None:
+        self._ostatni_blad = blad
 
     def _srodowisko(self) -> dict[str, str]:
         """Parametry połączenia dla `pg_dump` w postaci zmiennych PG*."""
@@ -120,9 +129,13 @@ class KopiaZapasowa:
         try:
             _, blad = await asyncio.wait_for(proces.communicate(), self._limit)
         except TimeoutError:
-            proces.kill()
-            tymczasowy.unlink(missing_ok=True)
+            await self._przerwij(proces, tymczasowy)
             raise BladKopii(f"pg_dump przekroczył {self._limit:.0f} s") from None
+        except asyncio.CancelledError:
+            # SIGTERM add-onu anuluje zadanie kopii. Bez oczekiwania na proces
+            # potomny mógłby on dalej pisać po zatrzymaniu dispatchera.
+            await self._przerwij(proces, tymczasowy)
+            raise
 
         if proces.returncode != 0:
             tymczasowy.unlink(missing_ok=True)
@@ -135,6 +148,19 @@ class KopiaZapasowa:
         kopia = Kopia(cel, teraz, cel.stat().st_size)
         log.info("kopia bazy: %s (%s B)", cel.name, kopia.bajtow)
         return kopia
+
+    @staticmethod
+    async def _przerwij(
+        proces: asyncio.subprocess.Process, tymczasowy: pathlib.Path
+    ) -> None:
+        if proces.returncode is None:
+            proces.terminate()
+            try:
+                await asyncio.wait_for(proces.wait(), timeout=5.0)
+            except TimeoutError:
+                proces.kill()
+                await proces.wait()
+        tymczasowy.unlink(missing_ok=True)
 
     def _kopie(self) -> list[Kopia]:
         try:

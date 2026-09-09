@@ -12,6 +12,7 @@ połączeniami.
 
 from __future__ import annotations
 
+import asyncio
 import contextlib
 import datetime as dt
 from collections.abc import AsyncIterator
@@ -46,12 +47,14 @@ class FabrykaNaPolaczeniu:
 
     def __init__(self, conn: psycopg.AsyncConnection) -> None:
         self._conn = conn
+        self._blokada = asyncio.Lock()
 
     @contextlib.asynccontextmanager
     async def __call__(self) -> AsyncIterator[KontekstPg]:
-        yield KontekstPg(
-            uow=PgUnitOfWork(self._conn), zapytania=PgZapytania(self._conn)
-        )
+        async with self._blokada:
+            yield KontekstPg(
+                uow=PgUnitOfWork(self._conn), zapytania=PgZapytania(self._conn)
+            )
 
     async def zamknij(self) -> None:
         """Połączeniem zarządza fikstura, nie ten obiekt."""

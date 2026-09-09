@@ -8,11 +8,11 @@ przelicza `next_poll_at` czystą polityką z `domain/harmonogram.py`.
 spoczynku koszt CPU jest zerowy, a baza — dzielona z TeslaMate — nie dostaje
 zapytań bez powodu.
 
-Źródła obsługujemy **po kolei, nie równolegle**. §13 wymaga `concurrency = 1`
-na serwis; równoległość *między* serwisami byłaby dozwolona, ale na czterech
-słabych rdzeniach (§1) kupowałaby kilka sekund latencji za realną komplikację
-w izolacji błędów. Awaria jednego źródła i tak nie przerywa przebiegu — ląduje
-w `run_log` i otwiera bezpiecznik tylko dla siebie.
+Każde źródło dostaje własne zadanie w tej samej pętli asyncio. Może więc
+czekać na swój limiter albo wolną odpowiedź, gdy pozostałe źródła dalej
+obsługują pilne odczyty. `bramka_sieci` zachowuje mimo tego `concurrency = 1`
+na serwis, a awaria jednego źródła ląduje w `run_log` i otwiera bezpiecznik
+wyłącznie dla niego.
 """
 
 from __future__ import annotations
@@ -21,7 +21,7 @@ import asyncio
 import contextlib
 import datetime as dt
 import logging
-from collections.abc import Mapping
+from collections.abc import AsyncIterator, Mapping
 from dataclasses import replace
 
 from app.application.ports import (
@@ -43,7 +43,7 @@ from app.domain.entities import (
     Source,
     z_cena_wywolawcza,
 )
-from app.domain.enums import AuctionStatus, PollTier
+from app.domain.enums import AuctionStatus, PollTier, SweepStatus
 from app.domain.errors import DomainError
 from app.domain.harmonogram import nastepny_odpyt, tier
 from app.domain.logowanie import ZrodloZablokowane
@@ -84,11 +84,21 @@ class Dispatcher:
         self._kopia = kopia
         self._kubelki: dict[str, KubelekTokenow] = {}
         self._bezpieczniki: dict[str, Bezpiecznik] = {}
+        self._blokady_sieci: dict[str, asyncio.Lock] = {}
+        self._zrodla_dla_tempa: dict[str, Source] = {}
         # Zbiór aukcji w locie trzymany w pamięci — proces jest jeden, więc
         # to wystarcza. SPEC.md §11.1 zabrania budowania blokad w bazie
         # „na przyszłość".
         self._w_locie: set[int] = set()
+        # Priorytet sprawdzamy ponownie po każdej stronie listy. Aukcja,
+        # której odczyt właśnie się nie udał, pozostaje formalnie zaległa;
+        # nie próbujemy jednak drugi raz w tym samym obrocie.
+        self._odczytane_w_obrocie: set[int] = set()
         self._budzik = asyncio.Event()
+        self._zadanie_kopii: asyncio.Task[None] | None = None
+        self._blad_kopii: str | None = None
+        self._kolejne_bledy_kopii = 0
+        self._ponow_kopie_po: dt.datetime | None = None
 
     # ------------------------------------------------------------------
     # Pętla
@@ -104,6 +114,32 @@ class Dispatcher:
         """
         self._budzik.set()
 
+    @contextlib.asynccontextmanager
+    async def bramka_sieci(
+        self, source_key: str, *, domykanie: bool = False
+    ) -> AsyncIterator[None]:
+        """Wspólna bramka dla list, szczegółów i galerii danego serwisu.
+
+        Jedna blokada obejmuje całe żądanie HTTP. Dzięki temu wejście na kartę
+        ze zdjęciami nie otwiera drugiego równoległego połączenia do serwisu,
+        gdy dispatcher właśnie odczytuje tę samą aukcję.
+        """
+        zrodlo = self._zrodla_dla_tempa.get(source_key)
+        if zrodlo is None:
+            yield
+            return
+        blokada = self._blokady_sieci.setdefault(source_key, asyncio.Lock())
+        kubelek = self._kubelki.setdefault(
+            source_key, KubelekTokenow(zrodlo.rate_limit_per_minute)
+        )
+        async with blokada:
+            if not domykanie:
+                czekaj = kubelek.ile_czekac()
+                if czekaj > 0:
+                    await asyncio.sleep(czekaj)
+            kubelek.zuzyj(pozycz=domykanie)
+            yield
+
     async def uruchom(self) -> None:
         """Pętla główna. Kończy się wyłącznie przez `CancelledError`."""
         log.info("dispatcher wystartował, źródła: %s", ", ".join(sorted(self._zrodla)))
@@ -118,6 +154,7 @@ class Dispatcher:
                 self._budzik.clear()
         except asyncio.CancelledError:
             log.info("dispatcher zatrzymany")
+            await self._anuluj_kopie()
             raise
 
     async def jeden_obrot(self) -> float:
@@ -130,7 +167,8 @@ class Dispatcher:
         try:
             async with self._fabryka() as kontekst:
                 teraz = await kontekst.zapytania.czas_serwera()
-                await self._przebieg(kontekst, teraz)
+            await self._przebieg(teraz)
+            async with self._fabryka() as kontekst:
                 return await self._ile_spac(kontekst, teraz)
         except Exception:
             log.exception(
@@ -151,34 +189,54 @@ class Dispatcher:
     # Przebieg
     # ------------------------------------------------------------------
 
-    async def _przebieg(self, kontekst: KontekstBazy, teraz: dt.datetime) -> None:
-        async with kontekst.uow as uow:
+    async def _przebieg(self, teraz: dt.datetime) -> None:
+        self._odczytane_w_obrocie.clear()
+        async with self._fabryka() as kontekst, kontekst.uow as uow:
             zrodla = {z.key: z for z in await uow.source.wlaczone()}
             po_id = {z.id: z for z in zrodla.values() if z.id is not None}
-
-        # Przemiat listy PRZED odpytem szczegółów — to on w ogóle wprowadza
-        # aukcje do bazy. Bez niego dispatcher odświeżałby wyłącznie to, co
-        # ktoś tam wcześniej wstawił, czyli nic.
-        for do_przemiatu in zrodla.values():
-            await self._moze_przemiec(kontekst, do_przemiatu, teraz)
-
-        await self._moze_zrobic_kopie(teraz)
+        self._zrodla_dla_tempa = zrodla
 
         # Aukcja nieobserwowana nie jest odpytywana po raz drugi (§11.2),
         # a marker końca stoi wyłącznie na stronie szczegółów — bez tego
         # kroku zostawałaby `ACTIVE` na zawsze i siedziała w widoku
         # „Aktywne" długo po swoim terminie.
-        async with kontekst.uow as uow:
+        async with self._fabryka() as kontekst, kontekst.uow as uow:
             zamkniete = await uow.auction.zamknij_po_terminie(teraz)
         if zamkniete:
             log.info("zamknięto %s aukcji po terminie", zamkniete)
 
-        async with kontekst.uow as uow:
+        # Cena końcowa ma pierwszeństwo przed odkrywaniem kolejnych aukcji.
+        # To dotyczy zwłaszcza autoprzetargu, gdzie okno po końcu trwa sekundy.
+        await self._obsluz_zalegle(po_id)
+
+        # Skan jest stronicowany. Po każdej stronie wracamy do zaległych
+        # odczytów, więc wolne źródło ani długa lista nie blokują dogrywki.
+        await asyncio.gather(
+            *(
+                self._moze_przemiec(do_przemiatu, po_id, teraz)
+                for do_przemiatu in zrodla.values()
+            )
+        )
+
+        # Backup nigdy nie stoi na krytycznej ścieżce odczytów.
+        await self._moze_zrobic_kopie(teraz)
+
+    async def _obsluz_zalegle(self, po_id: Mapping[int, Source]) -> None:
+        """Obsługuje dojrzałe odpyty, najpierw domykanie i obserwowane."""
+        async with self._fabryka() as kontekst, kontekst.uow as uow:
+            teraz = await kontekst.zapytania.czas_serwera()
             zalegle = await uow.auction.do_odpytu(teraz, self._limit)
 
-        do_zrobienia = [a for a in zalegle if a.id not in self._w_locie]
+        do_zrobienia = [
+            a
+            for a in zalegle
+            if a.id not in self._w_locie and a.id not in self._odczytane_w_obrocie
+        ]
         if not do_zrobienia:
             return
+        self._odczytane_w_obrocie.update(
+            aukcja.id for aukcja in do_zrobienia if aukcja.id is not None
+        )
 
         # Grupujemy po źródle, żeby `concurrency = 1` na serwis wynikało
         # z kształtu pętli, a nie z dyscypliny wywołań (§13).
@@ -186,6 +244,7 @@ class Dispatcher:
         for aukcja in do_zrobienia:
             wedlug_zrodla.setdefault(aukcja.source_id, []).append(aukcja)
 
+        zadania = []
         for source_id, aukcje in wedlug_zrodla.items():
             zrodlo = po_id.get(source_id)
             if zrodlo is None:
@@ -193,29 +252,68 @@ class Dispatcher:
                     "aukcje wskazują na wyłączone źródło %s — pomijam", source_id
                 )
                 continue
+            zadania.append(self._obsluz_zrodlo_niezaleznie(zrodlo, aukcje, teraz))
+        if zadania:
+            await asyncio.gather(*zadania)
+
+    async def _obsluz_zrodlo_niezaleznie(
+        self, zrodlo: Source, aukcje: list[Auction], teraz: dt.datetime
+    ) -> None:
+        """Daje źródłu osobne połączenie, aby czekanie nie blokowało sąsiadów."""
+        async with self._fabryka() as kontekst:
             await self._obsluz_zrodlo(kontekst, zrodlo, aukcje, teraz)
 
     async def _moze_zrobic_kopie(self, teraz: dt.datetime) -> None:
-        """Dobowy `pg_dump` własnej bazy (SPEC.md §7.1).
+        """Uruchamia najwyżej jeden backup; jego I/O nie zatrzymuje dispatchera."""
+        if self._zadanie_kopii is not None and self._zadanie_kopii.done():
+            try:
+                self._zadanie_kopii.result()
+            except (BladKopii, OSError) as exc:
+                self._kolejne_bledy_kopii += 1
+                odstep = min(300 * (2 ** (self._kolejne_bledy_kopii - 1)), 21_600)
+                self._ponow_kopie_po = teraz + dt.timedelta(seconds=odstep)
+                self._blad_kopii = str(exc)
+                if self._kopia is not None:
+                    self._kopia.odnotuj_blad(self._blad_kopii)
+                log.warning(
+                    "kopia bazy nie powiodła się: %s; ponowię za %s s", exc, odstep
+                )
+            else:
+                self._kolejne_bledy_kopii = 0
+                self._ponow_kopie_po = None
+                self._blad_kopii = None
+                if self._kopia is not None:
+                    self._kopia.odnotuj_blad(None)
+            self._zadanie_kopii = None
 
-        Wpięte w pętlę dispatchera, a nie w osobny wątek czy crona: proces
-        jest jeden i ma jedną pętlę zdarzeń (§7.1), a kopia raz na dobę nie
-        potrzebuje własnego harmonogramu.
-
-        Nieudana kopia **nie zatrzymuje zbierania**. Trafia do logu jako
-        ostrzeżenie i próbuje ponownie przy następnym obrocie doby.
-        """
-        if self._kopia is None or not self._kopia.czas_na_kopie(teraz):
+        if self._kopia is None or self._zadanie_kopii is not None:
             return
-        try:
+        if self._ponow_kopie_po is not None and teraz < self._ponow_kopie_po:
+            return
+        if not self._kopia.czas_na_kopie(teraz):
+            return
+
+        async def wykonaj() -> None:
+            assert self._kopia is not None
             await self._kopia.wykonaj(teraz)
-        except BladKopii as exc:
-            log.warning("kopia bazy nie powiodła się: %s", exc)
-        except OSError as exc:
-            log.warning("kopia bazy: problem z zapisem do /share: %s", exc)
+
+        self._zadanie_kopii = asyncio.create_task(
+            wykonaj(), name="poleasingowe-pg_dump"
+        )
+
+    async def _anuluj_kopie(self) -> None:
+        if self._zadanie_kopii is None:
+            return
+        self._zadanie_kopii.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await self._zadanie_kopii
+        self._zadanie_kopii = None
 
     async def _moze_przemiec(
-        self, kontekst: KontekstBazy, zrodlo: Source, teraz: dt.datetime
+        self,
+        zrodlo: Source,
+        po_id: Mapping[int, Source],
+        teraz: dt.datetime,
     ) -> None:
         """Zbiorczy przemiat listy, jeśli minął interwał źródła (SPEC.md §11.2).
 
@@ -224,12 +322,12 @@ class Dispatcher:
         oszczędność całego systemu — koszt rośnie z liczbą obserwowanych,
         nie z liczbą ofert w serwisie."
 
-        `last_sweep_at = NULL` znaczy „nigdy", więc świeżo zainstalowany
+        `last_sweep_attempt_at = NULL` znaczy „nigdy", więc świeżo zainstalowany
         dodatek zapełnia się przy pierwszym obrocie, a nie po sześciu
         godzinach patrzenia na pustą listę.
         """
-        if zrodlo.last_sweep_at is not None:
-            od_ostatniego = (teraz - zrodlo.last_sweep_at).total_seconds()
+        if zrodlo.last_sweep_attempt_at is not None:
+            od_ostatniego = (teraz - zrodlo.last_sweep_attempt_at).total_seconds()
             if od_ostatniego < zrodlo.sweep_interval_seconds:
                 return
 
@@ -242,76 +340,90 @@ class Dispatcher:
         if bezpiecznik.otwarty(zegar_mono()):
             return
 
-        async with kontekst.uow as uow:
+        async with self._fabryka() as kontekst, kontekst.uow as uow:
             przebieg = await uow.run_log.rozpocznij(
                 RunLog(source_id=zrodlo.id, started_at=teraz)
             )
 
         nowe = 0
         bledy: list[str] = []
-        pozycje: list[Auction] = []
+        liczba_pozycji = 0
+        liczba_stron = 0
+        status = SweepStatus.COMPLETE
         try:
-            surowe = await adapter.przemiec_liste()
-            # Nowo odkryta aukcja dostaje JEDEN odpyt szczegółów, po którym
-            # wraca do trybu „tylko przemiat" (patrz `_termin_po_odpycie`).
-            # Bez tego lista nie zna godziny zakończenia — poleasingowe podaje
-            # na niej wyłącznie datę dzienną (RECON.md §4.2) — i nie da się
-            # zdecydować, co warto obserwować.
-            pozycje = [
-                replace(
-                    # Cena wywolawcza z `bid_count = 0` (§8.2) — wnioskowanie
-                    # pewne, a przemiat bywa jedyna chwila, w ktorej widzimy
-                    # aukcje jeszcze bez ofert.
-                    z_cena_wywolawcza(adapter.na_aukcje(s, zrodlo.id, teraz)),
-                    next_poll_at=teraz,
-                    poll_tier=PollTier.FAR,
-                )
-                for s in surowe
-            ]
+            strony = adapter.strony_przemiatu()
+            while True:
+                try:
+                    async with self.bramka_sieci(zrodlo.key):
+                        strona = await anext(strony)
+                except StopAsyncIteration:
+                    break
+                # Nowe aukcje dostają jeden odpyt szczegółów, ale dopiero po
+                # krytycznych pozycjach istniejących już przed skanem.
+                pozycje = [
+                    replace(
+                        z_cena_wywolawcza(adapter.na_aukcje(s, zrodlo.id, teraz)),
+                        next_poll_at=teraz,
+                        poll_tier=PollTier.FAR,
+                    )
+                    for s in strona.pozycje
+                ]
+                async with self._fabryka() as kontekst, kontekst.uow as uow:
+                    nowe += await uow.auction.zapisz_z_przemiatu(pozycje)
+                liczba_pozycji += len(pozycje)
+                liczba_stron += 1
+                await self._obsluz_zalegle(po_id)
             bezpiecznik.zglos_sukces()
         except (DomainError, OSError) as exc:
             bledy.append(f"przemiat: {type(exc).__name__}: {exc}")
+            status = SweepStatus.PARTIAL if liczba_stron else SweepStatus.FAILED
             bezpiecznik.zglos_blad(zegar_mono())
             log.warning("przemiat listy %s nie powiódł się: %s", zrodlo.key, exc)
 
-        if pozycje:
-            async with kontekst.uow as uow:
-                nowe = await uow.auction.zapisz_z_przemiatu(pozycje)
-                # Czego NIE BYŁO na liście. Warunek jest ostrożny: aukcja
-                # musi wypaść z dwóch kolejnych przemiatów, bo jeden potrafi
-                # urwać się w połowie (paginacja, timeout, WAF) i wtedy
-                # „brak na liście" znaczy tylko „nie doszliśmy tam".
-                zniknione = 0
-                if zrodlo.last_sweep_at is not None and zrodlo.id is not None:
-                    zniknione = await uow.auction.oznacz_zniknione(
-                        zrodlo.id, zrodlo.last_sweep_at, teraz
-                    )
-            log.info(
-                "przemiat %s: %s pozycji, w tym %s nowych%s",
-                zrodlo.key,
-                len(pozycje),
-                nowe,
-                f", {zniknione} zniknęło z listy" if zniknione else "",
+        zniknione = 0
+        async with self._fabryka() as kontekst, kontekst.uow as uow:
+            # Dwa PEŁNE skany są dowodem. Stan UNKNOWN po migracji i
+            # PARTIAL po błędzie zrywają tę sekwencję.
+            if (
+                status is SweepStatus.COMPLETE
+                and zrodlo.last_sweep_status is SweepStatus.COMPLETE
+                and zrodlo.last_sweep_at is not None
+                and zrodlo.id is not None
+            ):
+                zniknione = await uow.auction.oznacz_zniknione(
+                    zrodlo.id, zrodlo.last_sweep_at, teraz
+                )
+            await uow.source.zapisz(
+                replace(
+                    zrodlo,
+                    last_sweep_at=teraz
+                    if status is SweepStatus.COMPLETE
+                    else zrodlo.last_sweep_at,
+                    last_sweep_attempt_at=teraz,
+                    last_sweep_status=status,
+                )
             )
-
-        async with kontekst.uow as uow:
-            # Znacznik przesuwamy TAKŻE po nieudanym przemiacie — inaczej
-            # padnięty serwis byłby przemiatany przy każdym obrocie pętli.
-            # Od dobijania się w kółko jest bezpiecznik, nie brak znacznika.
-            await uow.source.zapisz(replace(zrodlo, last_sweep_at=teraz))
             await uow.run_log.zakoncz(
                 replace(
                     przebieg,
                     finished_at=await kontekst.zapytania.czas_serwera(),
                     new_count=nowe,
-                    changed_count=len(pozycje),
+                    changed_count=liczba_pozycji,
                     error_count=len(bledy),
                     errors=bledy,
                     rss_bytes=rss_bajty(),
                     database_bytes=await kontekst.zapytania.rozmiar_bazy(),
-                    notes="przemiat listy",
+                    notes=f"przemiat {status.value.lower()}",
                 )
             )
+        log.info(
+            "przemiat %s: %s (%s stron), %s nowych%s",
+            zrodlo.key,
+            status.value,
+            liczba_stron,
+            nowe,
+            f", {zniknione} zniknęło z listy" if zniknione else "",
+        )
 
     async def _obsluz_zrodlo(
         self,
@@ -335,10 +447,6 @@ class Dispatcher:
             )
             return
 
-        kubelek = self._kubelki.setdefault(
-            zrodlo.key, KubelekTokenow(zrodlo.rate_limit_per_minute)
-        )
-
         assert zrodlo.id is not None
         async with kontekst.uow as uow:
             przebieg = await uow.run_log.rozpocznij(
@@ -352,7 +460,7 @@ class Dispatcher:
                 continue
             self._w_locie.add(aukcja.id)
             try:
-                if await self._odpytaj(kontekst, adapter, zrodlo, aukcja, kubelek):
+                if await self._odpytaj(kontekst, adapter, zrodlo, aukcja):
                     zmienione += 1
                 bezpiecznik.zglos_sukces()
             except ZrodloZablokowane as exc:
@@ -403,7 +511,6 @@ class Dispatcher:
         adapter: AuctionSource,
         zrodlo: Source,
         aukcja: Auction,
-        kubelek: KubelekTokenow,
     ) -> bool:
         """Jeden odpyt aukcji. Zwraca, czy coś się zmieniło."""
         teraz_wstepnie = await kontekst.zapytania.czas_serwera()
@@ -415,19 +522,14 @@ class Dispatcher:
         # było wysyłać żądania. Token i tak zużywamy, więc budżet źródła
         # pozostaje policzony — pożyczamy z przyszłości, nie udajemy, że
         # żądania nie było.
-        if not domykanie:
-            czekaj = kubelek.ile_czekac()
-            if czekaj > 0:
-                await asyncio.sleep(czekaj)
-        kubelek.zuzyj()
-
         # SPEC.md §11.3 krok 2: adapter porównuje hash surowych bajtów PRZED
         # parsowaniem i zwraca `None`, gdy treść się nie zmieniła. Krok 1
         # (żądanie warunkowe) jest martwy — żaden z czterech serwisów nie
         # zwraca `ETag` ani `Last-Modified` (RECON.md §3.1).
-        surowa = await adapter.pobierz_szczegoly(
-            aukcja.external_id, aukcja.content_hash
-        )
+        async with self.bramka_sieci(zrodlo.key, domykanie=domykanie):
+            surowa = await adapter.pobierz_szczegoly(
+                aukcja.external_id, aukcja.content_hash
+            )
 
         teraz = await kontekst.zapytania.czas_serwera()
         assert aukcja.id is not None

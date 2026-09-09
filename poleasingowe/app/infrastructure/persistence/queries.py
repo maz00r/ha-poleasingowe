@@ -308,7 +308,8 @@ SELECT source_key, source_name, enabled, auth_state,
        aktywne_aukcje, closing_ladder_seconds, bid_count_semantics,
        last_run_started_at, last_run_finished_at, last_run_new,
        last_run_changed, last_run_errors, last_run_rss_bytes,
-       last_run_database_bytes
+       last_run_database_bytes, last_sweep_attempt_at,
+       last_complete_sweep_at, last_sweep_status, last_run_duration_seconds
 FROM reporting.v_source_health
 ORDER BY source_key
 """)
@@ -729,6 +730,10 @@ class PgZapytania:
                 last_run_errors=w["last_run_errors"],
                 last_run_rss_bytes=w["last_run_rss_bytes"],
                 last_run_database_bytes=w["last_run_database_bytes"],
+                last_sweep_attempt_at=w["last_sweep_attempt_at"],
+                last_complete_sweep_at=w["last_complete_sweep_at"],
+                last_sweep_status=w["last_sweep_status"],
+                last_run_duration_seconds=w["last_run_duration_seconds"],
             )
             for w in wiersze
         )

@@ -1048,6 +1048,7 @@ async def diagnostyka(request: Request) -> Response:
         debug_dumps=stan.opcje.debug_dumps,
         ostatni_pg_dump=None if ostatnia_kopia is None else ostatnia_kopia.utworzono,
         kopia_bajty=None if ostatnia_kopia is None else ostatnia_kopia.bajtow,
+        ostatni_blad_kopii=None if kopia is None else kopia.ostatni_blad,
     )
     if fabryka is not None:
         async with fabryka() as kontekst:
@@ -1068,6 +1069,7 @@ async def diagnostyka(request: Request) -> Response:
             debug_dumps=dane.debug_dumps,
             ostatni_pg_dump=dane.ostatni_pg_dump,
             kopia_bajty=dane.kopia_bajty,
+            ostatni_blad_kopii=dane.ostatni_blad_kopii,
         )
     return SZABLONY.TemplateResponse(
         request=request,

@@ -114,6 +114,11 @@ def sparsuj_liste(html: str) -> list[SurowaOferta]:
     VIN, przebieg, paliwo, sprzedający, lokalizacja, cena i absolutny termin.
     """
     drzewo = HTMLParser(html)
+    if not drzewo.css("section.section-list-auctions") and not any(
+        tekst in drzewo.text().lower()
+        for tekst in ("brak aukcji", "brak ofert", "nie znaleziono", "brak wyników")
+    ):
+        raise ParseFailed("autoprzetarg: strona nie wygląda na listę aukcji")
     oferty: list[SurowaOferta] = []
     widziane: set[str] = set()
 

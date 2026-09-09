@@ -260,7 +260,8 @@ async def test_v_source_health_pokazuje_ostatni_przebieg(
     async with pusta_baza.cursor() as cur:
         await cur.execute(
             "SELECT last_run_new, last_run_rss_bytes, aktywne_aukcje, "
-            "overtime_window_seconds, overtime_cap_seconds "
+            "overtime_window_seconds, overtime_cap_seconds, "
+            "last_run_duration_seconds "
             "FROM reporting.v_source_health WHERE source_key = 'poleasingowe'"
         )
         wiersz = await cur.fetchone()
@@ -270,6 +271,7 @@ async def test_v_source_health_pokazuje_ostatni_przebieg(
     assert wiersz[1] == 142_000_000
     assert wiersz[2] == 1
     assert (wiersz[3], wiersz[4]) == (30, 1800)
+    assert wiersz[5] == 10.0
 
 
 async def test_v_price_history_niesie_bid_gap(

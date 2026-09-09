@@ -31,4 +31,9 @@ def bez_sieci(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     monkeypatch.setattr(socket.socket, "connect", zablokuj)
     monkeypatch.setattr(socket.socket, "connect_ex", zablokuj)
     monkeypatch.setattr(socket, "create_connection", zablokuj)
+    # asyncio rozwiązuje DNS przez `getaddrinfo` zanim stworzy socket. Bez
+    # tej blokady test "offline" kończył się błędem DNS systemu zamiast
+    # naszym czytelnym wyjątkiem i nie dowodził, że strażnik rzeczywiście
+    # obejmuje całą drogę do sieci.
+    monkeypatch.setattr(socket, "getaddrinfo", zablokuj)
     yield

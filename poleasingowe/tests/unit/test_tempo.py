@@ -73,6 +73,19 @@ def test_tokeny_dolewaja_sie_z_uplywem_czasu() -> None:
     assert k.ile_czekac() == 0.0
 
 
+def test_domkniecie_zapisuje_dlug_do_przyszlego_limitu() -> None:
+    """Wyjątkowy odczyt końca jest pilny, ale nadal kosztuje żądanie."""
+    zegar = ZegarSterowany()
+    k = kubelek(60, zegar)
+    for _ in range(60):
+        k.zuzyj()
+
+    k.zuzyj(pozycz=True)
+    assert k.dostepne == pytest.approx(-1.0)
+    # Najpierw trzeba odrobić pożyczony token, potem zebrać kolejny.
+    assert k.ile_czekac() == pytest.approx(2.0, abs=0.01)
+
+
 def test_kubelek_nie_przelewa_sie_ponad_pojemnosc() -> None:
     """Doba ciszy nie ma dawać doby kredytu — to byłby zryw, nie limit."""
     zegar = ZegarSterowany()

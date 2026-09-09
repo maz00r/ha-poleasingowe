@@ -10,15 +10,15 @@ from __future__ import annotations
 
 import datetime as dt
 import hashlib
-from collections.abc import Mapping, Sequence
+from collections.abc import AsyncIterator, Mapping, Sequence
 from dataclasses import replace
 from types import TracebackType
 
 import httpx
 
-from app.application.ports import SurowaOferta, SurowaOfertaUczestnika
+from app.application.ports import StronaPrzemiatu, SurowaOferta, SurowaOfertaUczestnika
 from app.domain.entities import Auction, OfertaUczestnika
-from app.domain.errors import SourceUnavailable
+from app.domain.errors import ParseFailed, SourceUnavailable
 from app.infrastructure.sources.adresy import strona_aukcji
 from app.infrastructure.sources.poleasingowe import mapper, parser
 
@@ -110,6 +110,12 @@ class PoleasingoweSource:
         więc „ostatnia" widoczna zmienia się w trakcie chodzenia po liście.
         """
         wszystkie: list[SurowaOferta] = []
+        async for strona in self.strony_przemiatu():
+            wszystkie.extend(strona.pozycje)
+        return wszystkie
+
+    async def strony_przemiatu(self) -> AsyncIterator[StronaPrzemiatu]:
+        """Strony są granicami, między którymi dispatcher obsługuje dogrywkę."""
         widziane: set[str] = set()
         for kategoria, sciezka in parser.SCIEZKI_LIST:
             for strona in range(1, MAKS_STRON + 1):
@@ -117,16 +123,26 @@ class PoleasingoweSource:
                     sciezka, {"page": strona, "sort": SORTOWANIE_PO_KONCU}
                 )
                 pozycje = parser.sparsuj_liste(tresc.decode("utf-8", "replace"))
+                if not pozycje:
+                    break
                 nowe = [p for p in pozycje if p.external_id not in widziane]
                 if not nowe:
-                    break
+                    raise ParseFailed(
+                        "poleasingowe: zapętlona paginacja " f"{kategoria}/{strona}"
+                    )
                 widziane.update(p.external_id for p in nowe)
                 # Kategoria listy jest jedyną deklaracją rodzaju, jaką ten
                 # serwis daje — na samej stronie aukcji jej nie ma.
-                wszystkie.extend(
-                    replace(p, pola={**p.pola, "kategoria": kategoria}) for p in nowe
+                yield StronaPrzemiatu(
+                    tuple(
+                        replace(p, pola={**p.pola, "kategoria": kategoria})
+                        for p in nowe
+                    )
                 )
-        return wszystkie
+            else:
+                raise ParseFailed(
+                    f"poleasingowe: osiągnięto limit {MAKS_STRON} stron ({kategoria})"
+                )
 
     async def pobierz_szczegoly(
         self, external_id: str, znany_hash: str | None = None

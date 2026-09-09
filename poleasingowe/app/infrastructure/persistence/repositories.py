@@ -43,6 +43,7 @@ from app.domain.enums import (
     FinalPriceState,
     PollTier,
     RodzajPojazdu,
+    SweepStatus,
 )
 from app.domain.value_objects import Mileage, Money, Vin
 
@@ -56,13 +57,14 @@ INSERT INTO app.source (
     floor_seconds, auth_state, consecutive_auth_failures,
     overtime_window_seconds, overtime_extension_seconds, overtime_cap_seconds,
     closing_ladder_seconds, bid_history_ttl_seconds, bid_count_semantics,
-    last_sweep_at
+    last_sweep_at, last_sweep_attempt_at, last_sweep_status
 ) VALUES (%(key)s, %(name)s, %(enabled)s, %(sweep_interval_seconds)s,
           %(rate_limit_per_minute)s, %(floor_seconds)s, %(auth_state)s,
           %(consecutive_auth_failures)s, %(overtime_window_seconds)s,
           %(overtime_extension_seconds)s, %(overtime_cap_seconds)s,
           %(closing_ladder_seconds)s, %(bid_history_ttl_seconds)s,
-          %(bid_count_semantics)s, %(last_sweep_at)s)
+          %(bid_count_semantics)s, %(last_sweep_at)s, %(last_sweep_attempt_at)s,
+          %(last_sweep_status)s)
 ON CONFLICT (key) DO UPDATE SET
     name = EXCLUDED.name,
     enabled = EXCLUDED.enabled,
@@ -77,12 +79,19 @@ ON CONFLICT (key) DO UPDATE SET
     closing_ladder_seconds = EXCLUDED.closing_ladder_seconds,
     bid_history_ttl_seconds = EXCLUDED.bid_history_ttl_seconds,
     bid_count_semantics = EXCLUDED.bid_count_semantics,
-    last_sweep_at = EXCLUDED.last_sweep_at
+    last_sweep_at = COALESCE(EXCLUDED.last_sweep_at, app.source.last_sweep_at),
+    last_sweep_attempt_at = COALESCE(
+        EXCLUDED.last_sweep_attempt_at, app.source.last_sweep_attempt_at
+    ),
+    last_sweep_status = CASE
+        WHEN EXCLUDED.last_sweep_attempt_at IS NULL THEN app.source.last_sweep_status
+        ELSE EXCLUDED.last_sweep_status
+    END
 RETURNING id, key, name, enabled, sweep_interval_seconds, rate_limit_per_minute,
     floor_seconds, auth_state, consecutive_auth_failures,
     overtime_window_seconds, overtime_extension_seconds, overtime_cap_seconds,
     closing_ladder_seconds, bid_history_ttl_seconds, bid_count_semantics,
-    last_sweep_at
+    last_sweep_at, last_sweep_attempt_at, last_sweep_status
 """
 
 SQL_SOURCE_PO_KLUCZU = """
@@ -90,7 +99,8 @@ SELECT
     id, key, name, enabled, sweep_interval_seconds, rate_limit_per_minute,
     floor_seconds, auth_state, consecutive_auth_failures, overtime_window_seconds,
     overtime_extension_seconds, overtime_cap_seconds, closing_ladder_seconds,
-    bid_history_ttl_seconds, bid_count_semantics, last_sweep_at
+    bid_history_ttl_seconds, bid_count_semantics, last_sweep_at,
+    last_sweep_attempt_at, last_sweep_status
 FROM app.source WHERE key = %s
 """
 SQL_SOURCE_WLACZONE = """
@@ -98,7 +108,8 @@ SELECT
     id, key, name, enabled, sweep_interval_seconds, rate_limit_per_minute,
     floor_seconds, auth_state, consecutive_auth_failures, overtime_window_seconds,
     overtime_extension_seconds, overtime_cap_seconds, closing_ladder_seconds,
-    bid_history_ttl_seconds, bid_count_semantics, last_sweep_at
+    bid_history_ttl_seconds, bid_count_semantics, last_sweep_at,
+    last_sweep_attempt_at, last_sweep_status
 FROM app.source WHERE enabled ORDER BY key
 """
 
@@ -330,15 +341,22 @@ FROM app.auction WHERE source_id = %s AND external_id = %s
 # Zapytanie wykonywane najczesciej w calym systemie — musi trafiac w indeks
 # czesciowy auction_next_poll_active_idx (SPEC.md §8.3).
 SQL_AUCTION_DO_ODPYTU = """
-SELECT id, source_id, external_id, url, make, model, variant, year, mileage_km,
-    fuel, gearbox, engine_ccm, engine_hp, vin, body, vehicle_kind, color,
-    location, seller,
-    price_start, price_current, currency, bid_count, bid_increment_raw,
-    ends_at, status, first_seen_at, last_seen_at, content_hash, raw_json,
-    next_poll_at, poll_tier, consecutive_failures, final_price_state,
-    last_price_lead_seconds, duplicate_of FROM app.auction
-WHERE status = 'ACTIVE' AND next_poll_at IS NOT NULL AND next_poll_at <= %s
-ORDER BY ends_at NULLS LAST
+SELECT a.id, a.source_id, a.external_id, a.url, a.make, a.model, a.variant,
+    a.year, a.mileage_km, a.fuel, a.gearbox, a.engine_ccm, a.engine_hp,
+    a.vin, a.body, a.vehicle_kind, a.color, a.location, a.seller,
+    a.price_start, a.price_current, a.currency, a.bid_count,
+    a.bid_increment_raw, a.ends_at, a.status, a.first_seen_at,
+    a.last_seen_at, a.content_hash, a.raw_json, a.next_poll_at, a.poll_tier,
+    a.consecutive_failures, a.final_price_state, a.last_price_lead_seconds,
+    a.duplicate_of
+FROM app.auction AS a
+LEFT JOIN app.watchlist AS w ON w.auction_id = a.id
+WHERE a.status = 'ACTIVE' AND a.next_poll_at IS NOT NULL AND a.next_poll_at <= %s
+ORDER BY CASE
+    WHEN a.poll_tier = 'CLOSING' THEN 0
+    WHEN w.auction_id IS NOT NULL THEN 1
+    ELSE 2
+END, a.ends_at NULLS LAST
 LIMIT %s
 """
 
@@ -575,6 +593,8 @@ def _na_source(w: dict[str, Any]) -> Source:
         bid_history_ttl_seconds=w["bid_history_ttl_seconds"],
         bid_count_semantics=BidCountSemantics(w["bid_count_semantics"]),
         last_sweep_at=w["last_sweep_at"],
+        last_sweep_attempt_at=w["last_sweep_attempt_at"],
+        last_sweep_status=SweepStatus(w["last_sweep_status"]),
     )
 
 
@@ -671,6 +691,8 @@ class PgSourceRepository:
                     "bid_history_ttl_seconds": source.bid_history_ttl_seconds,
                     "bid_count_semantics": source.bid_count_semantics.value,
                     "last_sweep_at": source.last_sweep_at,
+                    "last_sweep_attempt_at": source.last_sweep_attempt_at,
+                    "last_sweep_status": source.last_sweep_status.value,
                 },
             )
             wiersz = await cur.fetchone()

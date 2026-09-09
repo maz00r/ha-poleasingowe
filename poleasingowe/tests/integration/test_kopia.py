@@ -8,9 +8,12 @@ katalogu, hasło nieprzekazane do procesu potomnego.
 
 from __future__ import annotations
 
+import asyncio
 import datetime as dt
+import os
 import pathlib
 import shutil
+import uuid
 
 import psycopg
 import pytest
@@ -21,9 +24,9 @@ from tests.conftest import _dsn, wymaga_postgresa
 pytestmark = [
     wymaga_postgresa,
     pytest.mark.skipif(
-        shutil.which("pg_dump") is None,
-        reason="brak `pg_dump` w PATH — w obrazie dodatku jest z pakietu "
-        "postgresql17-client",
+        shutil.which("pg_dump") is None or shutil.which("pg_restore") is None,
+        reason="brak `pg_dump` lub `pg_restore` w PATH — obraz dodatku ma "
+        "pakiet postgresql17-client",
     ),
 ]
 
@@ -58,6 +61,59 @@ async def test_kopia_powstaje_i_daje_sie_odczytac(
     assert wynik.sciezka.name == "poleasingowe-20260909-030000.dump"
     # Plik częściowy nie ma prawa zostać — przerwana kopia wyglądałaby na dobrą.
     assert list(tmp_path.glob("*.czesciowy")) == []
+
+
+async def test_kopie_daje_sie_odtworzyc_do_osobnej_bazy(
+    pusta_baza: psycopg.AsyncConnection, tmp_path: pathlib.Path
+) -> None:
+    """Prawdziwy restore sprawdza więcej niż nagłówek `PGDMP`.
+
+    Baza celu ma losową nazwę i powstaje na lokalnym PostgreSQL testowym;
+    nigdy na instancji Home Assistant. Porównujemy dane po odtworzeniu, nie
+    wyłącznie kod wyjścia narzędzia.
+    """
+    await pusta_baza.execute(
+        "INSERT INTO app.source (key, name) VALUES ('restore-test', 'Restore test')"
+    )
+    await pusta_baza.commit()
+    kopia = _kopia(pusta_baza, tmp_path)
+    plik = await kopia.wykonaj(TERAZ)
+    cel = f"poleasingowe_restore_{uuid.uuid4().hex[:12]}"
+
+    with psycopg.connect(_dsn("postgres"), autocommit=True) as conn:
+        conn.execute(f'CREATE DATABASE "{cel}"')
+    try:
+        srodowisko = {
+            **os.environ,
+            "PGPASSWORD": os.environ.get(
+                "POLEASINGOWE_TEST_PASSWORD", "poleasingowe_test"
+            ),
+        }
+        proces = await asyncio.create_subprocess_exec(
+            "pg_restore",
+            "--no-owner",
+            "--no-privileges",
+            "--dbname",
+            _dsn(cel),
+            str(plik.sciezka),
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+            env=srodowisko,
+        )
+        _, blad = await proces.communicate()
+        assert proces.returncode == 0, blad.decode("utf-8", "replace")
+        async with await psycopg.AsyncConnection.connect(_dsn(cel)) as odtworzona:  # noqa: SIM117
+            async with odtworzona.cursor() as cur:
+                await cur.execute("SELECT key, name FROM app.source")
+                assert await cur.fetchall() == [("restore-test", "Restore test")]
+    finally:
+        with psycopg.connect(_dsn("postgres"), autocommit=True) as conn:
+            conn.execute(
+                "SELECT pg_terminate_backend(pid) FROM pg_stat_activity "
+                "WHERE datname = %s AND pid <> pg_backend_pid()",
+                (cel,),
+            )
+            conn.execute(f'DROP DATABASE IF EXISTS "{cel}"')
 
 
 async def test_trzymamy_siedem_kopii_i_kasujemy_najstarsze(

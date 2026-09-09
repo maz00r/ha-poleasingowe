@@ -83,6 +83,11 @@ def test_paginacja_liczona_od_jedynki() -> None:
     assert parser.numery_stron(html("lista-vehicles-01.html"))[:3] == [2, 3, 4]
 
 
+def test_strona_waf_nie_jest_pusta_lista() -> None:
+    with pytest.raises(ParseFailed, match="listę aukcji"):
+        parser.sparsuj_liste("<html><body>Just a moment…</body></html>")
+
+
 # --------------------------------------------------------------------------
 # Szczegóły — blok Alpine
 # --------------------------------------------------------------------------
@@ -317,7 +322,7 @@ async def test_przemiat_obejmuje_takze_liste_motocykli() -> None:
         odwiedzone.append(request.url.path)
         # Pusta lista kończy stronicowanie po pierwszym żądaniu każdej
         # kategorii — tu chodzi o to, KTÓRE adresy odwiedzamy.
-        return httpx.Response(200, text="<html><body></body></html>")
+        return httpx.Response(200, text="<html><body>Brak ofert</body></html>")
 
     klient = httpx.AsyncClient(
         base_url=parser.BAZOWY_URL, transport=httpx.MockTransport(obsluz)
@@ -329,6 +334,18 @@ async def test_przemiat_obejmuje_takze_liste_motocykli() -> None:
         "/pl/auctions/list/pub/all/vehicles",
         "/pl/auctions/list/pub/all/ECR_motorcycles",
     ]
+
+
+async def test_zapetlona_paginacja_przerywa_przemiat() -> None:
+    def obsluz(_: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, text=html("lista-vehicles-01.html"))
+
+    klient = httpx.AsyncClient(
+        base_url=parser.BAZOWY_URL, transport=httpx.MockTransport(obsluz)
+    )
+    async with source.PoleasingoweSource(klient) as adapter:
+        with pytest.raises(ParseFailed, match="zapętlona paginacja"):
+            await adapter.przemiec_liste()
 
 
 async def test_pozycja_z_listy_motocykli_dostaje_rodzaj_motocykl() -> None:

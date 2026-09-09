@@ -9,10 +9,11 @@ from __future__ import annotations
 
 import pathlib
 
+import httpx
 import pytest
 
 from app.domain.errors import ParseFailed
-from app.infrastructure.sources.efl import parser
+from app.infrastructure.sources.efl import parser, source
 
 FIXTURES = pathlib.Path(__file__).resolve().parents[3] / "fixtures" / "efl"
 
@@ -108,6 +109,23 @@ def test_strona_ktora_nie_jest_aukcja_konczy_sie_jasnym_bledem() -> None:
 def test_lista_ignoruje_smieci_zamiast_sie_wywalac() -> None:
     """Kafelek bez linku nie ma prawa przewrócić całego przemiatu."""
     assert parser.sparsuj_liste('<div class="OfferList"><p>bez linku</p></div>') == []
+
+
+def test_strona_bez_kontenera_listy_nie_udaje_pustej_paginacji() -> None:
+    with pytest.raises(ParseFailed, match="listę aukcji"):
+        parser.sparsuj_liste("<html><body>sprawdź przeglądarkę</body></html>")
+
+
+async def test_zapetlona_paginacja_przerywa_przemiat() -> None:
+    def obsluz(_: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, content=wczytaj("lista-01.html").encode())
+
+    klient = httpx.AsyncClient(
+        base_url=parser.BAZOWY_URL, transport=httpx.MockTransport(obsluz)
+    )
+    async with source.EflSource(klient) as adapter:
+        with pytest.raises(ParseFailed, match="zapętlona paginacja"):
+            await adapter.przemiec_liste()
 
 
 def test_zdjecia_z_adresow_wzglednych_bez_wiodacego_ukosnika() -> None:

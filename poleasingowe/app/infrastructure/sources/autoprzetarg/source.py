@@ -14,15 +14,15 @@ from __future__ import annotations
 
 import datetime as dt
 import hashlib
-from collections.abc import Mapping, Sequence
+from collections.abc import AsyncIterator, Mapping, Sequence
 from dataclasses import replace
 from types import TracebackType
 
 import httpx
 
-from app.application.ports import SurowaOferta
+from app.application.ports import StronaPrzemiatu, SurowaOferta
 from app.domain.entities import Auction
-from app.domain.errors import SourceUnavailable
+from app.domain.errors import ParseFailed, SourceUnavailable
 from app.infrastructure.sources.adresy import strona_aukcji
 from app.infrastructure.sources.autoprzetarg import mapper, parser
 
@@ -107,16 +107,26 @@ class AutoprzetargSource:
     async def przemiec_liste(self) -> Sequence[SurowaOferta]:
         """Przemiata listę pojazdów, stronę po stronie (SPEC.md §11.2)."""
         wszystkie: list[SurowaOferta] = []
+        async for strona in self.strony_przemiatu():
+            wszystkie.extend(strona.pozycje)
+        return wszystkie
+
+    async def strony_przemiatu(self) -> AsyncIterator[StronaPrzemiatu]:
+        """Zatrzymuje wynik jako częściowy, gdy paginacja wróci na tę samą stronę."""
         widziane: set[str] = set()
         for strona in range(1, MAKS_STRON + 1):
             odpowiedz = await self._pobierz(parser.SCIEZKA_LISTY, {"page": strona})
             pozycje = parser.sparsuj_liste(odpowiedz.text)
+            if not pozycje:
+                return
             nowe = [p for p in pozycje if p.external_id not in widziane]
             if not nowe:
-                break
+                raise ParseFailed(
+                    f"autoprzetarg: zapętlona paginacja na stronie {strona}"
+                )
             widziane.update(p.external_id for p in nowe)
-            wszystkie.extend(nowe)
-        return wszystkie
+            yield StronaPrzemiatu(tuple(nowe))
+        raise ParseFailed(f"autoprzetarg: osiągnięto limit {MAKS_STRON} stron")
 
     async def pobierz_szczegoly(
         self, external_id: str, znany_hash: str | None = None

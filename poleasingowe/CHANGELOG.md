@@ -1,5 +1,26 @@
 # Historia zmian
 
+## 0.27.0 — w przygotowaniu
+
+**Zniknięcie aukcji wymaga dwóch pełnych skanów listy.** Strona błędu, WAF,
+urwana paginacja albo powtórzona strona zostawia wynik jako częściowy i może
+dodać znalezione pozycje, ale nie przenosi pozostałych do archiwum. Stan
+skanu i czas ostatniego pełnego przebiegu są widoczne w diagnostyce i Grafanie.
+
+**Końcówki aukcji mają pierwszeństwo.** Dispatcher obsługuje domknięcia i
+obserwowane aukcje przed przemiataną listą, wraca do nich między stronami
+skanu, a backup bazy działa osobno w tle. Lista, szczegóły i galeria używają
+jednego limitu oraz jednej blokady na serwis.
+
+**Cena końcowa jest opisana dokładniej.** Dashboard rynkowy pokazuje teraz
+liczbę i udział cen `CONFIRMED` oraz `LAST_SEEN`, a także opóźnienie pomiarów
+drugiej grupy. Wyjątkowy odpyt w momencie domknięcia zapisuje dług w limiterze
+zamiast udawać, że nie zużył żądania.
+
+Zmiany przeszły pełny zestaw automatycznych testów na lokalnym PostgreSQL 17.
+Nie stanowi to jeszcze potwierdzenia pracy na HA: przed wydaniem produkcyjnym
+pozostaje siedem dni obserwacji, porównanie domknięć ze źródłami i pomiar RSS.
+
 ## 0.26.0 — w przygotowaniu
 
 **Widać, którą zakładkę się przegląda.** Bieżąca jest wypełniona i jaśniejsza

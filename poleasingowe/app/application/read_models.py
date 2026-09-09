@@ -416,6 +416,10 @@ class StanZrodla:
     last_run_errors: int | None = None
     last_run_rss_bytes: int | None = None
     last_run_database_bytes: int | None = None
+    last_sweep_attempt_at: dt.datetime | None = None
+    last_complete_sweep_at: dt.datetime | None = None
+    last_sweep_status: str = "UNKNOWN"
+    last_run_duration_seconds: float | None = None
 
     @property
     def zablokowane(self) -> bool:
@@ -441,5 +445,6 @@ class Diagnostyka:
     ostatni_pg_dump: dt.datetime | None = None
     """Kiedy zrobiono ostatnią kopię bazy (§7.1). `None` = jeszcze żadnej."""
     kopia_bajty: int | None = None
+    ostatni_blad_kopii: str | None = None
     pula: dict[str, int] = field(default_factory=dict)
     debug_dumps: bool = False

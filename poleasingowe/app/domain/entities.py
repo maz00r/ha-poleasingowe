@@ -19,6 +19,7 @@ from app.domain.enums import (
     FinalPriceState,
     PollTier,
     RodzajPojazdu,
+    SweepStatus,
 )
 from app.domain.value_objects import Mileage, Money, Vin
 
@@ -66,11 +67,19 @@ class Source:
     bid_count_semantics: BidCountSemantics = BidCountSemantics.UNKNOWN
     """Co serwis liczy w `bid_count` (§11.8)."""
     last_sweep_at: dt.datetime | None = None
-    """Kiedy ostatnio przemieciono listę. `None` = nigdy (SPEC.md §11.2)."""
+    """Ostatni **pełny** przemiat. Historyczna wartość nie jest dowodem.
+
+    Po migracji starsze wartości mają status `UNKNOWN`; dopiero dwa kolejne
+    pełne przemiaty mogą prowadzić do `DISAPPEARED`.
+    """
+    last_sweep_attempt_at: dt.datetime | None = None
+    """Kiedy ostatnio rozpoczęto próbę przemiatu, także nieudaną."""
+    last_sweep_status: SweepStatus = SweepStatus.UNKNOWN
     id: int | None = None
 
     def __post_init__(self) -> None:
         _wymagaj_utc("last_sweep_at", self.last_sweep_at)
+        _wymagaj_utc("last_sweep_attempt_at", self.last_sweep_attempt_at)
         drabinka = self.closing_ladder_seconds
         if any(a >= b for a, b in itertools.pairwise(drabinka)):
             raise ValueError(
