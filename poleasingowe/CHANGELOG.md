@@ -20,6 +20,12 @@ zapisujemy skrót związany z konkretną aukcją, więc widać, kto kogo przebij
 w tej licytacji, i nie da się z tego złożyć listy aukcji, w których ktoś
 brał udział.
 
+**Suwak rocznika zaczyna się od 1990** (było 1980). Granica jest nadal
+stała, a nie brana z danych — inaczej przeskakiwałaby przy każdej nowej
+aukcji i nie dałoby się jej zapamiętać. Auto starsze niż 1990 nie znika:
+granica poszerza zakres, a nie ucina dane, więc suwak sięgnie tam, gdzie
+trzeba.
+
 **Poprawka: zakończone aukcje EFL znikają z „Aktywnych" po dziesięciu
 minutach, nie po siedemdziesięciu.** Aukcji nieobserwowanej nie odpytujemy
 po raz drugi, więc jej koniec rozpoznaje zegar — a ten czekał na możliwą
