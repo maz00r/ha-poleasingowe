@@ -1,0 +1,61 @@
+{
+  "uid": "poleasingowe-rynek",
+  "title": "Poleasingowe — rynek modelu",
+  "tags": [
+    "poleasingowe"
+  ],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "5m",
+  "time": {
+    "from": "now-1y",
+    "to": "now"
+  },
+  "templating": {
+    "list": [
+      {
+        "name": "make",
+        "label": "Marka",
+        "type": "textbox",
+        "query": "",
+        "current": {
+          "text": "",
+          "value": ""
+        }
+      },
+      {
+        "name": "model",
+        "label": "Model",
+        "type": "textbox",
+        "query": "",
+        "current": {
+          "text": "",
+          "value": ""
+        }
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "table",
+      "title": "Mediany cen koncowych wedlug rocznika",
+      "description": "DWIE OSOBNE MEDIANY, i to jest sedno tego panelu. median_confirmed liczy sie z cen odczytanych PO zakonczeniu aukcji; median_last_seen z ostatnich widzianych przed koncem, czyli z DOLNYCH oszacowan. Zlanie ich w jedna liczbe zanizyloby obraz rynku (SPEC.md §9).",
+      "gridPos": {
+        "h": 12,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT year AS \"rocznik\",\n       median_confirmed AS \"mediana potwierdzona\",\n       n_confirmed AS \"sztuk potwierdzonych\",\n       median_last_seen AS \"mediana ostatnia widziana\",\n       n_last_seen AS \"sztuk\",\n       median_lead_seconds AS \"wyprzedzenie [s]\"\nFROM reporting.v_market_stats\nWHERE make = '$make' AND ('$model' = '' OR model = '$model')\nORDER BY year DESC"
+        }
+      ]
+    }
+  ]
+}

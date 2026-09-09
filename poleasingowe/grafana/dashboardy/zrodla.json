@@ -1,0 +1,37 @@
+{
+  "uid": "poleasingowe-zrodla",
+  "title": "Poleasingowe — stan zrodel",
+  "tags": [
+    "poleasingowe"
+  ],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "1m",
+  "time": {
+    "from": "now-24h",
+    "to": "now"
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "table",
+      "title": "Zrodla",
+      "description": "To samo, co panel diagnostyczny dodatku, ale z historia przebiegow. AUTH_LOCKED wymaga recznego odblokowania (§10.2).",
+      "gridPos": {
+        "h": 10,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT source_key AS \"zrodlo\", enabled AS \"wlaczone\",\n       auth_state AS \"logowanie\",\n       aktywne_aukcje AS \"aktywnych\",\n       last_run_started_at AS \"ostatni przebieg\",\n       last_run_new AS \"nowych\",\n       last_run_changed AS \"zmienionych\",\n       last_run_errors AS \"bledow\",\n       last_run_rss_bytes AS \"RSS\"\nFROM reporting.v_source_health\nORDER BY source_key"
+        }
+      ]
+    }
+  ]
+}

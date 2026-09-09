@@ -1,0 +1,110 @@
+{
+  "uid": "poleasingowe-aukcja",
+  "title": "Poleasingowe — przebieg licytacji",
+  "tags": [
+    "poleasingowe"
+  ],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "1m",
+  "time": {
+    "from": "now-30d",
+    "to": "now"
+  },
+  "templating": {
+    "list": [
+      {
+        "name": "auction_id",
+        "label": "Aukcja",
+        "type": "textbox",
+        "query": "",
+        "current": {
+          "text": "",
+          "value": ""
+        },
+        "description": "Wypelniane z linku w dodatku (?var-auction_id=)."
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "Cena w czasie",
+      "description": "Snapshot powstaje WYLACZNIE przy zmianie ceny, liczby ofert albo terminu (SPEC.md §8.4). Odstep miedzy punktami mowi o licytacji, nie o czestotliwosci odpytow.",
+      "gridPos": {
+        "h": 10,
+        "w": 16,
+        "x": 0,
+        "y": 0
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyPLN",
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "stepAfter",
+            "showPoints": "always",
+            "pointSize": 6
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT ts AS time, price AS \"cena\"\nFROM reporting.v_price_history\nWHERE auction_id = $auction_id::bigint\nORDER BY ts"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "Liczba ofert",
+      "description": "UWAGA: EFL liczy UCZESTNIKOW licytacji proxy, nie oferty (bid_count_semantics = PARTICIPANTS). Dla tego zrodla przyrost nie mierzy liczby postapien.",
+      "gridPos": {
+        "h": 10,
+        "w": 8,
+        "x": 16,
+        "y": 0
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT ts AS time, bid_count AS \"ofert\"\nFROM reporting.v_price_history\nWHERE auction_id = $auction_id::bigint\n  AND bid_count IS NOT NULL\nORDER BY ts"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "table",
+      "title": "Zmiany krok po kroku",
+      "description": "bid_gap mowi, ile ofert PRZEGAPILISMY przed tym wpisem (§11.8). NULL znaczy 'nie wiadomo', nie 'komplet'.",
+      "gridPos": {
+        "h": 10,
+        "w": 24,
+        "x": 0,
+        "y": 10
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT ts AS \"kiedy\", price AS \"cena\", currency AS \"waluta\", bid_count AS \"ofert\", bid_gap AS \"przegapione\", ends_at AS \"koniec\"\nFROM reporting.v_price_history\nWHERE auction_id = $auction_id::bigint\nORDER BY ts DESC"
+        }
+      ]
+    }
+  ]
+}

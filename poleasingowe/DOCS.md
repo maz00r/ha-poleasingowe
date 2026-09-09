@@ -164,6 +164,17 @@ cache. Do dostawcy nie są wysyłane VIN, identyfikator aukcji ani dane
 sprzedającego. Wycena jest orientacyjna i nie zastępuje oględzin ani opinii
 rzeczoznawcy.
 
+## Wykresy w Grafanie
+
+Trzy gotowe dashboardy leżą w repozytorium dodatku, w `grafana/dashboardy/`.
+Import: Grafana → Dashboards → New → Import → wklej plik. Potrzebne jest
+źródło danych PostgreSQL wskazujące na bazę `poleasingowe` (rola
+`grafana_ro`).
+
+Po imporcie działają linki z karty aukcji: „Historia cen w Grafanie"
+i „Rynek dla tego modelu". Szczegóły i zastrzeżenia do odczytu wykresów —
+w `grafana/README.md`.
+
 ## Kopia zapasowa
 
 Dodatek robi **raz na dobę** `pg_dump` własnej bazy do

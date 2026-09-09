@@ -1,5 +1,18 @@
 # Historia zmian
 
+## 0.18.0 — w przygotowaniu
+
+**Dashboardy Grafany w repozytorium.** Trzy gotowe do zaimportowania:
+przebieg licytacji jednej aukcji, mediany cen końcowych modelu i stan źródeł.
+Linki z karty aukcji prowadzą do nich wprost — od tej wersji jest dokąd.
+Instrukcja importu w `grafana/README.md`.
+
+Dashboardy leżą w repo, a nie tylko w Grafanie, bo kształt widoków
+`reporting.*` jest kontraktem: zmiana kolumny w migracji ma iść w tym samym
+commicie co poprawka wykresu. Pilnuje tego test, który **wykonuje zapytania
+dashboardów na prawdziwej bazie** — zapytanie z nieistniejącą kolumną nie
+przejdzie.
+
 ## 0.17.0 — w przygotowaniu
 
 **Własna kopia bazy raz na dobę.** Snapshot Home Assistanta obejmuje dodatek
