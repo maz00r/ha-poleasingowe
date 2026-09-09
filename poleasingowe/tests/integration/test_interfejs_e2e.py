@@ -21,7 +21,7 @@ import httpx
 import psycopg
 import pytest
 
-from app.domain.entities import OfertaUczestnika, PriceSnapshot
+from app.domain.entities import PriceSnapshot
 from app.domain.enums import Currency
 from app.domain.value_objects import Money
 from app.infrastructure.persistence.pula import KontekstPg
@@ -135,83 +135,37 @@ async def test_szczegoly_linkuja_do_oferty_i_do_grafany(
     )
 
 
-async def test_karta_tlumaczy_licytacje_proxy_zamiast_wygladac_na_blad(
+async def test_karta_pokazuje_historie_ceny_biezacej(
     klient: httpx.AsyncClient, pusta_baza: psycopg.AsyncConnection
 ) -> None:
-    """Zgłoszenie z użytkowania: „niższa kwota ma późniejszą datę".
+    """Karta pokazuje przebieg CENY BIEŻĄCEJ i nic poza tym (SPEC.md §12).
 
-    To nie był błąd, tylko licytacja proxy — ale tabela w żaden sposób tego
-    nie mówiła, więc czytała się jak przekłamane dane. Test pilnuje trzech
-    rzeczy naraz: że najwyższa oferta jest oznaczona, że wcześniejszy stan
-    tego samego licytanta jest odróżniony od osobnej oferty, i że reguła
-    proxy stoi napisana na karcie.
-
-    Idzie przez pełny stos aż do HTML-a, bo psuje się tu co innego niż
-    w SQL-u: brakujący filtr, literówka w nazwie pola kontekstu albo sekcja
-    w `{% if %}`, które nigdy nie jest prawdziwe.
+    Tabela ofert EFL bywała tu wcześniej i wprowadzała w błąd: pokazywała
+    kwoty, których nie da się ułożyć w chronologię licytacji, bo poniżej ceny
+    bieżącej nikt zalicytować nie może. Dane zbieramy dalej (`app.offer`),
+    ale na kartę nie wracają, dopóki nie wiadomo, co dokładnie znaczą.
     """
     identyfikatory = await _dane(pusta_baza)
     aukcja_id = identyfikatory["audi-za-godzine"]
-    async with pusta_baza.cursor() as cur:
-        # Licytacja proxy wynika z semantyki licznika ofert (RECON.md §3.5).
-        await cur.execute("UPDATE app.source SET bid_count_semantics = 'PARTICIPANTS'")
-
     uow = PgUnitOfWork(pusta_baza)
     teraz = dt.datetime.now(dt.UTC)
-    await uow.oferta.zapisz_nowe(
-        [
-            # Lider ustawia maksimum...
-            OfertaUczestnika(
-                auction_id=aukcja_id,
-                uczestnik="skrot-lidera",
-                amount=Money(Decimal("57210.00"), Currency.PLN),
-                placed_at=teraz - dt.timedelta(minutes=10),
-                first_seen_at=teraz - dt.timedelta(minutes=8),
-            ),
-            # ...a jego wcześniejsza, niższa oferta zostaje w archiwum.
-            OfertaUczestnika(
-                auction_id=aukcja_id,
-                uczestnik="skrot-lidera",
-                amount=Money(Decimal("52800.00"), Currency.PLN),
-                placed_at=teraz - dt.timedelta(days=1),
-                first_seen_at=teraz - dt.timedelta(days=1),
-            ),
-            # Ktoś licytuje PÓŹNIEJ i MNIEJ — i przegrywa, bo nie przebił
-            # stojącego maksimum. To jest ten wiersz, który wyglądał na błąd.
-            OfertaUczestnika(
-                auction_id=aukcja_id,
-                uczestnik="skrot-przegranego",
-                amount=Money(Decimal("57010.00"), Currency.PLN),
-                placed_at=teraz - dt.timedelta(minutes=2),
-                first_seen_at=teraz - dt.timedelta(minutes=1),
-            ),
-        ]
-    )
 
-    # Snapshot ceny, zeby na karcie stanely OBIE sekcje naraz — dokladnie
-    # tak, jak wyglada to w uzyciu, i zeby dalo sie sprawdzic, ze da sie je
-    # od siebie odroznic.
-    await uow.snapshot.zapisz_jesli_zmienil_sie(
-        PriceSnapshot(
-            auction_id=aukcja_id,
-            ts=teraz,
-            price=Money(Decimal("57210.00"), Currency.PLN),
-            bid_count=2,
+    for minuty, kwota in ((30, "52800.00"), (2, "57210.00")):
+        await uow.snapshot.zapisz_jesli_zmienil_sie(
+            PriceSnapshot(
+                auction_id=aukcja_id,
+                ts=teraz - dt.timedelta(minutes=minuty),
+                price=Money(Decimal(kwota), Currency.PLN),
+                bid_count=2,
+            )
         )
-    )
 
     odp = await klient.get(f"/aukcja/{aukcja_id}")
 
     assert odp.status_code == 200
     assert "Przebieg licytacji" in odp.text
-    assert "Nasze odczyty ceny" in odp.text, "dwie sekcje mają się różnić nazwą"
-    assert "Licytant A" in odp.text
-    assert "najwyższa" in odp.text, "bez tego nie wiadomo, kto wygrywa"
-    assert "oferta-nieaktualna" in odp.text, "wcześniejszy stan tego samego licytanta"
-    assert "proxy" in odp.text, "reguła musi być wyjaśniona na karcie"
-    assert (
-        "skrot-lidera" not in odp.text
-    ), "pseudonim z bazy nie ma prawa trafić na ekran"
+    assert "57" in odp.text and "52" in odp.text, "obie ceny w historii"
+    assert "Licytant" not in odp.text, "tabela ofert nie ma prawa wrócić na kartę"
 
 
 async def test_nieistniejaca_aukcja_daje_404_a_nie_500(

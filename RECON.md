@@ -273,6 +273,47 @@ dostaje miary kompletności na kredyt — wymaga dowodu z rekonesansu. Wariant 2
 zostaje w mocy jako osobna reguła, która i tak już stała w §11.8: skoro EFL
 podaje pełną tabelę uczestników, parsujemy ją zamiast cokolwiek szacować.
 
+### 3.5a Tabela „Oferty" w EFL NIE jest chronologią licytacji
+
+**Otwarte, ustalone 2026-09-09.** Kolumny („Kod oferty", „Oferta", „Data")
+kuszą, żeby czytać je jak dziennik postąpień. Dane z fixtures temu przeczą.
+
+Z `fixtures/efl/szczegoly-zakonczona-435508.html`, cena bieżąca **51 600 zł**:
+
+| Kod | Kwota | Data |
+|---|---|---|
+| 106125 | 51 600 zł | 2026.09.07 10:42:05 |
+| 106148 | 51 400 zł | 2026.09.07 10:46:58 |
+| 106147 | 49 000 zł | 2026.09.07 10:46:48 |
+
+Dwa fakty, które się nie składają w chronologię:
+
+1. **Cena bieżąca równa się kwocie z górnego wiersza.** Widać to w obu
+   zrzutach tej aukcji: 48 600 zł przy jednym wierszu 48 600 zł
+   (`szczegoly-435508.html`) i 51 600 zł przy górnym 51 600 zł.
+2. **W tym serwisie nie da się zalicytować poniżej ceny bieżącej.**
+
+Gdyby „Data" znaczyła „wtedy padła ta kwota", to o 10:46 ktoś zaoferowałby
+51 400 zł przy cenie bieżącej 51 600 zł — czyli poniżej. Co najmniej jedno
+z trzech założeń jest fałszywe: albo data nie dotyczy tej kwoty, albo kwota
+to maksimum proxy a nie oferta, albo cena bieżąca nie jest tym, czym się
+wydaje.
+
+**Czego NIE robimy, dopóki to nie jest rozstrzygnięte.** Tabela nie trafia
+na kartę aukcji ani do §11.8 jako „historia ofert". Pokazywaliśmy ją przez
+jedną wersję i wprowadzała w błąd dokładnie tak, jak opisano wyżej: niższa
+kwota z późniejszą datą wyglądała na przekłamane dane, a wyjaśnienie
+regułami proxy było zgadywaniem.
+
+Wiersze **zbieramy dalej** do `app.offer` (migracja `012`) — nie kosztują
+żadnego dodatkowego żądania, a bez nich nie da się tego rozstrzygnąć.
+Rozstrzygnie to obserwacja aukcji EFL z kilkoma licytantami: notując cenę
+bieżącą i tabelę w tym samym odpycie, zobaczymy, czy kwota niżej w tabeli
+kiedykolwiek przekracza cenę bieżącą sprzed swojego znacznika czasu.
+
+Do tego czasu **przebiegiem licytacji jest historia ceny bieżącej**
+(`price_snapshot`) i tylko ona jest na karcie.
+
 ### 3.6 Drabinka z §11.5 faza 2 ma trzy różne kształty, nie jeden
 
 **Zmierzone 2026-09-07** dla trzech z czterech źródeł. „Jak długo cena jest

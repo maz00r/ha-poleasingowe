@@ -1,5 +1,22 @@
 # Historia zmian
 
+## 0.20.1 — w przygotowaniu
+
+**Karta pokazuje historię ceny bieżącej i nic poza tym.** Tabela ofert
+z EFL, dodana w 0.20.0, została usunięta — myliła. Wyglądała na chronologię
+licytacji, a nią nie jest: cena bieżąca równa się kwocie z górnego wiersza,
+a niżej stoją wiersze z późniejszą datą i niższą kwotą, mimo że poniżej
+ceny bieżącej zalicytować się nie da. Tłumaczenie tego regułami licytacji
+proxy było z mojej strony zgadywaniem.
+
+Wiersze zbieramy dalej (nie kosztują żadnego dodatkowego żądania) i bez
+nich nie da się tej sprzeczności rozstrzygnąć — ale na kartę nie wracają,
+dopóki nie wiadomo, co dokładnie znaczą. Sprzeczność opisana w `RECON.md`
+§3.5a razem z tym, jaka obserwacja ją rozstrzygnie.
+
+**Przebiegiem licytacji jest więc historia ceny bieżącej** — jedynej
+liczby, o której wiadomo, co znaczy.
+
 ## 0.20.0 — w przygotowaniu
 
 **Karta tłumaczy licytację proxy, zamiast wyglądać na przekłamaną.** Tabela

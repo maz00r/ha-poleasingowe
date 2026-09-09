@@ -297,13 +297,6 @@ class Szczegoly:
     poll_tier: PollTier = PollTier.IDLE
     last_price_lead_seconds: int | None = None
     duplicate_of: int | None = None
-    licytacja_proxy: bool = False
-    """Serwis prowadzi licytację proxy — jeden wiersz na licytanta.
-
-    Wynika z `bid_count_semantics = PARTICIPANTS` (§8.1). Karta musi to
-    wiedzieć, żeby nie tłumaczyć reguł proxy tam, gdzie ich nie ma:
-    przy zwykłym postąpieniu późniejsza oferta ZAWSZE jest wyższa.
-    """
 
 
 @dataclass(slots=True, frozen=True)
@@ -322,48 +315,6 @@ class PunktHistorii:
     ends_at: dt.datetime | None = None
     bid_gap: int | None = None
     """Ile ofert przegapiono przed tym wpisem (§11.8); `None` = nie wiadomo."""
-
-
-@dataclass(slots=True, frozen=True)
-class OfertaNaKarcie:
-    """Jedna oferta odczytana wprost ze strony aukcji (SPEC.md §11.8).
-
-    Różnica wobec `PunktHistorii`: tam jest **nasz** odczyt ceny w chwili,
-    w której akurat zapytaliśmy, tu — oferta z momentem złożenia podanym
-    przez serwis. Karta pokazuje jedno albo drugie, nigdy oba naraz, bo
-    zestawione obok siebie wyglądałyby jak dwie wersje tej samej prawdy.
-    """
-
-    uczestnik: str
-    """Etykieta w rodzaju „Licytant A" — nadana po kolei pojawiania się.
-
-    Nie jest to identyfikator z serwisu; ten nigdzie nie trafia
-    (`012_oferty.sql`). Wystarcza, żeby zobaczyć, ilu było licytantów
-    i kto przebijał kogo.
-    """
-    amount: Money
-    placed_at: dt.datetime
-    najwyzsza: bool = False
-    """Najwyższa oferta w tej aukcji — czyli ta, która prowadzi albo wygrała.
-
-    Bez tego znacznika tabela licytacji proxy czyta się jak błąd: oferta
-    złożona później bywa **niższa**, bo ktoś podbił, ale nie przebił maksimum
-    lidera i cena nie drgnęła.
-    """
-    podbita_przez_siebie: bool = False
-    """Ten sam licytant złożył później wyższą ofertę; ten wiersz jest historią.
-
-    Serwis takiego wiersza już nie pokazuje — nadpisuje go w miejscu. U nas
-    zostaje, więc trzeba powiedzieć, że to stan wcześniejszy, a nie druga
-    równoległa oferta tej samej osoby.
-    """
-    opoznienie_s: int | None = None
-    """O ile spóźnił się nasz odczyt względem złożenia oferty (sekundy).
-
-    Jedyna miara opóźnienia, jaką mamy — serwis nie mówi, kiedy oferta
-    pojawiła się na stronie. `None`, gdy zobaczyliśmy ją w pierwszym odczycie
-    aukcji, bo wtedy liczba mierzyłaby wiek aukcji, a nie nasze opóźnienie.
-    """
 
 
 class PewnoscPowiazania(StrEnum):

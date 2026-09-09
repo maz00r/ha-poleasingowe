@@ -833,16 +833,20 @@ na stronie aukcji — parsuj ją zamiast polegać na różnicach snapshotów.
 To ma pierwszeństwo przed częstszym odpytywaniem i jest istotniejsze
 niż jakikolwiek parametr harmonogramu.
 
-**Zrobione dla EFL.** Zakładka „Oferty" jest inline w HTML i nie wymaga
-logowania (RECON.md §4.1), więc lista przyjeżdża **tą samą odpowiedzią**,
-którą i tak pobieramy po cenę — koszt w żądaniach wynosi zero. Oferty lądują
-w tabeli `offer` (§8.1), a nie w `price_snapshot`, bo to dwie różne rzeczy:
-tam jest nasz odczyt, tu zdarzenie po stronie serwisu z własnym momentem.
+**Dla EFL: zbierane, ale NIE uznane za historię ofert.** Zakładka „Oferty"
+jest inline w HTML i nie wymaga logowania (RECON.md §4.1), więc wiersze
+przyjeżdżają **tą samą odpowiedzią**, którą i tak pobieramy po cenę — koszt
+w żądaniach wynosi zero i dlatego zapisujemy je do tabeli `offer` (§8.1).
 
-Przy okazji zysk, którego serwis sam nie daje: EFL trzyma **jeden wiersz na
-uczestnika i nadpisuje go w miejscu**, więc wcześniejsza oferta tego samego
-licytanta znika ze strony bez śladu. U nas zostaje, bo różni ją `placed_at` —
-archiwum odtwarza przebieg, o którym serwis zapomina.
+**Ale nie wolno ich czytać jak chronologii postąpień.** RECON.md §3.5a
+pokazuje sprzeczność: cena bieżąca równa się kwocie z górnego wiersza,
+a niżej stoją wiersze z **późniejszym** znacznikiem czasu i **niższą**
+kwotą — mimo że poniżej ceny bieżącej zalicytować się nie da. Dopóki to nie
+jest rozstrzygnięte, `offer` jest materiałem dowodowym, a nie źródłem
+prawdy o przebiegu licytacji; na kartę aukcji nie trafia.
+
+**Przebiegiem licytacji pozostaje więc historia ceny bieżącej**
+z `price_snapshot` — jedyna liczba, o której wiemy, co znaczy.
 
 Adaptery źródeł, które listy ofert nie pokazują, **nie implementują** portu
 `ZrodloZOfertami` — zgodnie z §10.1 nie zmuszamy ich do pustej metody.

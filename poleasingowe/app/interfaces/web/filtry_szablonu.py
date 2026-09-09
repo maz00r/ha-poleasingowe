@@ -108,28 +108,6 @@ def do_konca(ends_at: dt.datetime | None, teraz: dt.datetime) -> str:
     return f"{minuty}{NBSP}min"
 
 
-def czas_trwania(sekundy: int | None) -> str:
-    """Odstęp czasu w postaci czytelnej na karcie aukcji.
-
-    Inna funkcja niż `do_konca`, mimo podobnego wyniku: tam liczymy różnicę
-    dwóch dat i „0" znaczy „po terminie", tu dostajemy gotową liczbę sekund,
-    a zero jest sensowną odpowiedzią — zobaczyliśmy ofertę w tej samej
-    sekundzie, w której padła.
-    """
-    if sekundy is None:
-        return NIEZNANE
-    if sekundy < 60:
-        return f"{sekundy}{NBSP}s"
-    minuty, reszta = divmod(sekundy, 60)
-    if minuty < 60:
-        return f"{minuty}{NBSP}min {reszta}{NBSP}s"
-    godziny, reszta_min = divmod(minuty, 60)
-    if godziny < 24:
-        return f"{godziny}{NBSP}h {reszta_min}{NBSP}min"
-    dni, reszta_godz = divmod(godziny, 24)
-    return f"{dni}{NBSP}d {reszta_godz}{NBSP}h"
-
-
 def pilnosc(ends_at: dt.datetime | None, teraz: dt.datetime) -> str:
     """Klasa CSS zależna od tego, jak blisko końca jest aukcja.
 
@@ -160,4 +138,3 @@ def zarejestruj(srodowisko: object) -> None:
     filtry["bajty"] = bajty
     filtry["do_konca"] = do_konca
     filtry["pilnosc"] = pilnosc
-    filtry["czas_trwania"] = czas_trwania

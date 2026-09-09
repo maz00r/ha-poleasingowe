@@ -16,7 +16,6 @@ from typing import Protocol, runtime_checkable
 from app.application.read_models import (
     Kryteria,
     Kursor,
-    OfertaNaKarcie,
     PorownanieRynkowe,
     PowiazaneWystawienie,
     PunktHistorii,
@@ -325,14 +324,6 @@ class Zapytania(Protocol):
 
         Snapshoty powstają tylko przy zmianie, więc to lista zdarzeń,
         a nie pomiar co N minut.
-        """
-        ...
-
-    async def oferty(self, auction_id: int) -> tuple[OfertaNaKarcie, ...]:
-        """Oferty odczytane wprost ze strony aukcji (SPEC.md §11.8).
-
-        Pusta krotka znaczy „to źródło ich nie podaje **albo** nikt jeszcze
-        nie licytował". Karta rozstrzyga to po `bid_count`, nie po tej liście.
         """
         ...
 

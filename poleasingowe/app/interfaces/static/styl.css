@@ -893,33 +893,6 @@ table.zestawienie tr.ostrzezenie td {
 
 .znacznik { color: var(--akcent); }
 
-/* Tabela ofert (SPEC.md §11.8). Przy licytacji proxy sama kolejnosc wierszy
-   nie mowi, kto wygrywa — kwota lidera potrafi stac wyzej od pozniejszych
-   ofert. Bez wyroznienia tabela czytala sie jak blad w danych. */
-.znacznik.najwyzsza {
-  color: var(--sukces);
-  border: 1px solid color-mix(in srgb, var(--sukces) 45%, transparent);
-  border-radius: 999px;
-  padding: 1px 8px;
-  margin-left: 8px;
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  white-space: nowrap;
-}
-
-/* Wczesniejszy stan tego samego licytanta: serwis go nadpisal, my go mamy.
-   Przygaszenie mowi "to juz historia", nie kasujac informacji. */
-table.zestawienie tr.oferta-nieaktualna td { opacity: 0.55; }
-
-.wyjasnienie {
-  margin-top: 14px;
-  padding: 12px 14px;
-  border-left: 3px solid var(--akcent);
-  background: color-mix(in srgb, var(--akcent) 8%, transparent);
-  border-radius: 0 6px 6px 0;
-}
 .ostrzezenie { border-color: var(--alarm); }
 .ostrzezenie-inline { color: var(--alarm); font-weight: 600; }
 .uwaga { color: var(--przygaszony); }

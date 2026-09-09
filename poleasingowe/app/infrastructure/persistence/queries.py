@@ -22,7 +22,6 @@ from psycopg.rows import dict_row
 from app.application.read_models import (
     Kryteria,
     Kursor,
-    OfertaNaKarcie,
     PewnoscPowiazania,
     PorownanieRynkowe,
     PowiazaneWystawienie,
@@ -106,11 +105,7 @@ SELECT
     w.target_price, w.currency AS target_currency, w.note,
     a.vin, a.body, a.color, a.engine_ccm, a.engine_hp, a.seller,
     a.bid_increment_raw, a.last_seen_at, a.next_poll_at, a.poll_tier,
-    a.last_price_lead_seconds, a.duplicate_of,
-    -- Do opisu tabeli ofert: 'PARTICIPANTS' znaczy jeden wiersz na
-    -- LICYTANTA, czyli licytacje proxy (RECON.md §3.5). Bez tego karta nie
-    -- ma jak wyjasnic, dlaczego pozniejsza oferta bywa nizsza.
-    s.bid_count_semantics
+    a.last_price_lead_seconds, a.duplicate_of
 FROM app.auction AS a
 JOIN app.source AS s ON s.id = a.source_id
 LEFT JOIN app.watchlist AS w ON w.auction_id = a.id
@@ -195,53 +190,6 @@ LIMIT 200
 # obserwowac aukcje. Dla wczesniejszych roznica `first_seen_at - placed_at`
 # mierzylaby wiek aukcji przed jej odkryciem, a nie nasze opoznienie —
 # a wyglada identycznie i dlatego jest mylaca.
-def _etykieta_licytanta(numer: int) -> str:
-    """1 → „Licytant A", 27 → „Licytant AA".
-
-    Pseudonim z bazy jest szesnastkowym skrotem — na ekranie nie niesie
-    zadnej informacji, a wyglada jak dane, ktorych nie mamy. Litera mowi
-    dokladnie to, co jest tu potrzebne: ilu bylo licytantow i ktory z nich
-    przebijal ktorego.
-    """
-    litery = ""
-    while numer > 0:
-        numer, reszta = divmod(numer - 1, 26)
-        litery = chr(ord("A") + reszta) + litery
-    return f"Licytant {litery}"
-
-
-SQL_OFERTY_AUKCJI = sql.SQL("""
-WITH pierwsze AS (
-    SELECT uczestnik, min(placed_at) AS moment
-    FROM app.offer
-    WHERE auction_id = %(auction_id)s
-    GROUP BY uczestnik
-)
-SELECT
-    o.amount,
-    o.currency,
-    o.placed_at,
-    -- Ktora oferta prowadzi. Przy licytacji proxy NIE jest to ostatnia
-    -- w kolejnosci czasu — lider moze stac na swoim maksimum od godziny,
-    -- a pozniejsze, nizsze oferty tylko sie o nie rozbijaja.
-    row_number() OVER (ORDER BY o.amount DESC, o.placed_at) = 1 AS najwyzsza,
-    -- Wczesniejszy stan tego samego licytanta. Serwis go nadpisal, my go
-    -- mamy — ale to nie jest druga rownolegla oferta tej samej osoby.
-    o.placed_at < max(o.placed_at) OVER (PARTITION BY o.uczestnik)
-        AS podbita_przez_siebie,
-    CASE
-        WHEN o.placed_at >= a.first_seen_at
-        THEN extract(epoch FROM o.first_seen_at - o.placed_at)::integer
-    END AS opoznienie_s,
-    dense_rank() OVER (ORDER BY p.moment, p.uczestnik) AS numer
-FROM app.offer o
-JOIN app.auction a ON a.id = o.auction_id
-JOIN pierwsze p ON p.uczestnik = o.uczestnik
-WHERE o.auction_id = %(auction_id)s
-ORDER BY o.placed_at DESC, o.amount DESC
-LIMIT 200
-""")
-
 # Ponowne wystawienia tego samego auta (SPEC.md §12).
 #
 # Niesprzedany samochod wraca na aukcje. Bez powiazania obu wystawien
@@ -582,7 +530,6 @@ class PgZapytania:
             poll_tier=PollTier(wiersz["poll_tier"]),
             last_price_lead_seconds=wiersz["last_price_lead_seconds"],
             duplicate_of=wiersz["duplicate_of"],
-            licytacja_proxy=wiersz["bid_count_semantics"] == "PARTICIPANTS",
         )
 
     async def porownania_rynkowe(
@@ -637,23 +584,6 @@ class PgZapytania:
                 bid_count=w["bid_count"],
                 ends_at=w["ends_at"],
                 bid_gap=w["bid_gap"],
-            )
-            for w in wiersze
-        )
-
-    async def oferty(self, auction_id: int) -> tuple[OfertaNaKarcie, ...]:
-        """Oferty ze strony aukcji, od najnowszej (SPEC.md §11.8)."""
-        async with self._conn.cursor(row_factory=dict_row) as cur:
-            await cur.execute(SQL_OFERTY_AUKCJI, {"auction_id": auction_id})
-            wiersze = await cur.fetchall()
-        return tuple(
-            OfertaNaKarcie(
-                uczestnik=_etykieta_licytanta(w["numer"]),
-                amount=Money(w["amount"], Currency(w["currency"])),
-                placed_at=w["placed_at"],
-                najwyzsza=w["najwyzsza"],
-                podbita_przez_siebie=w["podbita_przez_siebie"],
-                opoznienie_s=w["opoznienie_s"],
             )
             for w in wiersze
         )
