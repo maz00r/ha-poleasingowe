@@ -131,7 +131,12 @@ ON CONFLICT (source_id, external_id) DO UPDATE SET
     vin = EXCLUDED.vin, body = EXCLUDED.body,
     vehicle_kind = EXCLUDED.vehicle_kind, color = EXCLUDED.color,
     location = EXCLUDED.location, seller = EXCLUDED.seller,
-    price_start = EXCLUDED.price_start, price_current = EXCLUDED.price_current,
+    -- Ceny wywolawczej RAZ POZNANEJ nie tracimy. Wnioskujemy ja z
+    -- `bid_count = 0` (§8.2), a to znika w chwili pierwszej oferty:
+    -- nadpisanie NULL-em kasowaloby jedyna liczbe, ktorej juz nie da sie
+    -- odzyskac — serwisy nie podaja ceny wywolawczej wprost.
+    price_start = COALESCE(EXCLUDED.price_start, app.auction.price_start),
+    price_current = EXCLUDED.price_current,
     currency = EXCLUDED.currency, bid_count = EXCLUDED.bid_count,
     bid_increment_raw = EXCLUDED.bid_increment_raw,
     ends_at = EXCLUDED.ends_at, status = EXCLUDED.status,

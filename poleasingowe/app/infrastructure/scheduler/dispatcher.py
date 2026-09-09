@@ -36,7 +36,13 @@ from app.domain.domkniecie import (
     po_wyczerpaniu_drabinki,
     w_domykaniu,
 )
-from app.domain.entities import Auction, PriceSnapshot, RunLog, Source
+from app.domain.entities import (
+    Auction,
+    PriceSnapshot,
+    RunLog,
+    Source,
+    z_cena_wywolawcza,
+)
 from app.domain.enums import AuctionStatus, PollTier
 from app.domain.errors import DomainError
 from app.domain.harmonogram import nastepny_odpyt, tier
@@ -237,7 +243,10 @@ class Dispatcher:
             # zdecydować, co warto obserwować.
             pozycje = [
                 replace(
-                    adapter.na_aukcje(s, zrodlo.id, teraz),
+                    # Cena wywolawcza z `bid_count = 0` (§8.2) — wnioskowanie
+                    # pewne, a przemiat bywa jedyna chwila, w ktorej widzimy
+                    # aukcje jeszcze bez ofert.
+                    z_cena_wywolawcza(adapter.na_aukcje(s, zrodlo.id, teraz)),
                     next_poll_at=teraz,
                     poll_tier=PollTier.FAR,
                 )
@@ -420,7 +429,9 @@ class Dispatcher:
                 )
             return False
 
-        swieza = adapter.na_aukcje(surowa, zrodlo.id or aukcja.source_id, teraz)
+        swieza = z_cena_wywolawcza(
+            adapter.na_aukcje(surowa, zrodlo.id or aukcja.source_id, teraz)
+        )
 
         async with kontekst.uow as uow:
             obserwowana = await uow.watchlist.obserwowana(aukcja.id)

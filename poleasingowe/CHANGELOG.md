@@ -1,5 +1,21 @@
 # Historia zmian
 
+## 0.22.0 — w przygotowaniu
+
+**Cena wywoławcza wreszcie jest — tam, gdzie da się ją ustalić na pewno.**
+Żaden serwis jej nie podaje, ale aukcja bez ani jednej oferty stoi właśnie
+na cenie wywoławczej: licytować można wyłącznie w górę. Gdy widzimy aukcję
+z zerem ofert, zapisujemy tę cenę i **już jej nie nadpisujemy** — przesłanka
+znika wraz z pierwszą ofertą i drugiej okazji nie ma.
+
+Migracja uzupełnia też aukcje już zebrane, które nadal mają zero ofert.
+
+Tam, gdzie pewności nie ma, pole zostaje puste: serwis, który nie podaje
+liczby ofert (autoprzetarg bez logowania), nie daje podstawy do niczego —
+„nie wiem, ile było" to nie „nie było żadnej". A gdy oferty już padły, cena
+bieżąca jest wyższa od wywoławczej o nieznaną wartość i każda wpisana liczba
+byłaby zmyślona.
+
 ## 0.21.0 — w przygotowaniu
 
 **Historia licytacji dla poleasingowe.pl — kolejne postąpienia z kwotami

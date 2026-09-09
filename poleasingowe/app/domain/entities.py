@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import datetime as dt
 import itertools
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Any
 
 from app.domain.enums import (
@@ -202,6 +202,32 @@ class PriceSnapshot:
         _wymagaj_utc("ends_at", self.ends_at)
         if self.bid_gap is not None and self.bid_gap < 0:
             raise ValueError(f"bid_gap ujemny: {self.bid_gap}")
+
+
+def z_cena_wywolawcza(auction: Auction) -> Auction:
+    """Uzupełnia `price_start`, gdy da się go wywnioskować **pewnie**.
+
+    Aukcja bez ani jednej oferty stoi na swojej cenie wywoławczej — nie ma
+    innej możliwości, bo licytować można wyłącznie w górę. `bid_count = 0`
+    razem z ceną bieżącą daje więc cenę wywoławczą **z pewnością**, a nie
+    z oszacowania, i tylko dlatego wolno ją tu dopisać.
+
+    Trzy sytuacje, w których nic nie robimy, każda z innego powodu:
+
+    - `bid_count` jest `NULL` — serwis nie mówi, ile było ofert
+      (autoprzetarg bez logowania, RECON.md §4.4). Brak liczby to nie zero.
+    - `bid_count > 0` — ktoś już licytował, więc cena bieżąca jest wyższa od
+      wywoławczej o nieznaną nam wartość. Zapisanie jej byłoby kłamstwem.
+    - `price_start` już jest — pierwsza obserwacja bywa jedyną, w której
+      aukcja nie miała jeszcze ofert, i nie wolno jej nadpisać późniejszą.
+    """
+    if (
+        auction.price_start is not None
+        or auction.bid_count != 0
+        or auction.price_current is None
+    ):
+        return auction
+    return replace(auction, price_start=auction.price_current)
 
 
 @dataclass(slots=True, frozen=True)

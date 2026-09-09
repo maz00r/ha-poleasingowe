@@ -48,6 +48,9 @@ class ZrodloAtrapa:
     def __init__(self, key: str = "atrapa") -> None:
         self.key = key
         self.cena = Decimal("40000")
+        # `0` znaczy "nikt jeszcze nie licytowal" i pozwala wywnioskowac
+        # cene wywolawcza (SPEC.md §8.2); `None` znaczy "serwis nie mowi".
+        self.bid_count: int | None = 1
         self.ends_at: dt.datetime | None = None
         self.hash_tresci = "hash-1"
         self.blad: Exception | None = None
@@ -110,7 +113,7 @@ class ZrodloAtrapa:
             first_seen_at=teraz,
             last_seen_at=teraz,
             price_current=Money(self.cena, Currency.PLN),
-            bid_count=1,
+            bid_count=self.bid_count,
             ends_at=self.ends_at_na_liscie if z_listy else self.ends_at,
             content_hash=surowa.content_hash,
         )
@@ -1156,3 +1159,42 @@ async def _pierwsze_id(baza: psycopg.AsyncConnection) -> int:
     assert wiersz is not None
     identyfikator: int = wiersz[0]
     return identyfikator
+
+
+async def test_cena_wywolawcza_zapisuje_sie_i_przezywa_pierwsza_oferte(
+    pusta_baza: psycopg.AsyncConnection,
+) -> None:
+    """SPEC.md §8.2 — `bid_count = 0` znaczy „to jest cena wywoławcza".
+
+    Test idzie przez dwa odpyty, bo tu psuje się nie samo wnioskowanie, tylko
+    jego trwałość: w chwili pierwszej oferty przesłanka znika, a zapis, który
+    nadpisywałby kolumnę wartością `NULL`, skasowałby jedyną liczbę, jakiej
+    nie da się już odzyskać — serwisy ceny wywoławczej nie podają wprost.
+    """
+    adapter = ZrodloAtrapa()
+    adapter.cena = Decimal("94950")
+    adapter.bid_count = 0
+    auction_id, _ = await przygotuj(pusta_baza, adapter, do_konca_min=60)
+    await dispatcher(pusta_baza, adapter).jeden_obrot()
+
+    po_pierwszym = await wczytaj(pusta_baza, auction_id)
+    assert po_pierwszym.price_start is not None
+    assert po_pierwszym.price_start.amount == Decimal("94950")
+
+    # Ktoś licytuje: przesłanka znika, ale cena wywoławcza ma zostać.
+    adapter.cena = Decimal("95050")
+    adapter.bid_count = 1
+    adapter.hash_tresci = "hash-2"
+    teraz = await _czas_bazy(pusta_baza)
+    async with PgUnitOfWork(pusta_baza) as uow:
+        biezaca = await wczytaj(pusta_baza, auction_id)
+        await uow.auction.zapisz(
+            replace(biezaca, next_poll_at=teraz - dt.timedelta(seconds=1))
+        )
+    await dispatcher(pusta_baza, adapter).jeden_obrot()
+
+    po_drugim = await wczytaj(pusta_baza, auction_id)
+    assert po_drugim.price_current is not None
+    assert po_drugim.price_current.amount == Decimal("95050")
+    assert po_drugim.price_start is not None, "cena wywoławcza nie ma prawa zniknąć"
+    assert po_drugim.price_start.amount == Decimal("94950")

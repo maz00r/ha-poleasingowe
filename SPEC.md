@@ -853,8 +853,20 @@ pokazuje. Bramką jest `bid_count_semantics = 'OFFERS'`, nie nazwa źródła.
 
 Serwis podaje jednak tylko **dziesięć ostatnich** ofert i czyści listę 2-5
 minut po końcu (RECON.md §3.6), więc kompletność zależy od tego, czy aukcja
-była obserwowana. Ceny wywoławczej nie podaje w ogóle — `price_start`
-zostaje `NULL` i to jest uczciwa odpowiedź.
+była obserwowana.
+
+**Cena wywoławcza: `bid_count = 0` przesądza sprawę.** Żaden z czterech
+serwisów nie podaje jej wprost, ale aukcja bez ani jednej oferty stoi na
+cenie wywoławczej — licytować można wyłącznie w górę, więc to wniosek
+**pewny**, nie oszacowanie. Zapisujemy więc `price_start = price_current`
+przy pierwszej obserwacji, w której `bid_count` wynosi zero.
+
+Trzy granice tego wnioskowania, każda z innego powodu: `bid_count = NULL`
+(autoprzetarg bez logowania, RECON.md §4.4) **nie** jest zerem — „nie wiem"
+to nie „nie było"; przy `bid_count > 0` cena bieżąca jest wyższa od
+wywoławczej o nieznaną wartość, więc `NULL` zostaje; a raz zapisanej ceny
+wywoławczej **nigdy nie nadpisujemy** — przesłanka znika wraz z pierwszą
+ofertą i drugiej okazji nie będzie.
 
 **Snapshot zapisuje także przemiat listy**, nie tylko odpyt szczegółów.
 Reguła pozostaje ta sama (wyłącznie przy zmianie ceny, liczby ofert albo
