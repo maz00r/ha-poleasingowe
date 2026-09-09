@@ -297,6 +297,13 @@ class Szczegoly:
     poll_tier: PollTier = PollTier.IDLE
     last_price_lead_seconds: int | None = None
     duplicate_of: int | None = None
+    licytacja_proxy: bool = False
+    """Serwis prowadzi licytację proxy — jeden wiersz na licytanta.
+
+    Wynika z `bid_count_semantics = PARTICIPANTS` (§8.1). Karta musi to
+    wiedzieć, żeby nie tłumaczyć reguł proxy tam, gdzie ich nie ma:
+    przy zwykłym postąpieniu późniejsza oferta ZAWSZE jest wyższa.
+    """
 
 
 @dataclass(slots=True, frozen=True)
@@ -336,6 +343,20 @@ class OfertaNaKarcie:
     """
     amount: Money
     placed_at: dt.datetime
+    najwyzsza: bool = False
+    """Najwyższa oferta w tej aukcji — czyli ta, która prowadzi albo wygrała.
+
+    Bez tego znacznika tabela licytacji proxy czyta się jak błąd: oferta
+    złożona później bywa **niższa**, bo ktoś podbił, ale nie przebił maksimum
+    lidera i cena nie drgnęła.
+    """
+    podbita_przez_siebie: bool = False
+    """Ten sam licytant złożył później wyższą ofertę; ten wiersz jest historią.
+
+    Serwis takiego wiersza już nie pokazuje — nadpisuje go w miejscu. U nas
+    zostaje, więc trzeba powiedzieć, że to stan wcześniejszy, a nie druga
+    równoległa oferta tej samej osoby.
+    """
     opoznienie_s: int | None = None
     """O ile spóźnił się nasz odczyt względem złożenia oferty (sekundy).
 

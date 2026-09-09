@@ -106,7 +106,11 @@ SELECT
     w.target_price, w.currency AS target_currency, w.note,
     a.vin, a.body, a.color, a.engine_ccm, a.engine_hp, a.seller,
     a.bid_increment_raw, a.last_seen_at, a.next_poll_at, a.poll_tier,
-    a.last_price_lead_seconds, a.duplicate_of
+    a.last_price_lead_seconds, a.duplicate_of,
+    -- Do opisu tabeli ofert: 'PARTICIPANTS' znaczy jeden wiersz na
+    -- LICYTANTA, czyli licytacje proxy (RECON.md §3.5). Bez tego karta nie
+    -- ma jak wyjasnic, dlaczego pozniejsza oferta bywa nizsza.
+    s.bid_count_semantics
 FROM app.auction AS a
 JOIN app.source AS s ON s.id = a.source_id
 LEFT JOIN app.watchlist AS w ON w.auction_id = a.id
@@ -217,6 +221,14 @@ SELECT
     o.amount,
     o.currency,
     o.placed_at,
+    -- Ktora oferta prowadzi. Przy licytacji proxy NIE jest to ostatnia
+    -- w kolejnosci czasu — lider moze stac na swoim maksimum od godziny,
+    -- a pozniejsze, nizsze oferty tylko sie o nie rozbijaja.
+    row_number() OVER (ORDER BY o.amount DESC, o.placed_at) = 1 AS najwyzsza,
+    -- Wczesniejszy stan tego samego licytanta. Serwis go nadpisal, my go
+    -- mamy — ale to nie jest druga rownolegla oferta tej samej osoby.
+    o.placed_at < max(o.placed_at) OVER (PARTITION BY o.uczestnik)
+        AS podbita_przez_siebie,
     CASE
         WHEN o.placed_at >= a.first_seen_at
         THEN extract(epoch FROM o.first_seen_at - o.placed_at)::integer
@@ -302,11 +314,15 @@ SELECT
     -- Dolna granica rocznika to 1990, nawet gdy w bazie stoja same nowe
     -- auta: suwak zaczynajacy sie od najstarszego ZEBRANEGO rocznika
     -- przeskakuje przy kazdej nowej aukcji i nie da sie go zapamietac.
-    -- `least` zostawia miejsce na wiersz starszy niz 1990, gdyby sie
-    -- trafil — granica ma poszerzac zakres, nie ucinac danych. Auto
-    -- z 1985 roku nadal da sie znalezc; suwak po prostu siega dalej.
-    least(1990, min(year))::int AS rocznik_min,
-    max(year)::int AS rocznik_max,
+    -- `least` zostawia miejsce na prawidlowy wiersz starszy niz 1990,
+    -- gdyby sie trafil. Niemozliwe wartosci spoza zakresu akceptowanego
+    -- przez formularz (np. rocznik 1 z blednego parsera) nie moga jednak
+    -- rozciagac suwaka na dwa tysiace pozycji.
+    least(
+        1990,
+        min(year) FILTER (WHERE year BETWEEN 1900 AND 2100)
+    )::int AS rocznik_min,
+    max(year) FILTER (WHERE year BETWEEN 1900 AND 2100)::int AS rocznik_max,
     least(
         percentile_disc(0.01) WITHIN GROUP (ORDER BY engine_hp),
         min(engine_hp)
@@ -566,6 +582,7 @@ class PgZapytania:
             poll_tier=PollTier(wiersz["poll_tier"]),
             last_price_lead_seconds=wiersz["last_price_lead_seconds"],
             duplicate_of=wiersz["duplicate_of"],
+            licytacja_proxy=wiersz["bid_count_semantics"] == "PARTICIPANTS",
         )
 
     async def porownania_rynkowe(
@@ -634,6 +651,8 @@ class PgZapytania:
                 uczestnik=_etykieta_licytanta(w["numer"]),
                 amount=Money(w["amount"], Currency(w["currency"])),
                 placed_at=w["placed_at"],
+                najwyzsza=w["najwyzsza"],
+                podbita_przez_siebie=w["podbita_przez_siebie"],
                 opoznienie_s=w["opoznienie_s"],
             )
             for w in wiersze

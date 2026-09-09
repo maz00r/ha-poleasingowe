@@ -145,21 +145,32 @@
 
 {% if oferty %}
 <section class="karta">
-  <h2>Oferty</h2>
-  {# SPEC.md §11.8 — to sa oferty odczytane WPROST ze strony aukcji, z czasem
-     zlozenia podanym przez serwis. Nizej, w "Przebiegu licytacji", stoja nasze
-     odczyty ceny. Dwie rozne rzeczy, wiec dwie sekcje: zestawione w jednej
-     tabeli wygladalyby jak dwie wersje tej samej prawdy. #}
+  <h2>Przebieg licytacji</h2>
+  <p class="drobne podtytul">Co pokazuje serwis: kto, ile i kiedy zaoferował.</p>
+  {# SPEC.md §11.8 — oferty odczytane WPROST ze strony aukcji, z czasem
+     zlozenia podanym przez serwis. Nizej stoja NASZE odczyty ceny. Dwie
+     rozne rzeczy, wiec dwie sekcje z jawnie roznymi podtytulami: bez tego
+     nie dalo sie zgadnac, czym sie roznia. #}
   <table class="zestawienie">
     <thead>
       <tr><th>Kiedy złożona</th><th>Kwota</th><th>Kto</th><th>Nasze opóźnienie</th></tr>
     </thead>
     <tbody>
       {% for oferta in oferty %}
-        <tr>
+        <tr class="{{ 'oferta-nieaktualna' if oferta.podbita_przez_siebie }}">
           <td>{{ oferta.placed_at | czas_lokalny(z_sekundami=True) }}</td>
-          <td class="kwota">{{ oferta.amount | kwota }}</td>
-          <td class="drobne">{{ oferta.uczestnik }}</td>
+          <td class="kwota">
+            {{ oferta.amount | kwota }}
+            {%- if oferta.najwyzsza %}
+              <span class="znacznik najwyzsza">najwyższa</span>
+            {%- endif %}
+          </td>
+          <td class="drobne">
+            {{ oferta.uczestnik }}
+            {%- if oferta.podbita_przez_siebie %}
+              <span class="znacznik">podbił ją później</span>
+            {%- endif %}
+          </td>
           <td class="drobne">
             {%- if oferta.opoznienie_s is not none -%}
               {{ oferta.opoznienie_s | czas_trwania }}
@@ -171,18 +182,33 @@
       {% endfor %}
     </tbody>
   </table>
+  {% if dane.licytacja_proxy %}
+  <p class="drobne wyjasnienie">
+    <strong>Późniejsza oferta bywa niższa — i tak ma być.</strong>
+    Ten serwis prowadzi licytację <strong>proxy</strong>: każdy podaje swoje
+    maksimum, a serwis pokazuje po jednym wierszu na licytanta. Kto zaoferuje
+    mniej niż stojące już maksimum lidera, ten po prostu przegrywa i cena nie
+    drga. Dlatego kolejność kwot w tej tabeli nie musi rosnąć razem z czasem,
+    a wygrywa oferta oznaczona jako <em>najwyższa</em>, nie ostatnia.
+  </p>
+  {% endif %}
   <p class="drobne">
     Licytanci są oznaczeni literami w kolejności pojawienia się w tej aukcji —
-    identyfikatory z serwisu nie trafiają do bazy. „Nasze opóźnienie" mówi, ile
-    czasu minęło od złożenia oferty do chwili, w której ją zobaczyliśmy;
-    kreska znaczy, że oferta była na stronie, zanim zaczęliśmy obserwować.
+    identyfikatory z serwisu nie trafiają do bazy. Wiersz przygaszony to
+    wcześniejsza oferta tego samego licytanta: serwis ją nadpisał, my ją
+    pamiętamy. „Nasze opóźnienie" mówi, ile czasu minęło od złożenia oferty do
+    chwili, w której ją zobaczyliśmy; kreska znaczy, że oferta była na stronie,
+    zanim zaczęliśmy obserwować.
   </p>
 </section>
 {% endif %}
 
 {% if historia %}
 <section class="karta">
-  <h2>Przebieg licytacji</h2>
+  <h2>Nasze odczyty ceny</h2>
+  <p class="drobne podtytul">
+    Kiedy my patrzyliśmy na tę aukcję i co wtedy pokazywała.
+  </p>
   {# Snapshot powstaje TYLKO przy zmianie ceny, liczby ofert albo terminu
      (§8.4), wiec to lista zdarzen, a nie pomiar co N minut. Odstep miedzy
      wierszami mowi o licytacji, nie o naszym harmonogramie. #}

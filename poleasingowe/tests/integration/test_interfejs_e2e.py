@@ -21,7 +21,7 @@ import httpx
 import psycopg
 import pytest
 
-from app.domain.entities import OfertaUczestnika
+from app.domain.entities import OfertaUczestnika, PriceSnapshot
 from app.domain.enums import Currency
 from app.domain.value_objects import Money
 from app.infrastructure.persistence.pula import KontekstPg
@@ -135,40 +135,82 @@ async def test_szczegoly_linkuja_do_oferty_i_do_grafany(
     )
 
 
-async def test_karta_pokazuje_oferty_ze_strony_aukcji(
+async def test_karta_tlumaczy_licytacje_proxy_zamiast_wygladac_na_blad(
     klient: httpx.AsyncClient, pusta_baza: psycopg.AsyncConnection
 ) -> None:
-    """SPEC.md §11.8 — sekcja „Oferty" z etykietami zamiast pseudonimów.
+    """Zgłoszenie z użytkowania: „niższa kwota ma późniejszą datę".
 
-    Test idzie przez pełny stos aż do HTML-a, bo tu psuje się co innego niż
-    w zapytaniu: brakujący filtr `czas_trwania`, literówka w nazwie zmiennej
-    kontekstu albo sekcja opakowana w `{% if %}`, które nigdy nie jest
-    prawdziwe. Żadnej z tych rzeczy nie widać z poziomu SQL-a.
+    To nie był błąd, tylko licytacja proxy — ale tabela w żaden sposób tego
+    nie mówiła, więc czytała się jak przekłamane dane. Test pilnuje trzech
+    rzeczy naraz: że najwyższa oferta jest oznaczona, że wcześniejszy stan
+    tego samego licytanta jest odróżniony od osobnej oferty, i że reguła
+    proxy stoi napisana na karcie.
+
+    Idzie przez pełny stos aż do HTML-a, bo psuje się tu co innego niż
+    w SQL-u: brakujący filtr, literówka w nazwie pola kontekstu albo sekcja
+    w `{% if %}`, które nigdy nie jest prawdziwe.
     """
     identyfikatory = await _dane(pusta_baza)
     aukcja_id = identyfikatory["audi-za-godzine"]
+    async with pusta_baza.cursor() as cur:
+        # Licytacja proxy wynika z semantyki licznika ofert (RECON.md §3.5).
+        await cur.execute("UPDATE app.source SET bid_count_semantics = 'PARTICIPANTS'")
+
     uow = PgUnitOfWork(pusta_baza)
     teraz = dt.datetime.now(dt.UTC)
     await uow.oferta.zapisz_nowe(
         [
+            # Lider ustawia maksimum...
             OfertaUczestnika(
                 auction_id=aukcja_id,
-                uczestnik="skrot-szesnastkowy",
-                amount=Money(Decimal("122000.00"), Currency.PLN),
+                uczestnik="skrot-lidera",
+                amount=Money(Decimal("57210.00"), Currency.PLN),
                 placed_at=teraz - dt.timedelta(minutes=10),
                 first_seen_at=teraz - dt.timedelta(minutes=8),
-            )
+            ),
+            # ...a jego wcześniejsza, niższa oferta zostaje w archiwum.
+            OfertaUczestnika(
+                auction_id=aukcja_id,
+                uczestnik="skrot-lidera",
+                amount=Money(Decimal("52800.00"), Currency.PLN),
+                placed_at=teraz - dt.timedelta(days=1),
+                first_seen_at=teraz - dt.timedelta(days=1),
+            ),
+            # Ktoś licytuje PÓŹNIEJ i MNIEJ — i przegrywa, bo nie przebił
+            # stojącego maksimum. To jest ten wiersz, który wyglądał na błąd.
+            OfertaUczestnika(
+                auction_id=aukcja_id,
+                uczestnik="skrot-przegranego",
+                amount=Money(Decimal("57010.00"), Currency.PLN),
+                placed_at=teraz - dt.timedelta(minutes=2),
+                first_seen_at=teraz - dt.timedelta(minutes=1),
+            ),
         ]
+    )
+
+    # Snapshot ceny, zeby na karcie stanely OBIE sekcje naraz — dokladnie
+    # tak, jak wyglada to w uzyciu, i zeby dalo sie sprawdzic, ze da sie je
+    # od siebie odroznic.
+    await uow.snapshot.zapisz_jesli_zmienil_sie(
+        PriceSnapshot(
+            auction_id=aukcja_id,
+            ts=teraz,
+            price=Money(Decimal("57210.00"), Currency.PLN),
+            bid_count=2,
+        )
     )
 
     odp = await klient.get(f"/aukcja/{aukcja_id}")
 
     assert odp.status_code == 200
-    assert "Oferty" in odp.text
+    assert "Przebieg licytacji" in odp.text
+    assert "Nasze odczyty ceny" in odp.text, "dwie sekcje mają się różnić nazwą"
     assert "Licytant A" in odp.text
-    assert "122" in odp.text
+    assert "najwyższa" in odp.text, "bez tego nie wiadomo, kto wygrywa"
+    assert "oferta-nieaktualna" in odp.text, "wcześniejszy stan tego samego licytanta"
+    assert "proxy" in odp.text, "reguła musi być wyjaśniona na karcie"
     assert (
-        "skrot-szesnastkowy" not in odp.text
+        "skrot-lidera" not in odp.text
     ), "pseudonim z bazy nie ma prawa trafić na ekran"
 
 

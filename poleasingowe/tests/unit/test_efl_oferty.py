@@ -131,3 +131,41 @@ def test_czas_oferty_ma_inny_format_niz_termin_zakonczenia() -> None:
         oferty=(SurowaOfertaUczestnika("1", "100,00 zł", "07.09.2026 10:42:05"),),
     )
     assert mapper.na_oferty(surowa, auction_id=1, teraz=TERAZ) == ()
+
+
+def test_drabinka_efl_siega_poza_marker_zakonczenia() -> None:
+    """Drabinka musi dożyć chwili, w której EFL sam przyzna, że aukcja padła.
+
+    `CONFIRMED` wymaga odczytu ze strony PO potwierdzeniu zakończenia
+    (SPEC.md §11.5). EFL dopisuje `<h3>Zakończona</h3>` dopiero 5-7 minut po
+    terminie — to widać w fixtures i to sprawdza ten test. Drabinka krótsza
+    niż ten czas nigdy nie zobaczy markera, więc każda aukcja EFL kończyłaby
+    na `LAST_SEEN`, a `median_confirmed` z §9 zostałaby dla tego źródła pusta.
+
+    Test nie sprawdza literalnej siatki, tylko **relację** między nią
+    a zmierzonym zachowaniem serwisu: siatkę wolno zmieniać, dopóki sięga
+    dalej niż moment pojawienia się markera.
+    """
+    from app.infrastructure.sources import parametry
+
+    obecny_od = max(
+        int(p.stem.split("+")[1].rstrip("s"))
+        for p in FIXTURES.glob("domkniecie-post+*.html")
+        if parser.sparsuj_szczegoly(
+            p.read_text(encoding="utf-8", errors="replace"), "435508", "https://x"
+        ).pola.get("zakonczona")
+    )
+    brak_do = max(
+        int(p.stem.split("+")[1].rstrip("s"))
+        for p in FIXTURES.glob("domkniecie-post+*.html")
+        if not parser.sparsuj_szczegoly(
+            p.read_text(encoding="utf-8", errors="replace"), "435508", "https://x"
+        ).pola.get("zakonczona")
+    )
+    assert brak_do < obecny_od, "fixtures mają obejmować obie strony granicy"
+
+    drabinka = parametry.ZNANE["efl"].closing_ladder_seconds
+    assert max(drabinka) > brak_do, (
+        f"drabinka {drabinka} kończy się przed najpóźniejszym odczytem BEZ "
+        f"markera ({brak_do} s) — CONFIRMED byłoby nieosiągalne"
+    )

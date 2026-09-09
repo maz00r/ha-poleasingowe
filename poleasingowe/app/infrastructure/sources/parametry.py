@@ -44,8 +44,17 @@ ZNANE: dict[str, ParametryZrodla] = {
         overtime_window_seconds=0,
         overtime_extension_seconds=0,
         overtime_cap_seconds=None,
-        # Strona po zakończeniu zamraża się i trzyma cenę ≥2 h (RECON.md §3.6).
-        closing_ladder_seconds=(2, 30),
+        # Cena: strona po zakończeniu zamraża się i trzyma ją ≥2 h
+        # (RECON.md §3.6), więc dwa pierwsze stopnie wystarczą.
+        #
+        # Trzeci stopień jest dla CZEGO INNEGO — dla markera „Zakończona",
+        # który EFL dopisuje dopiero 5-7 minut po terminie. Zmierzone
+        # w fixtures: nieobecny w `domkniecie-post+300s.html`, obecny
+        # w `domkniecie-post+420s.html`. Drabinka kończąca się na 30 s
+        # nie miała jak go zobaczyć, więc KAŻDA aukcja EFL lądowała na
+        # `LAST_SEEN` i `CONFIRMED` było dla tego źródła nieosiągalne —
+        # a to na tym rozróżnieniu stoi §11.5 i mediany z §9.
+        closing_ladder_seconds=(2, 30, 450),
         bid_history_ttl_seconds=None,
         # Licytacja proxy: jeden wiersz na UCZESTNIKA, nie na ofertę
         # (RECON.md §3.5) — `bid_gap` z §11.8 zostaje tu `NULL`.

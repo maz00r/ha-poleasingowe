@@ -657,6 +657,46 @@ async def test_zrodlo_bez_dogrywki_nie_czeka_godziny_na_zamkniecie(
     assert (await stan(w_karencji.external_id)).status is AuctionStatus.ACTIVE
 
 
+async def test_zegar_nie_zamyka_aukcji_w_trakcie_drabinki(
+    pusta_baza: psycopg.AsyncConnection,
+) -> None:
+    """Zamknięcie z zegara nie ma prawa uciąć fazy 2 (SPEC.md §11.5).
+
+    To ostatnie stopnie drabinki łapią potwierdzenie zakończenia — EFL
+    dopisuje je 5-7 minut po terminie. Gdyby zegar zamknął aukcję wcześniej,
+    `CONFIRMED` stałoby się nieosiągalne, a stan wyglądałby na policzony.
+    """
+    uow = PgUnitOfWork(pusta_baza)
+    efl = await uow.source.zapisz(
+        zrodlo(
+            "efl",
+            overtime_window_seconds=0,
+            overtime_extension_seconds=0,
+            overtime_cap_seconds=None,
+            # Drabinka dłuższa niż karencja — celowo, bo to ten przypadek
+            # graniczny psuł się po cichu.
+            closing_ladder_seconds=(2, 30, 1200),
+        )
+    )
+    assert efl.id is not None
+    teraz = TERAZ + dt.timedelta(days=1)
+
+    w_drabince = await uow.auction.zapisz(
+        aukcja(
+            efl.id,
+            "efl-drabinka-trwa",
+            ends_at=teraz - dt.timedelta(minutes=15),
+            last_seen_at=teraz - dt.timedelta(minutes=15),
+        )
+    )
+
+    assert await uow.auction.zamknij_po_terminie(teraz) == 0
+
+    wynik = await uow.auction.po_kluczu_naturalnym(efl.id, w_drabince.external_id)
+    assert wynik is not None
+    assert wynik.status is AuctionStatus.ACTIVE, "drabinka ma dobiec do końca"
+
+
 async def test_wycena_ai_zapisuje_sie_na_stale(
     pusta_baza: psycopg.AsyncConnection,
 ) -> None:

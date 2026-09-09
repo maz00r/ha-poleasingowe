@@ -333,16 +333,25 @@ FROM app.source AS s
 WHERE s.id = a.source_id
   AND a.status = 'ACTIVE'
   AND a.ends_at IS NOT NULL
-  AND a.ends_at < %(teraz)s - make_interval(secs => CASE
-      -- Zrodlo Z DOGRYWKA: `ends_at` moze sie jeszcze przesunac, wiec czekamy
-      -- caly mozliwy czas przedluzenia i dopiero potem uznajemy koniec.
-      WHEN s.overtime_window_seconds > 0 AND s.overtime_extension_seconds > 0
-      THEN COALESCE(s.overtime_cap_seconds, 3600) + %(karencja)s
-      -- Zrodlo BEZ DOGRYWKI: `ends_at` jest twardy (EFL — RECON.md §3.2),
-      -- wiec czekanie godziny "na wszelki wypadek" trzymalo zakonczone
-      -- aukcje w widoku "Aktywne" bez zadnego powodu. Zostaje sama karencja.
-      ELSE %(karencja)s
-  END)
+  AND a.ends_at < %(teraz)s - make_interval(secs => GREATEST(
+      CASE
+          -- Zrodlo Z DOGRYWKA: `ends_at` moze sie jeszcze przesunac, wiec
+          -- czekamy caly mozliwy czas przedluzenia i dopiero potem uznajemy
+          -- koniec.
+          WHEN s.overtime_window_seconds > 0 AND s.overtime_extension_seconds > 0
+          THEN COALESCE(s.overtime_cap_seconds, 3600) + %(karencja)s
+          -- Zrodlo BEZ DOGRYWKI: `ends_at` jest twardy (EFL — RECON.md §3.2),
+          -- wiec czekanie godziny "na wszelki wypadek" trzymalo zakonczone
+          -- aukcje w widoku "Aktywne" bez zadnego powodu. Zostaje sama
+          -- karencja.
+          ELSE %(karencja)s
+      END,
+      -- Zegar NIE MA PRAWA wyprzedzic drabinki domkniecia. Zamkniecie aukcji
+      -- w trakcie fazy 2 uciela by ostatnie stopnie — a to wlasnie one
+      -- lapia potwierdzenie zakonczenia, od ktorego zalezy `CONFIRMED`
+      -- (§11.5). Zapas 60 s na obrot petli dyspozytora.
+      COALESCE((SELECT max(x) FROM unnest(s.closing_ladder_seconds) AS x), 0) + 60
+  ))
 """
 SQL_AUCTION_ODNOTUJ_WIDZIANA = "UPDATE app.auction SET last_seen_at = %s WHERE id = %s"
 

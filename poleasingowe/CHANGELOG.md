@@ -1,5 +1,37 @@
 # Historia zmian
 
+## 0.20.0 — w przygotowaniu
+
+**Karta tłumaczy licytację proxy, zamiast wyglądać na przekłamaną.** Tabela
+ofert potrafiła pokazać niższą kwotę z późniejszą datą i nic nie mówiło, że
+tak ma być. EFL prowadzi licytację proxy: każdy podaje swoje maksimum,
+a kto zaoferuje mniej niż stojące już maksimum lidera, ten przegrywa i cena
+nie drga. Najwyższa oferta jest teraz oznaczona, wcześniejszy stan tego
+samego licytanta przygaszony, a reguła napisana pod tabelą — ale tylko tam,
+gdzie serwis faktycznie licytuje proxy.
+
+**Dwie sekcje przestały nazywać się myląco.** „Przebieg licytacji" to od
+teraz oferty ze strony serwisu, a nasze odczyty ceny nazywają się wprost
+„Nasze odczyty ceny". Wcześniej obie mówiły o cenach i nie dało się zgadnąć,
+czym się różnią.
+
+**Poprawka: aukcje EFL mogą wreszcie dostać potwierdzoną cenę końcową.**
+Drabinka domknięcia kończyła się 30 sekund po terminie, a EFL dopisuje
+„Zakończona" dopiero po 5-7 minutach — więc potwierdzenia nie dało się
+zobaczyć nigdy i **każda** aukcja tego źródła lądowała na „ostatniej
+widzianej cenie". Drabinka sięga teraz za ten moment. Na tym rozróżnieniu
+stoją mediany cen końcowych, więc do tej pory EFL nie wnosił do nich nic.
+
+**Poprawka: zegar nie ucina już drabinki domknięcia.** Karencja przed
+zamknięciem aukcji z zegara nie może być krótsza niż jej ostatni stopień —
+inaczej aukcja zamykała się w trakcie fazy, która miała złapać
+potwierdzenie.
+
+**Suwak rocznika nie zaczyna się już od 1, gdy pojedyncza aukcja ma błędny
+rocznik.** Do wyznaczenia granic bierzemy tylko realne lata 1900–2100.
+Prawidłowe starsze auta nadal poszerzają zakres poniżej 1990, ale wartość
+`1` z uszkodzonych danych nie czyni suwaka bezużytecznym.
+
 ## 0.19.1 — w przygotowaniu
 
 **Suwak rocznika zaczyna się od 1990** (było 1980). Granica jest nadal

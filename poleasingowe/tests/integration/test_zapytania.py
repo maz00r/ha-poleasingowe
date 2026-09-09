@@ -597,7 +597,10 @@ async def test_zakresy_suwakow_biora_sie_z_danych(
     # Dolna granica rocznika jest STAŁA (1990), a nie brana z danych: suwak
     # zaczynający się od najstarszego zebranego rocznika przeskakiwałby przy
     # każdej nowej aukcji.
-    assert (zakresy["rocznik"].minimum, zakresy["rocznik"].maksimum) == (1990, 2021)
+    assert (zakresy["rocznik"].minimum, zakresy["rocznik"].maksimum) == (
+        1990,
+        2021,
+    )
     assert zakresy["moc"].minimum == 150
     assert zakresy["moc"].uzyteczny is False, "jedna wartość to nie jest zakres"
 
@@ -608,6 +611,21 @@ async def test_pusta_baza_nie_wywraca_zakresow(
     zakresy = await PgZapytania(pusta_baza).zakresy_filtrow()
     assert zakresy["rocznik"].uzyteczny is False
     assert zakresy["moc"].uzyteczny is False
+
+
+async def test_zakres_rocznika_ignoruje_niemozliwe_wartosci(
+    pusta_baza: psycopg.AsyncConnection,
+) -> None:
+    """Bledny rocznik 1 nie moze rozciagnac suwaka od 1 do terazniejszosci."""
+    zapytania = PgZapytania(pusta_baza)
+    await _dane(pusta_baza)
+    async with pusta_baza.cursor() as cur:
+        await cur.execute(
+            "UPDATE app.auction SET year = 1 WHERE external_id = 'audi-za-godzine'"
+        )
+
+    zakresy = await zapytania.zakresy_filtrow()
+    assert (zakresy["rocznik"].minimum, zakresy["rocznik"].maksimum) == (1990, 2021)
 
 
 async def _wystaw_ponownie(
