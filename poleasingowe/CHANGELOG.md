@@ -1,5 +1,25 @@
 # Historia zmian
 
+## 0.14.0 — w przygotowaniu
+
+**Ponowne wystawienia są powiązane.** Niesprzedany samochód wraca na aukcję,
+czasem w innym serwisie. Karta pokazuje teraz pozostałe wystawienia tego
+samego auta — w obie strony: z archiwum starej aukcji do nowej i z nowej do
+starej, razem z ceną i przebiegiem każdego podejścia. Bez tego archiwum
+kłamało przez przemilczenie: mówiło „zakończona" i nie wspominało, że ta sama
+sztuka poszła miesiąc później o osiem tysięcy taniej.
+
+Dopasowanie po **VIN-ie jest oznaczone jako pewne**, bo VIN identyfikuje
+egzemplarz. Bez VIN-u wymagamy zgodności marki, modelu, rocznika, silnika,
+koloru **oraz** przebiegu w wąskim oknie i oznaczamy takie trafienie jako
+„podobne dane" — flota leasingowa bywa kupiona hurtem i samo „ten sam model
+i rocznik" wskazywałoby na siebie nawzajem kilkanaście identycznych aut.
+
+**Przebieg licytacji widać w panelu.** Zmiany ceny i liczby ofert zbierały
+się od pierwszego dnia, ale jedyną drogą do nich była Grafana. Karta aukcji
+ma teraz tabelę zmian — a że snapshot powstaje wyłącznie przy zmianie, odstęp
+między wierszami mówi o licytacji, nie o naszym harmonogramie.
+
 ## 0.13.0 — w przygotowaniu
 
 **Wycena AI zapisuje się na stałe.** Do tej pory leżała w cache'u na dysku

@@ -83,6 +83,53 @@
   </p>
 </article>
 
+{% if wystawienia %}
+<section class="karta">
+  <h2>To auto na innych aukcjach</h2>
+  {# Niesprzedany samochod wraca na aukcje. Bez tego powiazania archiwum
+     klamie przez przemilczenie: pokazuje "zakonczona" i nie mowi, ze ta sama
+     sztuka poszla miesiac pozniej o osiem tysiecy taniej. #}
+  <table class="zestawienie">
+    <thead>
+      <tr>
+        <th>Kiedy</th><th>Źródło</th><th>Cena</th><th>Przebieg</th>
+        <th>Stan</th><th>Dopasowanie</th><th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for w in wystawienia %}
+        <tr>
+          <td>
+            {{ w.ends_at | czas_lokalny }}
+            <div class="drobne">{{ 'później' if w.pozniejsze else 'wcześniej' }}</div>
+          </td>
+          <td>{{ w.source_key }}</td>
+          <td class="kwota">
+            {{ w.price_current | kwota }}
+            {% if w.status.value != 'ACTIVE' %}
+              <div class="drobne">{{ w.final_price_state.value }}</div>
+            {% endif %}
+          </td>
+          <td>{{ w.mileage_km | liczba }}{% if w.mileage_km %} km{% endif %}</td>
+          <td>{{ w.status.value }}</td>
+          <td>
+            {# Dopasowanie po VIN jest PEWNE — VIN identyfikuje egzemplarz.
+               "Podobne" to zgodnosc marki, rocznika, silnika, koloru
+               i przebiegu, a flota leasingowa bywa kupiona hurtem. #}
+            {% if w.pewnosc.value == 'VIN' %}
+              <span class="etykieta pewna">ten sam VIN</span>
+            {% else %}
+              <span class="etykieta">podobne dane</span>
+            {% endif %}
+          </td>
+          <td><a href="{{ sciezka(request, 'szczegoly', auction_id=w.id) }}">otwórz</a></td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endif %}
+
 <section class="karta" id="wycena-ai">
   <h2>Wycena AI</h2>
   <div hx-get="{{ sciezka(request, 'wycena_aukcji', auction_id=p.id) }}"
@@ -95,6 +142,38 @@
 <section class="karta" id="obserwacja">
   {% include "fragmenty/obserwacja.html" %}
 </section>
+
+{% if historia %}
+<section class="karta">
+  <h2>Przebieg licytacji</h2>
+  {# Snapshot powstaje TYLKO przy zmianie ceny, liczby ofert albo terminu
+     (§8.4), wiec to lista zdarzen, a nie pomiar co N minut. Odstep miedzy
+     wierszami mowi o licytacji, nie o naszym harmonogramie. #}
+  <table class="zestawienie">
+    <thead>
+      <tr><th>Kiedy</th><th>Cena</th><th>Ofert</th><th>Koniec</th></tr>
+    </thead>
+    <tbody>
+      {% for punkt in historia %}
+        <tr>
+          <td>{{ punkt.ts | czas_lokalny(z_sekundami=True) }}</td>
+          <td class="kwota">{{ punkt.price | kwota }}</td>
+          <td>
+            {{ punkt.bid_count if punkt.bid_count is not none else '—' }}
+            {% if punkt.bid_gap %}
+              <span class="drobne">(+{{ punkt.bid_gap }} przegapionych)</span>
+            {% endif %}
+          </td>
+          <td class="drobne">{{ punkt.ends_at | czas_lokalny(z_sekundami=True) }}</td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <p class="drobne">
+    Zapisujemy wyłącznie zmiany — odpyt bez zmiany ceny nie tworzy wiersza.
+  </p>
+</section>
+{% endif %}
 
 <section class="karta zwiniete">
   <h2>Harmonogram</h2>

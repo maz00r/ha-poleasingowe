@@ -300,6 +300,62 @@ class Szczegoly:
 
 
 @dataclass(slots=True, frozen=True)
+class PunktHistorii:
+    """Jedna zmiana ceny obserwowanej aukcji (SPEC.md §8.4).
+
+    Snapshoty powstają **wyłącznie przy zmianie** ceny, liczby ofert albo
+    terminu — odpyt bez zmiany aktualizuje tylko `last_seen_at`. Historia
+    jest więc listą zdarzeń, a nie pomiarem co N minut, i tak trzeba ją
+    czytać: odstęp między wierszami mówi o licytacji, nie o harmonogramie.
+    """
+
+    ts: dt.datetime
+    price: Money
+    bid_count: int | None = None
+    ends_at: dt.datetime | None = None
+    bid_gap: int | None = None
+    """Ile ofert przegapiono przed tym wpisem (§11.8); `None` = nie wiadomo."""
+
+
+class PewnoscPowiazania(StrEnum):
+    """Skąd wiadomo, że to ten sam samochód."""
+
+    VIN = "VIN"
+    """Ten sam numer nadwozia. Pewne — VIN identyfikuje egzemplarz."""
+    PODOBNE = "PODOBNE"
+    """Zgadza się marka, model, rocznik, silnik, kolor i przebieg.
+
+    **Prawdopodobne, nie pewne.** Flota leasingowa bywa złożona z aut
+    kupionych razem: ten sam model, rocznik i zbliżony przebieg. Dlatego
+    interfejs musi to pokazywać inaczej niż dopasowanie po VIN-ie.
+    """
+
+
+@dataclass(slots=True, frozen=True)
+class PowiazaneWystawienie:
+    """Ta sama fura wystawiona ponownie (SPEC.md §12).
+
+    Niesprzedany samochód wraca na aukcję — czasem po tygodniu, czasem
+    w innym serwisie. Bez powiązania obu wystawień archiwum kłamie przez
+    przemilczenie: pokazuje „zakończona bez sprzedaży" i nie mówi, że ta
+    sama sztuka poszła miesiąc później o 8 tysięcy taniej.
+    """
+
+    id: int
+    source_key: str
+    external_id: str
+    url: str
+    status: AuctionStatus
+    pewnosc: PewnoscPowiazania
+    pozniejsze: bool
+    """`True`, gdy to wystawienie jest PÓŹNIEJSZE niż oglądane."""
+    ends_at: dt.datetime | None = None
+    price_current: Money | None = None
+    final_price_state: FinalPriceState = FinalPriceState.UNKNOWN
+    mileage_km: int | None = None
+
+
+@dataclass(slots=True, frozen=True)
 class PorownanieRynkowe:
     """Zagregowana cena podobnych, zakończonych aukcji dla wyceny AI."""
 

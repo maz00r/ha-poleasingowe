@@ -205,6 +205,11 @@ python3 tools/recon_0b.py --dry-run --source efl --url "<URL>"
   `DISAPPEARED`, bo tam znika z serwisu. Kolumny `closing_ladder_seconds`
   i `bid_history_ttl_seconds` czekają wypełnione, ale nikt ich jeszcze
   nie czyta.
+- **Ponowne wystawienia bez VIN-u to tylko przypuszczenie.** Powiązanie
+  po VIN jest pewne; bez niego opieramy się na zgodności marki, modelu,
+  rocznika, silnika, koloru i przebiegu — i tak jest oznaczone w interfejsie.
+  Auta z floty kupionej hurtem mogą się nie powiązać wcale (różny przebieg)
+  i to jest bezpieczniejszy błąd niż sklejenie dwóch różnych sztuk.
 - **Nie ma wykrywania zniknięcia z listy.** Aukcja, która przestała się
   pojawiać w przemiatach, nie jest z tego powodu oznaczana. Od 0.9.0 zamyka
   ją natomiast **zegar**: po upływie okna dogrywki źródła dispatcher

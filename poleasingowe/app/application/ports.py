@@ -17,6 +17,8 @@ from app.application.read_models import (
     Kryteria,
     Kursor,
     PorownanieRynkowe,
+    PowiazaneWystawienie,
+    PunktHistorii,
     StanZrodla,
     Strona,
     Szczegoly,
@@ -250,6 +252,24 @@ class Zapytania(Protocol):
 
         Brane z danych, nie ze słownika w kodzie: filtr pokazujący markę,
         której nie ma w bazie, to filtr, który zawsze zwraca pustkę.
+        """
+        ...
+
+    async def historia_cen(self, auction_id: int) -> tuple[PunktHistorii, ...]:
+        """Przebieg licytacji jednej aukcji (§8.4).
+
+        Snapshoty powstają tylko przy zmianie, więc to lista zdarzeń,
+        a nie pomiar co N minut.
+        """
+        ...
+
+    async def powiazane_wystawienia(
+        self, auction_id: int
+    ) -> tuple[PowiazaneWystawienie, ...]:
+        """Inne wystawienia tego samego auta (§12).
+
+        Liczone przy odczycie, nie zapisywane: powiązanie zapisane w kolumnie
+        starzałoby się cicho, gdy przemiat dopisze pasującą aukcję później.
         """
         ...
 

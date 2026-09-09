@@ -15,7 +15,7 @@ import psycopg
 import pytest
 
 from app.application.read_models import Kryteria, Kursor, Sortowanie
-from app.domain.entities import Auction, WatchlistEntry
+from app.domain.entities import Auction, PriceSnapshot, WatchlistEntry
 from app.domain.enums import AuctionStatus, Currency, FinalPriceState, RodzajPojazdu
 from app.domain.value_objects import Mileage, Money, Vin
 from app.infrastructure.persistence.queries import PgZapytania
@@ -603,3 +603,147 @@ async def test_pusta_baza_nie_wywraca_zakresow(
     zakresy = await PgZapytania(pusta_baza).zakresy_filtrow()
     assert zakresy["rocznik"].uzyteczny is False
     assert zakresy["moc"].uzyteczny is False
+
+
+async def _wystaw_ponownie(
+    baza: psycopg.AsyncConnection, wzor: str, nowy: str, **zmiany: object
+) -> int:
+    """Kopia aukcji z nowym identyfikatorem — tak wygląda ponowne wystawienie."""
+    kolumny = {
+        "external_id": nowy,
+        "url": f"https://przyklad.test/{nowy}",
+        **zmiany,
+    }
+    ustawienia = ", ".join(f"{k} = %({k})s" for k in kolumny)
+    async with baza.cursor() as cur:
+        await cur.execute(
+            "INSERT INTO app.auction"
+            " (source_id, external_id, url, make, model, year, mileage_km, vin,"
+            "  engine_ccm, engine_hp, color, price_current, currency, status,"
+            "  ends_at, first_seen_at, last_seen_at, vehicle_kind)"
+            " SELECT source_id, %(external_id)s, %(url)s, make, model, year,"
+            "  mileage_km, vin, engine_ccm, engine_hp, color, price_current,"
+            "  currency, status, ends_at, first_seen_at, last_seen_at,"
+            "  vehicle_kind"
+            " FROM app.auction WHERE external_id = %(wzor)s RETURNING id",
+            {**kolumny, "wzor": wzor},
+        )
+        wiersz = await cur.fetchone()
+        assert wiersz is not None
+        nowe_id = wiersz[0]
+        # Nadpisanie różnic osobno: `SELECT` kopiuje wzór, a dopiero to
+        # odróżnia nowe wystawienie od starego.
+        if zmiany:
+            await cur.execute(
+                f"UPDATE app.auction SET {ustawienia} WHERE id = %(id)s",
+                {**kolumny, "id": nowe_id},
+            )
+    return int(nowe_id)
+
+
+async def test_to_samo_auto_wystawione_ponownie_laczy_sie_po_vin(
+    pusta_baza: psycopg.AsyncConnection,
+) -> None:
+    """Niesprzedany samochód wraca na aukcję — obie karty mają o sobie wiedzieć.
+
+    Bez tego archiwum kłamie przez przemilczenie: pokazuje „zakończona"
+    i nie mówi, że ta sama sztuka poszła miesiąc później taniej.
+    """
+    zapytania = PgZapytania(pusta_baza)
+    identyfikatory = await _dane(pusta_baza)
+    stare = identyfikatory["audi-za-godzine"]  # ma VIN
+    nowe = await _wystaw_ponownie(
+        pusta_baza,
+        "audi-za-godzine",
+        "audi-drugie-podejscie",
+        ends_at=dt.datetime.now(dt.UTC) + dt.timedelta(days=30),
+        price_current=Decimal("110000"),
+    )
+
+    z_perspektywy_starej = await zapytania.powiazane_wystawienia(stare)
+    assert [w.id for w in z_perspektywy_starej] == [nowe]
+    assert z_perspektywy_starej[0].pewnosc.value == "VIN"
+    assert z_perspektywy_starej[0].pozniejsze is True
+
+    # I w drugą stronę — powiązanie musi działać z obu kart.
+    z_perspektywy_nowej = await zapytania.powiazane_wystawienia(nowe)
+    assert [w.id for w in z_perspektywy_nowej] == [stare]
+    assert z_perspektywy_nowej[0].pozniejsze is False
+
+
+async def test_flota_identycznych_aut_nie_jest_jednym_samochodem(
+    pusta_baza: psycopg.AsyncConnection,
+) -> None:
+    """Najgroźniejszy fałszywy alarm tego mechanizmu.
+
+    Leasingodawca kupuje auta hurtem: ten sam model, rocznik i silnik,
+    zbliżony przebieg. Bez VIN-u wystarczy RÓŻNICA PRZEBIEGU albo koloru,
+    żeby to były dwa różne egzemplarze — i tak ma to działać.
+    """
+    zapytania = PgZapytania(pusta_baza)
+    identyfikatory = await _dane(pusta_baza)
+    bez_vinu = identyfikatory["vw-za-dwie-godziny"]
+    async with pusta_baza.cursor() as cur:
+        await cur.execute(
+            "UPDATE app.auction SET color = 'Biały', engine_ccm = 1968,"
+            " engine_hp = 150 WHERE id = %s",
+            (bez_vinu,),
+        )
+
+    # Bliźniak z floty: wszystko to samo poza przebiegiem o 40 tys. wyższym.
+    await _wystaw_ponownie(
+        pusta_baza, "vw-za-dwie-godziny", "vw-blizniak", mileage_km=250_000
+    )
+    assert await zapytania.powiazane_wystawienia(bez_vinu) == ()
+
+    # Ta sama sztuka po miesiącu: przebieg podrósł o 1200 km.
+    ponownie = await _wystaw_ponownie(
+        pusta_baza, "vw-za-dwie-godziny", "vw-ponownie", mileage_km=211_200
+    )
+    powiazane = await zapytania.powiazane_wystawienia(bez_vinu)
+    assert [w.id for w in powiazane] == [ponownie]
+    assert powiazane[0].pewnosc.value == "PODOBNE", "bez VIN-u to tylko przypuszczenie"
+
+
+async def test_historia_licytacji_jest_widoczna_z_aplikacji(
+    pusta_baza: psycopg.AsyncConnection,
+) -> None:
+    """Snapshoty zbierały się od pierwszego dnia, ale panel ich nie pokazywał.
+
+    Kolejność malejąca: ostatnia zmiana ceny jest najważniejsza.
+    """
+    zapytania = PgZapytania(pusta_baza)
+    identyfikatory = await _dane(pusta_baza)
+    aukcja = identyfikatory["audi-za-godzine"]
+    uow = PgUnitOfWork(pusta_baza)
+    for minuty, kwota, oferty in (
+        (30, "120000", 3),
+        (20, "121500", 4),
+        (5, "124000", 6),
+    ):
+        await uow.snapshot.zapisz_jesli_zmienil_sie(
+            PriceSnapshot(
+                auction_id=aukcja,
+                ts=TERAZ - dt.timedelta(minutes=minuty),
+                price=_pln(kwota),
+                bid_count=oferty,
+            )
+        )
+
+    historia = await zapytania.historia_cen(aukcja)
+    assert [str(p.price.amount) for p in historia] == [
+        "124000.00",
+        "121500.00",
+        "120000.00",
+    ]
+    assert historia[0].bid_count == 6
+
+
+async def test_brak_historii_to_pusta_krotka(
+    pusta_baza: psycopg.AsyncConnection,
+) -> None:
+    identyfikatory = await _dane(pusta_baza)
+    assert (
+        await PgZapytania(pusta_baza).historia_cen(identyfikatory["bez-terminu-a"])
+        == ()
+    )

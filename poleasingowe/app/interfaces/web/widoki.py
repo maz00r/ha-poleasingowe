@@ -355,17 +355,24 @@ async def szczegoly(request: Request, auction_id: int) -> Response:
 
     async with _fabryka(request)() as kontekst:
         dane = await kontekst.zapytania.szczegoly(auction_id)
-    if dane is None:
-        return SZABLONY.TemplateResponse(
-            request=request,
-            name="nie-znaleziono.html",
-            context={**_kontekst_bazowy(request), "auction_id": auction_id},
-            status_code=404,
-        )
+        if dane is None:
+            return SZABLONY.TemplateResponse(
+                request=request,
+                name="nie-znaleziono.html",
+                context={**_kontekst_bazowy(request), "auction_id": auction_id},
+                status_code=404,
+            )
+        wystawienia = await kontekst.zapytania.powiazane_wystawienia(auction_id)
+        historia = await kontekst.zapytania.historia_cen(auction_id)
     return SZABLONY.TemplateResponse(
         request=request,
         name="szczegoly.html",
-        context={**_kontekst_bazowy(request), "dane": dane},
+        context={
+            **_kontekst_bazowy(request),
+            "dane": dane,
+            "wystawienia": wystawienia,
+            "historia": historia,
+        },
     )
 
 

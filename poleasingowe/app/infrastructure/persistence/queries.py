@@ -22,8 +22,11 @@ from psycopg.rows import dict_row
 from app.application.read_models import (
     Kryteria,
     Kursor,
+    PewnoscPowiazania,
     PorownanieRynkowe,
+    PowiazaneWystawienie,
     PozycjaListy,
+    PunktHistorii,
     Sortowanie,
     StanZrodla,
     Strona,
@@ -158,6 +161,82 @@ SELECT pole, wartosc FROM (
     SELECT 'zrodlo', s.key FROM app.source AS s
 ) AS wartosci
 ORDER BY pole, wartosc COLLATE "pl-PL-x-icu"
+""")
+
+# Historia licytacji jednej aukcji (SPEC.md §8.4, §12).
+#
+# Dane leza w `price_snapshot` od pierwszego dnia, ale panel ich nie
+# pokazywal — jedyna droga byla przez Grafane, ktorej dashboardow jeszcze
+# nie ma. Kolejnosc malejaca, bo ostatnia zmiana jest najwazniejsza.
+#
+# Limit 200: przy aukcji z setkami postapien pelna lista i tak nie da sie
+# przeczytac, a karta ma sie otworzyc od razu.
+SQL_HISTORIA_CEN = sql.SQL("""
+SELECT ts, price, currency, bid_count, ends_at, bid_gap
+FROM app.price_snapshot
+WHERE auction_id = %s
+ORDER BY ts DESC
+LIMIT 200
+""")
+
+# Ponowne wystawienia tego samego auta (SPEC.md §12).
+#
+# Niesprzedany samochod wraca na aukcje. Bez powiazania obu wystawien
+# archiwum klamie przez przemilczenie: pokazuje "zakonczona" i nie mowi, ze
+# ta sama sztuka poszla miesiac pozniej o osiem tysiecy taniej.
+#
+# Powiazania NIE ZAPISUJEMY w kolumnie — liczymy je przy otwarciu karty.
+# Zapisane musialoby byc odswiezane przy kazdym nowym wystawieniu i cicho
+# starzalo sie, gdyby przemiat dopisal pasujaca aukcje pozniej. Zapytanie
+# trafia w istniejace indeksy (`auction_vin_idx`, `auction_make_model_year_idx`),
+# a karta aukcji otwiera sie raz na klikniecie, nie w petli.
+#
+# Dwie sciezki dopasowania i to jest cala trudnosc tego zapytania:
+#
+#   VIN      — pewne. VIN identyfikuje EGZEMPLARZ, nie model.
+#   PODOBNE  — prawdopodobne. Marka, model, rocznik, silnik, kolor ORAZ
+#              przebieg w waskim oknie. Flota leasingowa bywa kupiona
+#              hurtem: te same auta, ten sam rocznik, zblizony przebieg —
+#              dlatego samo "marka + model + rocznik" NIE wystarcza i te
+#              trafienia oznaczamy inaczej w interfejsie.
+#
+# Przebieg tylko ROSNIE, wiec pozniejsze wystawienie ma go nie mniejszy;
+# tolerancja w dol (2000 km) jest na literowki i odczyty zaokraglone.
+SQL_POWIAZANE_WYSTAWIENIA = sql.SQL("""
+WITH cel AS (
+    SELECT id, vin, make, model, year, engine_ccm, engine_hp, color,
+           mileage_km, ends_at, first_seen_at
+    FROM app.auction WHERE id = %s
+)
+SELECT
+    a.id, s.key AS source_key, a.external_id, a.url, a.status, a.ends_at,
+    a.price_current, a.currency, a.final_price_state, a.mileage_km,
+    CASE WHEN cel.vin IS NOT NULL AND a.vin = cel.vin
+         THEN 'VIN' ELSE 'PODOBNE' END AS pewnosc,
+    (COALESCE(a.ends_at, a.first_seen_at)
+        > COALESCE(cel.ends_at, cel.first_seen_at)) AS pozniejsze
+FROM app.auction AS a
+JOIN app.source AS s ON s.id = a.source_id
+CROSS JOIN cel
+WHERE a.id <> cel.id
+  AND a.duplicate_of IS NULL
+  AND (
+      (cel.vin IS NOT NULL AND a.vin = cel.vin)
+      OR (
+          cel.vin IS NULL
+          AND a.vin IS NULL
+          AND cel.make IS NOT NULL AND a.make = cel.make
+          AND cel.model IS NOT NULL AND a.model = cel.model
+          AND cel.year IS NOT NULL AND a.year = cel.year
+          AND cel.mileage_km IS NOT NULL AND a.mileage_km IS NOT NULL
+          AND a.mileage_km BETWEEN cel.mileage_km - 2000 AND cel.mileage_km + 30000
+          AND a.engine_ccm IS NOT DISTINCT FROM cel.engine_ccm
+          AND a.engine_hp IS NOT DISTINCT FROM cel.engine_hp
+          AND a.color IS NOT DISTINCT FROM cel.color
+      )
+  )
+ORDER BY COALESCE(a.ends_at, a.first_seen_at) DESC
+LIMIT 10
 """)
 
 # Granice suwakow — liczone z DANYCH, nie zgadniete. Suwak rocznika od 1900
@@ -476,6 +555,46 @@ class PgZapytania:
         for pole, wartosc in wiersze:
             wynik.setdefault(pole, []).append(wartosc)
         return {k: tuple(v) for k, v in wynik.items()}
+
+    async def historia_cen(self, auction_id: int) -> tuple[PunktHistorii, ...]:
+        """Przebieg licytacji — od najnowszej zmiany (SPEC.md §8.4)."""
+        async with self._conn.cursor(row_factory=dict_row) as cur:
+            await cur.execute(SQL_HISTORIA_CEN, (auction_id,))
+            wiersze = await cur.fetchall()
+        return tuple(
+            PunktHistorii(
+                ts=w["ts"],
+                price=Money(w["price"], Currency(w["currency"])),
+                bid_count=w["bid_count"],
+                ends_at=w["ends_at"],
+                bid_gap=w["bid_gap"],
+            )
+            for w in wiersze
+        )
+
+    async def powiazane_wystawienia(
+        self, auction_id: int
+    ) -> tuple[PowiazaneWystawienie, ...]:
+        """Ta sama fura wystawiona ponownie — wcześniej albo później (§12)."""
+        async with self._conn.cursor(row_factory=dict_row) as cur:
+            await cur.execute(SQL_POWIAZANE_WYSTAWIENIA, (auction_id,))
+            wiersze = await cur.fetchall()
+        return tuple(
+            PowiazaneWystawienie(
+                id=w["id"],
+                source_key=w["source_key"],
+                external_id=w["external_id"],
+                url=w["url"],
+                status=AuctionStatus(w["status"]),
+                pewnosc=PewnoscPowiazania(w["pewnosc"]),
+                pozniejsze=bool(w["pozniejsze"]),
+                ends_at=w["ends_at"],
+                price_current=_money(w["price_current"], w["currency"]),
+                final_price_state=FinalPriceState(w["final_price_state"]),
+                mileage_km=w["mileage_km"],
+            )
+            for w in wiersze
+        )
 
     async def zakresy_filtrow(self) -> dict[str, Zakres]:
         """Granice suwaków rocznika i mocy (SPEC.md §12)."""
