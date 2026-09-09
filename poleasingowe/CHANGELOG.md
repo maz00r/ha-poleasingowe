@@ -1,5 +1,18 @@
 # Historia zmian
 
+## 0.17.0 — w przygotowaniu
+
+**Własna kopia bazy raz na dobę.** Snapshot Home Assistanta obejmuje dodatek
+PostgreSQL w całości — razem z TeslaMate — więc odtworzenie z niego samej
+bazy `poleasingowe` cofnęłoby też przebiegi auta, których nie da się odtworzyć
+z niczego innego. Dodatek robi więc `pg_dump` **wyłącznie swojej bazy** do
+`/share/poleasingowe/backup`, trzyma siedem ostatnich kopii, a datę i rozmiar
+ostatniej pokazuje w diagnostyce. Nieudana kopia nie zatrzymuje zbierania —
+ląduje w logu i ponawia się następnej doby.
+
+Hasło do bazy idzie do `pg_dump` środowiskiem procesu, nigdy w linii poleceń:
+ta jest widoczna w `ps` dla wszystkiego, co biegnie w kontenerze.
+
 ## 0.16.0 — w przygotowaniu
 
 **Eksport listy do CSV.** Przycisk „CSV ↓" obok sortowania pobiera dokładnie

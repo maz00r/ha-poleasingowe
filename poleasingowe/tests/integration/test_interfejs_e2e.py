@@ -219,8 +219,8 @@ async def test_panel_diagnostyczny_pokazuje_zrodla_i_pule(
     assert "EFL" in odp.text
     assert "pool_size" in odp.text
     assert (
-        "Backup jeszcze nie istnieje" in odp.text
-    ), "brak backupu ma być widoczny jako brak, a nie przemilczany (§14 pkt 11)"
+        "Kopii jeszcze nie ma" in odp.text
+    ), "brak kopii ma być widoczny jako brak, a nie przemilczany (§7.1)"
 
 
 async def test_odblokowanie_zrodla_zeruje_licznik_i_nie_daje_od_razu_ok(

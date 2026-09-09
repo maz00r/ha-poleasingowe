@@ -20,14 +20,20 @@
         {% else %}—{% endif %}
       </strong>
     </div>
-    <div><span>Ostatni pg_dump</span><strong>{{ dane.ostatni_pg_dump | czas_lokalny }}</strong></div>
+    <div>
+      <span>Ostatni pg_dump</span>
+      <strong>{{ dane.ostatni_pg_dump | czas_lokalny }}</strong>
+      {% if dane.kopia_bajty %}<span>{{ dane.kopia_bajty | bajty }}</span>{% endif %}
+    </div>
     <div><span>Zrzuty diagnostyczne</span><strong>{{ 'włączone' if dane.debug_dumps else 'wyłączone' }}</strong></div>
   </div>
   {% if dane.ostatni_blad_bazy %}
     <p class="ostrzezenie-inline">Ostatni błąd bazy: <code>{{ dane.ostatni_blad_bazy }}</code></p>
   {% endif %}
   {% if not dane.ostatni_pg_dump %}
-    <p class="uwaga">Backup jeszcze nie istnieje — powstaje na etapie 11 (SPEC.md §14).</p>
+    {# Pierwsza kopia powstaje przy pierwszym obrocie dispatchera po starcie. #}
+    <p class="uwaga">Kopii jeszcze nie ma. Powstaje raz na dobę w
+      <code>/share/poleasingowe/backup</code> i trzymamy siedem ostatnich.</p>
   {% endif %}
 </section>
 

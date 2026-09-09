@@ -164,6 +164,17 @@ cache. Do dostawcy nie są wysyłane VIN, identyfikator aukcji ani dane
 sprzedającego. Wycena jest orientacyjna i nie zastępuje oględzin ani opinii
 rzeczoznawcy.
 
+## Kopia zapasowa
+
+Dodatek robi **raz na dobę** `pg_dump` własnej bazy do
+`/share/poleasingowe/backup` i trzyma siedem ostatnich kopii. Data i rozmiar
+ostatniej są widoczne w panelu diagnostycznym.
+
+Dlaczego osobno, skoro Home Assistant ma snapshoty: snapshot dodatku
+PostgreSQL obejmuje **wszystkie** bazy na tej instancji, więc odtworzenie
+z niego cofnęłoby także TeslaMate. Tej kopii nie da się przywrócić przez
+interfejs dodatku — służy do ręcznego `pg_restore`, gdy będzie potrzebna.
+
 ## Interfejs
 
 Dodatek otwiera się z paska bocznego Home Assistanta. Uwierzytelnia Ingress —

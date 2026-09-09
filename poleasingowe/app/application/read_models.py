@@ -410,6 +410,7 @@ class Diagnostyka:
     rss_bajty: int | None = None
     dryf_zegara_s: float | None = None
     ostatni_pg_dump: dt.datetime | None = None
-    """SPEC.md §14 pkt 11 — backup jeszcze nie istnieje, więc `None`."""
+    """Kiedy zrobiono ostatnią kopię bazy (§7.1). `None` = jeszcze żadnej."""
+    kopia_bajty: int | None = None
     pula: dict[str, int] = field(default_factory=dict)
     debug_dumps: bool = False

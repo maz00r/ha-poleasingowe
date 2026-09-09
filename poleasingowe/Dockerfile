@@ -26,6 +26,11 @@ RUN pip install --prefix=/instalacja --only-binary=:all: -r /tmp/requirements.tx
 # --- etap runtime ---------------------------------------------------------
 FROM ${BUILD_FROM}
 
+# `pg_dump` do wlasnej kopii bazy (SPEC.md §7.1). Wersja klienta MUSI
+# odpowiadac serwerowi (PostgreSQL 17) — starszy `pg_dump` odmawia zrzutu
+# nowszej bazy. Sam klient, bez serwera: dodatek nigdy nie stawia bazy.
+RUN apk add --no-cache postgresql17-client
+
 COPY --from=budowanie /instalacja /usr/local
 
 # Kod aplikacji. Katalog nadrzedny jest korzeniem pakietu `app`, dokladnie
@@ -43,5 +48,5 @@ LABEL \
   io.hass.name="Aukcje poleasingowe" \
   io.hass.description="Zbieranie ofert z serwisow aukcji poleasingowych" \
   io.hass.type="addon" \
-  io.hass.version="0.16.0" \
+  io.hass.version="0.17.0" \
   io.hass.arch="amd64"

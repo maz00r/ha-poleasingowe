@@ -763,12 +763,19 @@ async def diagnostyka(request: Request) -> Response:
     """
     stan = _stan(request)
     fabryka = _fabryka(request)
+    # Stan kopii czytamy z KATALOGU, nie ze znacznika w bazie: plik nie
+    # może się rozjechać z rzeczywistością, a znacznik owszem (§7.1).
+    kopia = getattr(request.app.state, "kopia", None)
+    ostatnia_kopia = kopia.ostatnia() if kopia is not None else None
+
     dane = Diagnostyka(
         polaczenie=stan.opcje.bezpieczny_opis(),
         baza_dostepna=stan.baza_dostepna,
         ostatni_blad_bazy=stan.ostatni_blad_bazy,
         rss_bajty=rss_bajty(),
         debug_dumps=stan.opcje.debug_dumps,
+        ostatni_pg_dump=None if ostatnia_kopia is None else ostatnia_kopia.utworzono,
+        kopia_bajty=None if ostatnia_kopia is None else ostatnia_kopia.bajtow,
     )
     if fabryka is not None:
         async with fabryka() as kontekst:
@@ -787,6 +794,8 @@ async def diagnostyka(request: Request) -> Response:
             dryf_zegara_s=(dt.datetime.now(dt.UTC) - czas_bazy).total_seconds(),
             pula=fabryka.stan_puli(),
             debug_dumps=dane.debug_dumps,
+            ostatni_pg_dump=dane.ostatni_pg_dump,
+            kopia_bajty=dane.kopia_bajty,
         )
     return SZABLONY.TemplateResponse(
         request=request,

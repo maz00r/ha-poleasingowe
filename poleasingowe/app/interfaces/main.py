@@ -21,6 +21,7 @@ import uvicorn
 
 from app.application.use_cases.rejestracja import zarejestruj_zrodla
 from app.infrastructure.ai_klienci import utworz_klienta
+from app.infrastructure.kopia import KopiaZapasowa
 from app.infrastructure.persistence.migrations import Migracja
 from app.infrastructure.persistence.polaczenie import polacz_i_zmigruj
 from app.infrastructure.persistence.pula import PgFabrykaKontekstu
@@ -183,12 +184,15 @@ def main() -> int:
         if not adaptery:
             log.warning("żadne źródło nie jest włączone — dispatcher nie startuje")
             return
-        await Dispatcher(fabryka, adaptery).uruchom()
+        await Dispatcher(fabryka, adaptery, kopia=kopia).uruchom()
 
     # Galeria dzieli adaptery z dispatcherem — jeden `AsyncClient` per
     # zrodlo, tworzony raz (SPEC.md §11.3).
     adaptery_ui: dict[str, object] = {}
     galeria = GaleriaZdjec(adaptery_ui)  # type: ignore[arg-type]
+    # Kopia zapasowa WYLACZNIE wlasnej bazy (SPEC.md §7.1) — snapshot HA
+    # obejmuje tez TeslaMate, wiec nie da sie z niego odtworzyc samej naszej.
+    kopia = KopiaZapasowa(opcje.dsn)
     wycena_ai = _wycena(opcje)
 
     aplikacja = utworz_aplikacje(
@@ -197,6 +201,7 @@ def main() -> int:
         fabryka=fabryka,
         galeria=galeria,
         wycena_ai=wycena_ai,
+        kopia=kopia,
     )
     aplikacja.state.stan = stan_wstepny
 

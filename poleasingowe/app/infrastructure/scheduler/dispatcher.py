@@ -40,6 +40,7 @@ from app.domain.enums import AuctionStatus, PollTier
 from app.domain.errors import DomainError
 from app.domain.harmonogram import nastepny_odpyt, tier
 from app.domain.logowanie import ZrodloZablokowane
+from app.infrastructure.kopia import BladKopii, KopiaZapasowa
 from app.infrastructure.scheduler.tempo import Bezpiecznik, KubelekTokenow
 from app.infrastructure.supervisor.proces import rss_bajty
 
@@ -67,10 +68,13 @@ class Dispatcher:
         zrodla: Mapping[str, AuctionSource],
         *,
         limit_partii: int = LIMIT_PARTII,
+        kopia: KopiaZapasowa | None = None,
     ) -> None:
         self._fabryka = fabryka
         self._zrodla = zrodla
         self._limit = limit_partii
+        # `None` znaczy „bez kopii" — tak chodzą testy i tryb bez `/share`.
+        self._kopia = kopia
         self._kubelki: dict[str, KubelekTokenow] = {}
         self._bezpieczniki: dict[str, Bezpiecznik] = {}
         # Zbiór aukcji w locie trzymany w pamięci — proces jest jeden, więc
@@ -135,6 +139,8 @@ class Dispatcher:
         for do_przemiatu in zrodla.values():
             await self._moze_przemiec(kontekst, do_przemiatu, teraz)
 
+        await self._moze_zrobic_kopie(teraz)
+
         # Aukcja nieobserwowana nie jest odpytywana po raz drugi (§11.2),
         # a marker końca stoi wyłącznie na stronie szczegółów — bez tego
         # kroku zostawałaby `ACTIVE` na zawsze i siedziała w widoku
@@ -165,6 +171,25 @@ class Dispatcher:
                 )
                 continue
             await self._obsluz_zrodlo(kontekst, zrodlo, aukcje, teraz)
+
+    async def _moze_zrobic_kopie(self, teraz: dt.datetime) -> None:
+        """Dobowy `pg_dump` własnej bazy (SPEC.md §7.1).
+
+        Wpięte w pętlę dispatchera, a nie w osobny wątek czy crona: proces
+        jest jeden i ma jedną pętlę zdarzeń (§7.1), a kopia raz na dobę nie
+        potrzebuje własnego harmonogramu.
+
+        Nieudana kopia **nie zatrzymuje zbierania**. Trafia do logu jako
+        ostrzeżenie i próbuje ponownie przy następnym obrocie doby.
+        """
+        if self._kopia is None or not self._kopia.czas_na_kopie(teraz):
+            return
+        try:
+            await self._kopia.wykonaj(teraz)
+        except BladKopii as exc:
+            log.warning("kopia bazy nie powiodła się: %s", exc)
+        except OSError as exc:
+            log.warning("kopia bazy: problem z zapisem do /share: %s", exc)
 
     async def _moze_przemiec(
         self, kontekst: KontekstBazy, zrodlo: Source, teraz: dt.datetime
