@@ -127,3 +127,21 @@ def test_zdjecia_z_adresow_wzglednych_bez_wiodacego_ukosnika() -> None:
     adresy = p.zdjecia(html)
     assert adresy
     assert all(u.startswith("https://aukcje.efl.com.pl/Content/Media/") for u in adresy)
+
+
+def test_marker_zakonczenia_jest_rozpoznawany() -> None:
+    """`<h3>Zakończona</h3>` — jedyny marker stanu końcowego w EFL.
+
+    Bez niego faza domknięcia (§11.5) nie miałaby czego potwierdzić i każda
+    aukcja z tego źródła kończyłaby na `LAST_SEEN`, czyli na dolnym
+    oszacowaniu zamiast na cenie końcowej.
+    """
+    trwajaca = parser.sparsuj_szczegoly(wczytaj("szczegoly-435508.html"), "435508", "u")
+    assert "zakonczona" not in trwajaca.pola
+
+    zakonczona = parser.sparsuj_szczegoly(
+        wczytaj("szczegoly-zakonczona-435508.html"), "435508", "u"
+    )
+    assert zakonczona.pola["zakonczona"] == "true"
+    # Cena po zakończeniu jest wyższa niż przed — to ona jest ceną końcową.
+    assert zakonczona.pola["cena"] != trwajaca.pola["cena"]

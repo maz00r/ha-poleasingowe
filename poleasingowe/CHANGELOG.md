@@ -1,5 +1,28 @@
 # Historia zmian
 
+## 0.15.0 — w przygotowaniu
+
+**Ceny końcowe są wreszcie łapane (faza domknięcia z §11.5).** To była
+największa luka projektu: aukcja po terminie zostawała z ostatnią widzianą
+ceną i nikt nigdy nie sprawdzał, za ile faktycznie poszła.
+
+Po terminie obserwowanej aukcji dispatcher chodzi po **drabince** — próbach
+liczonych od `ends_at`, nie od siebie nawzajem, z siatką ustawianą per
+źródło. Liczy się trafienie w okno, nie długość czujki: u autoprzetargu
+strona znika 15–17 sekund po końcu, a EFL oznacza aukcję jako zakończoną
+dopiero po 5–7 minutach. Próby domknięcia są zwolnione z czekania na token
+tempa — przeczekanie tego okna w kolejce znaczyłoby, że nie ma po co było
+wysyłać żądania.
+
+Cena dostaje `CONFIRMED` **wyłącznie wtedy, gdy strona sama mówi, że aukcja
+się skończyła**. Gdy drabinka się wyczerpie bez potwierdzenia, zostaje
+`LAST_SEEN` razem z informacją, o ile sekund ten odczyt wyprzedził termin —
+bez tej liczby cena sprzed dwóch sekund wygląda tak samo jak sprzed doby.
+
+**EFL rozpoznaje koniec aukcji.** Nagłówek `Zakończona` to jedyny marker
+stanu końcowego w tym serwisie; bez niego każda aukcja z EFL kończyłaby na
+dolnym oszacowaniu.
+
 ## 0.14.0 — w przygotowaniu
 
 **Ponowne wystawienia są powiązane.** Niesprzedany samochód wraca na aukcję,

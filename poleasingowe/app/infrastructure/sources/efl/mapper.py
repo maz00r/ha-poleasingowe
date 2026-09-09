@@ -187,11 +187,20 @@ def na_aukcje(surowa: SurowaOferta, source_id: int, teraz: dt.datetime) -> Aucti
 
     koniec = _koniec_na_utc(pola["koniec"]) if pola.get("koniec") else None
 
+    # Marker stanu koncowego (RECON.md §4.1). Serwis dopisuje go 5-7 minut po
+    # terminie, wiec jego brak NIE znaczy "trwa" — o tym rozstrzyga faza
+    # domkniecia z §11.5. Tu tylko przepisujemy to, co serwis napisal.
+    status = (
+        AuctionStatus.ENDED
+        if pola.get("zakonczona") == "true"
+        else AuctionStatus.ACTIVE
+    )
+
     return Auction(
         source_id=source_id,
         external_id=surowa.external_id,
         url=surowa.url,
-        status=AuctionStatus.ACTIVE,
+        status=status,
         first_seen_at=teraz,
         last_seen_at=teraz,
         make=marka,

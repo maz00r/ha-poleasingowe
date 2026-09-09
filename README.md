@@ -198,13 +198,15 @@ python3 tools/recon_0b.py --dry-run --source efl --url "<URL>"
 
 ## Znane luki
 
-- **Faza domknięcia z §11.5 nie jest zaimplementowana.** Dispatcher liczy
-  interwały aż po floor, ale nie ma drabinki fazy 2 ani czujki dogrywki
-  z fazy 1. Aukcja po terminie zostaje z ostatnią znaną ceną i stanem
-  `final_price_state = UNKNOWN`; autoprzetarg dodatkowo dostaje
-  `DISAPPEARED`, bo tam znika z serwisu. Kolumny `closing_ladder_seconds`
-  i `bid_history_ttl_seconds` czekają wypełnione, ale nikt ich jeszcze
-  nie czyta.
+- **Faza domknięcia z §11.5 działa od 0.15.0, ale nie jest zmierzona na
+  produkcji.** Po terminie obserwowanej aukcji dispatcher chodzi po
+  drabince z `closing_ladder_seconds` (próby liczone od `ends_at`, nie od
+  siebie nawzajem), zwolnionej z czekania na token. Gdy strona sama mówi
+  „zakończona" — `auction_pending:false`, nagłówek `Zakończona` — cena
+  zostaje zapisana jako `CONFIRMED`. Gdy drabinka się wyczerpie, aukcja
+  kończy na `LAST_SEEN` razem z `last_price_lead_seconds`.
+  Czego brakuje: `bid_history_ttl_seconds` nadal jest wypełnione i nieczytane
+  (historia ofert z §11.8), a siatka dla leasygroup pozostaje domyślna.
 - **Ponowne wystawienia bez VIN-u to tylko przypuszczenie.** Powiązanie
   po VIN jest pewne; bez niego opieramy się na zgodności marki, modelu,
   rocznika, silnika, koloru i przebiegu — i tak jest oznaczone w interfejsie.

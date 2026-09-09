@@ -29,6 +29,12 @@ from app.application.ports import (
     FabrykaKontekstu,
     KontekstBazy,
 )
+from app.domain.domkniecie import (
+    nastepny_krok_drabinki,
+    po_odczycie_po_terminie,
+    po_wyczerpaniu_drabinki,
+    w_domykaniu,
+)
 from app.domain.entities import Auction, PriceSnapshot, RunLog, Source
 from app.domain.enums import AuctionStatus, PollTier
 from app.domain.errors import DomainError
@@ -339,9 +345,19 @@ class Dispatcher:
         kubelek: KubelekTokenow,
     ) -> bool:
         """Jeden odpyt aukcji. Zwraca, czy coś się zmieniło."""
-        czekaj = kubelek.ile_czekac()
-        if czekaj > 0:
-            await asyncio.sleep(czekaj)
+        teraz_wstepnie = await kontekst.zapytania.czas_serwera()
+        domykanie = w_domykaniu(aukcja, teraz_wstepnie)
+
+        # SPEC.md §11.5 — próby domknięcia są ZWOLNIONE z czekania na token.
+        # Okno, w którym widać cenę końcową, trwa u autoprzetargu 15 sekund
+        # (RECON.md §3.4); przeczekanie go w kolejce znaczy, że nie ma po co
+        # było wysyłać żądania. Token i tak zużywamy, więc budżet źródła
+        # pozostaje policzony — pożyczamy z przyszłości, nie udajemy, że
+        # żądania nie było.
+        if not domykanie:
+            czekaj = kubelek.ile_czekac()
+            if czekaj > 0:
+                await asyncio.sleep(czekaj)
         kubelek.zuzyj()
 
         # SPEC.md §11.3 krok 2: adapter porównuje hash surowych bajtów PRZED
@@ -356,6 +372,10 @@ class Dispatcher:
         assert aukcja.id is not None
 
         if surowa is None:
+            # Treść bez zmian. W fazie domknięcia to nie jest „nic się nie
+            # dzieje": serwis może jeszcze nie zdążyć oznaczyć aukcji jako
+            # zakończonej (EFL robi to 5-7 minut po terminie), więc drabinka
+            # ma się kręcić dalej.
             async with kontekst.uow as uow:
                 obserwowana = await uow.watchlist.obserwowana(aukcja.id)
                 await uow.auction.odnotuj_widziana(aukcja.id, teraz)
@@ -397,11 +417,28 @@ class Dispatcher:
         trybu „wystarcza przemiat listy": `next_poll_at = NULL`. To jest ta
         główna oszczędność systemu — koszt rośnie z liczbą obserwowanych,
         a nie z liczbą ofert w serwisie.
+
+        Po terminie decyduje **drabinka domknięcia** z §11.5, a nie tabela
+        progów: liczy się trafienie w okno, w którym serwis jeszcze pokazuje
+        cenę końcową. Gdy drabinka się wyczerpie, aukcja zostaje zamknięta
+        z ceną `LAST_SEEN` — bo tyle udało się zobaczyć.
         """
         if not obserwowana:
             return replace(
                 aukcja, last_seen_at=teraz, next_poll_at=None, poll_tier=PollTier.IDLE
             )
+
+        if w_domykaniu(aukcja, teraz):
+            nastepna = nastepny_krok_drabinki(aukcja, zrodlo, teraz)
+            if nastepna is None:
+                return po_wyczerpaniu_drabinki(aukcja, teraz)
+            return replace(
+                aukcja,
+                last_seen_at=teraz,
+                next_poll_at=nastepna,
+                poll_tier=PollTier.CLOSING,
+            )
+
         return replace(
             aukcja,
             last_seen_at=teraz,
@@ -448,6 +485,22 @@ class Dispatcher:
             last_seen_at=teraz,
             duplicate_of=stara.duplicate_of,
         )
+
+        # SPEC.md §11.5 — serwis SAM mówi, że aukcja się skończyła
+        # (`auction_pending:false`, nagłówek `Zakończona`). Dopiero wtedy
+        # widziana cena jest ceną KOŃCOWĄ, a nie ostatnią zaobserwowaną;
+        # §9 liczy z tego rozróżnienia osobne mediany rynku.
+        if swieza.status is AuctionStatus.ENDED:
+            potwierdzona = po_odczycie_po_terminie(
+                scalona, teraz, serwis_potwierdza_koniec=True
+            )
+            log.info(
+                "cena końcowa potwierdzona w %s/%s: %s",
+                zrodlo.key,
+                stara.external_id,
+                potwierdzona.price_current,
+            )
+            return potwierdzona
         if swieza.ends_at is not None and stara.ends_at is not None:
             if swieza.ends_at > stara.ends_at:
                 log.info(

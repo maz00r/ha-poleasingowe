@@ -20,7 +20,13 @@ import pytest
 
 from app.application.ports import SurowaOferta
 from app.domain.entities import Auction, Source, WatchlistEntry
-from app.domain.enums import AuctionStatus, AuthState, Currency, PollTier
+from app.domain.enums import (
+    AuctionStatus,
+    AuthState,
+    Currency,
+    FinalPriceState,
+    PollTier,
+)
 from app.domain.errors import SourceUnavailable
 from app.domain.value_objects import Money
 from app.infrastructure.persistence.repositories import PgUnitOfWork
@@ -40,6 +46,9 @@ class ZrodloAtrapa:
         self.ends_at: dt.datetime | None = None
         self.hash_tresci = "hash-1"
         self.blad: Exception | None = None
+        # Serwis sam mowi, ze aukcja sie skonczyla — `auction_pending:false`
+        # w poleasingowe.pl, naglowek `Zakonczona` w EFL (§11.5).
+        self.zakonczona = False
         self.pobrania = 0
         self.sparsowane = 0
         self.przemiaty = 0
@@ -88,7 +97,11 @@ class ZrodloAtrapa:
             source_id=source_id,
             external_id=surowa.external_id,
             url=surowa.url,
-            status=AuctionStatus.ACTIVE,
+            status=(
+                AuctionStatus.ENDED
+                if self.zakonczona and not z_listy
+                else AuctionStatus.ACTIVE
+            ),
             first_seen_at=teraz,
             last_seen_at=teraz,
             price_current=Money(self.cena, Currency.PLN),
@@ -788,3 +801,105 @@ async def test_migracja_ujednolica_marki_juz_zebrane(
         "Volkswagen",
         "Škoda",
     }
+
+
+# --------------------------------------------------------------------------
+# SPEC.md §11.5 — faza domknięcia i cena końcowa
+# --------------------------------------------------------------------------
+
+
+async def _przestaw_na_po_terminie(
+    baza: psycopg.AsyncConnection, auction_id: int, sekund_po: int
+) -> dt.datetime:
+    """Cofa `ends_at` tak, by aukcja była `sekund_po` sekund po terminie."""
+    teraz = await _czas_bazy(baza)
+    koniec = teraz - dt.timedelta(seconds=sekund_po)
+    async with baza.cursor() as cur:
+        await cur.execute(
+            "UPDATE app.auction SET ends_at = %s, next_poll_at = %s WHERE id = %s",
+            (koniec, teraz - dt.timedelta(seconds=1), auction_id),
+        )
+    return koniec
+
+
+async def test_po_terminie_wchodzi_drabinka_a_nie_tabela_progow(
+    pusta_baza: psycopg.AsyncConnection,
+) -> None:
+    """SPEC.md §11.5 — po `ends_at` rządzi drabinka, nie floor źródła.
+
+    Floor tego źródła to 15 s. Gdyby po terminie nadal obowiązywał, pierwsza
+    próba wypadłaby 15 sekund po końcu — a u autoprzetargu cena znika po
+    15-17 s (RECON.md §3.4), więc trafialibyśmy w zamknięte drzwi.
+    """
+    adapter = ZrodloAtrapa()
+    auction_id, _ = await przygotuj(pusta_baza, adapter, do_konca_min=20)
+    async with PgUnitOfWork(pusta_baza) as uow:
+        zrodlo_z_drabinka = await uow.source.po_kluczu(adapter.key)
+        assert zrodlo_z_drabinka is not None
+        await uow.source.zapisz(
+            replace(zrodlo_z_drabinka, closing_ladder_seconds=(2, 5, 10, 20, 40))
+        )
+    koniec = await _przestaw_na_po_terminie(pusta_baza, auction_id, sekund_po=1)
+    adapter.ends_at = koniec
+    adapter.hash_tresci = "hash-po-terminie"
+
+    await dispatcher(pusta_baza, adapter).jeden_obrot()
+
+    po = await wczytaj(pusta_baza, auction_id)
+    assert po.poll_tier is PollTier.CLOSING
+    assert po.next_poll_at == koniec + dt.timedelta(
+        seconds=2
+    ), "pierwszy przyszły szczebel drabinki, nie floor źródła"
+    assert po.status is AuctionStatus.ACTIVE, "brak potwierdzenia to nie koniec"
+
+
+async def test_potwierdzenie_konca_daje_cene_koncowa(
+    pusta_baza: psycopg.AsyncConnection,
+) -> None:
+    """Strona SAMA mówi „zakończona" — dopiero to jest cena końcowa.
+
+    To najcenniejsza dana w całej bazie (§8.4) i jedyna droga do
+    `CONFIRMED`, z którego §9 liczy osobną medianę rynku.
+    """
+    adapter = ZrodloAtrapa()
+    auction_id, _ = await przygotuj(pusta_baza, adapter, do_konca_min=20)
+    koniec = await _przestaw_na_po_terminie(pusta_baza, auction_id, sekund_po=3)
+    adapter.ends_at = koniec
+    adapter.hash_tresci = "hash-zakonczona"
+    adapter.cena = Decimal("47500")
+    adapter.zakonczona = True
+
+    await dispatcher(pusta_baza, adapter).jeden_obrot()
+
+    po = await wczytaj(pusta_baza, auction_id)
+    assert po.status is AuctionStatus.ENDED
+    assert po.final_price_state is FinalPriceState.CONFIRMED
+    assert po.price_current is not None
+    assert po.price_current.amount == Decimal("47500.00")
+    # SPEC.md §8.2 — pomiar po zakończeniu jest z definicji dokładny.
+    assert po.last_price_lead_seconds is None
+    assert po.next_poll_at is None, "domknięta aukcja nie jest już odpytywana"
+
+
+async def test_wyczerpana_drabinka_konczy_na_ostatniej_widzianej_cenie(
+    pusta_baza: psycopg.AsyncConnection,
+) -> None:
+    """Serwis nigdy nie potwierdził — zostaje dolne oszacowanie.
+
+    Tak wygląda autoprzetarg: strona znika, zanim zdążymy zobaczyć cenę
+    końcową. `LAST_SEEN` z wyprzedzeniem mówi, ile ten pomiar jest wart.
+    """
+    adapter = ZrodloAtrapa()
+    auction_id, _ = await przygotuj(pusta_baza, adapter, do_konca_min=20)
+    # Daleko za ostatnim szczeblem domyślnej drabinki (2, 5, 10, 20, 40).
+    koniec = await _przestaw_na_po_terminie(pusta_baza, auction_id, sekund_po=120)
+    adapter.ends_at = koniec
+    adapter.hash_tresci = "hash-cisza"
+
+    await dispatcher(pusta_baza, adapter).jeden_obrot()
+
+    po = await wczytaj(pusta_baza, auction_id)
+    assert po.status is AuctionStatus.ENDED
+    assert po.final_price_state is FinalPriceState.LAST_SEEN
+    assert po.last_price_lead_seconds is not None
+    assert po.next_poll_at is None

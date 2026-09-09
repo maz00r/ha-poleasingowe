@@ -89,6 +89,12 @@ def sparsuj_liste(html: str) -> list[SurowaOferta]:
     return oferty
 
 
+# `<h3>Zakończona</h3>` — jedyny marker stanu koncowego w tym serwisie.
+# Zmierzone na `szczegoly-zakonczona-435508.html`: w wersji trwajacej tego
+# naglowka nie ma w ogole.
+_ZAKONCZONA = re.compile(r"<h3[^>]*>\s*Zakończona\s*</h3>", re.I)
+
+
 def sparsuj_szczegoly(html: str, external_id: str, url: str) -> SurowaOferta:
     """Zwraca komplet pól ze strony pojedynczej aukcji."""
     drzewo = HTMLParser(html)
@@ -124,6 +130,14 @@ def sparsuj_szczegoly(html: str, external_id: str, url: str) -> SurowaOferta:
     # wcale", a tych dwoch przypadkow nie da sie tu rozroznic.
     if "Cena minimalna nie została osiągnięta" in tekst:
         pola["cena_minimalna_nieosiagnieta"] = "True"
+
+    # Marker stanu koncowego (RECON.md §4.1, §3.4). EFL dopisuje `<h3>` po
+    # zakonczeniu — ale dopiero 5-7 MINUT po `ends_at`, nie od razu. Jego
+    # brak tuz po terminie nie znaczy wiec "aukcja trwa", tylko "serwis
+    # jeszcze nie zdazyl"; rozstrzyga o tym faza domkniecia (§11.5),
+    # a nie sam parser.
+    if _ZAKONCZONA.search(html):
+        pola["zakonczona"] = "true"
 
     return SurowaOferta(external_id=external_id, url=url, pola=pola)
 
