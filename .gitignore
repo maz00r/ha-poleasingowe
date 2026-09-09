@@ -4,7 +4,9 @@ debug/
 __pycache__/
 .DS_Store
 fixtures/**/*-auth-*
-fixtures/**/recon-0b.jsonl
+fixtures/**/recon-0b*.jsonl
+fixtures/**/pomiar-*.log
+fixtures/**/.pomiar-*-wykonany
 *.egg-info/
 .mypy_cache/
 .ruff_cache/

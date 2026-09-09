@@ -284,7 +284,7 @@ skrajnie:
 | autoprzetarg.pl | **10–15 s**, potem 302 na `/` | 3 próby zamiast 5, siatka ≤14 s (§3.4) |
 | aukcje.efl.com.pl | **bez limitu** (≥2 h, strona zamrożona) | drabinka zbędna — dowolnie luźna |
 | poleasingowe.pl | **bez limitu** dla ceny; `lastOffers` ginie po 2–5 min | drabinka luźna dla ceny, ale ogon ofert łapać w pierwszych 2 min |
-| aukcje.leasygroup.pl | nie zmierzone (pomiar 2026-09-10) | — |
+| aukcje.leasygroup.pl | nie zmierzone — pomiar uzbrojony na 2026-09-10 11:50 | — |
 
 Jedna stała siatka `2, 5, 10, 20, 40 s` nie pasuje do żadnego z tych
 przypadków: dla autoprzetarg jest za długa (dwa ostatnie stopnie trafiają
@@ -1207,13 +1207,44 @@ Zaplanowane, niewykonane, wymaga aukcji kończącej się w trakcie obserwacji:
 - ~~**(h) liczba aktywnych ofert i VIN**~~ — **zrobione**, patrz §2.1.
   Zostaje tylko potwierdzenie liczebności leasygroup, zablokowane przez
   `robots.txt`.
-- **leasygroup: punkty (b), (c), (g) wciąż niezmierzone.** Aukcja 28163
-  (Honda NSX) posłużyła do rozpoznania typu i pól, ale w
-  `fixtures/leasygroup/` **nie ma pliku `recon-0b.jsonl` ani zrzutów
-  `domkniecie-*`** — pomiar z 6.09 nie zostawił danych w repo. Nowy pomiar
-  jest w zaplanowanych zadaniach (`recon-0b-leasygroup`, aukcja kończąca się
-  2026-09-10 ~12:00). Zostaje też potwierdzić kształt tabeli „Historia
-  licytacji" na aukcji z realnymi ofertami — w dotychczasowej próbce pusta.
+- **leasygroup: punkty (b), (c), (g) wciąż niezmierzone — pomiar uzbrojony
+  na 2026-09-10.** Aukcja 28163 (Honda NSX) posłużyła do rozpoznania typu
+  i pól, ale w `fixtures/leasygroup/` **nie ma pliku `recon-0b.jsonl` ani
+  zrzutów `domkniecie-*`** — pomiar z 6.09 nie zostawił danych w repo.
+
+  Uzbrojenie: `tools/pomiar-leasygroup.sh` odpalany z launchd
+  (`~/Library/LaunchAgents/pl.poleasingowe.pomiar-leasygroup.plist`,
+  10. dnia miesiąca o 11:50 czasu lokalnego). Aukcja kończy się
+  **2026-09-10 11:59:33** — odczytane z odliczania 2026-09-09 09:40,
+  z dokładnością do minuty, bo leasygroup podaje `Do końca D : HH : MM`
+  bez sekund (§4.3). Skrypt sam czeka do T−180 s i po drodze odświeża
+  termin, więc niedokładność startu nie psuje pomiaru.
+
+  Siatka po wygaśnięciu: `0,5,10,15,20,30,45,60,90,120,180,300,600`.
+  Gęściej i dalej niż domyślne pięć stopni, bo znamy koniec z dokładnością
+  do ~60 s, a ta niepewność wchodzi wprost w mierzone okno widoczności ceny.
+
+  **Warunek konieczny: Mac ma być wybudzony i online 2026-09-10 ok. 11:50.**
+  Pomiar biegnie lokalnie; `caffeinate` blokuje zaśnięcie z bezczynności
+  w trakcie, ale nie obudzi maszyny, która już śpi. Jeśli pomiar przepadnie,
+  kolejne licytacje leasygroup kończą się **2026-09-14 i 2026-09-15**
+  (wszystkie o 11:59) — wtedy `POMIAR_URL=… tools/pomiar-leasygroup.sh`.
+
+  Po udanym pomiarze skrypt zostawia stempel
+  `fixtures/leasygroup/.pomiar-0b-wykonany`, więc kolejne odpalenia agenta
+  nie ruszają serwisu. Samego agenta usuwa się ręcznie:
+  `launchctl bootout gui/$(id -u)/pl.poleasingowe.pomiar-leasygroup`.
+
+  Skrypt zaczyna od próby na sucho i **przerywa, jeśli aukcja już nie żyje**
+  — inaczej zebrałby kilkanaście stron 404 wyglądających jak wynik pomiaru
+  (sprawdzone: adres nieistniejącej aukcji → `is_auction: false`, stop).
+  Surowe wyniki lądują w `fixtures/leasygroup/recon-0b.jsonl` (gitignorowany)
+  i zrzutach `domkniecie-*.html`; wnioski trzeba przepisać tutaj oraz do
+  `pomiar-domkniecie-28163.json`, tak jak dla EFL i poleasingowe.
+
+  Zostaje też potwierdzić kształt tabeli „Historia licytacji" na aukcji
+  z realnymi ofertami — w dotychczasowej próbce pusta (`offers_rows: 0`
+  przy `has_offers_table: true`).
 - **autoprzetarg.pl**: (b) i (g) **zmierzone 2026-09-07** (§4.4 — okno
   10–15 s, 302 na `/`). Zostaje **(f) czas życia sesji** — wymaga
   zalogowania.
