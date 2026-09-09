@@ -597,6 +597,66 @@ async def test_aukcja_po_terminie_przestaje_byc_aktywna(
     assert (await stan(bez_terminu.id)).status is AuctionStatus.ACTIVE
 
 
+async def test_zrodlo_bez_dogrywki_nie_czeka_godziny_na_zamkniecie(
+    pusta_baza: psycopg.AsyncConnection,
+) -> None:
+    """Zgłoszenie z użytkowania: „przez pewien czas widać zakończone w Aktywne".
+
+    Karencja była liczona z `overtime_cap_seconds`, a ta jest `NULL` zarówno
+    dla źródła **z nieznanym** limitem dogrywki, jak i dla źródła, które
+    dogrywki **nie ma wcale**. `COALESCE(..., 3600)` traktował oba przypadki
+    tak samo, więc zakończona aukcja EFL siedziała w „Aktywne" 70 minut —
+    i to na samej górze, bo lista jest domyślnie sortowana po najbliższym
+    terminie.
+
+    EFL nie przedłuża aukcji: `ends_at` jest twardy (RECON.md §3.2). Nie ma
+    więc czego przeczekiwać poza karencją na dryf zegara.
+    """
+    uow = PgUnitOfWork(pusta_baza)
+    efl = await uow.source.zapisz(
+        zrodlo(
+            "efl",
+            overtime_window_seconds=0,
+            overtime_extension_seconds=0,
+            overtime_cap_seconds=None,
+        )
+    )
+    assert efl.id is not None
+    teraz = TERAZ + dt.timedelta(days=1)
+
+    po_karencji = await uow.auction.zapisz(
+        aukcja(
+            efl.id,
+            "efl-20-minut-po",
+            ends_at=teraz - dt.timedelta(minutes=20),
+            last_seen_at=teraz - dt.timedelta(minutes=25),
+        )
+    )
+    # Wciąż w karencji — tu nie zamykamy, bo `ends_at` pochodzi z ostatniego
+    # odpytu i mógł się rozjechać z zegarem serwisu (SPEC.md §11.7).
+    w_karencji = await uow.auction.zapisz(
+        aukcja(
+            efl.id,
+            "efl-piec-minut-po",
+            ends_at=teraz - dt.timedelta(minutes=5),
+            last_seen_at=teraz - dt.timedelta(minutes=10),
+        )
+    )
+
+    assert await uow.auction.zamknij_po_terminie(teraz) == 1
+
+    async def stan(external_id: str) -> Auction:
+        wynik = await uow.auction.po_kluczu_naturalnym(
+            efl.id,  # type: ignore[arg-type]
+            external_id,
+        )
+        assert wynik is not None
+        return wynik
+
+    assert (await stan(po_karencji.external_id)).status is AuctionStatus.ENDED
+    assert (await stan(w_karencji.external_id)).status is AuctionStatus.ACTIVE
+
+
 async def test_wycena_ai_zapisuje_sie_na_stale(
     pusta_baza: psycopg.AsyncConnection,
 ) -> None:

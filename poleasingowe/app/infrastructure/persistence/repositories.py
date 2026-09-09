@@ -308,6 +308,13 @@ UPDATE app.auction SET next_poll_at = %s, poll_tier = %s WHERE id = %s
 # nikt nie odczytal, wiec to dolne oszacowanie (§8.2). `last_price_lead_seconds`
 # mowi, jak bardzo ostatni odczyt wyprzedzil koniec — im wiecej, tym mniej
 # wart jest ten pomiar.
+KARENCJA_ZAMKNIECIA_S = 600
+"""Zapas na dryf zegara i na to, ze `ends_at` pochodzi z ostatniego
+odpytu, a nie z tej sekundy (SPEC.md §11.7). Dziesiec minut to tez
+mniej wiecej tyle, ile EFL sam potrzebuje na dopisanie "Zakonczona"
+(5-7 min, RECON.md §4.1) — czyli nie zamykamy aukcji wczesniej, niz
+zrobilby to serwis, gdybysmy go zapytali."""
+
 SQL_AUCTION_ZAMKNIJ_PO_TERMINIE = """
 UPDATE app.auction AS a
 SET status = 'ENDED',
@@ -326,9 +333,16 @@ FROM app.source AS s
 WHERE s.id = a.source_id
   AND a.status = 'ACTIVE'
   AND a.ends_at IS NOT NULL
-  AND a.ends_at < %s - make_interval(
-      secs => COALESCE(s.overtime_cap_seconds, 3600) + 600
-  )
+  AND a.ends_at < %(teraz)s - make_interval(secs => CASE
+      -- Zrodlo Z DOGRYWKA: `ends_at` moze sie jeszcze przesunac, wiec czekamy
+      -- caly mozliwy czas przedluzenia i dopiero potem uznajemy koniec.
+      WHEN s.overtime_window_seconds > 0 AND s.overtime_extension_seconds > 0
+      THEN COALESCE(s.overtime_cap_seconds, 3600) + %(karencja)s
+      -- Zrodlo BEZ DOGRYWKI: `ends_at` jest twardy (EFL — RECON.md §3.2),
+      -- wiec czekanie godziny "na wszelki wypadek" trzymalo zakonczone
+      -- aukcje w widoku "Aktywne" bez zadnego powodu. Zostaje sama karencja.
+      ELSE %(karencja)s
+  END)
 """
 SQL_AUCTION_ODNOTUJ_WIDZIANA = "UPDATE app.auction SET last_seen_at = %s WHERE id = %s"
 
@@ -796,9 +810,19 @@ class PgAuctionRepository:
 
         Jedno zapytanie na obrót dispatchera, bez pobierania wierszy do
         Pythona — to sprzątanie stanu, nie odczyt danych.
+
+        Karencja zależy od tego, czy serwis **w ogóle ma dogrywkę**. Tam,
+        gdzie ma, `ends_at` może się jeszcze przesunąć i trzeba odczekać
+        cały możliwy czas przedłużenia. Tam, gdzie nie ma — EFL, gdzie
+        `ends_at` jest twardy (RECON.md §3.2) — czekanie godziny „na wszelki
+        wypadek" trzymało zakończone aukcje na szczycie widoku „Aktywne",
+        bo lista jest domyślnie sortowana po najbliższym terminie.
         """
         async with self._conn.cursor() as cur:
-            await cur.execute(SQL_AUCTION_ZAMKNIJ_PO_TERMINIE, (teraz,))
+            await cur.execute(
+                SQL_AUCTION_ZAMKNIJ_PO_TERMINIE,
+                {"teraz": teraz, "karencja": KARENCJA_ZAMKNIECIA_S},
+            )
             return cur.rowcount
 
     async def odnotuj_widziana(self, auction_id: int, teraz: dt.datetime) -> None:

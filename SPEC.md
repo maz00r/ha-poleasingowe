@@ -765,6 +765,20 @@ skończyła. Domknięcie ceny nie zwalnia z domknięcia historii (§11.8).
 `LAST_SEEN` oznacza ostatnią obserwację przed zamknięciem i jest dolnym
 oszacowaniem — zapisz wtedy `last_price_lead_seconds`.
 
+**Aukcja nieobserwowana zamyka się z zegara**, bo drabinka jej nie dotyczy
+(§11.2 — pojedynczo odpytujemy wyłącznie obserwowane), a marker końca stoi
+tylko na stronie szczegółów. Bez tego kroku zostawałaby `ACTIVE` na zawsze
+i siedziała na szczycie widoku „Aktywne", który jest domyślnie sortowany po
+najbliższym terminie.
+
+Karencja przed zamknięciem z zegara zależy od tego, czy serwis **ma
+dogrywkę**. Ma — czekamy `overtime_cap_seconds` (albo godzinę, gdy serwis
+sufitu nie deklaruje) plus zapas na dryf zegara, bo `ends_at` może się
+jeszcze przesunąć. Nie ma, czyli oba parametry dogrywki są zerowe — zostaje
+sam zapas. Zlanie obu przypadków przez `COALESCE(overtime_cap_seconds, …)`
+jest błędem: `NULL` znaczy tam „nie znam sufitu", a nie „nie ma dogrywki",
+i trzyma zakończone aukcje w „Aktywne" dużo dłużej, niż trzeba.
+
 ### 11.6 Kolizje
 
 Kilka obserwowanych aukcji kończących się w tej samej minucie na jednym
