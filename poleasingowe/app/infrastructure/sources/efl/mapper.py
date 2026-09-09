@@ -8,11 +8,12 @@ i nie wyciekają poza ten plik**.
 from __future__ import annotations
 
 import datetime as dt
+import hashlib
 import re
 import zoneinfo
 
 from app.application.ports import SurowaOferta
-from app.domain.entities import Auction
+from app.domain.entities import Auction, OfertaUczestnika
 from app.domain.enums import AuctionStatus, Currency
 from app.domain.errors import ParseFailed
 from app.domain.value_objects import Mileage, Money, NieprawidlowaWartosc, Vin
@@ -230,3 +231,80 @@ def na_aukcje(surowa: SurowaOferta, source_id: int, teraz: dt.datetime) -> Aucti
         bid_increment_raw="wg regulaminu EFL §4 ust. 5: 10/100/200 zł",
         ends_at=koniec,
     )
+
+
+# Czas oferty w zakladce "Oferty" ma INNY format niz czas zakonczenia aukcji:
+# kropki zamiast myslnikow i ulamek sekundy o czterech cyfrach
+# ("2026.09.07 10:42:05.8800"). Osobny wzorzec, bo sklejenie obu w jeden
+# rozluznilo by walidacje terminu koncowego, ktory jest znacznie wazniejszy.
+_CZAS_OFERTY = re.compile(
+    r"^(\d{4})\.(\d{2})\.(\d{2})\s+(\d{2}):(\d{2}):(\d{2})(?:\.(\d+))?$"
+)
+
+
+def _czas_oferty_na_utc(wartosc: str) -> dt.datetime:
+    dopasowanie = _CZAS_OFERTY.match(wartosc.strip())
+    if dopasowanie is None:
+        raise ParseFailed(f"EFL: nieznany format czasu oferty: {wartosc!r}")
+    r, m, d, gg, mm, ss, ulamek = dopasowanie.groups()
+    # Ulamek sekundy obcinamy do mikrosekund — `timestamptz` nie ma wiekszej
+    # rozdzielczosci, a udawanie jej przy porownaniach bylo by mylace.
+    mikro = int((ulamek or "").ljust(6, "0")[:6])
+    lokalny = dt.datetime(
+        int(r),
+        int(m),
+        int(d),
+        int(gg),
+        int(mm),
+        int(ss),
+        mikro,
+        tzinfo=STREFA_SERWISU,
+    )
+    return lokalny.astimezone(dt.UTC)
+
+
+def pseudonim(external_id: str, kod: str) -> str:
+    """Pseudonim licytanta ważny **wyłącznie w obrębie jednej aukcji**.
+
+    Kod oferty z EFL identyfikuje licytanta i jest stały przez całą aukcję —
+    to dzięki temu wiadomo, że dwie oferty złożyła ta sama osoba. Ale kod
+    pochodzi z globalnej numeracji serwisu, więc zapisany wprost pozwoliłby
+    zestawić ze sobą aukcje, w których ktoś brał udział. Takiego zbioru nie
+    chcemy budować, a do niczego w tej aplikacji nie jest potrzebny.
+
+    Wiązanie skrótu z `external_id` aukcji sprawia, że ten sam licytant ma
+    inny pseudonim w każdej aukcji. To **pseudonimizacja, nie anonimizacja**:
+    kody są sześciocyfrowe, więc mając aukcję i kod skrót da się odtworzyć.
+    Chroni przed mimowolnym zbieraniem profili, nie przed kimś, kto celowo
+    szuka konkretnej osoby.
+    """
+    odcisk = hashlib.sha256(f"{external_id}:{kod}".encode()).hexdigest()
+    return odcisk[:12]
+
+
+def na_oferty(
+    surowa: SurowaOferta, auction_id: int, teraz: dt.datetime
+) -> tuple[OfertaUczestnika, ...]:
+    """Tłumaczy wiersze zakładki „Oferty" na encje domenowe (SPEC.md §11.8).
+
+    Wiersz nie do odczytania **pomijamy zamiast wywracać cały odpyt**: oferty
+    są dodatkiem do ceny i terminu, a nie warunkiem ich zapisania. Utrata
+    całego szczegółu aukcji przez jedną dziwną datę byłaby złą zamianą.
+    """
+    wynik: list[OfertaUczestnika] = []
+    for pozycja in surowa.oferty:
+        try:
+            kwota = Money.z_tekstu(pozycja.kwota, Currency.PLN)
+            zlozona = _czas_oferty_na_utc(pozycja.zlozona)
+        except (NieprawidlowaWartosc, ParseFailed):
+            continue
+        wynik.append(
+            OfertaUczestnika(
+                auction_id=auction_id,
+                uczestnik=pseudonim(surowa.external_id, pozycja.kod),
+                amount=kwota,
+                placed_at=zlozona,
+                first_seen_at=teraz,
+            )
+        )
+    return tuple(wynik)

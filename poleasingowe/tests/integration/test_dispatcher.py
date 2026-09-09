@@ -18,8 +18,13 @@ from decimal import Decimal
 import psycopg
 import pytest
 
-from app.application.ports import SurowaOferta
-from app.domain.entities import Auction, Source, WatchlistEntry
+from app.application.ports import SurowaOferta, SurowaOfertaUczestnika
+from app.domain.entities import (
+    Auction,
+    OfertaUczestnika,
+    Source,
+    WatchlistEntry,
+)
 from app.domain.enums import (
     AuctionStatus,
     AuthState,
@@ -982,3 +987,126 @@ async def test_aukcja_po_terminie_nie_jest_oznaczana_jako_znikniona(
         )
     assert oznaczone == 0
     assert (await wczytaj(pusta_baza, auction_id)).status is AuctionStatus.ACTIVE
+
+
+# --------------------------------------------------------------------------
+# SPEC.md §11.8 — lista ofert ze strony aukcji
+# --------------------------------------------------------------------------
+
+
+class ZrodloZListaOfert(ZrodloAtrapa):
+    """Atrapa serwisu, który podaje oferty wprost na stronie — jak EFL.
+
+    Dziedziczy po `ZrodloAtrapa`, żeby różnica między „źródło z ofertami"
+    a „źródło bez" była w testach jedną rzeczą, a nie drugą atrapą, która
+    z czasem rozjedzie się z pierwszą.
+    """
+
+    def __init__(self, key: str = "z-ofertami") -> None:
+        super().__init__(key)
+        self.oferty: list[tuple[str, str, dt.datetime]] = []
+
+    async def pobierz_szczegoly(
+        self, external_id: str, znany_hash: str | None = None
+    ) -> SurowaOferta | None:
+        surowa = await super().pobierz_szczegoly(external_id, znany_hash)
+        if surowa is None:
+            return None
+        return replace(
+            surowa,
+            oferty=tuple(
+                SurowaOfertaUczestnika(kod=kod, kwota=kwota, zlozona=czas.isoformat())
+                for kod, kwota, czas in self.oferty
+            ),
+        )
+
+    def na_oferty(
+        self, surowa: SurowaOferta, auction_id: int, teraz: dt.datetime
+    ) -> tuple[OfertaUczestnika, ...]:
+        return tuple(
+            OfertaUczestnika(
+                auction_id=auction_id,
+                uczestnik=f"pseudo-{pozycja.kod}",
+                amount=Money(Decimal(pozycja.kwota), Currency.PLN),
+                placed_at=dt.datetime.fromisoformat(pozycja.zlozona),
+                first_seen_at=teraz,
+            )
+            for pozycja in surowa.oferty
+        )
+
+
+async def test_oferty_ze_strony_trafiaja_do_bazy_bez_dodatkowego_zadania(
+    pusta_baza: psycopg.AsyncConnection,
+) -> None:
+    """SPEC.md §11.8 — lista ofert ma pierwszeństwo przed częstszym odpytem.
+
+    Kluczowe jest „bez dodatkowego żądania": oferty przyjechały tą samą
+    odpowiedzią co cena. Gdyby wymagały osobnego pobrania, cały argument
+    z §11.8 (taniej i dokładniej) przestałby być prawdziwy — dlatego test
+    liczy pobrania.
+    """
+    adapter = ZrodloZListaOfert()
+    auction_id, _ = await przygotuj(pusta_baza, adapter, do_konca_min=20)
+    teraz = await _czas_bazy(pusta_baza)
+    adapter.oferty = [
+        ("106125", "48600", teraz - dt.timedelta(minutes=30)),
+        ("106147", "49000", teraz - dt.timedelta(minutes=10)),
+    ]
+
+    await dispatcher(pusta_baza, adapter).jeden_obrot()
+
+    async with PgUnitOfWork(pusta_baza) as uow:
+        oferty = await uow.oferta.dla_aukcji(auction_id)
+    assert [str(o.amount.amount) for o in oferty] == ["48600.00", "49000.00"]
+    assert adapter.pobrania == 1, "oferty przyszły tą samą odpowiedzią co cena"
+
+
+async def test_nowa_oferta_liczy_sie_jako_zmiana_mimo_stalej_ceny(
+    pusta_baza: psycopg.AsyncConnection,
+) -> None:
+    """Przy licytacji proxy przebita oferta nie rusza ceny (RECON.md §3.5).
+
+    Ktoś licytuje 49 000 zł, ale maksimum lidera to 51 600 zł — cena stoi.
+    Gdyby liczyła się wyłącznie zmiana ceny, przebieg licytacji wyglądałby
+    na martwy dokładnie wtedy, gdy dzieje się najwięcej.
+    """
+    adapter = ZrodloZListaOfert()
+    auction_id, _ = await przygotuj(pusta_baza, adapter, do_konca_min=20)
+    teraz = await _czas_bazy(pusta_baza)
+    await dispatcher(pusta_baza, adapter).jeden_obrot()
+
+    # Cena bez zmian, dochodzi jedna oferta. Hash treści musi się zmienić,
+    # inaczej adapter w ogóle nie sparsuje strony (§11.3).
+    adapter.hash_tresci = "hash-2"
+    adapter.oferty = [("106147", "49000", teraz - dt.timedelta(minutes=5))]
+    async with PgUnitOfWork(pusta_baza) as uow:
+        biezaca = await wczytaj(pusta_baza, auction_id)
+        await uow.auction.zapisz(
+            replace(biezaca, next_poll_at=teraz - dt.timedelta(seconds=1))
+        )
+
+    disp = dispatcher(pusta_baza, adapter)
+    await disp.jeden_obrot()
+
+    async with PgUnitOfWork(pusta_baza) as uow:
+        oferty = await uow.oferta.dla_aukcji(auction_id)
+        historia = await uow.snapshot.historia(auction_id)
+    assert len(oferty) == 1, "oferta zapisana mimo niezmienionej ceny"
+    assert len(historia) == 1, "snapshot NIE powstaje bez zmiany ceny (§8.4)"
+
+
+async def test_zrodlo_bez_ofert_nie_zapisuje_nic(
+    pusta_baza: psycopg.AsyncConnection,
+) -> None:
+    """Adapter, który nie spełnia `ZrodloZOfertami`, ma być po prostu pomijany.
+
+    §10.1 zabrania zmuszania takich adapterów do pustej implementacji —
+    dyspozytor rozstrzyga to protokołem, a nie pustą krotką nie do
+    odróżnienia od „aukcja bez ofert".
+    """
+    adapter = ZrodloAtrapa()
+    auction_id, _ = await przygotuj(pusta_baza, adapter, do_konca_min=20)
+    await dispatcher(pusta_baza, adapter).jeden_obrot()
+
+    async with PgUnitOfWork(pusta_baza) as uow:
+        assert await uow.oferta.dla_aukcji(auction_id) == []

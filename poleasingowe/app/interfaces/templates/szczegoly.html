@@ -143,6 +143,43 @@
   {% include "fragmenty/obserwacja.html" %}
 </section>
 
+{% if oferty %}
+<section class="karta">
+  <h2>Oferty</h2>
+  {# SPEC.md §11.8 — to sa oferty odczytane WPROST ze strony aukcji, z czasem
+     zlozenia podanym przez serwis. Nizej, w "Przebiegu licytacji", stoja nasze
+     odczyty ceny. Dwie rozne rzeczy, wiec dwie sekcje: zestawione w jednej
+     tabeli wygladalyby jak dwie wersje tej samej prawdy. #}
+  <table class="zestawienie">
+    <thead>
+      <tr><th>Kiedy złożona</th><th>Kwota</th><th>Kto</th><th>Nasze opóźnienie</th></tr>
+    </thead>
+    <tbody>
+      {% for oferta in oferty %}
+        <tr>
+          <td>{{ oferta.placed_at | czas_lokalny(z_sekundami=True) }}</td>
+          <td class="kwota">{{ oferta.amount | kwota }}</td>
+          <td class="drobne">{{ oferta.uczestnik }}</td>
+          <td class="drobne">
+            {%- if oferta.opoznienie_s is not none -%}
+              {{ oferta.opoznienie_s | czas_trwania }}
+            {%- else -%}
+              —
+            {%- endif -%}
+          </td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <p class="drobne">
+    Licytanci są oznaczeni literami w kolejności pojawienia się w tej aukcji —
+    identyfikatory z serwisu nie trafiają do bazy. „Nasze opóźnienie" mówi, ile
+    czasu minęło od złożenia oferty do chwili, w której ją zobaczyliśmy;
+    kreska znaczy, że oferta była na stronie, zanim zaczęliśmy obserwować.
+  </p>
+</section>
+{% endif %}
+
 {% if historia %}
 <section class="karta">
   <h2>Przebieg licytacji</h2>

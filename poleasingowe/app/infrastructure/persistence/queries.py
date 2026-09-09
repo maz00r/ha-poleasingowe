@@ -22,6 +22,7 @@ from psycopg.rows import dict_row
 from app.application.read_models import (
     Kryteria,
     Kursor,
+    OfertaNaKarcie,
     PewnoscPowiazania,
     PorownanieRynkowe,
     PowiazaneWystawienie,
@@ -176,6 +177,56 @@ SELECT ts, price, currency, bid_count, ends_at, bid_gap
 FROM app.price_snapshot
 WHERE auction_id = %s
 ORDER BY ts DESC
+LIMIT 200
+""")
+
+
+# Oferty odczytane wprost ze strony aukcji (SPEC.md §11.8).
+#
+# `numer` to kolejnosc POJAWIENIA SIE licytanta w tej aukcji, nie jego
+# identyfikator: pseudonim z bazy jest szesnastkowym skrotem i na ekranie nie
+# znaczylby nic. Numer zamieniamy w Pythonie na "Licytant A/B/C".
+#
+# `opoznienie_s` liczymy WYLACZNIE dla ofert zlozonych po tym, jak zaczelismy
+# obserwowac aukcje. Dla wczesniejszych roznica `first_seen_at - placed_at`
+# mierzylaby wiek aukcji przed jej odkryciem, a nie nasze opoznienie —
+# a wyglada identycznie i dlatego jest mylaca.
+def _etykieta_licytanta(numer: int) -> str:
+    """1 → „Licytant A", 27 → „Licytant AA".
+
+    Pseudonim z bazy jest szesnastkowym skrotem — na ekranie nie niesie
+    zadnej informacji, a wyglada jak dane, ktorych nie mamy. Litera mowi
+    dokladnie to, co jest tu potrzebne: ilu bylo licytantow i ktory z nich
+    przebijal ktorego.
+    """
+    litery = ""
+    while numer > 0:
+        numer, reszta = divmod(numer - 1, 26)
+        litery = chr(ord("A") + reszta) + litery
+    return f"Licytant {litery}"
+
+
+SQL_OFERTY_AUKCJI = sql.SQL("""
+WITH pierwsze AS (
+    SELECT uczestnik, min(placed_at) AS moment
+    FROM app.offer
+    WHERE auction_id = %(auction_id)s
+    GROUP BY uczestnik
+)
+SELECT
+    o.amount,
+    o.currency,
+    o.placed_at,
+    CASE
+        WHEN o.placed_at >= a.first_seen_at
+        THEN extract(epoch FROM o.first_seen_at - o.placed_at)::integer
+    END AS opoznienie_s,
+    dense_rank() OVER (ORDER BY p.moment, p.uczestnik) AS numer
+FROM app.offer o
+JOIN app.auction a ON a.id = o.auction_id
+JOIN pierwsze p ON p.uczestnik = o.uczestnik
+WHERE o.auction_id = %(auction_id)s
+ORDER BY o.placed_at DESC, o.amount DESC
 LIMIT 200
 """)
 
@@ -568,6 +619,21 @@ class PgZapytania:
                 bid_count=w["bid_count"],
                 ends_at=w["ends_at"],
                 bid_gap=w["bid_gap"],
+            )
+            for w in wiersze
+        )
+
+    async def oferty(self, auction_id: int) -> tuple[OfertaNaKarcie, ...]:
+        """Oferty ze strony aukcji, od najnowszej (SPEC.md §11.8)."""
+        async with self._conn.cursor(row_factory=dict_row) as cur:
+            await cur.execute(SQL_OFERTY_AUKCJI, {"auction_id": auction_id})
+            wiersze = await cur.fetchall()
+        return tuple(
+            OfertaNaKarcie(
+                uczestnik=_etykieta_licytanta(w["numer"]),
+                amount=Money(w["amount"], Currency(w["currency"])),
+                placed_at=w["placed_at"],
+                opoznienie_s=w["opoznienie_s"],
             )
             for w in wiersze
         )

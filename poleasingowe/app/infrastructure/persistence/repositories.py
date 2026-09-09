@@ -17,6 +17,7 @@ from psycopg.rows import dict_row
 
 from app.application.ports import (
     AuctionRepository,
+    OfertaRepository,
     RunLogRepository,
     SavedFilterRepository,
     SnapshotRepository,
@@ -26,6 +27,7 @@ from app.application.ports import (
 )
 from app.domain.entities import (
     Auction,
+    OfertaUczestnika,
     PriceSnapshot,
     RunLog,
     SavedFilter,
@@ -351,6 +353,21 @@ FROM app.price_snapshot
 WHERE auction_id = %s ORDER BY ts, id
 """
 
+SQL_OFERTA_INSERT = """
+INSERT INTO app.offer
+    (auction_id, uczestnik, amount, currency, placed_at, first_seen_at)
+VALUES (%s, %s, %s, %s, %s, %s)
+ON CONFLICT ON CONSTRAINT offer_naturalny DO NOTHING
+RETURNING id
+"""
+
+SQL_OFERTA_DLA_AUKCJI = """
+SELECT id, auction_id, uczestnik, amount, currency, placed_at, first_seen_at
+FROM app.offer
+WHERE auction_id = %s
+ORDER BY placed_at, id
+"""
+
 SQL_WATCHLIST_DODAJ = """
 INSERT INTO app.watchlist (auction_id, note, target_price, currency, added_at)
 VALUES (%s, %s, %s, %s, %s)
@@ -512,6 +529,17 @@ def _na_snapshot(w: dict[str, Any]) -> PriceSnapshot:
         bid_count=w["bid_count"],
         ends_at=w["ends_at"],
         bid_gap=w["bid_gap"],
+    )
+
+
+def _na_oferte(w: dict[str, Any]) -> OfertaUczestnika:
+    return OfertaUczestnika(
+        id=w["id"],
+        auction_id=w["auction_id"],
+        uczestnik=w["uczestnik"],
+        amount=Money(w["amount"], Currency(w["currency"])),
+        placed_at=w["placed_at"],
+        first_seen_at=w["first_seen_at"],
     )
 
 
@@ -783,7 +811,7 @@ class PgSnapshotRepository:
         self._conn = conn
 
     async def zapisz_jesli_zmienil_sie(
-        self, snapshot: PriceSnapshot
+        self, snapshot: PriceSnapshot, *, licznik_liczy_oferty: bool = False
     ) -> PriceSnapshot | None:
         """Zapisuje snapshot **wyłącznie** przy zmianie (SPEC.md §8.4).
 
@@ -794,6 +822,13 @@ class PgSnapshotRepository:
         ponad 1, liczony względem **poprzedniego snapshotu tej aukcji**.
         Pierwszy snapshot dostaje `None`, nie `0` — w chwili pierwszej
         obserwacji aukcja mogła już mieć oferty.
+
+        `licznik_liczy_oferty` przekazuje `Source.liczy_oferty`. Bez niego
+        `bid_gap` liczył się dla **każdego** źródła, także dla EFL, gdzie
+        `bid_count` to liczba uczestników licytacji proxy, a nie ofert:
+        wychodziło stamtąd zero mimo realnych zmian ceny, czytane potem jak
+        „komplet historii". §11.8 mówi wprost, że dla `PARTICIPANTS`
+        i `UNKNOWN` właściwą odpowiedzią jest `NULL`.
 
         Zwraca zapisany snapshot albo `None`, gdy nic się nie zmieniło.
         """
@@ -814,7 +849,8 @@ class PgSnapshotRepository:
 
         bid_gap: int | None = None
         if (
-            poprzedni is not None
+            licznik_liczy_oferty
+            and poprzedni is not None
             and poprzedni.bid_count is not None
             and snapshot.bid_count is not None
         ):
@@ -841,6 +877,45 @@ class PgSnapshotRepository:
         async with self._conn.cursor(row_factory=dict_row) as cur:
             await cur.execute(SQL_SNAPSHOT_HISTORIA, (auction_id,))
             return [_na_snapshot(w) for w in await cur.fetchall()]
+
+
+class PgOfertaRepository:
+    """Oferty odczytane wprost ze strony aukcji (SPEC.md §11.8)."""
+
+    def __init__(self, conn: AsyncConnection) -> None:
+        self._conn = conn
+
+    async def zapisz_nowe(self, oferty: Sequence[OfertaUczestnika]) -> int:
+        """Dopisuje tylko oferty, których jeszcze nie mamy.
+
+        `DO NOTHING` na kluczu naturalnym, a nie sprawdzanie „czy już jest"
+        w Pythonie: w fazie domknięcia ta sama lista wraca po kilka razy
+        w ciągu kilkudziesięciu sekund (§11.5), a przy okazji ratuje nas to
+        przed wyścigiem, gdyby kiedyś dwa odpyty tej aukcji nałożyły się
+        na siebie.
+        """
+        nowe = 0
+        async with self._conn.cursor() as cur:
+            for oferta in oferty:
+                await cur.execute(
+                    SQL_OFERTA_INSERT,
+                    (
+                        oferta.auction_id,
+                        oferta.uczestnik,
+                        oferta.amount.amount,
+                        oferta.amount.currency.value,
+                        oferta.placed_at,
+                        oferta.first_seen_at,
+                    ),
+                )
+                if await cur.fetchone() is not None:
+                    nowe += 1
+        return nowe
+
+    async def dla_aukcji(self, auction_id: int) -> Sequence[OfertaUczestnika]:
+        async with self._conn.cursor(row_factory=dict_row) as cur:
+            await cur.execute(SQL_OFERTA_DLA_AUKCJI, (auction_id,))
+            return [_na_oferte(w) for w in await cur.fetchall()]
 
 
 class PgWatchlistRepository:
@@ -1061,6 +1136,7 @@ class PgUnitOfWork:
         self.source: SourceRepository = PgSourceRepository(conn)
         self.auction: AuctionRepository = PgAuctionRepository(conn)
         self.snapshot: SnapshotRepository = PgSnapshotRepository(conn)
+        self.oferta: OfertaRepository = PgOfertaRepository(conn)
         self.watchlist: WatchlistRepository = PgWatchlistRepository(conn)
         self.saved_filter: SavedFilterRepository = PgSavedFilterRepository(conn)
         self.wycena: WycenaRepository = PgWycenaRepository(conn)

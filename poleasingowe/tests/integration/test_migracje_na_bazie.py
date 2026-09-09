@@ -58,6 +58,7 @@ async def test_powstaly_wszystkie_tabele_i_indeksy(
     assert tabele == [
         "ai_valuation",
         "auction",
+        "offer",
         "price_snapshot",
         "run_log",
         "saved_filter",
@@ -77,6 +78,7 @@ async def test_powstaly_wszystkie_tabele_i_indeksy(
     assert "auction_next_poll_active_idx" in indeksy
     assert "price_snapshot_auction_ts_idx" in indeksy
     assert "watchlist_auction_unique_idx" in indeksy
+    assert "offer_auction_placed_idx" in indeksy, "odczyt ofert na karcie (§11.8)"
 
 
 async def test_indeks_na_next_poll_jest_czesciowy(

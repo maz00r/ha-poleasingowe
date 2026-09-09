@@ -10,8 +10,8 @@ from types import TracebackType
 
 import httpx
 
-from app.application.ports import SurowaOferta
-from app.domain.entities import Auction
+from app.application.ports import SurowaOferta, SurowaOfertaUczestnika
+from app.domain.entities import Auction, OfertaUczestnika
 from app.domain.errors import SourceUnavailable
 from app.infrastructure.sources.adresy import strona_aukcji
 from app.infrastructure.sources.efl import mapper, parser
@@ -134,12 +134,21 @@ class EflSource:
         if znany_hash is not None and biezacy == znany_hash:
             return None
 
+        html = tresc.decode("utf-8", "replace")
         surowa = parser.sparsuj_szczegoly(
-            tresc.decode("utf-8", "replace"),
-            external_id,
-            f"{parser.BAZOWY_URL}{sciezka}",
+            html, external_id, f"{parser.BAZOWY_URL}{sciezka}"
         )
-        return replace(surowa, content_hash=biezacy)
+        # Lista ofert wychodzi z TEJ SAMEJ odpowiedzi — zero dodatkowych
+        # zadan. SPEC.md §11.8 stawia ja ponad czestszym odpytywaniem
+        # wlasnie dlatego: daje pewnosc, ktorej roznice `bid_count` dac nie
+        # moga, i nie kosztuje serwisu ani jednego wywolania wiecej.
+        oferty = tuple(
+            SurowaOfertaUczestnika(
+                kod=wiersz["kod"], kwota=wiersz["kwota"], zlozona=wiersz["data"]
+            )
+            for wiersz in parser.sparsuj_oferty(html)
+        )
+        return replace(surowa, content_hash=biezacy, oferty=oferty)
 
     async def zdjecia(self, external_id: str, url: str | None = None) -> Sequence[str]:
         """Adresy zdjęć pojazdu (SPEC.md §12).
@@ -159,3 +168,9 @@ class EflSource:
         self, surowa: SurowaOferta, source_id: int, teraz: dt.datetime
     ) -> Auction:
         return mapper.na_aukcje(surowa, source_id, teraz)
+
+    def na_oferty(
+        self, surowa: SurowaOferta, auction_id: int, teraz: dt.datetime
+    ) -> tuple[OfertaUczestnika, ...]:
+        """SPEC.md §11.8 — EFL podaje listę ofert inline, bez logowania."""
+        return mapper.na_oferty(surowa, auction_id, teraz)

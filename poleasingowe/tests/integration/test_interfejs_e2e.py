@@ -13,12 +13,17 @@ połączeniami.
 from __future__ import annotations
 
 import contextlib
+import datetime as dt
 from collections.abc import AsyncIterator
+from decimal import Decimal
 
 import httpx
 import psycopg
 import pytest
 
+from app.domain.entities import OfertaUczestnika
+from app.domain.enums import Currency
+from app.domain.value_objects import Money
 from app.infrastructure.persistence.pula import KontekstPg
 from app.infrastructure.persistence.queries import PgZapytania
 from app.infrastructure.persistence.repositories import PgUnitOfWork
@@ -128,6 +133,43 @@ async def test_szczegoly_linkuja_do_oferty_i_do_grafany(
         f"https://grafana.example/d/poleasingowe-aukcja?var-auction_id="
         f"{identyfikatory['audi-za-godzine']}" in odp.text
     )
+
+
+async def test_karta_pokazuje_oferty_ze_strony_aukcji(
+    klient: httpx.AsyncClient, pusta_baza: psycopg.AsyncConnection
+) -> None:
+    """SPEC.md §11.8 — sekcja „Oferty" z etykietami zamiast pseudonimów.
+
+    Test idzie przez pełny stos aż do HTML-a, bo tu psuje się co innego niż
+    w zapytaniu: brakujący filtr `czas_trwania`, literówka w nazwie zmiennej
+    kontekstu albo sekcja opakowana w `{% if %}`, które nigdy nie jest
+    prawdziwe. Żadnej z tych rzeczy nie widać z poziomu SQL-a.
+    """
+    identyfikatory = await _dane(pusta_baza)
+    aukcja_id = identyfikatory["audi-za-godzine"]
+    uow = PgUnitOfWork(pusta_baza)
+    teraz = dt.datetime.now(dt.UTC)
+    await uow.oferta.zapisz_nowe(
+        [
+            OfertaUczestnika(
+                auction_id=aukcja_id,
+                uczestnik="skrot-szesnastkowy",
+                amount=Money(Decimal("122000.00"), Currency.PLN),
+                placed_at=teraz - dt.timedelta(minutes=10),
+                first_seen_at=teraz - dt.timedelta(minutes=8),
+            )
+        ]
+    )
+
+    odp = await klient.get(f"/aukcja/{aukcja_id}")
+
+    assert odp.status_code == 200
+    assert "Oferty" in odp.text
+    assert "Licytant A" in odp.text
+    assert "122" in odp.text
+    assert (
+        "skrot-szesnastkowy" not in odp.text
+    ), "pseudonim z bazy nie ma prawa trafić na ekran"
 
 
 async def test_nieistniejaca_aukcja_daje_404_a_nie_500(

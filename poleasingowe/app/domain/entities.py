@@ -205,6 +205,37 @@ class PriceSnapshot:
 
 
 @dataclass(slots=True, frozen=True)
+class OfertaUczestnika:
+    """Jedna oferta z listy ofert na stronie aukcji (SPEC.md §11.8).
+
+    NIE jest tym samym co `PriceSnapshot`. Snapshot to **nasz** odczyt ceny
+    w danej chwili; ta encja to oferta, którą serwis pokazuje wprost — z kwotą
+    i momentem złożenia, których nie musimy zgadywać z różnic między odpytami.
+    §11.8 stawia taką listę ponad częstszym odpytywaniem, i słusznie: daje ją
+    ta sama odpowiedź HTTP, która i tak leci po cenę.
+
+    `uczestnik` to pseudonim ważny **wyłącznie w obrębie jednej aukcji** —
+    patrz `012_oferty.sql`. Pozwala powiedzieć „te dwie oferty złożył ten sam
+    licytant", nie pozwala śledzić licytanta między aukcjami.
+    """
+
+    auction_id: int
+    uczestnik: str
+    amount: Money
+    placed_at: dt.datetime
+    """Kiedy oferta została złożona — **wg serwisu**, nie wg naszego zegara."""
+    first_seen_at: dt.datetime
+    """Kiedy MY zobaczyliśmy ją pierwszy raz. Różnica mierzy nasze opóźnienie."""
+    id: int | None = None
+
+    def __post_init__(self) -> None:
+        _wymagaj_utc("placed_at", self.placed_at)
+        _wymagaj_utc("first_seen_at", self.first_seen_at)
+        if not self.uczestnik:
+            raise ValueError("pusty pseudonim uczestnika")
+
+
+@dataclass(slots=True, frozen=True)
 class WatchlistEntry:
     auction_id: int
     added_at: dt.datetime

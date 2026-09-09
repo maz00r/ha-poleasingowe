@@ -16,6 +16,7 @@ from typing import Protocol, runtime_checkable
 from app.application.read_models import (
     Kryteria,
     Kursor,
+    OfertaNaKarcie,
     PorownanieRynkowe,
     PowiazaneWystawienie,
     PunktHistorii,
@@ -26,6 +27,7 @@ from app.application.read_models import (
 )
 from app.domain.entities import (
     Auction,
+    OfertaUczestnika,
     PriceSnapshot,
     RunLog,
     SavedFilter,
@@ -81,9 +83,30 @@ class AuctionRepository(Protocol):
 
 class SnapshotRepository(Protocol):
     async def zapisz_jesli_zmienil_sie(
-        self, snapshot: PriceSnapshot
-    ) -> PriceSnapshot | None: ...
+        self, snapshot: PriceSnapshot, *, licznik_liczy_oferty: bool = False
+    ) -> PriceSnapshot | None:
+        """`licznik_liczy_oferty` to `Source.liczy_oferty` (SPEC.md §11.8).
+
+        Domyślne `False` jest celowo ostrożne: źródło, o którym nic nie wiemy,
+        ma dawać `bid_gap = NULL`, bo zero czyta się jak „komplet historii".
+        """
+        ...
+
     async def historia(self, auction_id: int) -> Sequence[PriceSnapshot]: ...
+
+
+class OfertaRepository(Protocol):
+    """Oferty odczytane wprost ze strony aukcji (SPEC.md §11.8)."""
+
+    async def zapisz_nowe(self, oferty: Sequence[OfertaUczestnika]) -> int:
+        """Dopisuje tylko te, których jeszcze nie mamy. Zwraca liczbę nowych.
+
+        Idempotentne z premedytacją: w fazie domknięcia ta sama lista ofert
+        wraca po kilka razy w ciągu kilkudziesięciu sekund (§11.5).
+        """
+        ...
+
+    async def dla_aukcji(self, auction_id: int) -> Sequence[OfertaUczestnika]: ...
 
 
 class WatchlistRepository(Protocol):
@@ -126,6 +149,7 @@ class UnitOfWork(Protocol):
     source: SourceRepository
     auction: AuctionRepository
     snapshot: SnapshotRepository
+    oferta: OfertaRepository
     watchlist: WatchlistRepository
     saved_filter: SavedFilterRepository
     wycena: WycenaRepository
@@ -133,6 +157,21 @@ class UnitOfWork(Protocol):
 
     async def __aenter__(self) -> UnitOfWork: ...
     async def __aexit__(self, *wyjatek: object) -> None: ...
+
+
+@dataclass(slots=True, frozen=True)
+class SurowaOfertaUczestnika:
+    """Jeden wiersz z listy ofert, dokładnie tak, jak podał go serwis.
+
+    Trzy napisy, zero interpretacji — przeliczeniem kwoty, strefy czasowej
+    i pseudonimizacją kodu zajmuje się `mapper.py` adaptera (§6.2).
+    """
+
+    kod: str
+    """Identyfikator nadany przez serwis. **Nie trafia do bazy** — mapper
+    zamienia go na pseudonim ważny tylko w obrębie aukcji (`012_oferty.sql`)."""
+    kwota: str
+    zlozona: str
 
 
 @dataclass(slots=True, frozen=True)
@@ -149,6 +188,12 @@ class SurowaOferta:
     """Pola tak, jak podał je serwis — bez interpretacji i bez konwersji."""
     content_hash: str = ""
     """Hash **surowych bajtów** odpowiedzi, liczony przed parsowaniem (§11.3)."""
+    oferty: tuple[SurowaOfertaUczestnika, ...] = ()
+    """Lista ofert, o ile serwis podaje ją na stronie aukcji (SPEC.md §11.8).
+
+    Pusta krotka znaczy „to źródło jej nie pokazuje **albo** aukcja nie ma
+    jeszcze ofert" — te dwa przypadki rozróżnia adapter, nie ten typ.
+    """
 
 
 @dataclass(slots=True, frozen=True)
@@ -231,6 +276,23 @@ class AuctionSource(Protocol):
         ...
 
 
+@runtime_checkable
+class ZrodloZOfertami(Protocol):
+    """Źródło, które podaje listę ofert wprost na stronie aukcji (§11.8).
+
+    Osobny protokół, a nie kolejna metoda w `AuctionSource`, bo §10.1 zabrania
+    zmuszania adapterów do pustych implementacji. Serwis, który listy ofert nie
+    pokazuje, po prostu tego protokołu nie spełnia — i dyspozytor to widzi,
+    zamiast dostawać pustą krotkę nie do odróżnienia od „aukcja bez ofert".
+    """
+
+    def na_oferty(
+        self, surowa: SurowaOferta, auction_id: int, teraz: dt.datetime
+    ) -> tuple[OfertaUczestnika, ...]:
+        """Tłumaczy surowe wiersze na encje. Bez sieci — dane są już w `surowa`."""
+        ...
+
+
 class Zapytania(Protocol):
     """Strona odczytu dla interfejsu (SPEC.md §6.2, §12).
 
@@ -263,6 +325,14 @@ class Zapytania(Protocol):
 
         Snapshoty powstają tylko przy zmianie, więc to lista zdarzeń,
         a nie pomiar co N minut.
+        """
+        ...
+
+    async def oferty(self, auction_id: int) -> tuple[OfertaNaKarcie, ...]:
+        """Oferty odczytane wprost ze strony aukcji (SPEC.md §11.8).
+
+        Pusta krotka znaczy „to źródło ich nie podaje **albo** nikt jeszcze
+        nie licytował". Karta rozstrzyga to po `bid_count`, nie po tej liście.
         """
         ...
 

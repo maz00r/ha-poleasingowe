@@ -397,6 +397,18 @@ Baza `poleasingowe`. Tabele w schemacie `app`, widoki w `reporting`.
 - **`price_snapshot`** — `auction_id`, `ts`, `price`, `bid_count`, `ends_at`,
   `bid_gap` — ile ofert przegapiono przed tym snapshotem (0 = komplet,
   `NULL` = nie da się policzyć, §11.8).
+- **`offer`** — `auction_id`, `uczestnik`, `amount`, `currency`, `placed_at`,
+  `first_seen_at`. Oferty odczytane **wprost ze strony aukcji** tam, gdzie
+  serwis je podaje (§11.8) — w odróżnieniu od `price_snapshot`, który jest
+  naszym odczytem ceny w chwili odpytu. `placed_at` to moment złożenia wg
+  serwisu, `first_seen_at` — wg nas; różnica mierzy nasze opóźnienie.
+  `uczestnik` jest pseudonimem ważnym **wyłącznie w obrębie jednej aukcji**:
+  skrótem z pary (aukcja, kod serwisu). Pozwala pogrupować oferty jednego
+  licytanta w tej aukcji i nie pozwala zestawić ze sobą aukcji, w których
+  brał udział — takiego zbioru ta aplikacja nie potrzebuje i nie buduje.
+  Klucz naturalny `(auction_id, uczestnik, placed_at)`: powtórzony odpyt
+  w fazie domknięcia nie tworzy duplikatów, a podniesiona oferta tego samego
+  licytanta jest nowym wierszem.
 - **`watchlist`** — `auction_id`, notatka, cena docelowa, `added_at`.
 - **`saved_filter`** — nazwa, kryteria `jsonb`, `created_at`.
 - **`run_log`** — źródło, start, koniec, nowe/zmienione, błędy, RSS procesu,
@@ -806,6 +818,20 @@ Jeśli rekonesans wykaże, że serwis udostępnia listę lub historię ofert
 na stronie aukcji — parsuj ją zamiast polegać na różnicach snapshotów.
 To ma pierwszeństwo przed częstszym odpytywaniem i jest istotniejsze
 niż jakikolwiek parametr harmonogramu.
+
+**Zrobione dla EFL.** Zakładka „Oferty" jest inline w HTML i nie wymaga
+logowania (RECON.md §4.1), więc lista przyjeżdża **tą samą odpowiedzią**,
+którą i tak pobieramy po cenę — koszt w żądaniach wynosi zero. Oferty lądują
+w tabeli `offer` (§8.1), a nie w `price_snapshot`, bo to dwie różne rzeczy:
+tam jest nasz odczyt, tu zdarzenie po stronie serwisu z własnym momentem.
+
+Przy okazji zysk, którego serwis sam nie daje: EFL trzyma **jeden wiersz na
+uczestnika i nadpisuje go w miejscu**, więc wcześniejsza oferta tego samego
+licytanta znika ze strony bez śladu. U nas zostaje, bo różni ją `placed_at` —
+archiwum odtwarza przebieg, o którym serwis zapomina.
+
+Adaptery źródeł, które listy ofert nie pokazują, **nie implementują** portu
+`ZrodloZOfertami` — zgodnie z §10.1 nie zmuszamy ich do pustej metody.
 
 ---
 

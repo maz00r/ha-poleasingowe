@@ -290,7 +290,8 @@ async def test_v_price_history_niesie_bid_gap(
             ts=TERAZ,
             price=Money(Decimal("1000.00"), Currency.PLN),
             bid_count=1,
-        )
+        ),
+        licznik_liczy_oferty=True,
     )
     await uow.snapshot.zapisz_jesli_zmienil_sie(
         PriceSnapshot(
@@ -298,7 +299,8 @@ async def test_v_price_history_niesie_bid_gap(
             ts=TERAZ + dt.timedelta(minutes=1),
             price=Money(Decimal("1400.00"), Currency.PLN),
             bid_count=4,
-        )
+        ),
+        licznik_liczy_oferty=True,
     )
 
     async with pusta_baza.cursor() as cur:

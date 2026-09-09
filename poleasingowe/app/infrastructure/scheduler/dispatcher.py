@@ -28,6 +28,7 @@ from app.application.ports import (
     AuctionSource,
     FabrykaKontekstu,
     KontekstBazy,
+    ZrodloZOfertami,
 )
 from app.domain.domkniecie import (
     nastepny_krok_drabinki,
@@ -426,6 +427,17 @@ class Dispatcher:
             scalona = self._scal(aukcja, swieza, zrodlo, teraz, obserwowana)
             zapisana = await uow.auction.zapisz(scalona)
             zmieniony = None
+            nowe_oferty = 0
+            if zapisana.id is not None:
+                # SPEC.md §11.8 — lista ofert ze strony aukcji ma pierwszeństwo
+                # przed zgadywaniem z różnic `bid_count`. Przyszła tą samą
+                # odpowiedzią co cena, więc nie kosztuje ani jednego żądania
+                # więcej. Źródła, które jej nie podają, dają pustą krotkę.
+                nowe_oferty = await uow.oferta.zapisz_nowe(
+                    adapter.na_oferty(surowa, zapisana.id, teraz)
+                    if isinstance(adapter, ZrodloZOfertami)
+                    else ()
+                )
             if scalona.price_current is not None and zapisana.id is not None:
                 # SPEC.md §8.4 — snapshot WYŁĄCZNIE przy zmianie ceny, liczby
                 # ofert albo `ends_at`. Bez tej reguły dogrywka generuje setki
@@ -437,9 +449,13 @@ class Dispatcher:
                         price=scalona.price_current,
                         bid_count=scalona.bid_count,
                         ends_at=scalona.ends_at,
-                    )
+                    ),
+                    licznik_liczy_oferty=zrodlo.liczy_oferty,
                 )
-        return zmieniony is not None
+        # Nowa oferta to zmiana warta odnotowania nawet wtedy, gdy cena
+        # została ta sama — przy licytacji proxy przebita oferta niższa
+        # od maksimum zwycięzcy nie rusza ceny (RECON.md §3.5).
+        return zmieniony is not None or nowe_oferty > 0
 
     @staticmethod
     def _termin_po_odpycie(

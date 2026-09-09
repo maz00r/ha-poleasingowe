@@ -15,7 +15,12 @@ import psycopg
 import pytest
 
 from app.application.read_models import Kryteria, Kursor, Sortowanie
-from app.domain.entities import Auction, PriceSnapshot, WatchlistEntry
+from app.domain.entities import (
+    Auction,
+    OfertaUczestnika,
+    PriceSnapshot,
+    WatchlistEntry,
+)
 from app.domain.enums import AuctionStatus, Currency, FinalPriceState, RodzajPojazdu
 from app.domain.value_objects import Mileage, Money, Vin
 from app.infrastructure.persistence.queries import PgZapytania
@@ -747,3 +752,90 @@ async def test_brak_historii_to_pusta_krotka(
         await PgZapytania(pusta_baza).historia_cen(identyfikatory["bez-terminu-a"])
         == ()
     )
+
+
+async def test_oferty_na_karcie_dostaja_etykiety_w_kolejnosci_pojawienia(
+    pusta_baza: psycopg.AsyncConnection,
+) -> None:
+    """SPEC.md §11.8 — karta pokazuje oferty, nie pseudonimy z bazy.
+
+    Pseudonim jest szesnastkowym skrótem (`012_oferty.sql`) i na ekranie nie
+    niósłby żadnej informacji. Litera niesie dokładnie tyle, ile trzeba: ilu
+    było licytantów i który przebijał którego. Numeracja idzie po **pierwszym
+    pojawieniu się** licytanta, nie po kwocie — inaczej etykiety zmieniałyby
+    się przy każdej nowej ofercie.
+    """
+    zapytania = PgZapytania(pusta_baza)
+    identyfikatory = await _dane(pusta_baza)
+    aukcja_id = identyfikatory["audi-za-godzine"]
+    uow = PgUnitOfWork(pusta_baza)
+
+    # „aaa" wchodzi pierwszy, potem „bbb" przebija, potem „aaa" podbija.
+    await uow.oferta.zapisz_nowe(
+        [
+            OfertaUczestnika(
+                auction_id=aukcja_id,
+                uczestnik=uczestnik,
+                amount=_pln(kwota),
+                placed_at=TERAZ - dt.timedelta(minutes=minuty),
+                first_seen_at=TERAZ - dt.timedelta(minutes=minuty - 2),
+            )
+            for uczestnik, kwota, minuty in (
+                ("aaa", "120000", 30),
+                ("bbb", "121000", 20),
+                ("aaa", "122000", 10),
+            )
+        ]
+    )
+
+    oferty = await zapytania.oferty(aukcja_id)
+
+    # Od najnowszej — tak samo jak historia cen.
+    assert [str(o.amount.amount) for o in oferty] == [
+        "122000.00",
+        "121000.00",
+        "120000.00",
+    ]
+    assert [o.uczestnik for o in oferty] == [
+        "Licytant A",
+        "Licytant B",
+        "Licytant A",
+    ], "ten sam licytant ma tę samą etykietę w obu swoich ofertach"
+
+
+async def test_opoznienie_liczy_sie_tylko_dla_ofert_po_rozpoczeciu_obserwacji(
+    pusta_baza: psycopg.AsyncConnection,
+) -> None:
+    """Inaczej „opóźnienie" mierzyłoby wiek aukcji, a nie nasze spóźnienie.
+
+    Ofertę złożoną przed odkryciem aukcji zobaczyliśmy dopiero przy pierwszym
+    odpycie — różnica `first_seen_at - placed_at` byłaby wtedy liczbą dni,
+    czytaną jak „spóźniliśmy się o tydzień". Kreska mówi prawdę.
+    """
+    zapytania = PgZapytania(pusta_baza)
+    identyfikatory = await _dane(pusta_baza)
+    aukcja_id = identyfikatory["audi-za-godzine"]  # first_seen_at = TERAZ minus 3 dni
+    uow = PgUnitOfWork(pusta_baza)
+
+    await uow.oferta.zapisz_nowe(
+        [
+            OfertaUczestnika(
+                auction_id=aukcja_id,
+                uczestnik="stary",
+                amount=_pln("100000"),
+                placed_at=TERAZ - dt.timedelta(days=5),
+                first_seen_at=TERAZ - dt.timedelta(days=3),
+            ),
+            OfertaUczestnika(
+                auction_id=aukcja_id,
+                uczestnik="nowy",
+                amount=_pln("130000"),
+                placed_at=TERAZ - dt.timedelta(minutes=10),
+                first_seen_at=TERAZ - dt.timedelta(minutes=8),
+            ),
+        ]
+    )
+
+    wedlug_uczestnika = {o.uczestnik: o for o in await zapytania.oferty(aukcja_id)}
+    assert wedlug_uczestnika["Licytant B"].opoznienie_s == 120, "dwie minuty"
+    assert wedlug_uczestnika["Licytant A"].opoznienie_s is None

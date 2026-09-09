@@ -85,11 +85,14 @@ Kolejność etapów jest w `SPEC.md` §14. Zrobione:
 
 Poza etapami doszła **faza domknięcia z §11.5** (drabinka prób po terminie,
 `CONFIRMED` tylko z potwierdzenia serwisu), **wykrywanie zniknięcia z listy**,
-**powiązania ponownych wystawień** tego samego auta i **przebieg licytacji**
-na karcie.
+**powiązania ponownych wystawień** tego samego auta, **przebieg licytacji**
+na karcie oraz **listy ofert z §11.8** — dla EFL czytane wprost ze strony
+(tabela `offer`, migracja `012`), więc bez zgadywania z różnic `bid_count`.
 
-Następny: **leasygroup** po pomiarze, potem historia ofert z §11.8 (EFL
-udostępnia ją inline, więc `bid_gap` da się mieć bez zgadywania).
+Następny: **leasygroup** po pomiarze z 2026-09-10 (`tools/pomiar-leasygroup.sh`
+uzbrojony w launchd). Logowanie z ETAPU 8 zostaje na razie odłożone —
+mechanizm jest gotowy i przetestowany, ale żaden adapter jeszcze się nie
+loguje.
 
 Repozytorium add-onu: <https://github.com/maz00r/ha-poleasingowe> —
 instrukcja instalacji w [`poleasingowe/DOCS.md`](poleasingowe/DOCS.md).
@@ -216,8 +219,10 @@ python3 tools/recon_0b.py --dry-run --source efl --url "<URL>"
   „zakończona" — `auction_pending:false`, nagłówek `Zakończona` — cena
   zostaje zapisana jako `CONFIRMED`. Gdy drabinka się wyczerpie, aukcja
   kończy na `LAST_SEEN` razem z `last_price_lead_seconds`.
-  Czego brakuje: `bid_history_ttl_seconds` nadal jest wypełnione i nieczytane
-  (historia ofert z §11.8), a siatka dla leasygroup pozostaje domyślna.
+  Czego brakuje: siatka dla leasygroup pozostaje domyślna do czasu pomiaru,
+  a `bid_history_ttl_seconds` nadal jest wypełnione i nieczytane — dla EFL
+  przestało być potrzebne (lista ofert jest inline), dla pozostałych źródeł
+  nie ma czego czytać.
 - **Ponowne wystawienia bez VIN-u to tylko przypuszczenie.** Powiązanie
   po VIN jest pewne; bez niego opieramy się na zgodności marki, modelu,
   rocznika, silnika, koloru i przebiegu — i tak jest oznaczone w interfejsie.

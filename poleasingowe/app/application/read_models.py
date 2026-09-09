@@ -317,6 +317,34 @@ class PunktHistorii:
     """Ile ofert przegapiono przed tym wpisem (§11.8); `None` = nie wiadomo."""
 
 
+@dataclass(slots=True, frozen=True)
+class OfertaNaKarcie:
+    """Jedna oferta odczytana wprost ze strony aukcji (SPEC.md §11.8).
+
+    Różnica wobec `PunktHistorii`: tam jest **nasz** odczyt ceny w chwili,
+    w której akurat zapytaliśmy, tu — oferta z momentem złożenia podanym
+    przez serwis. Karta pokazuje jedno albo drugie, nigdy oba naraz, bo
+    zestawione obok siebie wyglądałyby jak dwie wersje tej samej prawdy.
+    """
+
+    uczestnik: str
+    """Etykieta w rodzaju „Licytant A" — nadana po kolei pojawiania się.
+
+    Nie jest to identyfikator z serwisu; ten nigdzie nie trafia
+    (`012_oferty.sql`). Wystarcza, żeby zobaczyć, ilu było licytantów
+    i kto przebijał kogo.
+    """
+    amount: Money
+    placed_at: dt.datetime
+    opoznienie_s: int | None = None
+    """O ile spóźnił się nasz odczyt względem złożenia oferty (sekundy).
+
+    Jedyna miara opóźnienia, jaką mamy — serwis nie mówi, kiedy oferta
+    pojawiła się na stronie. `None`, gdy zobaczyliśmy ją w pierwszym odczycie
+    aukcji, bo wtedy liczba mierzyłaby wiek aukcji, a nie nasze opóźnienie.
+    """
+
+
 class PewnoscPowiazania(StrEnum):
     """Skąd wiadomo, że to ten sam samochód."""
 

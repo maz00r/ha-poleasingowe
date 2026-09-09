@@ -10,6 +10,7 @@ import pytest
 
 from app.domain.entities import (
     Auction,
+    OfertaUczestnika,
     PriceSnapshot,
     RunLog,
     Source,
@@ -313,22 +314,49 @@ async def test_bid_gap_liczy_przegapione_oferty(
     uow = PgUnitOfWork(pusta_baza)
     aid = await _aukcja_do_snapshotow(uow)
 
-    await uow.snapshot.zapisz_jesli_zmienil_sie(_snap(aid, "1000", bid_count=1))
+    await uow.snapshot.zapisz_jesli_zmienil_sie(
+        _snap(aid, "1000", bid_count=1), licznik_liczy_oferty=True
+    )
 
     # Kolejna oferta po kolei — nic nie przegapilismy.
     kolejny = await uow.snapshot.zapisz_jesli_zmienil_sie(
-        _snap(aid, "1100", bid_count=2, ts=TERAZ + dt.timedelta(minutes=1))
+        _snap(aid, "1100", bid_count=2, ts=TERAZ + dt.timedelta(minutes=1)),
+        licznik_liczy_oferty=True,
     )
     assert kolejny is not None and kolejny.bid_gap == 0
 
     # Skok z 2 na 5 — trzy oferty, z czego dwie przegapione.
     skok = await uow.snapshot.zapisz_jesli_zmienil_sie(
-        _snap(aid, "1400", bid_count=5, ts=TERAZ + dt.timedelta(minutes=2))
+        _snap(aid, "1400", bid_count=5, ts=TERAZ + dt.timedelta(minutes=2)),
+        licznik_liczy_oferty=True,
     )
     assert skok is not None and skok.bid_gap == 2
 
     suma = sum(s.bid_gap or 0 for s in await uow.snapshot.historia(aid))
     assert suma == 2, "suma bid_gap to liczba ofert, których nie widzieliśmy"
+
+
+async def test_bid_gap_jest_null_gdy_licznik_nie_liczy_ofert(
+    pusta_baza: psycopg.AsyncConnection,
+) -> None:
+    """SPEC.md §11.8 — dla `PARTICIPANTS` i `UNKNOWN` właściwą odpowiedzią
+    jest `NULL`.
+
+    EFL prowadzi licytację proxy: `bid_count` liczy tam uczestników, nie
+    oferty. Przyrost tego licznika o 3 nie znaczy „przegapiliśmy dwie
+    oferty" — znaczy „doszło trzech licytantów". Liczba wyliczona mimo to
+    wygląda wiarygodnie i **dlatego** jest groźniejsza niż jej brak.
+    """
+    uow = PgUnitOfWork(pusta_baza)
+    aid = await _aukcja_do_snapshotow(uow)
+
+    await uow.snapshot.zapisz_jesli_zmienil_sie(_snap(aid, "1000", bid_count=1))
+    skok = await uow.snapshot.zapisz_jesli_zmienil_sie(
+        _snap(aid, "1400", bid_count=5, ts=TERAZ + dt.timedelta(minutes=2))
+    )
+
+    assert skok is not None
+    assert skok.bid_gap is None, "brak dowodu, że licznik liczy oferty → NULL"
 
 
 async def test_bid_gap_jest_null_gdy_serwis_nie_podaje_liczby_ofert(
@@ -671,3 +699,98 @@ async def test_niespojna_wycena_nie_wchodzi_do_bazy(
                 " VALUES (%s, 100, 200, 300, 'niska', '—', 'm', 2)",
                 (zapisana_aukcja.id,),
             )
+
+
+# --------------------------------------------------------------------------
+# Oferty odczytane wprost ze strony aukcji (SPEC.md §11.8)
+# --------------------------------------------------------------------------
+
+
+def _oferta(
+    auction_id: int,
+    uczestnik: str,
+    kwota: str,
+    *,
+    zlozona: dt.datetime,
+    widziana: dt.datetime = TERAZ,
+) -> OfertaUczestnika:
+    return OfertaUczestnika(
+        auction_id=auction_id,
+        uczestnik=uczestnik,
+        amount=Money(Decimal(kwota), Currency.PLN),
+        placed_at=zlozona,
+        first_seen_at=widziana,
+    )
+
+
+async def _aukcja_do_ofert(uow: PgUnitOfWork) -> int:
+    src = await uow.source.zapisz(zrodlo())
+    assert src.id is not None
+    a = await uow.auction.zapisz(aukcja(src.id))
+    assert a.id is not None
+    return a.id
+
+
+async def test_oferty_zapisuja_sie_i_wracaja_chronologicznie(
+    pusta_baza: psycopg.AsyncConnection,
+) -> None:
+    uow = PgUnitOfWork(pusta_baza)
+    aid = await _aukcja_do_ofert(uow)
+
+    nowe = await uow.oferta.zapisz_nowe(
+        [
+            _oferta(aid, "aaa", "51600", zlozona=TERAZ - dt.timedelta(minutes=5)),
+            _oferta(aid, "bbb", "49000", zlozona=TERAZ - dt.timedelta(minutes=1)),
+        ]
+    )
+    assert nowe == 2
+
+    wszystkie = await uow.oferta.dla_aukcji(aid)
+    assert [str(o.amount.amount) for o in wszystkie] == ["51600.00", "49000.00"]
+
+
+async def test_ta_sama_oferta_nie_duplikuje_sie_przy_powtorzonym_odpycie(
+    pusta_baza: psycopg.AsyncConnection,
+) -> None:
+    """SPEC.md §11.5 — w fazie domknięcia ta sama strona wraca po kilka razy.
+
+    Sześć odpytów w kilkadziesiąt sekund to sześć identycznych list ofert.
+    Bez klucza naturalnego karta aukcji pokazywałaby tę samą ofertę sześć razy
+    i wyglądałoby to jak sześć postąpień.
+    """
+    uow = PgUnitOfWork(pusta_baza)
+    aid = await _aukcja_do_ofert(uow)
+    zlozona = TERAZ - dt.timedelta(minutes=5)
+
+    pierwszy = await uow.oferta.zapisz_nowe(
+        [_oferta(aid, "aaa", "51600", zlozona=zlozona)]
+    )
+    drugi = await uow.oferta.zapisz_nowe(
+        [_oferta(aid, "aaa", "51600", zlozona=zlozona)]
+    )
+
+    assert (pierwszy, drugi) == (1, 0)
+    assert len(await uow.oferta.dla_aukcji(aid)) == 1
+
+
+async def test_podniesiona_oferta_tego_samego_licytanta_to_nowy_wiersz(
+    pusta_baza: psycopg.AsyncConnection,
+) -> None:
+    """To jest ta rzecz, której serwis o sobie nie pamięta (`012_oferty.sql`).
+
+    EFL trzyma jeden wiersz na uczestnika i **nadpisuje** go: kod 106125 miał
+    48 600 zł 4.09, a 7.09 już 51 600 zł — starszej kwoty nie widać nigdzie.
+    U nas zostają obie, bo różni je moment złożenia.
+    """
+    uow = PgUnitOfWork(pusta_baza)
+    aid = await _aukcja_do_ofert(uow)
+
+    await uow.oferta.zapisz_nowe(
+        [_oferta(aid, "aaa", "48600", zlozona=TERAZ - dt.timedelta(days=3))]
+    )
+    await uow.oferta.zapisz_nowe(
+        [_oferta(aid, "aaa", "51600", zlozona=TERAZ - dt.timedelta(minutes=5))]
+    )
+
+    kwoty = [str(o.amount.amount) for o in await uow.oferta.dla_aukcji(aid)]
+    assert kwoty == ["48600.00", "51600.00"], "archiwum pamięta więcej niż serwis"
