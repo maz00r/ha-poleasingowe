@@ -185,6 +185,13 @@ class Kryteria:
     tylko_obserwowane: bool = False
     nowe_od: dt.datetime | None = None
     """Widok „nowe od ostatniej wizyty" — porównanie z `first_seen_at`."""
+    tylko_wystawione_ponownie: bool = False
+    """Widok „wystawione ponownie": auta, które już raz stały na aukcji.
+
+    Niesprzedany samochód wraca — zwykle taniej. Zestawienie takich pozycji
+    jest osobnym pytaniem niż „co jest na sprzedaż": interesuje w nim
+    **różnica cen między wystawieniami**, a nie sama oferta.
+    """
     sortowanie: Sortowanie = Sortowanie.KONIEC_ROSNACO
 
 

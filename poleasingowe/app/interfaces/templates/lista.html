@@ -8,6 +8,21 @@
 
    Rzadko uzywane pola siedza w <details>. Czternascie pol rozwinietych na
    staly zajmowalo pol ekranu nad lista, ktora jest tu wlasciwa trescia. #}
+{% if przelacznik_statusu %}
+{# Przelacznik pokazuje sie wylacznie w widokach zawezonych (obserwowane,
+   wystawione ponownie). Tam "trwa czy juz wygaslo" jest naturalnym drugim
+   pytaniem, a w liscie rozwijanej filtrow gubi sie wsrod czternastu innych.
+   Kazdy link niesie KOMPLET biezacych parametrow z podmienionym statusem —
+   przelaczenie nie ma prawa zgubic reszty filtrow ani sortowania. #}
+<nav class="przelacznik" aria-label="Stan aukcji">
+  {% for pozycja in przelacznik_statusu %}
+    <a class="{% if pozycja.aktywny %}aktywny{% endif %}"
+       href="{{ sciezka(request, 'lista') }}?{{ pozycja.parametry | parametry_url }}"
+       {% if pozycja.aktywny %}aria-current="page"{% endif %}>{{ pozycja.etykieta }}</a>
+  {% endfor %}
+</nav>
+{% endif %}
+
 <form class="filtry" method="get" action="{{ sciezka(request, 'lista') }}">
 
   {# Wybor wielokrotny bez ani jednej linii JS: <details> otwiera liste,

@@ -152,6 +152,7 @@ def zbuduj_kryteria(
             status is AuctionStatus.ENDED or _flaga(parametry, "obserwowane")
         ),
         nowe_od=nowe_od,
+        tylko_wystawione_ponownie=_flaga(parametry, "ponownie"),
         sortowanie=sortowanie,
     )
 
@@ -220,6 +221,8 @@ def na_parametry(kryteria: Kryteria) -> list[tuple[str, str]]:
     )
     if kryteria.tylko_obserwowane:
         wynik.append(("obserwowane", "1"))
+    if kryteria.tylko_wystawione_ponownie:
+        wynik.append(("ponownie", "1"))
     if kryteria.nowe_od is not None:
         wynik.append(("nowe", "1"))
     wynik.append(("sort", kryteria.sortowanie.value))

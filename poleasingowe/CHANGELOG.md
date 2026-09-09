@@ -1,5 +1,27 @@
 # Historia zmian
 
+## 0.23.0 — w przygotowaniu
+
+**Poprawka: „nowe od ostatniej wizyty" wreszcie coś pokazuje.** Znacznik
+wizyty był nadpisywany przy **każdym** wyświetleniu listy — łącznie z tym,
+na którym stał ten właśnie filtr. Cofał się więc o kilka sekund przed samego
+siebie i widok był pusty zawsze. Teraz znacznik stoi w miejscu przez całe
+przeglądanie i przesuwa się dopiero przy nowej wizycie, czyli po pół godzinie
+bez ruchu. „Nowe" znaczy więc „od końca poprzedniej wizyty".
+
+**Przełącznik aktywne / wygasłe / wszystkie** w widokach zawężonych —
+obserwowanych i wystawionych ponownie. Podział na trwające i wygasłe jest
+tam naturalnym drugim pytaniem, a do tej pory siedział w liście rozwijanej
+wśród czternastu innych filtrów. Przełączenie niesie komplet bieżących
+filtrów i sortowania, więc nie gubi zawężenia, po którym się tam trafiło.
+
+**Nowa zakładka „Wystawione ponownie".** Niesprzedany samochód wraca na
+aukcję, zwykle taniej — zestawienie takich pozycji odpowiada na inne pytanie
+niż „co jest na sprzedaż". Zakładka pokazuje **wyłącznie** dopasowania po
+VIN-ie: karta aukcji dopuszcza też podobieństwo marki, modelu i przebiegu,
+ale oznacza je jako przypuszczenie, a na liście nie ma gdzie postawić tego
+zastrzeżenia. Flota kupiona hurtem to te same modele z tym samym rocznikiem.
+
 ## 0.22.0 — w przygotowaniu
 
 **Cena wywoławcza wreszcie jest — tam, gdzie da się ją ustalić na pewno.**

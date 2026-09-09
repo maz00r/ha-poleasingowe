@@ -765,3 +765,30 @@ async def test_brak_historii_to_pusta_krotka(
         await PgZapytania(pusta_baza).historia_cen(identyfikatory["bez-terminu-a"])
         == ()
     )
+
+
+async def test_wystawione_ponownie_pokazuje_tylko_pewne_trafienia_po_vin(
+    pusta_baza: psycopg.AsyncConnection,
+) -> None:
+    """Zakładka „wystawione ponownie" (SPEC.md §12) — wyłącznie po VIN-ie.
+
+    Karta aukcji dopuszcza też dopasowanie po marce, modelu, roczniku
+    i przebiegu, ale **oznacza je jako przypuszczenie**. Na liście nie ma
+    gdzie postawić tego zastrzeżenia, a flota kupiona hurtem to te same
+    modele z tym samym rocznikiem — zakładka pełna przypadkowych par byłaby
+    gorsza niż węższa i pewna.
+    """
+    zapytania = PgZapytania(pusta_baza)
+    identyfikatory = await _dane(pusta_baza)
+    ponownie = await _wystaw_ponownie(pusta_baza, "audi-za-godzine", "audi-ponownie")
+
+    strona = await zapytania.lista(
+        Kryteria(tylko_wystawione_ponownie=True, status=None, rodzaje=()),
+        None,
+        50,
+    )
+    znalezione = {p.id for p in strona.pozycje}
+
+    assert ponownie in znalezione, "drugie wystawienie tego samego VIN-u"
+    assert identyfikatory["audi-za-godzine"] in znalezione, "i pierwsze też"
+    assert identyfikatory["bez-terminu-a"] not in znalezione, "auto bez pary"

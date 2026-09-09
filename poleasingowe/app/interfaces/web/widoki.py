@@ -17,7 +17,7 @@ import logging
 import pathlib
 import posixpath
 from collections.abc import AsyncIterator
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any
 from urllib.parse import urlencode
 
@@ -43,7 +43,7 @@ from app.application.read_models import (
     Zakres,
 )
 from app.domain.entities import SavedFilter, WatchlistEntry
-from app.domain.enums import Currency, PollTier
+from app.domain.enums import AuctionStatus, Currency, PollTier
 from app.domain.logowanie import (
     StanLogowania,
     po_recznym_odblokowaniu,
@@ -117,6 +117,12 @@ SZABLONY.env.globals["baza_sciezek"] = baza_sciezek
 
 CIASTECZKO_WIZYTY = "poleasingowe_ostatnia_wizyta"
 DNI_WIZYTY = 90
+PRZERWA_WIZYTY_S = 30 * 60
+"""Po tylu sekundach bezczynności zaczyna się NOWA wizyta.
+
+Pół godziny: dość długo, żeby przerwa na kawę nie przewinęła
+znacznika, i dość krótko, żeby wieczorne wejście po porannym
+liczyło się jako osobne."""
 
 router = APIRouter()
 
@@ -161,16 +167,7 @@ def _brak_bazy(request: Request, kod: int = 503) -> Response:
     )
 
 
-def _ostatnia_wizyta(request: Request) -> dt.datetime | None:
-    """Znacznik z ciasteczka dla widoku „nowe od ostatniej wizyty" (§12).
-
-    W ciasteczku, nie w bazie: to stan przeglądarki, a nie fakt o aukcjach.
-    Trzymanie go w `app` znaczyłoby, że dwie karty przeglądarki nadpisują
-    sobie nawzajem „ostatnią wizytę".
-    """
-    surowe = request.cookies.get(CIASTECZKO_WIZYTY)
-    if not surowe:
-        return None
+def _czas_z_ciasteczka(surowe: str) -> dt.datetime | None:
     try:
         wartosc = dt.datetime.fromisoformat(surowe)
     except ValueError:
@@ -178,10 +175,47 @@ def _ostatnia_wizyta(request: Request) -> dt.datetime | None:
     return wartosc if wartosc.tzinfo else wartosc.replace(tzinfo=dt.UTC)
 
 
-def _zapamietaj_wizyte(odpowiedz: Response, teraz: dt.datetime) -> None:
+def _wizyta(request: Request) -> tuple[dt.datetime | None, dt.datetime | None]:
+    """Znacznik „od kiedy nowe" oraz czas ostatniej aktywności (§12).
+
+    W ciasteczku, nie w bazie: to stan przeglądarki, a nie fakt o aukcjach.
+    Trzymanie go w `app` znaczyłoby, że dwie karty przeglądarki nadpisują
+    sobie nawzajem „ostatnią wizytę".
+
+    DWIE WARTOŚCI, NIE JEDNA. Wcześniej ciasteczko trzymało samo „teraz"
+    i było nadpisywane przy **każdym** wyświetleniu listy — łącznie z tym,
+    na którym stał filtr „nowe od ostatniej wizyty". Znacznik cofał się więc
+    o kilka sekund przed samym siebie i widok był pusty zawsze, niezależnie
+    od tego, ile aukcji naprawdę doszło.
+    """
+    surowe = request.cookies.get(CIASTECZKO_WIZYTY)
+    if not surowe:
+        return None, None
+    znacznik, _, aktywnosc = surowe.partition("|")
+    return _czas_z_ciasteczka(znacznik), _czas_z_ciasteczka(aktywnosc)
+
+
+def _zapamietaj_wizyte(
+    odpowiedz: Response, request: Request, teraz: dt.datetime
+) -> None:
+    """Przesuwa znacznik dopiero przy NOWEJ wizycie, nie przy każdej stronie.
+
+    Wizyta kończy się po `PRZERWA_WIZYTY_S` bezczynności. Dopóki trwa,
+    znacznik stoi w miejscu — dzięki temu „nowe od ostatniej wizyty" znaczy
+    to samo przez całe przeglądanie, a nie „nowe od poprzedniego kliknięcia".
+    """
+    znacznik, aktywnosc = _wizyta(request)
+    if aktywnosc is None:
+        # Pierwsze wejście: nie ma jeszcze poprzedniej wizyty, więc nie ma
+        # też sensownego „od kiedy". Zapisujemy `teraz` i widok zacznie
+        # działać od następnej sesji.
+        znacznik = teraz
+    elif (teraz - aktywnosc).total_seconds() > PRZERWA_WIZYTY_S:
+        # Nowa wizyta. „Nowe" liczymy od końca poprzedniej.
+        znacznik = aktywnosc
     odpowiedz.set_cookie(
         CIASTECZKO_WIZYTY,
-        teraz.isoformat(),
+        f"{(znacznik or teraz).isoformat()}|{teraz.isoformat()}",
         max_age=DNI_WIZYTY * 86_400,
         httponly=True,
         samesite="lax",
@@ -266,6 +300,38 @@ def _kryteria_do_zapisu(kryteria: Kryteria) -> dict[str, list[str]]:
     return zgrupowane
 
 
+PRZELACZNIK_STATUSU = (
+    ("aktywne", "Aktywne", AuctionStatus.ACTIVE),
+    ("zakonczone", "Wygasłe", AuctionStatus.ENDED),
+    ("wszystkie", "Wszystkie", None),
+)
+
+
+def _przelacznik_statusu(kryteria: Kryteria) -> list[dict[str, Any]]:
+    """Aktywne / wygasłe / wszystkie — dla widoków zawężonych (§12).
+
+    Pokazujemy go tylko tam, gdzie lista odpowiada na jedno konkretne pytanie
+    („co obserwuję", „co wróciło na aukcję"). Wtedy podział na trwające
+    i wygasłe jest naturalnym drugim pytaniem, a schowany jest dziś w liście
+    rozwijanej wśród czternastu innych filtrów.
+
+    Każda pozycja niesie **komplet** bieżących parametrów z podmienionym
+    statusem — przełączenie nie może gubić reszty filtrów ani sortowania.
+    """
+    wynik: list[dict[str, Any]] = []
+    for wartosc, etykieta, status in PRZELACZNIK_STATUSU:
+        parametry = na_parametry(replace(kryteria, status=status))
+        wynik.append(
+            {
+                "etykieta": etykieta,
+                "parametry": parametry,
+                "aktywny": kryteria.status is status,
+                "wartosc": wartosc,
+            }
+        )
+    return wynik
+
+
 def _linki_sortowania(kryteria: Kryteria) -> dict[str, dict[str, str | bool]]:
     """Dla każdego klucza sortowania: dokąd prowadzi klik i czy jest aktywny.
 
@@ -304,7 +370,7 @@ async def lista(request: Request) -> Response:
 
     teraz = dt.datetime.now(dt.UTC)
     kryteria = zbuduj_kryteria(
-        request.query_params, ostatnia_wizyta=_ostatnia_wizyta(request)
+        request.query_params, ostatnia_wizyta=_wizyta(request)[0]
     )
     dane = await _pobierz_liste(request, kryteria)
 
@@ -323,9 +389,14 @@ async def lista(request: Request) -> Response:
             "rozwin_filtry": _czy_rozwinac_filtry(kryteria),
             "pusta_baza": not dane.cokolwiek,
             "parametr_statusu": _parametr_statusu(kryteria),
+            "przelacznik_statusu": (
+                _przelacznik_statusu(kryteria)
+                if kryteria.tylko_obserwowane or kryteria.tylko_wystawione_ponownie
+                else None
+            ),
         },
     )
-    _zapamietaj_wizyte(odpowiedz, teraz)
+    _zapamietaj_wizyte(odpowiedz, request, teraz)
     return odpowiedz
 
 
@@ -346,7 +417,7 @@ async def eksport_csv(request: Request) -> Response:
         return _brak_bazy(request)
 
     kryteria = zbuduj_kryteria(
-        request.query_params, ostatnia_wizyta=_ostatnia_wizyta(request)
+        request.query_params, ostatnia_wizyta=_wizyta(request)[0]
     )
     teraz = dt.datetime.now(dt.UTC)
 
@@ -391,7 +462,7 @@ async def lista_fragment(request: Request) -> Response:
         return _brak_bazy(request)
 
     kryteria = zbuduj_kryteria(
-        request.query_params, ostatnia_wizyta=_ostatnia_wizyta(request)
+        request.query_params, ostatnia_wizyta=_wizyta(request)[0]
     )
     dane = await _pobierz_liste(request, kryteria)
     return SZABLONY.TemplateResponse(

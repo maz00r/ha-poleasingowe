@@ -450,6 +450,21 @@ def _warunki(kryteria: Kryteria) -> tuple[list[sql.Composable], dict[str, Any]]:
     if kryteria.nowe_od is not None:
         warunki.append(sql.SQL("a.first_seen_at > %(nowe_od)s"))
         parametry["nowe_od"] = kryteria.nowe_od
+    if kryteria.tylko_wystawione_ponownie:
+        # Ten sam egzemplarz na innym wystawieniu. Wylacznie po VIN-ie:
+        # heurystyka "marka + model + rocznik + przebieg" z karty aukcji
+        # (SQL_POWIAZANE_WYSTAWIENIA) jest PRZYPUSZCZENIEM i tam jest tak
+        # oznaczona. Na liscie nie ma gdzie postawic tego zastrzezenia, wiec
+        # zamiast rozmyc cala zakladke, pokazujemy tylko trafienia pewne.
+        warunki.append(
+            sql.SQL(
+                "a.vin IS NOT NULL AND EXISTS ("
+                "  SELECT 1 FROM app.auction AS inne"
+                "  WHERE inne.vin = a.vin AND inne.id <> a.id"
+                "    AND inne.duplicate_of IS NULL"
+                ")"
+            )
+        )
     return warunki, parametry
 
 

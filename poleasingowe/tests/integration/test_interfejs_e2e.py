@@ -29,6 +29,7 @@ from app.infrastructure.persistence.queries import PgZapytania
 from app.infrastructure.persistence.repositories import PgUnitOfWork
 from app.infrastructure.supervisor.options import Opcje
 from app.interfaces.app import utworz_aplikacje
+from app.interfaces.web.widoki import CIASTECZKO_WIZYTY
 from tests.conftest import wymaga_postgresa
 from tests.integration.test_zapytania import _dane
 
@@ -423,3 +424,74 @@ async def test_eksport_csv_bierze_te_same_filtry_co_widok(
     assert linie[0].startswith("﻿"), "BOM dla Excela"
     assert len(linie) == 3, "nagłówek i dwie Audi — reszta odfiltrowana"
     assert "Volkswagen" not in odp.text
+
+
+async def test_znacznik_wizyty_nie_przesuwa_sie_przy_kazdym_kliknieciu(
+    klient: httpx.AsyncClient, pusta_baza: psycopg.AsyncConnection
+) -> None:
+    """Zgłoszenie z użytkowania: „nowe od ostatniej wizyty nie działa".
+
+    Ciasteczko trzymało samo „teraz" i było nadpisywane przy **każdym**
+    wyświetleniu listy — łącznie z tym, na którym stał ten filtr. Znacznik
+    cofał się więc o kilka sekund przed samego siebie i widok był pusty
+    zawsze, niezależnie od tego, ile aukcji naprawdę doszło.
+
+    Test odtwarza dokładnie tę sekwencję: dwa wejścia pod rząd nie mają prawa
+    ruszyć znacznika, bo to wciąż ta sama wizyta.
+    """
+    await _dane(pusta_baza)
+
+    pierwsze = await klient.get("/", params={"status": "aktywne"})
+    znacznik_1 = pierwsze.cookies[CIASTECZKO_WIZYTY].split("|")[0]
+
+    drugie = await klient.get("/", params={"status": "aktywne", "nowe": "1"})
+    znacznik_2 = drugie.cookies[CIASTECZKO_WIZYTY].split("|")[0]
+
+    assert znacznik_1 == znacznik_2, "ta sama wizyta — znacznik stoi w miejscu"
+
+
+async def test_nowa_wizyta_przesuwa_znacznik_na_koniec_poprzedniej(
+    klient: httpx.AsyncClient, pusta_baza: psycopg.AsyncConnection
+) -> None:
+    """Po przerwie „nowe" ma znaczyć „od końca poprzedniej wizyty".
+
+    Nie „od teraz" — wtedy widok byłby pusty — i nie „od pierwszego wejścia
+    kiedykolwiek", bo wtedy rósłby bez końca.
+    """
+    await _dane(pusta_baza)
+    koniec_poprzedniej = dt.datetime.now(dt.UTC) - dt.timedelta(hours=3)
+    dawno = koniec_poprzedniej - dt.timedelta(hours=1)
+
+    odp = await klient.get(
+        "/",
+        params={"status": "aktywne"},
+        cookies={
+            CIASTECZKO_WIZYTY: f"{dawno.isoformat()}|{koniec_poprzedniej.isoformat()}"
+        },
+    )
+
+    znacznik = dt.datetime.fromisoformat(odp.cookies[CIASTECZKO_WIZYTY].split("|")[0])
+    assert znacznik == koniec_poprzedniej
+
+
+async def test_przelacznik_stanu_stoi_w_widokach_zawezonych_i_niesie_filtry(
+    klient: httpx.AsyncClient, pusta_baza: psycopg.AsyncConnection
+) -> None:
+    """SPEC.md §12 — „obserwowane" i „wystawione ponownie" dzielą się na
+    trwające i wygasłe.
+
+    Najważniejsze jest to, że przełączenie **nie gubi reszty filtrów**:
+    inaczej klik w „Wygasłe" cichcem kasowałby zawężenie, po którym
+    użytkownik tam trafił.
+    """
+    await _dane(pusta_baza)
+
+    odp = await klient.get(
+        "/", params={"obserwowane": "1", "status": "aktywne", "marka": "Audi"}
+    )
+    assert odp.status_code == 200
+    assert "Wygasłe" in odp.text
+    assert "marka=Audi" in odp.text, "przełącznik niesie komplet filtrów"
+
+    zwykla = await klient.get("/", params={"status": "aktywne"})
+    assert "Wygasłe" not in zwykla.text, "na zwykłej liście przełącznika nie ma"

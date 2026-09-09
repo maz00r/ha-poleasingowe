@@ -31,7 +31,8 @@
       <a href="{{ sciezka(request, 'lista') }}?status=aktywne">Aktywne</a>
       <a href="{{ sciezka(request, 'lista') }}?status=aktywne&amp;do_konca_h=24">Kończą się w 24 h</a>
       <a href="{{ sciezka(request, 'lista') }}?status=aktywne&amp;nowe=1">Nowe od ostatniej wizyty</a>
-      <a href="{{ sciezka(request, 'lista') }}?obserwowane=1&amp;status=wszystkie">Obserwowane</a>
+      <a href="{{ sciezka(request, 'lista') }}?obserwowane=1&amp;status=aktywne">Obserwowane</a>
+      <a href="{{ sciezka(request, 'lista') }}?status=aktywne&amp;ponownie=1&amp;sort=koniec">Wystawione ponownie</a>
       <a href="{{ sciezka(request, 'lista') }}?status=zakonczone&amp;obserwowane=1&amp;sort=koniec-desc">Archiwum</a>
       <a href="{{ sciezka(request, 'diagnostyka') }}">Diagnostyka</a>
     </nav>
