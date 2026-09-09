@@ -27,14 +27,15 @@
 <body>
   <header class="pasek">
     <a class="marka" href="{{ sciezka(request, 'lista') }}">Aukcje poleasingowe</a>
+    {# Zakladki buduje `widoki._zakladki` — jedno zrodlo prawdy dla adresu
+       i dla podswietlenia. Wpisane recznie w szablonie nie mialy jak
+       wiedziec, ktora z nich jest otwarta. #}
     <nav>
-      <a href="{{ sciezka(request, 'lista') }}?status=aktywne">Aktywne</a>
-      <a href="{{ sciezka(request, 'lista') }}?status=aktywne&amp;do_konca_h=24">Kończą się w 24 h</a>
-      <a href="{{ sciezka(request, 'lista') }}?status=aktywne&amp;nowe=1">Nowe od ostatniej wizyty</a>
-      <a href="{{ sciezka(request, 'lista') }}?obserwowane=1&amp;status=aktywne">Obserwowane</a>
-      <a href="{{ sciezka(request, 'lista') }}?status=aktywne&amp;ponownie=1&amp;sort=koniec">Wystawione ponownie</a>
-      <a href="{{ sciezka(request, 'lista') }}?status=zakonczone&amp;obserwowane=1&amp;sort=koniec-desc">Archiwum</a>
-      <a href="{{ sciezka(request, 'diagnostyka') }}">Diagnostyka</a>
+      {% for zakladka in zakladki %}
+        <a class="{% if zakladka.aktywna %}aktywna{% endif %}"
+           {% if zakladka.aktywna %}aria-current="page"{% endif %}
+           href="{% if zakladka.parametry is none %}{{ sciezka(request, 'diagnostyka') }}{% else %}{{ sciezka(request, 'lista') }}?{{ zakladka.parametry | parametry_url }}{% endif %}">{{ zakladka.etykieta }}</a>
+      {% endfor %}
     </nav>
   </header>
   <main>

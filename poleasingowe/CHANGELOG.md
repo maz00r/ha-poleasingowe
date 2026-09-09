@@ -1,5 +1,17 @@
 # Historia zmian
 
+## 0.26.0 — w przygotowaniu
+
+**Widać, którą zakładkę się przegląda.** Bieżąca jest wypełniona i jaśniejsza
+od reszty. Podświetlenie liczy się ze znormalizowanych kryteriów, nie z napisu
+w adresie, więc dołożenie marki albo zmiana sortowania go nie gasi — to wciąż
+ta sama zakładka, tylko zawężona.
+
+**„Więcej filtrów" jest zawsze zwinięte.** Wcześniej otwierało się zależnie od
+zawartości, więc w jednych zakładkach pasek był rozłożony, a w innych nie
+i układ strony skakał przy przechodzeniu między nimi. Żeby zwinięty filtr nie
+zawężał listy po cichu, przy sekcji stoi teraz licznik działających filtrów.
+
 ## 0.25.0 — w przygotowaniu
 
 **Aukcja trafia na listę według terminu, nie według naszej księgowości.**

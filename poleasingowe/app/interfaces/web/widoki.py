@@ -16,7 +16,7 @@ import decimal
 import logging
 import pathlib
 import posixpath
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Mapping
 from dataclasses import dataclass, replace
 from typing import Any
 from urllib.parse import urlencode
@@ -150,6 +150,7 @@ def _kontekst_bazowy(request: Request) -> dict[str, Any]:
         "etykiety_sortowania": ETYKIETY_SORTOWANIA,
         "etykiety_rodzaju": ETYKIETY_RODZAJU,
         "wersja": WERSJA,
+        "zakladki": _zakladki(request),
     }
 
 
@@ -240,13 +241,89 @@ ZAAWANSOWANE = (
 )
 
 
-def _czy_rozwinac_filtry(kryteria: Kryteria) -> bool:
-    """Sekcja „więcej filtrów" ma być otwarta, gdy coś w niej działa.
+def _ile_zaawansowanych(kryteria: Kryteria) -> int:
+    """Ile filtrów działa w zwiniętej sekcji „więcej filtrów".
 
-    Zwinięty filtr, który cicho zawęża listę, to najgorszy rodzaj filtra:
-    użytkownik widzi za mało wyników i nie ma jak zgadnąć dlaczego.
+    Sekcja jest **zawsze zwinięta** — otwieranie jej zależnie od zawartości
+    sprawiało, że pasek filtrów skakał między zakładkami i nie dało się
+    zapamiętać, gdzie co stoi.
+
+    Ale zwinięty filtr, który cicho zawęża listę, to najgorszy rodzaj filtra:
+    widać za mało wyników i nie ma jak zgadnąć dlaczego. Dlatego zamiast
+    otwierać sekcję, pokazujemy przy niej **licznik** — informacja zostaje,
+    a układ strony przestaje się ruszać.
     """
-    return any(getattr(kryteria, pole) for pole in ZAAWANSOWANE)
+    return sum(1 for pole in ZAAWANSOWANE if getattr(kryteria, pole))
+
+
+ZAKLADKI = (
+    ("aktywne", "Aktywne", {"status": "aktywne"}),
+    ("konczace", "Kończą się w 24 h", {"status": "aktywne", "do_konca_h": "24"}),
+    ("nowe", "Nowe od ostatniej wizyty", {"status": "aktywne", "nowe": "1"}),
+    ("obserwowane", "Obserwowane", {"obserwowane": "1", "status": "aktywne"}),
+    (
+        "ponownie",
+        "Wystawione ponownie",
+        {"status": "aktywne", "ponownie": "1", "sort": "koniec"},
+    ),
+    (
+        "archiwum",
+        "Archiwum",
+        {"status": "zakonczone", "obserwowane": "1", "sort": "koniec-desc"},
+    ),
+)
+"""Zakładki paska — **jedno źródło prawdy** dla adresu i dla podświetlenia.
+
+Wcześniej adresy stały wpisane w szablonie, więc nie było czym rozpoznać
+bieżącej zakładki: żadne miejsce w kodzie nie wiedziało, że te sześć linków
+tworzy jakikolwiek zbiór.
+"""
+
+
+def _rozpoznaj_zakladke(request: Request) -> str | None:
+    """Która zakładka jest otwarta — po znaczących parametrach, nie po adresie.
+
+    Porównujemy **znormalizowane kryteria**, a nie napisy w URL-u, więc
+    dołożenie marki czy zmiana sortowania nie gasi podświetlenia: to wciąż ta
+    sama zakładka, tylko zawężona. Rozstrzygają wyłącznie te pola, które
+    odróżniają zakładki od siebie.
+    """
+    if request.url.path.rstrip("/").endswith("/diagnostyka"):
+        return "diagnostyka"
+
+    def klucz(parametry: Mapping[str, str]) -> tuple[Any, ...]:
+        k = zbuduj_kryteria(parametry)
+        return (
+            k.status,
+            k.tylko_obserwowane,
+            k.tylko_wystawione_ponownie,
+            k.konczy_sie_w_h,
+            "nowe" in parametry,
+        )
+
+    biezacy = klucz(request.query_params)
+    for nazwa, _etykieta, parametry in ZAKLADKI:
+        if klucz(parametry) == biezacy:
+            return nazwa
+    return None
+
+
+def _zakladki(request: Request) -> list[dict[str, Any]]:
+    aktywna = _rozpoznaj_zakladke(request)
+    return [
+        {
+            "etykieta": etykieta,
+            "parametry": list(parametry.items()),
+            "aktywna": nazwa == aktywna,
+        }
+        for nazwa, etykieta, parametry in ZAKLADKI
+    ] + [
+        {
+            "etykieta": "Diagnostyka",
+            "parametry": None,
+            "aktywna": aktywna == "diagnostyka",
+        }
+    ]
 
 
 @dataclass(slots=True, frozen=True)
@@ -386,7 +463,7 @@ async def lista(request: Request) -> Response:
             "wartosci": dane.wartosci,
             "zakresy": dane.zakresy,
             "zapisane": dane.zapisane,
-            "rozwin_filtry": _czy_rozwinac_filtry(kryteria),
+            "ile_zaawansowanych": _ile_zaawansowanych(kryteria),
             "pusta_baza": not dane.cokolwiek,
             "parametr_statusu": _parametr_statusu(kryteria),
             "przelacznik_statusu": (

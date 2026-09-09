@@ -132,8 +132,16 @@
     </div>
   </div>
 
-  <details class="wiecej-filtrow" {% if rozwin_filtry %}open{% endif %}>
-    <summary>Więcej filtrów</summary>
+  {# Sekcja zawsze zwinieta — otwierana zaleznie od zawartosci sprawiala, ze
+     pasek filtrow skakal miedzy zakladkami. Licznik zostaje, zeby zwiniety
+     filtr nie zawezal listy po cichu. #}
+  <details class="wiecej-filtrow">
+    <summary>
+      Więcej filtrów
+      {%- if ile_zaawansowanych %}
+        <span class="licznik">{{ ile_zaawansowanych }}</span>
+      {%- endif %}
+    </summary>
     <div class="pasek-filtrow">
       {{ suwak('rocznik', 'Rocznik', zakresy.rocznik, kryteria.rocznik_od, kryteria.rocznik_do) }}
       {{ suwak('moc', 'Moc silnika', zakresy.moc, kryteria.moc_od, kryteria.moc_do, ' KM') }}

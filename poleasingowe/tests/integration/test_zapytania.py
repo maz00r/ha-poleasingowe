@@ -620,7 +620,10 @@ async def test_zakres_rocznika_ignoruje_niemozliwe_wartosci(
         )
 
     zakresy = await zapytania.zakresy_filtrow()
-    assert (zakresy["rocznik"].minimum, zakresy["rocznik"].maksimum) == (1990, 2021)
+    assert (zakresy["rocznik"].minimum, zakresy["rocznik"].maksimum) == (
+        1990,
+        2021,
+    )
 
 
 async def _wystaw_ponownie(

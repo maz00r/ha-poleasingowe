@@ -181,6 +181,32 @@ a { color: var(--akcent); }
 }
 .pasek nav a:hover { background: rgb(255 255 255 / 10%); color: #fff; }
 
+/* Biezaca zakladka. Samo pogrubienie ginie w pasku szesciu pozycji, wiec
+   wypelnienie plus jasniejszy tekst — te same srodki, ktorymi pasek
+   sygnalizuje najechanie, tylko mocniej i na stale. */
+.pasek nav a.aktywna {
+  background: rgb(255 255 255 / 16%);
+  color: #fff;
+  font-weight: 700;
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 22%);
+}
+.pasek nav a.aktywna:hover { background: rgb(255 255 255 / 22%); }
+
+/* Licznik przy zwinietej sekcji filtrow: mowi, ze cos w srodku dziala,
+   zamiast otwierac ja i przesuwac cala strone. */
+.wiecej-filtrow > summary .licznik {
+  display: inline-block;
+  min-width: 18px;
+  margin-left: 6px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--akcent);
+  color: var(--akcent-tekst);
+  font-size: 11px;
+  font-weight: 700;
+  text-align: center;
+}
+
 /* --------------------------------------------------------------------------
    Powierzchnie
    -------------------------------------------------------------------------- */

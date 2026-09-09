@@ -391,17 +391,68 @@ async def test_naglowek_kolumny_odwraca_kierunek_sortowania(
     assert "marka=Audi" in odp.text, "sortowanie nie ma prawa gubić filtrów"
 
 
-async def test_wiecej_filtrow_otwiera_sie_gdy_cos_w_srodku_dziala(
+async def test_wiecej_filtrow_zostaje_zwiniete_ale_liczy_co_dziala(
     klient: httpx.AsyncClient, pusta_baza: psycopg.AsyncConnection
 ) -> None:
-    """Zwinięty filtr, który cicho zawęża listę, to najgorszy rodzaj filtra."""
+    """Sekcja jest **zawsze** zwinięta, a mimo to nie ukrywa zawężenia.
+
+    Otwieranie jej zależnie od zawartości sprawiało, że pasek filtrów skakał
+    między zakładkami i nie dało się zapamiętać, gdzie co stoi. Ale zwinięty
+    filtr, który cicho zawęża listę, to najgorszy rodzaj filtra — dlatego
+    zamiast otwierać sekcję, pokazujemy przy niej licznik.
+    """
     await _dane(pusta_baza)
 
-    zwiniete = await klient.get("/")
-    assert '<details class="wiecej-filtrow" >' in zwiniete.text.replace("  ", " ")
+    czysta = await klient.get("/")
+    assert "open" not in czysta.text.split("wiecej-filtrow")[1][:40]
 
-    rozwiniete = await klient.get("/", params={"przebieg_do": "150000"})
-    assert "open" in rozwiniete.text.split("wiecej-filtrow")[1][:40]
+    z_filtrem = await klient.get("/", params={"przebieg_do": "150000"})
+    assert "open" not in z_filtrem.text.split("wiecej-filtrow")[1][:40]
+    podsumowanie = z_filtrem.text.split("wiecej-filtrow")[1][:260]
+    assert "licznik" in podsumowanie, "zwinięty filtr ma się ogłosić licznikiem"
+
+
+async def test_biezaca_zakladka_jest_wyrozniona(
+    klient: httpx.AsyncClient, pusta_baza: psycopg.AsyncConnection
+) -> None:
+    """Zgłoszenie z użytkowania: „nie wiem, którą zakładkę przeglądam".
+
+    Podświetlenie liczy się ze **znormalizowanych kryteriów**, nie z napisu
+    w adresie — dołożenie marki albo zmiana sortowania nie gasi go, bo to
+    wciąż ta sama zakładka, tylko zawężona.
+    """
+    await _dane(pusta_baza)
+
+    def aktywna(html: str) -> str:
+        pasek = html.split("<nav>")[1].split("</nav>")[0]
+        kawalki = [k for k in pasek.split("<a ") if 'class="aktywna"' in k]
+        assert len(kawalki) == 1, "dokładnie jedna zakładka ma być wyróżniona"
+        return kawalki[0].split(">")[-2].split("<")[0].strip()
+
+    assert aktywna((await klient.get("/", params={"status": "aktywne"})).text) == (
+        "Aktywne"
+    )
+    assert (
+        aktywna(
+            (
+                await klient.get("/", params={"obserwowane": "1", "status": "aktywne"})
+            ).text
+        )
+        == "Obserwowane"
+    )
+    # Zawezenie marka nie ma prawa zgasic podswietlenia.
+    assert (
+        aktywna(
+            (
+                await klient.get(
+                    "/",
+                    params={"obserwowane": "1", "status": "aktywne", "marka": "Audi"},
+                )
+            ).text
+        )
+        == "Obserwowane"
+    )
+    assert aktywna((await klient.get("/diagnostyka")).text) == "Diagnostyka"
 
 
 async def test_eksport_csv_bierze_te_same_filtry_co_widok(
