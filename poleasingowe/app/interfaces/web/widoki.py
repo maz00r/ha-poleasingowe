@@ -421,6 +421,9 @@ async def szczegoly(request: Request, auction_id: int) -> Response:
             )
         wystawienia = await kontekst.zapytania.powiazane_wystawienia(auction_id)
         historia = await kontekst.zapytania.historia_cen(auction_id)
+        oferty = (
+            await kontekst.zapytania.oferty(auction_id) if dane.historia_ofert else ()
+        )
     return SZABLONY.TemplateResponse(
         request=request,
         name="szczegoly.html",
@@ -429,6 +432,7 @@ async def szczegoly(request: Request, auction_id: int) -> Response:
             "dane": dane,
             "wystawienia": wystawienia,
             "historia": historia,
+            "oferty": oferty,
         },
     )
 

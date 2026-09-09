@@ -79,6 +79,9 @@ async def test_powstaly_wszystkie_tabele_i_indeksy(
     assert "price_snapshot_auction_ts_idx" in indeksy
     assert "watchlist_auction_unique_idx" in indeksy
     assert "offer_auction_placed_idx" in indeksy, "odczyt ofert na karcie (§11.8)"
+    assert (
+        "offer_external_id_unique_idx" in indeksy
+    ), "identyfikator oferty z serwisu rozstrzyga duplikaty (`013`)"
 
 
 async def test_indeks_na_next_poll_jest_czesciowy(

@@ -18,7 +18,7 @@ import re
 import zoneinfo
 
 from app.application.ports import SurowaOferta
-from app.domain.entities import Auction
+from app.domain.entities import Auction, OfertaUczestnika
 from app.domain.enums import AuctionStatus, Currency
 from app.domain.errors import ParseFailed
 from app.domain.value_objects import Mileage, Money, NieprawidlowaWartosc, Vin
@@ -155,3 +155,75 @@ def na_aukcje(surowa: SurowaOferta, source_id: int, teraz: dt.datetime) -> Aucti
         ends_at=ends_at,
         content_hash=surowa.content_hash or None,
     )
+
+
+# Data oferty w `lastOffers`: „poniedziałek 7 wrzesień 2026 12:00:41" — dzień
+# tygodnia z przodu (do wyrzucenia) i nazwa miesiąca w MIANOWNIKU, nie
+# w dopełniaczu. `%B` z `locale` odpada: locale jest stanem globalnym procesu
+# i w kontenerze add-onu nie ma gwarancji, że polskie w ogóle istnieje.
+_MIESIACE = {
+    "styczeń": 1,
+    "luty": 2,
+    "marzec": 3,
+    "kwiecień": 4,
+    "maj": 5,
+    "czerwiec": 6,
+    "lipiec": 7,
+    "sierpień": 8,
+    "wrzesień": 9,
+    "październik": 10,
+    "listopad": 11,
+    "grudzień": 12,
+}
+_DATA_OFERTY = re.compile(
+    r"(\d{1,2})\s+([a-ząćęłńóśźż]+)\s+(\d{4})\s+(\d{1,2}):(\d{2}):(\d{2})", re.I
+)
+
+
+def _czas_oferty_na_utc(wartosc: str) -> dt.datetime:
+    dopasowanie = _DATA_OFERTY.search(wartosc)
+    if dopasowanie is None:
+        raise ParseFailed(f"poleasingowe: nieznany format czasu oferty: {wartosc!r}")
+    dzien, miesiac, rok, gg, mm, ss = dopasowanie.groups()
+    numer = _MIESIACE.get(miesiac.lower())
+    if numer is None:
+        raise ParseFailed(f"poleasingowe: nieznany miesiąc: {miesiac!r}")
+    lokalny = dt.datetime(
+        int(rok), numer, int(dzien), int(gg), int(mm), int(ss), tzinfo=STREFA_SERWISU
+    )
+    return lokalny.astimezone(dt.UTC)
+
+
+def na_oferty(
+    surowa: SurowaOferta, auction_id: int, teraz: dt.datetime
+) -> tuple[OfertaUczestnika, ...]:
+    """Oferty z `lastOffers` na encje domenowe (SPEC.md §11.8).
+
+    W przeciwieństwie do tabeli EFL (RECON.md §3.5a) to jest **chronologia
+    licytacji**: kwoty rosną razem z czasem, a każda oferta ma stały
+    identyfikator nadany przez serwis.
+
+    Nazwa licytanta przychodzi już zredagowana przez serwis („u...k"), więc
+    nie ma tu czego pseudonimizować ani czego rozróżniać — i tak zapisujemy
+    ją bez zmian, zamiast udawać, że wiemy, kto licytował.
+    """
+    wynik: list[OfertaUczestnika] = []
+    for pozycja in surowa.oferty:
+        try:
+            kwota = Money.z_tekstu(pozycja.kwota, Currency.PLN)
+            zlozona = _czas_oferty_na_utc(pozycja.zlozona)
+        except (NieprawidlowaWartosc, ParseFailed):
+            # Lista ofert jest dodatkiem do ceny i terminu (§11.8) — jeden
+            # nieczytelny wiersz nie może kosztować całego odpytu.
+            continue
+        wynik.append(
+            OfertaUczestnika(
+                auction_id=auction_id,
+                uczestnik=pozycja.kod or "nieznany",
+                amount=kwota,
+                placed_at=zlozona,
+                first_seen_at=teraz,
+                external_offer_id=pozycja.identyfikator or None,
+            )
+        )
+    return tuple(wynik)

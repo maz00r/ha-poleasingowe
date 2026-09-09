@@ -19,6 +19,7 @@ u źródła, a nie licząc na filtr redakcji dalej w łańcuchu.
 
 from __future__ import annotations
 
+import json
 import re
 
 from selectolax.parser import HTMLParser, Node
@@ -206,6 +207,47 @@ def sparsuj_szczegoly(html: str, external_id: str, url: str) -> SurowaOferta:
 
     # `winner` NIE trafia do `pola` — patrz docstring modułu.
     return SurowaOferta(external_id=external_id, url=url, pola=pola)
+
+
+# Historia ofert z bloku Alpine (SPEC.md §11.8). W przeciwienstwie do tabeli
+# EFL (RECON.md §3.5a) to JEST chronologia licytacji: kwoty rosna razem
+# z czasem, kazda oferta ma wlasny, staly `id` nadany przez serwis, a nazwa
+# licytanta jest zredagowana juz PO STRONIE SERWISU ("u...k").
+#
+# Serwis podaje wylacznie OSTATNIE DZIESIEC ofert i czysci liste 2-5 min po
+# koncu aukcji (RECON.md §3.6). Starsze mamy tylko wtedy, gdy zdazylismy je
+# zobaczyc podczas trwania — dlatego zapisujemy je u siebie.
+_LISTA_OFERT = re.compile(r"lastOffers:\s*(\[.*?\])\s*,", re.S)
+
+
+def sparsuj_oferty(html: str) -> list[dict[str, str]]:
+    """Oferty z `lastOffers` — id, kwota, czas i (zredagowany) licytant."""
+    dopasowanie = _LISTA_OFERT.search(html)
+    if dopasowanie is None:
+        return []
+    try:
+        pozycje = json.loads(dopasowanie.group(1))
+    except json.JSONDecodeError:
+        # Lista ofert jest dodatkiem do ceny i terminu — jej uszkodzenie nie
+        # ma prawa wywrocic calego odpytu (§11.8).
+        return []
+
+    wynik: list[dict[str, str]] = []
+    for pozycja in pozycje:
+        if not isinstance(pozycja, dict):
+            continue
+        kwota, czas = pozycja.get("op"), pozycja.get("dt")
+        if not kwota or not czas:
+            continue
+        wynik.append(
+            {
+                "id": str(pozycja.get("id", "")),
+                "kwota": str(kwota),
+                "data": str(czas),
+                "licytant": str(pozycja.get("bd_name") or ""),
+            }
+        )
+    return wynik
 
 
 # Galeria: `https://poleasingowe.pl/images/sgallery_<uuid>_127.png`.

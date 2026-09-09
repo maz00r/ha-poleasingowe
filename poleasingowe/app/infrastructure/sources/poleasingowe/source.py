@@ -16,8 +16,8 @@ from types import TracebackType
 
 import httpx
 
-from app.application.ports import SurowaOferta
-from app.domain.entities import Auction
+from app.application.ports import SurowaOferta, SurowaOfertaUczestnika
+from app.domain.entities import Auction, OfertaUczestnika
 from app.domain.errors import SourceUnavailable
 from app.infrastructure.sources.adresy import strona_aukcji
 from app.infrastructure.sources.poleasingowe import mapper, parser
@@ -147,12 +147,24 @@ class PoleasingoweSource:
         if znany_hash is not None and biezacy == znany_hash:
             return None
 
+        html = tresc.decode("utf-8", "replace")
         surowa = parser.sparsuj_szczegoly(
-            tresc.decode("utf-8", "replace"),
-            external_id,
-            f"{parser.BAZOWY_URL}{sciezka}",
+            html, external_id, f"{parser.BAZOWY_URL}{sciezka}"
         )
-        return replace(surowa, content_hash=biezacy)
+        # `lastOffers` przyjezdza TA SAMA odpowiedzia co cena — zero
+        # dodatkowych zadan (SPEC.md §11.8). Serwis czysci te liste 2-5 min
+        # po koncu aukcji (RECON.md §3.6), wiec to, czego nie zapiszemy
+        # w trakcie, przepada bezpowrotnie.
+        oferty = tuple(
+            SurowaOfertaUczestnika(
+                kod=wiersz["licytant"],
+                kwota=wiersz["kwota"],
+                zlozona=wiersz["data"],
+                identyfikator=wiersz["id"],
+            )
+            for wiersz in parser.sparsuj_oferty(html)
+        )
+        return replace(surowa, content_hash=biezacy, oferty=oferty)
 
     async def zdjecia(self, external_id: str, url: str | None = None) -> Sequence[str]:
         """Adresy zdjęć pojazdu (SPEC.md §12).
@@ -172,3 +184,9 @@ class PoleasingoweSource:
         self, surowa: SurowaOferta, source_id: int, teraz: dt.datetime
     ) -> Auction:
         return mapper.na_aukcje(surowa, source_id, teraz)
+
+    def na_oferty(
+        self, surowa: SurowaOferta, auction_id: int, teraz: dt.datetime
+    ) -> tuple[OfertaUczestnika, ...]:
+        """SPEC.md §11.8 — `lastOffers` to realna chronologia licytacji."""
+        return mapper.na_oferty(surowa, auction_id, teraz)

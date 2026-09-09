@@ -22,6 +22,7 @@ from psycopg.rows import dict_row
 from app.application.read_models import (
     Kryteria,
     Kursor,
+    OfertaNaKarcie,
     PewnoscPowiazania,
     PorownanieRynkowe,
     PowiazaneWystawienie,
@@ -105,7 +106,11 @@ SELECT
     w.target_price, w.currency AS target_currency, w.note,
     a.vin, a.body, a.color, a.engine_ccm, a.engine_hp, a.seller,
     a.bid_increment_raw, a.last_seen_at, a.next_poll_at, a.poll_tier,
-    a.last_price_lead_seconds, a.duplicate_of
+    a.last_price_lead_seconds, a.duplicate_of,
+    -- 'OFFERS' znaczy, ze licznik zlicza POSTAPIENIA, a lista ofert jest
+    -- chronologia licytacji. Przy 'PARTICIPANTS' (EFL) nie jest — RECON.md
+    -- §3.5a — i wtedy karta jej nie pokazuje.
+    (s.bid_count_semantics = 'OFFERS') AS historia_ofert
 FROM app.auction AS a
 JOIN app.source AS s ON s.id = a.source_id
 LEFT JOIN app.watchlist AS w ON w.auction_id = a.id
@@ -190,6 +195,20 @@ LIMIT 200
 # obserwowac aukcje. Dla wczesniejszych roznica `first_seen_at - placed_at`
 # mierzylaby wiek aukcji przed jej odkryciem, a nie nasze opoznienie —
 # a wyglada identycznie i dlatego jest mylaca.
+# Oferty ze strony aukcji (SPEC.md §11.8). Kolejnosc malejaca po czasie —
+# najnowsze postapienie na gorze, jak w historii cen tuz obok.
+SQL_OFERTY_AUKCJI = sql.SQL("""
+SELECT
+    o.amount,
+    o.currency,
+    o.placed_at,
+    row_number() OVER (ORDER BY o.amount DESC, o.placed_at) = 1 AS najwyzsza
+FROM app.offer AS o
+WHERE o.auction_id = %(auction_id)s
+ORDER BY o.placed_at DESC, o.amount DESC
+LIMIT 200
+""")
+
 # Ponowne wystawienia tego samego auta (SPEC.md §12).
 #
 # Niesprzedany samochod wraca na aukcje. Bez powiazania obu wystawien
@@ -530,6 +549,7 @@ class PgZapytania:
             poll_tier=PollTier(wiersz["poll_tier"]),
             last_price_lead_seconds=wiersz["last_price_lead_seconds"],
             duplicate_of=wiersz["duplicate_of"],
+            historia_ofert=wiersz["historia_ofert"],
         )
 
     async def porownania_rynkowe(
@@ -584,6 +604,20 @@ class PgZapytania:
                 bid_count=w["bid_count"],
                 ends_at=w["ends_at"],
                 bid_gap=w["bid_gap"],
+            )
+            for w in wiersze
+        )
+
+    async def oferty(self, auction_id: int) -> tuple[OfertaNaKarcie, ...]:
+        """Oferty ze strony aukcji, od najnowszej (SPEC.md §11.8)."""
+        async with self._conn.cursor(row_factory=dict_row) as cur:
+            await cur.execute(SQL_OFERTY_AUKCJI, {"auction_id": auction_id})
+            wiersze = await cur.fetchall()
+        return tuple(
+            OfertaNaKarcie(
+                amount=Money(w["amount"], Currency(w["currency"])),
+                placed_at=w["placed_at"],
+                najwyzsza=w["najwyzsza"],
             )
             for w in wiersze
         )

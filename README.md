@@ -89,7 +89,9 @@ Poza etapami doszła **faza domknięcia z §11.5** (drabinka prób po terminie,
 licytacji** na karcie, czyli historia ceny bieżącej. Wiersze zakładki
 „Oferty" z EFL trafiają do tabeli `offer` (migracja `012`), ale **nie na
 kartę**: nie da się ich ułożyć w chronologię licytacji i próba pokazania
-ich jako takiej wprowadzała w błąd (RECON.md §3.5a).
+ich jako takiej wprowadzała w błąd (RECON.md §3.5a). Dla **poleasingowe.pl**
+jest odwrotnie — `lastOffers` to realny przebieg licytacji i karta go
+pokazuje; bramką jest `bid_count_semantics = 'OFFERS'`, nie nazwa źródła.
 
 Następny: **leasygroup** po pomiarze z 2026-09-10 (`tools/pomiar-leasygroup.sh`
 uzbrojony w launchd). Logowanie z ETAPU 8 zostaje na razie odłożone —

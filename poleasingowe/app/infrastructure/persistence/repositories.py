@@ -164,7 +164,22 @@ RETURNING id, source_id, external_id, url, make, model, variant, year, mileage_k
 # aktualizowane w ogóle — przemiat nie ma o nich wiedzy. W szczególności
 # aukcja oznaczona jako ENDED po odpycie szczegółów nie ma prawa wrócić do
 # ACTIVE tylko dlatego, że serwis nadal pokazuje ją na liście.
+# Przemiat listy zapisuje TAKZE snapshot ceny (SPEC.md §8.4).
+#
+# Bez tego licznik ofert na karcie aukcji rozjezdzal sie z ostatnim wierszem
+# historii: przemiat aktualizowal `auction.bid_count` w miejscu i nie zostawial
+# po tej zmianie zadnego sladu. Karta pokazywala wtedy "3 oferty" u gory
+# i "2" w historii — obie liczby prawdziwe, tylko z roznych chwil.
+#
+# To jest tez JEDYNE zrodlo historii ceny dla aukcji NIEOBSERWOWANEJ: takiej
+# nie odpytujemy pojedynczo po raz drugi (§11.2), wiec bez tego jej przebieg
+# licytacji konczyl sie na pierwszym odczycie.
+#
+# Regula zapisu jest ta sama co przy odpycie szczegolow — wylacznie przy
+# zmianie ceny, liczby ofert albo terminu — wiec przemiat bez zmian nie
+# tworzy ani jednego wiersza i wolumen zapisow pozostaje znikomy (§2).
 SQL_AUCTION_Z_PRZEMIATU = """
+WITH zapis AS (
 INSERT INTO app.auction (
     source_id, external_id, url, make, model, variant, year, mileage_km,
     fuel, gearbox, engine_ccm, engine_hp, vin, body, vehicle_kind, color,
@@ -211,7 +226,41 @@ ON CONFLICT (source_id, external_id) DO UPDATE SET
     ),
     ends_at = COALESCE(EXCLUDED.ends_at, app.auction.ends_at),
     last_seen_at = EXCLUDED.last_seen_at
-RETURNING id, (xmax = 0) AS nowa
+RETURNING id, source_id, (xmax = 0) AS nowa,
+          price_current, currency, bid_count, ends_at
+),
+poprzedni AS (
+    SELECT DISTINCT ON (auction_id) auction_id, price, bid_count, ends_at
+    FROM app.price_snapshot
+    WHERE auction_id IN (SELECT id FROM zapis)
+    ORDER BY auction_id, ts DESC, id DESC
+),
+snapshot AS (
+    INSERT INTO app.price_snapshot
+        (auction_id, ts, price, currency, bid_count, ends_at, bid_gap)
+    SELECT
+        z.id, %(last_seen_at)s, z.price_current, z.currency, z.bid_count,
+        z.ends_at,
+        -- `bid_gap` liczymy wylacznie tam, gdzie licznik faktycznie zlicza
+        -- oferty (§11.8). Dla PARTICIPANTS i UNKNOWN zostaje NULL.
+        CASE
+            WHEN s.bid_count_semantics = 'OFFERS'
+                 AND p.bid_count IS NOT NULL
+                 AND z.bid_count IS NOT NULL
+            THEN GREATEST(z.bid_count - p.bid_count - 1, 0)
+        END
+    FROM zapis AS z
+    JOIN app.source AS s ON s.id = z.source_id
+    LEFT JOIN poprzedni AS p ON p.auction_id = z.id
+    WHERE z.price_current IS NOT NULL
+      AND (
+          p.auction_id IS NULL
+          OR p.price IS DISTINCT FROM z.price_current
+          OR p.bid_count IS DISTINCT FROM z.bid_count
+          OR p.ends_at IS DISTINCT FROM z.ends_at
+      )
+)
+SELECT id, nowa FROM zapis
 """
 
 # Aukcja, ktora przestala pojawiac sie na liscie zrodla (SPEC.md §11.2).
@@ -378,14 +427,19 @@ WHERE auction_id = %s ORDER BY ts, id
 
 SQL_OFERTA_INSERT = """
 INSERT INTO app.offer
-    (auction_id, uczestnik, amount, currency, placed_at, first_seen_at)
-VALUES (%s, %s, %s, %s, %s, %s)
-ON CONFLICT ON CONSTRAINT offer_naturalny DO NOTHING
+    (auction_id, uczestnik, amount, currency, placed_at, first_seen_at,
+     external_offer_id)
+VALUES (%s, %s, %s, %s, %s, %s, %s)
+-- Bez wskazania konkretnego klucza: zrodla maja rozne. poleasingowe daje
+-- wlasny identyfikator oferty (`013`), EFL nie daje zadnego i rozstrzyga
+-- tam klucz naturalny z `012`. `DO NOTHING` bez celu lapie oba.
+ON CONFLICT DO NOTHING
 RETURNING id
 """
 
 SQL_OFERTA_DLA_AUKCJI = """
-SELECT id, auction_id, uczestnik, amount, currency, placed_at, first_seen_at
+SELECT id, auction_id, uczestnik, amount, currency, placed_at, first_seen_at,
+       external_offer_id
 FROM app.offer
 WHERE auction_id = %s
 ORDER BY placed_at, id
@@ -563,6 +617,7 @@ def _na_oferte(w: dict[str, Any]) -> OfertaUczestnika:
         amount=Money(w["amount"], Currency(w["currency"])),
         placed_at=w["placed_at"],
         first_seen_at=w["first_seen_at"],
+        external_offer_id=w["external_offer_id"],
     )
 
 
@@ -939,6 +994,7 @@ class PgOfertaRepository:
                         oferta.amount.currency.value,
                         oferta.placed_at,
                         oferta.first_seen_at,
+                        oferta.external_offer_id,
                     ),
                 )
                 if await cur.fetchone() is not None:

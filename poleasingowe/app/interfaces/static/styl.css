@@ -893,6 +893,21 @@ table.zestawienie tr.ostrzezenie td {
 
 .znacznik { color: var(--akcent); }
 
+/* Ktora oferta prowadzi (SPEC.md §11.8). W tabeli malejacej po czasie to
+   NIE zawsze pierwszy wiersz — starsza, wyzsza oferta bywa ta zwycieska. */
+.znacznik.najwyzsza {
+  color: var(--sukces);
+  border: 1px solid color-mix(in srgb, var(--sukces) 45%, transparent);
+  border-radius: 999px;
+  padding: 1px 8px;
+  margin-left: 8px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
 .ostrzezenie { border-color: var(--alarm); }
 .ostrzezenie-inline { color: var(--alarm); font-weight: 600; }
 .uwaga { color: var(--przygaszony); }

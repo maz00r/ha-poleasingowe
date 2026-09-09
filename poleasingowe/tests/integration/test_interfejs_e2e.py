@@ -21,7 +21,7 @@ import httpx
 import psycopg
 import pytest
 
-from app.domain.entities import PriceSnapshot
+from app.domain.entities import OfertaUczestnika, PriceSnapshot
 from app.domain.enums import Currency
 from app.domain.value_objects import Money
 from app.infrastructure.persistence.pula import KontekstPg
@@ -165,7 +165,50 @@ async def test_karta_pokazuje_historie_ceny_biezacej(
     assert odp.status_code == 200
     assert "Przebieg licytacji" in odp.text
     assert "57" in odp.text and "52" in odp.text, "obie ceny w historii"
-    assert "Licytant" not in odp.text, "tabela ofert nie ma prawa wrócić na kartę"
+
+
+async def test_oferty_widac_tylko_tam_gdzie_sa_chronologia_licytacji(
+    klient: httpx.AsyncClient, pusta_baza: psycopg.AsyncConnection
+) -> None:
+    """SPEC.md §11.8 razem z RECON.md §3.5a — bramka po semantyce licznika.
+
+    Dla `OFFERS` lista ofert jest przebiegiem licytacji i karta ją pokazuje.
+    Dla `PARTICIPANTS` (EFL) nie jest — pokazana raz, wprowadzała w błąd,
+    bo niższa kwota z późniejszą datą wygląda na przekłamane dane.
+    """
+    identyfikatory = await _dane(pusta_baza)
+    aukcja_id = identyfikatory["audi-za-godzine"]
+    uow = PgUnitOfWork(pusta_baza)
+    teraz = dt.datetime.now(dt.UTC)
+    await uow.oferta.zapisz_nowe(
+        [
+            OfertaUczestnika(
+                auction_id=aukcja_id,
+                uczestnik="u...k",
+                amount=Money(Decimal(kwota), Currency.PLN),
+                placed_at=teraz - dt.timedelta(minutes=minuty),
+                first_seen_at=teraz,
+                external_offer_id=identyfikator,
+            )
+            for kwota, minuty, identyfikator in (
+                ("332400.00", 10, "896390"),
+                ("332500.00", 2, "896397"),
+            )
+        ]
+    )
+
+    async with pusta_baza.cursor() as cur:
+        await cur.execute("UPDATE app.source SET bid_count_semantics = 'PARTICIPANTS'")
+    bez_ofert = await klient.get(f"/aukcja/{aukcja_id}")
+    assert "332" not in bez_ofert.text, "przy PARTICIPANTS lista ofert się nie pokazuje"
+
+    async with pusta_baza.cursor() as cur:
+        await cur.execute("UPDATE app.source SET bid_count_semantics = 'OFFERS'")
+    z_ofertami = await klient.get(f"/aukcja/{aukcja_id}")
+
+    assert "Oferty" in z_ofertami.text
+    assert "332" in z_ofertami.text
+    assert "najwyższa" in z_ofertami.text, "widać, która oferta prowadzi"
 
 
 async def test_nieistniejaca_aukcja_daje_404_a_nie_500(

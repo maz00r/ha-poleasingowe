@@ -297,6 +297,12 @@ class Szczegoly:
     poll_tier: PollTier = PollTier.IDLE
     last_price_lead_seconds: int | None = None
     duplicate_of: int | None = None
+    historia_ofert: bool = False
+    """Czy lista ofert tego źródła jest chronologią licytacji (§11.8).
+
+    Wynika z `bid_count_semantics = OFFERS`. Dla `PARTICIPANTS`
+    (EFL) i `UNKNOWN` karta ofert nie pokazuje — patrz RECON.md §3.5a.
+    """
 
 
 @dataclass(slots=True, frozen=True)
@@ -315,6 +321,22 @@ class PunktHistorii:
     ends_at: dt.datetime | None = None
     bid_gap: int | None = None
     """Ile ofert przegapiono przed tym wpisem (§11.8); `None` = nie wiadomo."""
+
+
+@dataclass(slots=True, frozen=True)
+class OfertaNaKarcie:
+    """Jedna oferta odczytana wprost ze strony aukcji (SPEC.md §11.8).
+
+    Pokazujemy ją **tylko dla źródeł, w których lista ofert jest chronologią
+    licytacji** — czyli `bid_count_semantics = 'OFFERS'`. Tabela EFL nią nie
+    jest (RECON.md §3.5a) i próba pokazania jej jako takiej wprowadzała
+    w błąd, więc bramka jest tu celowa, a nie ostrożnościowa.
+    """
+
+    amount: Money
+    placed_at: dt.datetime
+    najwyzsza: bool = False
+    """Najwyższa kwota w tej aukcji — czyli oferta, która prowadzi albo wygrała."""
 
 
 class PewnoscPowiazania(StrEnum):

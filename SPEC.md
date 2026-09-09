@@ -845,8 +845,24 @@ kwotą — mimo że poniżej ceny bieżącej zalicytować się nie da. Dopóki t
 jest rozstrzygnięte, `offer` jest materiałem dowodowym, a nie źródłem
 prawdy o przebiegu licytacji; na kartę aukcji nie trafia.
 
-**Przebiegiem licytacji pozostaje więc historia ceny bieżącej**
-z `price_snapshot` — jedyna liczba, o której wiemy, co znaczy.
+**Dla poleasingowe.pl: to jest prawdziwa historia licytacji.** Blok Alpine
+niesie `lastOffers` — kwoty rosnące razem z czasem, każda z własnym, stałym
+identyfikatorem nadanym przez serwis (`offer.external_offer_id`, migracja
+`013`). Tę listę **wolno** pokazać jako przebieg licytacji i karta ją
+pokazuje. Bramką jest `bid_count_semantics = 'OFFERS'`, nie nazwa źródła.
+
+Serwis podaje jednak tylko **dziesięć ostatnich** ofert i czyści listę 2-5
+minut po końcu (RECON.md §3.6), więc kompletność zależy od tego, czy aukcja
+była obserwowana. Ceny wywoławczej nie podaje w ogóle — `price_start`
+zostaje `NULL` i to jest uczciwa odpowiedź.
+
+**Snapshot zapisuje także przemiat listy**, nie tylko odpyt szczegółów.
+Reguła pozostaje ta sama (wyłącznie przy zmianie ceny, liczby ofert albo
+`ends_at`), ale bez tego zmiana zauważona w przemiacie nie zostawiała
+żadnego śladu: `auction.bid_count` szedł w górę, a ostatni wiersz historii
+zostawał ze starą liczbą. Dla aukcji nieobserwowanej — takiej, której nie
+odpytujemy pojedynczo po raz drugi (§11.2) — przemiat jest **jedynym**
+źródłem historii ceny.
 
 Adaptery źródeł, które listy ofert nie pokazują, **nie implementują** portu
 `ZrodloZOfertami` — zgodnie z §10.1 nie zmuszamy ich do pustej metody.

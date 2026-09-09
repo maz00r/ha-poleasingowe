@@ -1,5 +1,31 @@
 # Historia zmian
 
+## 0.21.0 — w przygotowaniu
+
+**Historia licytacji dla poleasingowe.pl — kolejne postąpienia z kwotami
+i czasami.** Serwis podaje je wprost w kodzie strony (`lastOffers`), tą samą
+odpowiedzią, którą i tak pobieramy po cenę. To jest realna chronologia: kwoty
+rosną razem z czasem, każda oferta ma własny identyfikator. Karta pokazuje ją
+tylko dla źródeł, w których lista faktycznie jest przebiegiem licytacji —
+tabela EFL nią nie jest i tam nadal się nie pojawia.
+
+Dwa ograniczenia, oba wypisane pod tabelą na karcie: serwis pokazuje
+**dziesięć ostatnich** ofert i czyści listę kilka minut po zakończeniu, więc
+wcześniejsze mamy o tyle, o ile zdążyliśmy je zobaczyć — najwięcej dla aukcji
+obserwowanych. **Ceny wywoławczej poleasingowe.pl nie podaje w ogóle**,
+dlatego to pole zostaje puste zamiast pokazywać zgadywaną liczbę.
+
+**Poprawka: licznik ofert na karcie zgadza się z historią.** Przemiat listy
+aktualizował liczbę ofert i cenę w miejscu, nie zostawiając po tej zmianie
+żadnego śladu — karta pokazywała wtedy „3 oferty" u góry i „2" w ostatnim
+wierszu historii. Obie liczby prawdziwe, tylko z różnych chwil. Przemiat
+zapisuje teraz wiersz historii na tych samych zasadach co odpyt szczegółów:
+wyłącznie przy zmianie.
+
+To przy okazji jedyne źródło historii ceny dla aukcji, których nie
+obserwujesz — takich nie odpytujemy pojedynczo po raz drugi, więc do tej pory
+ich przebieg licytacji kończył się na pierwszym odczycie.
+
 ## 0.20.1 — w przygotowaniu
 
 **Karta pokazuje historię ceny bieżącej i nic poza tym.** Tabela ofert

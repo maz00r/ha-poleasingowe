@@ -226,6 +226,13 @@ class OfertaUczestnika:
     """Kiedy oferta została złożona — **wg serwisu**, nie wg naszego zegara."""
     first_seen_at: dt.datetime
     """Kiedy MY zobaczyliśmy ją pierwszy raz. Różnica mierzy nasze opóźnienie."""
+    external_offer_id: str | None = None
+    """Identyfikator oferty nadany przez serwis, o ile go podaje (`013`).
+
+    Lepszy klucz niż `(uczestnik, placed_at)`: rozróżnia dwie oferty złożone
+    w tej samej sekundzie, a przy licytacji z postąpieniami co kilka sekund
+    to nie jest przypadek teoretyczny.
+    """
     id: int | None = None
 
     def __post_init__(self) -> None:

@@ -16,6 +16,7 @@ from typing import Protocol, runtime_checkable
 from app.application.read_models import (
     Kryteria,
     Kursor,
+    OfertaNaKarcie,
     PorownanieRynkowe,
     PowiazaneWystawienie,
     PunktHistorii,
@@ -171,6 +172,8 @@ class SurowaOfertaUczestnika:
     zamienia go na pseudonim ważny tylko w obrębie aukcji (`012_oferty.sql`)."""
     kwota: str
     zlozona: str
+    identyfikator: str = ""
+    """Identyfikator oferty wg serwisu. Pusty, gdy serwis go nie podaje."""
 
 
 @dataclass(slots=True, frozen=True)
@@ -325,6 +328,10 @@ class Zapytania(Protocol):
         Snapshoty powstają tylko przy zmianie, więc to lista zdarzeń,
         a nie pomiar co N minut.
         """
+        ...
+
+    async def oferty(self, auction_id: int) -> tuple[OfertaNaKarcie, ...]:
+        """Oferty ze strony aukcji (SPEC.md §11.8). Pusto, gdy źródło ich nie daje."""
         ...
 
     async def powiazane_wystawienia(

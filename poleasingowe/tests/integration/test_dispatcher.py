@@ -1110,3 +1110,49 @@ async def test_zrodlo_bez_ofert_nie_zapisuje_nic(
 
     async with PgUnitOfWork(pusta_baza) as uow:
         assert await uow.oferta.dla_aukcji(auction_id) == []
+
+
+async def test_przemiat_zapisuje_snapshot_gdy_zmieni_sie_licznik_ofert(
+    pusta_baza: psycopg.AsyncConnection,
+) -> None:
+    """Zgłoszenie z użytkowania: „w dwóch miejscach 3 oferty, w jednym 2".
+
+    Przemiat aktualizował `auction.bid_count` w miejscu i nie zostawiał po tej
+    zmianie żadnego śladu, więc karta pokazywała nowy licznik u góry i stary
+    w ostatnim wierszu historii. Obie liczby prawdziwe, tylko z różnych chwil.
+
+    Przy okazji to jedyne źródło historii ceny dla aukcji NIEOBSERWOWANEJ:
+    takiej nie odpytujemy pojedynczo po raz drugi (SPEC.md §11.2).
+    """
+    adapter = ZrodloAtrapa()
+    adapter.na_liscie = ["sztuczna-1"]
+    adapter.ends_at_na_liscie = None
+    await przygotuj(pusta_baza, adapter, do_konca_min=60)
+    disp = dispatcher(pusta_baza, adapter)
+    await disp.jeden_obrot()
+
+    auction_id = (await wczytaj(pusta_baza, (await _pierwsze_id(pusta_baza)))).id
+    assert auction_id is not None
+
+    # Kolejny przemiat z INNA cena — po przesunieciu znacznika, zeby przemiat
+    # w ogole sie odbyl.
+    adapter.cena = Decimal("41000")
+    async with pusta_baza.cursor() as cur:
+        await cur.execute("UPDATE app.source SET last_sweep_at = NULL")
+    await dispatcher(pusta_baza, adapter).jeden_obrot()
+
+    async with PgUnitOfWork(pusta_baza) as uow:
+        historia = await uow.snapshot.historia(auction_id)
+    assert [s.price.amount for s in historia] == [
+        Decimal("40000"),
+        Decimal("41000"),
+    ], "przemiat ma zostawiać ślad po zmianie ceny"
+
+
+async def _pierwsze_id(baza: psycopg.AsyncConnection) -> int:
+    async with baza.cursor() as cur:
+        await cur.execute("SELECT id FROM app.auction ORDER BY id LIMIT 1")
+        wiersz = await cur.fetchone()
+    assert wiersz is not None
+    identyfikator: int = wiersz[0]
+    return identyfikator
