@@ -320,3 +320,25 @@ async def test_wiecej_filtrow_otwiera_sie_gdy_cos_w_srodku_dziala(
 
     rozwiniete = await klient.get("/", params={"przebieg_do": "150000"})
     assert "open" in rozwiniete.text.split("wiecej-filtrow")[1][:40]
+
+
+async def test_eksport_csv_bierze_te_same_filtry_co_widok(
+    klient: httpx.AsyncClient, pusta_baza: psycopg.AsyncConnection
+) -> None:
+    """Eksport ma oddać to, co widać na ekranie — nie całą bazę.
+
+    Plik z innym zakresem niż lista jest gorszy niż brak eksportu: nikt go
+    nie sprawdzi, a wnioski wyciągnie.
+    """
+    await _dane(pusta_baza)
+    odp = await klient.get("/eksport.csv", params={"marka": "Audi"})
+
+    assert odp.status_code == 200
+    assert "text/csv" in odp.headers["content-type"]
+    assert "attachment" in odp.headers["content-disposition"]
+    assert ".csv" in odp.headers["content-disposition"]
+
+    linie = [w for w in odp.text.splitlines() if w.strip()]
+    assert linie[0].startswith("﻿"), "BOM dla Excela"
+    assert len(linie) == 3, "nagłówek i dwie Audi — reszta odfiltrowana"
+    assert "Volkswagen" not in odp.text

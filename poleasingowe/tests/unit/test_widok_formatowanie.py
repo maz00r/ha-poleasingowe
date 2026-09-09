@@ -10,6 +10,7 @@ import pytest
 from app.application.read_models import PozycjaListy
 from app.domain.enums import AuctionStatus, Currency
 from app.domain.value_objects import Money
+from app.interfaces.web import eksport
 from app.interfaces.web.filtry_szablonu import (
     NBSP,
     NIEZNANE,
@@ -120,3 +121,54 @@ def test_kwota_w_polu_nie_dokleja_zer_ani_waluty() -> None:
     assert kwota_w_polu(Money(Decimal("60000.00"), Currency.PLN)) == ("60000")
     assert kwota_w_polu(Money(Decimal("60000.50"), Currency.PLN)) == ("60000.5")
     assert kwota_w_polu(None) == ""
+
+
+# --------------------------------------------------------------------------
+# Eksport CSV (SPEC.md §14 pkt 11)
+# --------------------------------------------------------------------------
+
+
+def _pozycja(**nadpisz: object) -> PozycjaListy:
+    dane: dict[str, object] = {
+        "id": 1,
+        "source_key": "efl",
+        "external_id": "435508",
+        "url": "https://aukcje.efl.com.pl/Auction/x",
+        "status": AuctionStatus.ACTIVE,
+        "make": "Škoda",
+        "model": "Superb",
+        "year": 2021,
+        "mileage_km": 78000,
+        "fuel": "Diesel",
+        "price_current": Money(Decimal("61200.50"), Currency.PLN),
+    }
+    dane.update(nadpisz)
+    return PozycjaListy(**dane)  # type: ignore[arg-type]
+
+
+def test_csv_jest_czytelny_dla_polskiego_excela() -> None:
+    """Trzy drobiazgi, które decydują o tym, czy plik da się użyć.
+
+    Bez BOM-u Excel czyta UTF-8 jako Windows-1250 i „Škoda" staje się
+    krzakami; bez średnika cały wiersz ląduje w jednej kolumnie; bez
+    przecinka dziesiętnego kwota jest tekstem, więc nie da się z niej
+    zrobić sumy.
+    """
+    linie = list(eksport.na_csv([_pozycja()]))
+    assert linie[0].startswith("﻿"), "brak BOM — Excel zrobi krzaki"
+    assert linie[0].count(";") >= 10, "separatorem ma być średnik, nie przecinek"
+    assert "61200,50" in linie[1], "kwota musi mieć przecinek dziesiętny"
+    assert "Škoda" in linie[1]
+
+
+def test_csv_ma_naglowek_i_jeden_wiersz_na_aukcje() -> None:
+    linie = list(eksport.na_csv([_pozycja(), _pozycja(external_id="2")]))
+    assert len(linie) == 3
+    assert all(w.endswith("\r\n") for w in linie), "CRLF — tego oczekuje Excel"
+
+
+def test_puste_pola_zostaja_puste_a_nie_zerowe() -> None:
+    """„—" albo „0" w arkuszu kłamią inaczej niż pusta komórka."""
+    linia = eksport.linia_pozycji(_pozycja(year=None, mileage_km=None, fuel=None))
+    assert ";;" in linia
+    assert "0" not in linia.split(";")[6]

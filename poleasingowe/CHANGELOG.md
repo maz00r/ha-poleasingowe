@@ -1,5 +1,13 @@
 # Historia zmian
 
+## 0.16.0 — w przygotowaniu
+
+**Eksport listy do CSV.** Przycisk „CSV ↓" obok sortowania pobiera dokładnie
+to, co widać na ekranie — z tymi samymi filtrami, nie całą bazę. Plik jest
+przygotowany pod polskiego Excela: średnik jako separator, przecinek
+dziesiętny i BOM, bez którego „Škoda" zamienia się w krzaki. Kolejne strony
+lecą strumieniowo, więc eksport nie buduje całego pliku w pamięci dodatku.
+
 ## 0.15.1 — w przygotowaniu
 
 **Aukcja zdjęta z serwisu przestaje udawać aktywną.** Oferta wycofana przez

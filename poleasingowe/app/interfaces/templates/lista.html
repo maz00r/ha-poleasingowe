@@ -202,6 +202,10 @@
        href="{{ sciezka(request, 'lista') }}?{{ sortowanie_kolumn.koniec.parametry }}">Koniec {{ sortowanie_kolumn.koniec.strzalka }}</a>
     <a class="sortuj {{ 'aktywny' if sortowanie_kolumn.cena.aktywna }}"
        href="{{ sciezka(request, 'lista') }}?{{ sortowanie_kolumn.cena.parametry }}">Cena {{ sortowanie_kolumn.cena.strzalka }}</a>
+    {# Eksport bierze TE SAME filtry, co widok — nie cala baze. #}
+    <a class="sortuj" download
+       href="{{ sciezka(request, 'eksport_csv') }}?{{ parametry | parametry_url }}"
+       title="Pobierz widoczną listę jako plik CSV (Excel)">CSV ↓</a>
   </div>
 </div>
 

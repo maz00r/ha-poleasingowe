@@ -16,12 +16,18 @@ import decimal
 import logging
 import pathlib
 import posixpath
+from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from typing import Any
 from urllib.parse import urlencode
 
 from fastapi import APIRouter, Form, Request
-from fastapi.responses import HTMLResponse, RedirectResponse, Response
+from fastapi.responses import (
+    HTMLResponse,
+    RedirectResponse,
+    Response,
+    StreamingResponse,
+)
 from fastapi.templating import Jinja2Templates
 
 from app.application.read_models import (
@@ -31,6 +37,7 @@ from app.application.read_models import (
     SORTOWANIE_KOLUMN,
     Diagnostyka,
     Kryteria,
+    Kursor,
     Sortowanie,
     Strona,
     Zakres,
@@ -44,7 +51,7 @@ from app.domain.logowanie import (
 from app.domain.value_objects import Money, NieprawidlowaWartosc
 from app.infrastructure.supervisor.proces import rss_bajty
 from app.infrastructure.wycena_ai import BladWyceny
-from app.interfaces.web import filtry_szablonu
+from app.interfaces.web import eksport, filtry_szablonu
 from app.interfaces.web.formularze import (
     PARAMETR_ZE_STATUSU,
     kursor_z_parametrow,
@@ -320,6 +327,56 @@ async def lista(request: Request) -> Response:
     )
     _zapamietaj_wizyte(odpowiedz, teraz)
     return odpowiedz
+
+
+MAKS_EKSPORTU = 20_000
+"""Sufit wierszy eksportu. Przy 170 MB RSS (§1.1) nie ma miejsca na
+nieograniczone pobranie, a dwadzieścia tysięcy aukcji to i tak więcej,
+niż którykolwiek z serwisów wystawia naraz."""
+
+
+@router.get("/eksport.csv")
+async def eksport_csv(request: Request) -> Response:
+    """Bieżąca lista jako CSV — te same filtry, co na ekranie (§14 pkt 11).
+
+    Strumieniowo: kolejne strony ciągniemy kursorem keyset i oddajemy od
+    razu, zamiast budować cały plik w pamięci procesu.
+    """
+    if _fabryka(request) is None:
+        return _brak_bazy(request)
+
+    kryteria = zbuduj_kryteria(
+        request.query_params, ostatnia_wizyta=_ostatnia_wizyta(request)
+    )
+    teraz = dt.datetime.now(dt.UTC)
+
+    async def pozycje() -> AsyncIterator[Any]:
+        kursor = None
+        oddane = 0
+        async with _fabryka(request)() as kontekst:
+            while oddane < MAKS_EKSPORTU:
+                strona = await kontekst.zapytania.lista(kryteria, kursor, LIMIT_STRONY)
+                for pozycja in strona.pozycje:
+                    yield pozycja
+                    oddane += 1
+                if not strona.ma_wiecej or strona.kursor_dalej is None:
+                    return
+                kursor = Kursor.odkoduj(strona.kursor_dalej)
+
+    async def linie() -> AsyncIterator[bytes]:
+        yield eksport.naglowek().encode("utf-8")
+        async for pozycja in pozycje():
+            yield eksport.linia_pozycji(pozycja).encode("utf-8")
+
+    return StreamingResponse(
+        linie(),
+        media_type="text/csv; charset=utf-8",
+        headers={
+            "Content-Disposition": (
+                f'attachment; filename="{eksport.nazwa_pliku(teraz)}"'
+            )
+        },
+    )
 
 
 @router.get("/lista", response_class=HTMLResponse)
