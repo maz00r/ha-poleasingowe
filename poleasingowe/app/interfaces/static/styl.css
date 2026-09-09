@@ -996,3 +996,16 @@ code {
   background: var(--akcent);
   color: var(--akcent-tekst);
 }
+
+
+/* Pasek odswiezania na karcie aukcji (SPEC.md §12). Celowo skromny:
+   informuje, ze dane sa w drodze, i nie przesuwa reszty karty, bo znika
+   sam po kilkunastu sekundach. */
+.odswiezanie {
+  margin: 0 0 12px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  width: fit-content;
+  color: var(--przygaszony);
+  background: color-mix(in srgb, var(--akcent) 10%, transparent);
+}

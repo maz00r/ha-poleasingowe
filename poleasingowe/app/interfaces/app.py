@@ -45,6 +45,7 @@ def utworz_aplikacje(
     galeria: Any = None,
     wycena_ai: Any = None,
     kopia: Any = None,
+    budzik: Any = None,
 ) -> FastAPI:
     """Buduje aplikację. Zależności wstrzykiwane, bez globalnych singletonów.
 
@@ -101,6 +102,7 @@ def utworz_aplikacje(
     app.state.wycena_ai = wycena_ai
     # Panel diagnostyczny czyta z niej datę ostatniej kopii (§12).
     app.state.kopia = kopia
+    app.state.budzik = budzik
     # `html=False`: to katalog na CSS i HTMX, nie na strony. Bez tego
     # StaticFiles zaczalby serwowac index.html z dowolnego podkatalogu.
     app.mount("/static", StaticFiles(directory=str(STATYKI), html=False), name="static")

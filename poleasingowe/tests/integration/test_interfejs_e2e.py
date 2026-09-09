@@ -495,3 +495,95 @@ async def test_przelacznik_stanu_stoi_w_widokach_zawezonych_i_niesie_filtry(
 
     zwykla = await klient.get("/", params={"status": "aktywne"})
     assert "Wygasłe" not in zwykla.text, "na zwykłej liście przełącznika nie ma"
+
+
+class BudzikAtrapa:
+    def __init__(self) -> None:
+        self.pobudki = 0
+
+    def obudz(self) -> None:
+        self.pobudki += 1
+
+
+async def test_wejscie_na_karte_prosi_o_swiezy_odczyt(
+    klient: httpx.AsyncClient, pusta_baza: psycopg.AsyncConnection
+) -> None:
+    """SPEC.md §11.2 — otwarcie karty planuje odpyt i budzi pętlę.
+
+    Sprawdzamy skutek w bazie (`next_poll_at`), a nie żądanie do serwisu —
+    bo karta świadomie **nie** wysyła niczego sama. Prośba idzie przez
+    dyspozytora i to on decyduje, czy kubełek tokenów na nią pozwala.
+    """
+    identyfikatory = await _dane(pusta_baza)
+    aukcja_id = identyfikatory["audi-za-godzine"]
+    async with pusta_baza.cursor() as cur:
+        await cur.execute(
+            "UPDATE app.auction SET last_seen_at = now() - interval '2 hours',"
+            " next_poll_at = NULL WHERE id = %s",
+            (aukcja_id,),
+        )
+
+    budzik = BudzikAtrapa()
+    klient._transport.app.state.budzik = budzik  # type: ignore[attr-defined]
+    odp = await klient.get(f"/aukcja/{aukcja_id}")
+
+    assert odp.status_code == 200
+    assert "Pobieram świeże dane" in odp.text
+    assert budzik.pobudki == 1, "pętla ma zostać obudzona, a nie czekać na sen"
+
+    async with pusta_baza.cursor() as cur:
+        await cur.execute(
+            "SELECT next_poll_at FROM app.auction WHERE id = %s", (aukcja_id,)
+        )
+        wiersz = await cur.fetchone()
+    assert wiersz is not None and wiersz[0] is not None, "odpyt zaplanowany"
+
+
+async def test_swieze_dane_nie_generuja_prosby(
+    klient: httpx.AsyncClient, pusta_baza: psycopg.AsyncConnection
+) -> None:
+    """Karta nie ma prawa generować ruchu gęstszego niż harmonogram.
+
+    Odświeżanie z przeglądarki to jedyna ścieżka, w której o tempie decyduje
+    człowiek — bez tego progu wciśnięty F5 byłby furtką dookoła §11.3.
+    """
+    identyfikatory = await _dane(pusta_baza)
+    aukcja_id = identyfikatory["audi-za-godzine"]
+    async with pusta_baza.cursor() as cur:
+        await cur.execute(
+            "UPDATE app.auction SET last_seen_at = now(), next_poll_at = NULL"
+            " WHERE id = %s",
+            (aukcja_id,),
+        )
+
+    budzik = BudzikAtrapa()
+    klient._transport.app.state.budzik = budzik  # type: ignore[attr-defined]
+    odp = await klient.get(f"/aukcja/{aukcja_id}")
+
+    assert "Pobieram świeże dane" not in odp.text
+    assert budzik.pobudki == 0
+
+
+async def test_pasek_odswiezania_sam_sie_konczy(
+    klient: httpx.AsyncClient, pusta_baza: psycopg.AsyncConnection
+) -> None:
+    """Po wyczerpaniu prób fragment wraca BEZ atrybutów HTMX.
+
+    Decyzję podejmuje serwer, więc nie ma licznika w JavaScripcie, który
+    trzeba by utrzymywać zgodny z regułą po stronie Pythona.
+    """
+    identyfikatory = await _dane(pusta_baza)
+    aukcja_id = identyfikatory["audi-za-godzine"]
+    od = (dt.datetime.now(dt.UTC) + dt.timedelta(hours=1)).isoformat()
+
+    trwa = await klient.get(f"/aukcja/{aukcja_id}/karta", params={"od": od, "proba": 1})
+    # Sam `hx-get` nie wystarcza jako sprawdzenie — galeria w tej samej karcie
+    # tez go uzywa. Rozstrzyga klasa paska odswiezania.
+    assert "odswiezanie" in trwa.text
+    assert "Pobieram świeże dane" in trwa.text
+
+    koniec = await klient.get(
+        f"/aukcja/{aukcja_id}/karta", params={"od": od, "proba": 99}
+    )
+    assert "odswiezanie" not in koniec.text
+    assert "Pobieram świeże dane" not in koniec.text

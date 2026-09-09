@@ -1,0 +1,93 @@
+{% set p = dane.pozycja %}
+{# Karta wyjeta do fragmentu, zeby dalo sie ja podmienic w miejscu po
+   odswiezeniu danych ze zrodla (SPEC.md §12). Wczesniej trzeba by bylo
+   przeladowac cala strone, co gubi pozycje przewiniecia i zaladowana
+   galerie. #}
+<article class="karta" id="karta-aukcji">
+  {# Cena stoi obok tytulu, nie w tabeli danych: przy aukcji to ona jest
+     pierwsza informacja, po ktora siega oko — tak samo jak w serwisach,
+     z ktorych zbieramy oferty. #}
+  {% if odswiezanie %}
+  {# Pasek zyje tylko dopoki czekamy na swiezy odczyt. Sam sie ponawia
+     i sam sie konczy: gdy `last_seen_at` przeskoczy albo skoncza sie proby,
+     serwer zwraca ten sam fragment BEZ atrybutow hx-*, wiec odpytywanie
+     ustaje samo — bez licznika w JavaScripcie, ktory trzeba by pamietac. #}
+  <p class="drobne odswiezanie"
+     hx-get="{{ sciezka(request, 'szczegoly_fragment', auction_id=p.id) }}?od={{ odswiezanie.od }}&proba={{ odswiezanie.proba }}"
+     hx-target="#karta-aukcji"
+     hx-swap="outerHTML"
+     hx-trigger="load delay:{{ odswiezanie.opoznienie_s }}s">
+    Pobieram świeże dane ze źródła…
+  </p>
+  {% endif %}
+
+  <div class="naglowek-aukcji">
+    <div>
+      <h1>{{ p.nazwa }}</h1>
+      <p class="podtytul">
+        {{ p.source_key }} · <code>{{ p.external_id }}</code>
+        {% if p.status.value != 'ACTIVE' %}
+          · {{ p.status.value }} · cena {{ p.final_price_state.value }}
+        {% endif %}
+      </p>
+    </div>
+    <div class="cena-glowna">
+      <span class="kwota">{{ p.price_current | kwota }}</span>
+      <div class="drobne">
+        {% if p.ends_at %}{{ p.ends_at | do_konca(teraz) }} · {% endif %}
+        {% if p.bid_count is not none %}{{ p.bid_count }} ofert{% else %}liczba ofert nieznana{% endif %}
+      </div>
+    </div>
+  </div>
+
+  {% if dane.duplicate_of %}
+    {# Deduplikacja po VIN (SPEC.md §8.4). Duplikat nie znika z bazy —
+       znika z listy, a tutaj widac, czego jest duplikatem. #}
+    <p class="ostrzezenie-inline">
+      Duplikat aukcji
+      <a href="{{ sciezka(request, 'szczegoly', auction_id=dane.duplicate_of) }}">#{{ dane.duplicate_of }}</a>
+      — ten sam VIN w innym serwisie.
+    </p>
+  {% endif %}
+
+  <div class="siatka">
+    <div><span>Cena bieżąca</span><strong class="kwota">{{ p.price_current | kwota }}</strong></div>
+    <div><span>Cena wywoławcza</span><strong>{{ p.price_start | kwota }}</strong></div>
+    <div><span>Ofert</span><strong>{{ p.bid_count if p.bid_count is not none else '—' }}</strong></div>
+    <div><span>Postąpienie</span><strong>{{ dane.bid_increment_raw or '—' }}</strong></div>
+    <div><span>Koniec</span><strong>{{ p.ends_at | czas_lokalny(z_sekundami=True) }}</strong></div>
+    <div><span>Zostało</span><strong>{{ p.ends_at | do_konca(teraz) }}</strong></div>
+    <div><span>Rocznik</span><strong>{{ p.year or '—' }}</strong></div>
+    <div><span>Przebieg</span><strong>{{ p.mileage_km | liczba }}{% if p.mileage_km %} km{% endif %}</strong></div>
+    <div><span>Paliwo</span><strong>{{ p.fuel or '—' }}</strong></div>
+    <div><span>Skrzynia</span><strong>{{ p.gearbox or '—' }}</strong></div>
+    <div><span>Pojemność</span><strong>{{ dane.engine_ccm | liczba }}{% if dane.engine_ccm %} cm³{% endif %}</strong></div>
+    <div><span>Moc</span><strong>{{ dane.engine_hp | liczba }}{% if dane.engine_hp %} KM{% endif %}</strong></div>
+    <div><span>Nadwozie</span><strong>{{ dane.body or '—' }}</strong></div>
+    <div><span>Kolor</span><strong>{{ dane.color or '—' }}</strong></div>
+    <div><span>VIN</span><strong><code>{{ dane.vin or '—' }}</code></strong></div>
+    <div><span>Lokalizacja</span><strong>{{ p.location or '—' }}</strong></div>
+    <div><span>Sprzedający</span><strong>{{ dane.seller or '—' }}</strong></div>
+  </div>
+
+  {# Galeria doladowywana po wyrenderowaniu karty: adresy zdjec wymagaja
+     odpytania strony zrodla, a wolny serwis nie ma zatrzymywac danych,
+     ktore mamy juz w bazie (SPEC.md §12). #}
+  <div hx-get="{{ sciezka(request, 'zdjecia_aukcji', auction_id=p.id) }}"
+       hx-trigger="load"
+       hx-swap="outerHTML"></div>
+
+  <p class="linki">
+    <a href="{{ p.url }}" target="_blank" rel="noopener noreferrer">Otwórz ofertę w serwisie</a>
+    {% if grafana %}
+      {# SPEC.md §12: link do dashboardu, bez wlasnego wykresu — analityka
+         jest w Grafanie. #}
+      · <a href="{{ grafana }}/d/poleasingowe-aukcja?var-auction_id={{ p.id }}"
+           target="_blank" rel="noopener noreferrer">Historia cen w Grafanie</a>
+      {% if p.make %}
+        · <a href="{{ grafana }}/d/poleasingowe-rynek?var-make={{ p.make | urlencode }}&amp;var-model={{ (p.model or '') | urlencode }}"
+             target="_blank" rel="noopener noreferrer">Rynek dla tego modelu</a>
+      {% endif %}
+    {% endif %}
+  </p>
+</article>

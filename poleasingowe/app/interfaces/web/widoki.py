@@ -476,6 +476,113 @@ async def lista_fragment(request: Request) -> Response:
     )
 
 
+ODSWIEZ_PO_S = 60
+"""Poniżej tej świeżości nie prosimy o nic — dane sprzed minuty są świeże.
+
+Ten sam próg co domyślny floor odpytu (§11.2): karta nie ma prawa generować
+ruchu gęstszego niż harmonogram, bo odświeżanie z przeglądarki jest jedyną
+ścieżką, w której o tempie decyduje człowiek, a nie pętla.
+"""
+
+MAKS_PROB_ODSWIEZENIA = 6
+"""Ile razy karta pyta, czy przyszedł świeży odczyt.
+
+Sześć prób po ~2 s to kilkanaście sekund — dłużej niż trwa jeden odpyt,
+a krócej, niż ktokolwiek zechce patrzeć na kręcące się kółko. Po nich pasek
+znika i zostaje to, co mamy; brak świeżych danych też jest odpowiedzią.
+"""
+
+OPOZNIENIE_PROBY_S = 2
+
+
+def _budzik(request: Request) -> None:
+    """Prosi pętlę dyspozytora o wcześniejszy obrót, jeśli w ogóle działa.
+
+    Brak budzika to normalny stan — interfejs wstaje też bez pętli (§2 pkt 8)
+    i wtedy dane po prostu odświeżą się przy następnym przemiacie.
+    """
+    budzik = getattr(request.app.state, "budzik", None)
+    if budzik is not None:
+        budzik.obudz()
+
+
+def _stan_odswiezania(
+    dane: Any, od: dt.datetime | None, proba: int
+) -> dict[str, Any] | None:
+    """Czy karta ma dalej czekać na świeży odczyt — i z jakim opóźnieniem.
+
+    `None` znaczy „przestań pytać": albo dane już przyszły, albo wyczerpały
+    się próby. Decyzję podejmuje **serwer**, a fragment po prostu przestaje
+    nieść atrybuty HTMX — dzięki temu nie ma licznika w JavaScripcie, który
+    trzeba by utrzymywać zgodny z tą regułą.
+    """
+    if od is None or proba >= MAKS_PROB_ODSWIEZENIA:
+        return None
+    if dane.last_seen_at is not None and dane.last_seen_at > od:
+        return None
+    return {
+        "od": od.isoformat(),
+        "proba": proba + 1,
+        "opoznienie_s": OPOZNIENIE_PROBY_S,
+    }
+
+
+async def _popros_o_odswiezenie(kontekst: Any, dane: Any, teraz: dt.datetime) -> bool:
+    """Ustawia natychmiastowy termin odpytu i budzi pętlę (SPEC.md §11.2).
+
+    Nie wysyła żadnego żądania do serwisu — o tym, czy i kiedy ono poleci,
+    decyduje jak zawsze dyspozytor razem z kubełkiem tokenów. Karta może
+    najwyżej **poprosić**, i tylko o aukcję, która trwa i której dawno nie
+    widzieliśmy: zakończonej nie ma po co odpytywać, a świeżej nie ma po co
+    ponawiać przy każdym odświeżeniu przeglądarki.
+    """
+    if dane.pozycja.status is not AuctionStatus.ACTIVE:
+        return False
+    if (
+        dane.last_seen_at is not None
+        and (teraz - dane.last_seen_at).total_seconds() < ODSWIEZ_PO_S
+    ):
+        return False
+    async with kontekst.uow as uow:
+        await uow.auction.zaplanuj(dane.pozycja.id, teraz, dane.poll_tier)
+    return True
+
+
+@router.get(
+    "/aukcja/{auction_id}/karta",
+    response_class=HTMLResponse,
+    name="szczegoly_fragment",
+)
+async def szczegoly_fragment(request: Request, auction_id: int) -> Response:
+    """Sama karta aukcji — do podmiany w miejscu po odświeżeniu danych."""
+    if _fabryka(request) is None:
+        return _brak_bazy(request)
+
+    async with _fabryka(request)() as kontekst:
+        dane = await kontekst.zapytania.szczegoly(auction_id)
+    if dane is None:
+        return SZABLONY.TemplateResponse(
+            request=request,
+            name="nie-znaleziono.html",
+            context={**_kontekst_bazowy(request), "auction_id": auction_id},
+            status_code=404,
+        )
+    od = _czas_z_ciasteczka(request.query_params.get("od", ""))
+    try:
+        proba = int(request.query_params.get("proba", "0"))
+    except ValueError:
+        proba = MAKS_PROB_ODSWIEZENIA
+    return SZABLONY.TemplateResponse(
+        request=request,
+        name="fragmenty/karta-aukcji.html",
+        context={
+            **_kontekst_bazowy(request),
+            "dane": dane,
+            "odswiezanie": _stan_odswiezania(dane, od, proba),
+        },
+    )
+
+
 @router.get("/aukcja/{auction_id}", response_class=HTMLResponse)
 async def szczegoly(request: Request, auction_id: int) -> Response:
     if _fabryka(request) is None:
@@ -495,6 +602,14 @@ async def szczegoly(request: Request, auction_id: int) -> Response:
         oferty = (
             await kontekst.zapytania.oferty(auction_id) if dane.historia_ofert else ()
         )
+        # Wejscie na karte = prosba o swiezy odczyt (§11.2). Prosba, nie
+        # zadanie do serwisu: poleci dopiero z dyspozytora i tylko wtedy,
+        # gdy pozwoli na to kubelek tokenow.
+        teraz = dt.datetime.now(dt.UTC)
+        poproszono = await _popros_o_odswiezenie(kontekst, dane, teraz)
+    if poproszono:
+        _budzik(request)
+
     return SZABLONY.TemplateResponse(
         request=request,
         name="szczegoly.html",
@@ -504,6 +619,11 @@ async def szczegoly(request: Request, auction_id: int) -> Response:
             "wystawienia": wystawienia,
             "historia": historia,
             "oferty": oferty,
+            "odswiezanie": (
+                _stan_odswiezania(dane, dane.last_seen_at or teraz, 0)
+                if poproszono
+                else None
+            ),
         },
     )
 

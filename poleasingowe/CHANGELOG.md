@@ -1,5 +1,22 @@
 # Historia zmian
 
+## 0.24.0 — w przygotowaniu
+
+**Wejście na kartę aukcji prosi o świeże dane.** Do tej pory karta pokazywała
+to, co zostało z ostatniego przemiatu — dla aukcji nieobserwowanej nawet
+sprzed kilku godzin. Teraz otwarcie karty planuje natychmiastowy odpyt, budzi
+pętlę zbierania i podmienia kartę w miejscu, gdy świeży odczyt dojdzie.
+Bez przeładowania strony, więc galeria i pozycja przewinięcia zostają.
+
+Karta **nie wysyła niczego sama** i nie omija limitów tempa: prosi tylko
+o wcześniejszy obrót pętli, a o tym, czy żądanie w ogóle poleci, decyduje jak
+zawsze kubełek tokenów. Nie prosi też, gdy aukcja jest zakończona albo gdy
+dane są świeższe niż minuta — inaczej wciśnięty F5 byłby furtką dookoła
+całego harmonogramu.
+
+Pasek „pobieram świeże dane" kończy się sam: po kilkunastu sekundach albo
+z chwilą, gdy dane dojdą. Brak świeżych danych też jest odpowiedzią.
+
 ## 0.23.0 — w przygotowaniu
 
 **Poprawka: „nowe od ostatniej wizyty" wreszcie coś pokazuje.** Znacznik

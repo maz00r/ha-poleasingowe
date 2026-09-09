@@ -26,6 +26,7 @@ from app.infrastructure.persistence.migrations import Migracja
 from app.infrastructure.persistence.polaczenie import polacz_i_zmigruj
 from app.infrastructure.persistence.pula import PgFabrykaKontekstu
 from app.infrastructure.redakcja import Redakcja
+from app.infrastructure.scheduler.budzik import BudzikOdroczony
 from app.infrastructure.scheduler.dispatcher import Dispatcher
 from app.infrastructure.sources import registry
 from app.infrastructure.sources.parametry import zbuduj_source
@@ -184,11 +185,15 @@ def main() -> int:
         if not adaptery:
             log.warning("żadne źródło nie jest włączone — dispatcher nie startuje")
             return
-        await Dispatcher(fabryka, adaptery, kopia=kopia).uruchom()
+        petla = Dispatcher(fabryka, adaptery, kopia=kopia)
+        # Od tej chwili karta aukcji moze poprosic o wczesniejszy obrot.
+        budzik.podepnij(petla)
+        await petla.uruchom()
 
     # Galeria dzieli adaptery z dispatcherem — jeden `AsyncClient` per
     # zrodlo, tworzony raz (SPEC.md §11.3).
     adaptery_ui: dict[str, object] = {}
+    budzik = BudzikOdroczony()
     galeria = GaleriaZdjec(adaptery_ui)  # type: ignore[arg-type]
     # Kopia zapasowa WYLACZNIE wlasnej bazy (SPEC.md §7.1) — snapshot HA
     # obejmuje tez TeslaMate, wiec nie da sie z niego odtworzyc samej naszej.
@@ -202,6 +207,7 @@ def main() -> int:
         galeria=galeria,
         wycena_ai=wycena_ai,
         kopia=kopia,
+        budzik=budzik,
     )
     aplikacja.state.stan = stan_wstepny
 

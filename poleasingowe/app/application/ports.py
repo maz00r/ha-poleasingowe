@@ -295,6 +295,23 @@ class ZrodloZOfertami(Protocol):
         ...
 
 
+@runtime_checkable
+class Budzik(Protocol):
+    """Sposób na wybudzenie pętli dyspozytora przed czasem (SPEC.md §11.1).
+
+    Interfejs nie zna dyspozytora i nie ma prawa go znać — ale gdy ktoś
+    otwiera kartę aukcji, chce zobaczyć dane sprzed chwili, a nie sprzed
+    ostatniego przemiatu. Bez tego portu odświeżenie czekałoby do końca snu
+    pętli, czyli do minuty.
+
+    **Nie omija limitów tempa.** Budzik prosi tylko o wcześniejszy obrót;
+    o tym, czy żądanie w ogóle poleci, decyduje jak zawsze kubełek tokenów
+    w dyspozytorze. Inaczej odświeżanie z karty byłoby furtką dookoła §11.3.
+    """
+
+    def obudz(self) -> None: ...
+
+
 class Zapytania(Protocol):
     """Strona odczytu dla interfejsu (SPEC.md §6.2, §12).
 

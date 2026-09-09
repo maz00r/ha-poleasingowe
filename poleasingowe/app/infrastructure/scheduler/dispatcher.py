@@ -88,10 +88,21 @@ class Dispatcher:
         # to wystarcza. SPEC.md §11.1 zabrania budowania blokad w bazie
         # „na przyszłość".
         self._w_locie: set[int] = set()
+        self._budzik = asyncio.Event()
 
     # ------------------------------------------------------------------
     # Pętla
     # ------------------------------------------------------------------
+
+    def obudz(self) -> None:
+        """Przerywa sen pętli — implementacja portu `Budzik` (§11.1).
+
+        Wywoływane, gdy ktoś otworzy kartę aukcji i chce świeżych danych.
+        Samo w sobie NIE wysyła żadnego żądania i nie omija limitów tempa:
+        prosi tylko o wcześniejszy obrót, a o tym, co w tym obrocie poleci,
+        decyduje jak zawsze kubełek tokenów.
+        """
+        self._budzik.set()
 
     async def uruchom(self) -> None:
         """Pętla główna. Kończy się wyłącznie przez `CancelledError`."""
@@ -99,7 +110,12 @@ class Dispatcher:
         try:
             while True:
                 sen = await self.jeden_obrot()
-                await asyncio.sleep(sen)
+                # Sen PRZERYWALNY. `asyncio.sleep` bez tego kazałby czekać
+                # do minuty na dane, o które ktoś właśnie poprosił, patrząc
+                # na otwartą kartę.
+                with contextlib.suppress(TimeoutError):
+                    await asyncio.wait_for(self._budzik.wait(), sen)
+                self._budzik.clear()
         except asyncio.CancelledError:
             log.info("dispatcher zatrzymany")
             raise
