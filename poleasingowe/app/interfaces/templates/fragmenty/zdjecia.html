@@ -1,13 +1,36 @@
-{# Galeria. Kazde zdjecie idzie przez add-on, nie wprost z serwisu
+{# Galeria. Każde zdjęcie idzie przez add-on, nie wprost z serwisu
    aukcyjnego (SPEC.md §12 — proxy z cache, nie hotlink). #}
 {% if ile %}
-<div class="galeria">
-  {% for i in range(ile) %}
-    <a href="{{ sciezka(request, 'zdjecie', auction_id=auction_id, indeks=i) }}"
-       target="_blank" rel="noopener noreferrer">
-      <img loading="lazy" alt="Zdjęcie pojazdu {{ i + 1 }} z {{ ile }}"
-           src="{{ sciezka(request, 'zdjecie', auction_id=auction_id, indeks=i) }}">
-    </a>
-  {% endfor %}
-</div>
+<section class="galeria" data-galeria aria-label="Galeria zdjęć pojazdu">
+  <div class="galeria-miniatury">
+    {% for i in range(ile) %}
+      {% set adres = sciezka(request, 'zdjecie', auction_id=auction_id, indeks=i) %}
+      <button class="galeria-miniatura" type="button"
+              data-galeria-otworz data-galeria-indeks="{{ i }}"
+              data-galeria-src="{{ adres }}"
+              aria-label="Otwórz zdjęcie {{ i + 1 }} z {{ ile }}">
+        <img loading="lazy" alt="Zdjęcie pojazdu {{ i + 1 }} z {{ ile }}"
+             src="{{ adres }}">
+      </button>
+    {% endfor %}
+  </div>
+
+  <div class="galeria-modal" data-galeria-modal hidden aria-hidden="true">
+    <button class="galeria-modal-tlo" type="button" data-galeria-zamknij
+            aria-label="Zamknij galerię"></button>
+    <section class="galeria-modal-okno" role="dialog" aria-modal="true"
+             aria-label="Podgląd zdjęcia" tabindex="-1">
+      <button class="galeria-zamknij" type="button" data-galeria-zamknij
+              aria-label="Zamknij galerię">×</button>
+      <button class="galeria-nawigacja galeria-wstecz" type="button"
+              data-galeria-wstecz aria-label="Poprzednie zdjęcie">‹</button>
+      <figure>
+        <img data-galeria-obraz alt="">
+        <figcaption data-galeria-licznik></figcaption>
+      </figure>
+      <button class="galeria-nawigacja galeria-dalej" type="button"
+              data-galeria-dalej aria-label="Następne zdjęcie">›</button>
+    </section>
+  </div>
+</section>
 {% endif %}

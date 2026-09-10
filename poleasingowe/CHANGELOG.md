@@ -1,5 +1,11 @@
 # Historia zmian
 
+## 0.28.1 — w przygotowaniu
+
+**Poprawka karty aukcji.** Szczegóły aukcji nie podświetlają już zakładki
+„Aktywne”. Zdjęcia otwierają się w galerii na tej samej stronie, z przyciskami
+poprzednie/następne oraz obsługą klawiszy strzałek i Escape.
+
 ## 0.28.0 — w przygotowaniu
 
 **Dodano Leasygroup.** Anonimowy adapter zbiera wyłącznie licytacje z pełnej

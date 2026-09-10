@@ -63,11 +63,33 @@ class FabrykaNaPolaczeniu:
         return {"pool_size": 1, "pool_available": 1}
 
 
+class GaleriaAtrapa:
+    """Zwraca dwa obrazy, żeby testował także nawigację galerii."""
+
+    async def adresy(
+        self, source_key: str, external_id: str, url: str | None
+    ) -> tuple[str, str]:
+        return ("https://obrazy.test/1.jpg", "https://obrazy.test/2.jpg")
+
+
 @pytest.fixture
 async def klient(
     pusta_baza: psycopg.AsyncConnection,
 ) -> AsyncIterator[httpx.AsyncClient]:
     aplikacja = utworz_aplikacje(OPCJE, fabryka=FabrykaNaPolaczeniu(pusta_baza))
+    transport = httpx.ASGITransport(app=aplikacja)
+    async with httpx.AsyncClient(
+        transport=transport, base_url="http://test"
+    ) as klient_http:
+        yield klient_http
+
+
+@pytest.fixture
+async def klient_z_galeria(
+    pusta_baza: psycopg.AsyncConnection,
+) -> AsyncIterator[httpx.AsyncClient]:
+    aplikacja = utworz_aplikacje(OPCJE, fabryka=FabrykaNaPolaczeniu(pusta_baza))
+    aplikacja.state.galeria = GaleriaAtrapa()
     transport = httpx.ASGITransport(app=aplikacja)
     async with httpx.AsyncClient(
         transport=transport, base_url="http://test"
@@ -138,6 +160,25 @@ async def test_szczegoly_linkuja_do_oferty_i_do_grafany(
         f"https://grafana.example/d/poleasingowe-aukcja?var-auction_id="
         f"{identyfikatory['audi-za-godzine']}" in odp.text
     )
+    pasek = odp.text.split("<nav>")[1].split("</nav>")[0]
+    assert 'class="aktywna"' not in pasek
+
+
+async def test_fragment_galerii_otwiera_modal_zamiast_nowej_karty(
+    klient_z_galeria: httpx.AsyncClient, pusta_baza: psycopg.AsyncConnection
+) -> None:
+    """Zdjęcia są kontrolkami galerii, nie odsyłaczami z `target=_blank`."""
+    identyfikatory = await _dane(pusta_baza)
+    odp = await klient_z_galeria.get(
+        f"/aukcja/{identyfikatory['audi-za-godzine']}/zdjecia"
+    )
+
+    assert odp.status_code == 200
+    assert odp.text.count("data-galeria-otworz") == 2
+    assert "data-galeria-modal" in odp.text
+    assert "data-galeria-wstecz" in odp.text
+    assert "data-galeria-dalej" in odp.text
+    assert 'target="_blank"' not in odp.text
 
 
 async def test_karta_pokazuje_historie_ceny_biezacej(

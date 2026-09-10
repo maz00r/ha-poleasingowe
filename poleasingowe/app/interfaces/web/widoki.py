@@ -286,8 +286,14 @@ def _rozpoznaj_zakladke(request: Request) -> str | None:
     sama zakładka, tylko zawężona. Rozstrzygają wyłącznie te pola, które
     odróżniają zakładki od siebie.
     """
-    if request.url.path.rstrip("/").endswith("/diagnostyka"):
+    sciezka = request.url.path.rstrip("/")
+    if sciezka.endswith("/diagnostyka"):
         return "diagnostyka"
+    # Szczegóły aukcji nie są widokiem żadnej zakładki listy. Bez tego
+    # puste parametry szczegółów wyglądają jak domyślne kryteria „Aktywne”,
+    # więc pasek sugeruje miejsce, którego użytkownik już nie przegląda.
+    if sciezka.startswith("/aukcja/"):
+        return None
 
     def klucz(parametry: Mapping[str, str]) -> tuple[Any, ...]:
         k = zbuduj_kryteria(parametry)

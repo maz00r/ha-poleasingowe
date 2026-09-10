@@ -23,6 +23,9 @@
   {# Powrot na liste w to samo miejsce. Add-on siedzi w ramce HA, wiec
      „wstecz" przegladarki cofa caly panel, nie zawartosc ramki. #}
   <script src="{{ sciezka(request, 'static', path='/powrot.js') }}?v={{ wersja }}" defer></script>
+  {# Galeria na karcie aukcji działa po dynamicznym podmienieniu fragmentu
+     przez HTMX, dlatego nasłuch jest jeden, delegowany z dokumentu. #}
+  <script src="{{ sciezka(request, 'static', path='/galeria.js') }}?v={{ wersja }}" defer></script>
 </head>
 <body>
   <header class="pasek">
