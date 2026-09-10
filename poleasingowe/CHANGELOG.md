@@ -1,5 +1,13 @@
 # Historia zmian
 
+## 0.27.3 — w przygotowaniu
+
+**Dopracowanie interfejsu według projektu GUI.** Panel filtrów można teraz
+zwinąć, a lista wykorzystuje odzyskaną szerokość. Usunięto duży nagłówek
+promocyjny i nazwę serwisu z górnego paska. Karty, zdjęcia, pola, przyciski
+i etykiety mają zaokrąglenia zgodne z projektem, a uchwyty suwaków zakresu
+są wyśrodkowane na torze.
+
 ## 0.27.2 — w przygotowaniu
 
 **Nowy interfejs katalogu aukcji.** Lista otrzymała ciemny, kontrastowy układ

@@ -21,10 +21,7 @@
   {% include "fragmenty/gwiazdka.html" %}
 
   <div class="oferta-tresc">
-    <div class="oferta-naglowek">
-      <span class="indeks-oferty">{{ '%03d' | format(p.id) }}</span>
-      <a class="nazwa" href="{{ sciezka(request, 'szczegoly', auction_id=p.id) }}">{{ p.nazwa }}</a>
-    </div>
+    <a class="nazwa" href="{{ sciezka(request, 'szczegoly', auction_id=p.id) }}">{{ p.nazwa }}</a>
 
     <div class="pod-nazwa">
       {% if p.year %}<span>{{ p.year }}</span>{% endif %}
@@ -47,6 +44,7 @@
 
     <div class="oferta-stopka">
       <div>
+        <div class="etykieta-ceny">Aktualna oferta</div>
         <div class="kwota">{{ p.price_current | kwota }}</div>
         {% if p.ponad_limitem %}
           <div class="drobne ponad-limitem-info">ponad Twój limit
