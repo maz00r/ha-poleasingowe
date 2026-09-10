@@ -96,6 +96,9 @@ ignore = [
 # W testach nazwy widokow i tabel pochodza z literalnej listy w parametryzacji,
 # a nie z danych — tam sklejanie jest czytelniejsze niz obchodzenie go.
 "poleasingowe/tests/*" = ["T20", "S608"]
+# Ten plik trzyma szablony HTML dawro jako literały — łamanie ich do 88
+# kolumn zaciemniłoby strukturę, na której stoi parser.
+"poleasingowe/tests/unit/test_pomiar_dawro.py" = ["T20", "S608", "E501"]
 
 [tool.ruff.lint.flake8-builtins]
 builtins-allowed-modules = ["types"]
@@ -106,18 +109,18 @@ strict = true
 warn_unreachable = true
 warn_no_return = true
 disallow_any_explicit = false
-mypy_path = "poleasingowe"
+mypy_path = "poleasingowe:tools"
 files = ["poleasingowe/app", "poleasingowe/tests", "tools"]
 
 [[tool.mypy.overrides]]
 # Skrypty rekonesansu z tools/ nie sa czescia add-onu i nie musza przechodzic
 # --strict; maja dzialac i byc czytelne.
-module = "recon_0b"
+module = ["recon_0b", "pomiar_dawro"]
 disallow_untyped_defs = false
 strict = false
 
 [tool.pytest.ini_options]
-pythonpath = ["poleasingowe"]
+pythonpath = ["poleasingowe", "tools"]
 testpaths = ["poleasingowe/tests"]
 asyncio_mode = "auto"
 addopts = "-q --strict-markers"

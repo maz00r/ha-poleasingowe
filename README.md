@@ -237,6 +237,24 @@ odczyt, same GET-y. Obsługuje cztery źródła:
 python3 tools/recon_0b.py --dry-run --source efl --url "<URL>"
 ```
 
+`tools/pomiar_dawro.py` — pełny rekonesans **dawro.pl** jednym przebiegiem:
+skan wszystkich aktywnych aukcji, szczegóły, raport pokrycia pól, galeria,
+publiczny endpoint najwyższej oferty (zapisany, **nie wywoływany**) i pomiar
+domknięcia najbliżej kończącej się aukcji. Zrzuty lądują najpierw w katalogu
+tymczasowym i przechodzą redakcję (`redakcja_fixtures.py`) zanim trafią do
+`fixtures/dawro/`.
+
+```bash
+python3 tools/pomiar_dawro.py                # skan + szczegóły + domknięcie
+python3 tools/pomiar_dawro.py --static-only  # bez czekania na koniec aukcji
+```
+
+Pomiar domknięcia biegnie lokalnie i **czeka do końca aukcji** — komputer
+musi zostać wybudzony i online przez całe okno domknięcia (do ~10 min po
+terminie). Gdy najbliższa aukcja kończy się za ponad dobę, skrypt zapisuje
+skan i wypisuje status „pomiar domknięcia do wykonania później"; wtedy trzeba
+go odpalić bliżej terminu (`--url <URL>`).
+
 ## Znane luki
 
 - **Faza domknięcia z §11.5 działa od 0.15.0, ale nie jest zmierzona na

@@ -1098,6 +1098,116 @@ aukcję bez licytacji w końcówce.
 
 **Nie zmierzone:** punkt (f) — czas życia sesji (wymaga zalogowania).
 
+### 4.5 dawro.pl — piąte źródło, dodane 2026-09-10
+
+Rekonesans statyczny (skan + szczegóły + galeria) wykonany
+`tools/pomiar_dawro.py --static-only`. Pomiar domknięcia **do wykonania
+później** — najbliższa aukcja kończyła się 2026-09-14, a skan nie ma czekać
+w `sleep` przez cztery dni (§4 pkt b). Fixtures: `fixtures/dawro/`, pełny
+raport pokrycia pól: `fixtures/dawro/raport.md`.
+
+**URL-e.** `dawro.pl` → `301` → `www.dawro.pl` (kanoniczny host z `www`).
+Lista paginowana: `/aukcje/sortuj,data-zakonczenia,kierunek,rosnaco,strona,
+<N>,ilosc,100,wyswietlanie,boxy` — parametry w ścieżce, przecinkami, nie
+w query stringu. `/aukcje` bez parametrów to **landing z kuratorowanymi
+kolumnami**, nie lista — trafienie tam znaczy, że adres listy przestał
+działać. Wariant `wyswietlanie,lista` daje zwięzły widok z uboższym
+zestawem pól, `wyswietlanie,boxy` — pełny. Przy `ilosc,100` i katalogu
+< 100 pozycji `strona,2` zwraca stronę 1; to nie błąd, tylko koniec listy
+(skan przerywa na braku nowych `external_id`).
+
+**`external_id`** — liczba ze ścieżki `/aukcja/<id>,<slug>`
+(`16798`, `16761`). Slug jest zmienny (człon SEO), `<id>` stały i
+sekwencyjny.
+
+**Kodowanie — pułapka.** Nagłówek HTTP mówi `charset=iso-8859-1`, ale treść
+jest **UTF-8** (`<meta charset="utf-8">`, `ó` = `0xC3 0xB3`). Parsować jako
+UTF-8, nagłówkowi nie ufać.
+
+**Pola na liście** (`fixtures/dawro/lista-01.html`, kafelek
+`div.fl.aukcja-box`): nazwa + **numer rejestracyjny doklejony do nazwy**
+(„FIAT Ducato, NO310CJ"), `Koniec aukcji:` jako **absolutny** znacznik
+`YYYY-MM-DD HH:MM` w `span > b`, cena wywoławcza, rok, przebieg, forma
+sprzedaży, sprzedawca, miniatura (`img.lazy[data-original]`), przycisk
+`LICYTUJ`, oraz `div.najwyzsza-oferta` — **jedyne serwerowe źródło
+najwyższej oferty** (`&nbsp;` = brak ofert).
+
+**Pola w szczegółach** (`fixtures/dawro/szczegoly-*.html`, tabela
+`div.fl.k` / `div.fl.v` w bloku `pasek-informacyjny-licytacji`) —
+pokrycie w próbce 24 aukcji:
+
+| pole | jest | brak |
+|---|---:|---:|
+| VIN | 24 | 0 |
+| nr rejestracyjny | 24 | 0 |
+| adres parkingu | 24 | 0 |
+| opis modelu, rok, pojemność, moc | 24 | 0 |
+| sprzedawca, forma sprzedaży | 24 | 0 |
+| zdjęcia | 24 | 0 |
+| przebieg | 20 | 4 |
+| **paliwo, skrzynia, nadwozie** | **0** | **24** |
+
+**dawro w ogóle nie podaje paliwa, skrzyni ani typu nadwozia** w tabeli
+parametrów. Adapter musi je wyprowadzić z nazwy modelu albo zostawić `NULL`
+— to nie jest brak danych w tej próbce, to brak pola w szablonie.
+
+**Adres parkingu jest osobny od adresu domu aukcyjnego.** `div.opis` niesie
+dane kontaktowe firmy („Dom Aukcyjny Mariola Nosko, Wodzisławska 8, Wrocław,
+tel. …"), a `div.parking-informacje > div.adres` — gdzie **stoi pojazd**
+(„Dawro Warszawa, ul. Mrówcza 79"). Do `location` w modelu idzie parking.
+
+**Cena — brak podstawy brutto/netto.** Etykieta to zawsze „Cena wywoławcza",
+**bez** dopisku „netto" ani „brutto" — w całej próbce 24 aukcji
+`podstawa_ceny = UNKNOWN`. Jedyny sygnał podatkowy to „Forma sprzedaży:
+faktura VAT" / „umowa k/s", i to jest forma transakcji, nie podstawa kwoty.
+`tools/pomiar_dawro.py` zapisuje surową etykietę i ustala `NETTO`/`BRUTTO`
+**wyłącznie** przy jawnym słowie na stronie — **żadnego przeliczania VAT**.
+Do rozstrzygnięcia w planie adaptera: czy podstawę wnioskować per sprzedawca.
+
+**Najwyższa oferta — publiczny endpoint, nie wołany.** Strona szczegółów
+pokazuje „pobieranie danych…" i dociąga ofertę JS-em:
+`POST /WebService/PasekInformacyjny/` z `{id}` → JSON `{kwota, twoja_oferta}`,
+odpytywane anonimowo co 2 s. Endpoint jest publiczny, ale `pomiar_dawro.py`
+go **zapisuje w raporcie, nie wywołuje** (§4, akapit o JS). Serwerowo
+najwyższą ofertę widać tylko na kafelku listy.
+
+**Czas do końca (punkt d).** Dwa źródła, oba serwerowe:
+`Zegar.odliczanie(<unix>)` w skrypcie strony — **znacznik uniksowy co do
+sekundy** — oraz tekst „Czas trwania: od `<data>` do `<data> HH:MM`"
+z rozdzielczością minuty. Parser bierze znacznik uniksowy.
+
+**Marker stanu końcowego — TYLKO po stronie klienta.** Odliczanie i tekst
+„Aukcja zakończona!" wpisuje w `#czas-do-konca` JavaScript (`Zegar`), więc
+`curl` ich nie zobaczy — literał `'Aukcja zakończona!'` siedzi w źródle
+zawsze i **nie jest sygnałem**. Serwerowe sygnały są strukturalne:
+obecność `div.pasek-informacyjny-licytacji`, obecność `a.przycisk-przystap`.
+Który z nich znika po zakończeniu — **rozstrzygnie pomiar domknięcia**;
+tak samo jak dla EFL nie zgaduję tego przed pomiarem (§4.1).
+
+**Licytacja za logowaniem.** Przycisk „PRZYSTĄP DO AUKCJI" prowadzi do
+`Dialog.logowanie()`. Strona ładuje `recaptcha/api.js`. Formularze
+logowania/rejestracji są modalne (JS). Adapter anonimowy zbierze cenę,
+termin, VIN i całą resztę pól opisowych; liczby i historii ofert nie.
+
+**Galeria.** `a.jackbox[href="/cache/zdjecia/…"]` w `#zdjecie-male`.
+bxSlider klonuje pierwszy i ostatni slajd dla pętli — `pomiar_dawro.py`
+odsiewa duplikaty. Dostępność pierwszego i ostatniego zdjęcia każdej aukcji
+sprawdzona (`--probe-images all` sprawdza wszystkie); w próbce 24/24 OK.
+
+**robots.txt.** `User-Agent: *` → `Allow: /`, `Sitemap:
+https://www.dawro.pl/sitemap.xml`. Bez `Disallow`.
+
+**Nagłówki.** `Server: Apache`, `Content-Type: text/html` (bez charset na
+stronie aukcji), brak `ETag`/`Last-Modified`, brak nagłówków limitu tempa.
+
+**Werdykt: `httpx` wystarczy** do ceny, terminu, VIN-u, galerii i pól
+opisowych. Domyślne tempo skanu w narzędziu to 20 żądań/min.
+
+**Do zmierzenia (punkty b, c, e, g):** pomiar domknięcia jednej aukcji —
+`python3 tools/pomiar_dawro.py` bliżej terminu albo z `--url <URL>`.
+Wynik uzupełni drabinkę domknięcia i potwierdzi, który sygnał strukturalny
+znika po zakończeniu.
+
 ## 5. Które serwisy obsłuży sam `httpx` (§4 pkt 3)
 
 **Wszystkie cztery. Playwright nie jest potrzebny.**
