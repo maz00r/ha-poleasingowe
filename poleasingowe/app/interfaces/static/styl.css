@@ -1699,10 +1699,14 @@ h2 { color: var(--tekst); font-size: 12px; font-weight: 800; letter-spacing: 0.1
 .siatka strong { color: var(--tekst); font-size: 14px; font-weight: 700; }
 
 code { border-radius: 6px; background: #171a1f; color: #dce1e7; }
-.galeria { margin: 24px 0 0; }
+/* `display: block` celowo: wczesniejsza regula `.galeria` (sprzed przebudowy)
+   robi z sekcji grid, przez co `.galeria-miniatury` dostaje jedna waska
+   kolumne i miniatury ukladaja sie pionowo. Sekcja ma byc tylko odstepem —
+   siatka miniatur zyje w `.galeria-miniatury`. */
+.galeria { display: block; margin: 24px 0 0; }
 .galeria-miniatury {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
   gap: 10px;
 }
 .galeria-miniatura {
@@ -1797,6 +1801,17 @@ code { border-radius: 6px; background: #171a1f; color: #dce1e7; }
 .galeria-nawigacja:focus-visible,
 .galeria-zamknij:hover,
 .galeria-zamknij:focus-visible { border-color: var(--akcent); color: var(--akcent); }
+
+/* Kontrolki galerii to <button>, wiec bez tego lapia globalne
+   `button:hover { background: #ff6d52 }` — i cale tlo modala robi sie
+   pomaranczowe, gdy tylko najedziesz myszka. Kazda z nich wraca tu do
+   wlasnego tla. */
+.galeria-modal-tlo,
+.galeria-modal-tlo:hover { background: rgb(0 0 0 / 82%); }
+.galeria-miniatura:hover { background: var(--karta-2); }
+.galeria-nawigacja:hover,
+.galeria-zamknij:hover { background: rgb(23 26 31 / 88%); }
+
 body.galeria-otwarta { overflow: hidden; }
 .linki { margin: 20px 0 0; }
 .linki a { color: var(--akcent); font-weight: 700; }
