@@ -1,5 +1,15 @@
 # Historia zmian
 
+## 0.28.2 — w przygotowaniu
+
+**Poprawka galerii zdjęć.** Miniatury w szczegółach aukcji układają się teraz
+obok siebie, a nie w jednej pionowej kolumnie — stara reguła sprzed przebudowy
+robiła z sekcji galerii siatkę, przez co pas miniatur ściskał się do jednej
+kolumny. W powiększeniu tło dookoła zdjęcia jest wygaszoną stroną zamiast
+pomarańczowej płachty: przyciski galerii (tło modala, strzałki, zamknięcie)
+łapały globalny styl `button:hover`, więc najechanie myszą zalewało cały
+modal kolorem akcentu.
+
 ## 0.28.1 — w przygotowaniu
 
 **Poprawka karty aukcji.** Szczegóły aukcji nie podświetlają już zakładki
