@@ -2,6 +2,14 @@
 {% block tytul %}Lista aukcji{% endblock %}
 {% block tresc %}
 
+<header class="naglowek-listy">
+  <p class="nadtytul">KATALOG AUKCJI</p>
+  <div>
+    <h1>Znajdź następny samochód.</h1>
+    <p>Porównuj aktualne oferty z wielu serwisów w jednym miejscu.</p>
+  </div>
+</header>
+
 {# Filtry ida zwyklym GET-em, nie HTMX-em: dzieki temu kazdy zestaw filtrow
    ma wlasny adres, ktory da sie zapisac i wkleic. HTMX obsluguje wylacznie
    doladowanie kolejnej strony i przelaczanie obserwacji.
@@ -23,7 +31,13 @@
 </nav>
 {% endif %}
 
+<div class="katalog-uklad">
+<aside class="panel-filtrow">
 <form class="filtry" method="get" action="{{ sciezka(request, 'lista') }}">
+  <div class="tytul-filtrow">
+    <span>FILTRY</span>
+    <span>Wyniki aktualizują się po zatwierdzeniu</span>
+  </div>
 
   {# Wybor wielokrotny bez ani jednej linii JS: <details> otwiera liste,
      a w srodku stoja zwykle checkboxy o tej samej nazwie. Adres niesie
@@ -209,6 +223,9 @@
   {% endif %}
 </section>
 
+</aside>
+<section class="wyniki-aukcji" aria-label="Wyniki aukcji">
+
 {% if strona.pozycje %}
 <div class="nad-lista">
   <p class="podsumowanie">
@@ -251,4 +268,6 @@
     {% endif %}
   </section>
 {% endif %}
+</section>
+</div>
 {% endblock %}

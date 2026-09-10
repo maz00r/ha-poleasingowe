@@ -1,5 +1,20 @@
 # Historia zmian
 
+## 0.27.2 — w przygotowaniu
+
+**Nowy interfejs katalogu aukcji.** Lista otrzymała ciemny, kontrastowy układ
+z bocznym panelem filtrów, wyraźniejszą hierarchią danych i siatką ofert
+inspirowaną przekazanym projektem GUI. Przeprojektowane zostały także pasek
+nawigacji, karta aukcji oraz widoki diagnostyczne. Wszystkie dane, filtry,
+odsyłacze i doładowywanie HTMX działają jak wcześniej; wersja zmienia adres
+arkusza stylów, aby Home Assistant nie zachował poprzedniego motywu w cache.
+
+## 0.27.1 — w przygotowaniu
+
+**Doładowanie listy nie zmienia pozycji widoku.** Skrypt odtwarzający listę
+po powrocie z karty usuwa swój nasłuch HTMX po zakończeniu odtwarzania i nie
+reaguje na zwykłe kliknięcia „Wczytaj kolejne 50”.
+
 ## 0.27.0 — w przygotowaniu
 
 **Zniknięcie aukcji wymaga dwóch pełnych skanów listy.** Strona błędu, WAF,

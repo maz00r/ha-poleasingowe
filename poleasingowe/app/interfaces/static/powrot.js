@@ -66,6 +66,24 @@
     var docelowo = Math.min(stan.strony, MAKS_STRON * 50);
     var prob = 0;
 
+    // Gdy stan wymaga tylko pierwszej strony, lista jest już odtworzona.
+    // Nie rejestrujemy wtedy `htmx:afterSwap`: taki globalny nasłuch
+    // reagował później na zwykłe kliknięcie „Wczytaj kolejne 50” i cofał
+    // widok do starego `stan.y`, często równego zero.
+    if (siatka.querySelectorAll(".oferta").length >= docelowo) {
+      window.scrollTo(0, stan.y);
+      return;
+    }
+
+    function poPodmianie() {
+      window.scrollTo(0, stan.y);
+    }
+
+    function zakonczOdtwarzanie() {
+      document.body.removeEventListener("htmx:afterSwap", poPodmianie);
+      window.scrollTo(0, stan.y);
+    }
+
     // Ponawianie zamiast jednego kliknięcia: HTMX podpina przycisk we
     // własnym `DOMContentLoaded`, a klik wykonany zanim to zrobi jest
     // zwykłym kliknięciem w martwy przycisk — bez żądania i bez zdarzenia,
@@ -75,7 +93,7 @@
       var teraz = siatka.querySelectorAll(".oferta").length;
       var przycisk = document.querySelector("#dalej .wczytaj-wiecej");
       if (teraz >= docelowo || !przycisk || prob >= 40) {
-        window.scrollTo(0, stan.y);
+        zakonczOdtwarzanie();
         return;
       }
       prob += 1;
@@ -83,11 +101,9 @@
       setTimeout(dociagnij, 250);
     }
 
-    // Każda doładowana strona wywołuje `htmx:afterSwap` — wtedy próbujemy
-    // od razu, nie czekając na kolejny takt.
-    document.body.addEventListener("htmx:afterSwap", function () {
-      window.scrollTo(0, stan.y);
-    });
+    // Każda doładowana strona wywołuje `htmx:afterSwap`; zanim następny takt
+    // pobierze ewentualną kolejną, przywracamy zapamiętaną pozycję.
+    document.body.addEventListener("htmx:afterSwap", poPodmianie);
     dociagnij();
   }
 
