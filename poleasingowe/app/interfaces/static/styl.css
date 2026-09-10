@@ -585,11 +585,6 @@ button:hover { filter: brightness(1.1); }
 /* Stany, które mają być widoczne bez czytania: w limicie ceny, ponad
    limitem i po terminie (SPEC.md §12). Na aukcji cena tylko rośnie, więc
    przejście z zieleni w czerwień jest jednokierunkowe i dlatego czytelne. */
-.oferta.ponizej-progu { border-color: var(--sukces); }
-.oferta.ponizej-progu .kwota { color: var(--sukces); }
-.oferta.ponad-limitem { border-color: var(--alarm); }
-.oferta.ponad-limitem .kwota { color: var(--alarm); }
-.ponad-limitem-info { color: var(--alarm); font-weight: 600; }
 .oferta.po-terminie { opacity: 0.72; }
 .oferta.po-terminie:hover { opacity: 1; }
 
@@ -832,23 +827,38 @@ button:hover { filter: brightness(1.1); }
    sklejonymi bez odstepu: obwodka fokusu pola „cena docelowa" (2 px z
    offsetem) wchodzila na przycisk pod spodem, a pole na kwote rozciagalo
    sie na cala szerokosc karty. */
-.formularz-obserwacji {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 16px;
-  align-items: flex-start;
+.obserwowanie-szczegoly { margin-top: 12px; }
+.przycisk-obserwacji {
+  width: 100%;
+  min-height: 38px;
+  border: 1px solid var(--obramowanie-mocna);
+  border-radius: 10px;
+  background: transparent;
+  color: var(--tekst);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
 }
-.formularz-obserwacji .pole.szerokie { flex: 1 1 300px; }
-.formularz-obserwacji .pole.cena-docelowa { flex: 0 1 220px; }
-/* Przyciski rownaja sie do pol, a nie do ich etykiet — stad odsuniecie
-   o wysokosc etykiety. */
-.formularz-obserwacji .przyciski { flex: 0 0 auto; padding-top: 22px; }
-
-.podpowiedz {
-  font-size: 11px;
-  line-height: 1.35;
-  color: var(--przygaszony);
+.przycisk-obserwacji:hover { border-color: var(--akcent); color: var(--akcent); filter: none; }
+.przycisk-obserwacji.wlaczony { background: var(--akcent); border-color: var(--akcent); color: var(--akcent-tekst); }
+.notatka-aukcji { margin-top: 8px; text-align: left; }
+.notatka-aukcji summary { cursor: pointer; color: var(--przygaszony); font-size: 12px; }
+.notatka-aukcji form { display: flex; gap: 6px; margin-top: 8px; }
+.notatka-aukcji input { min-width: 0; flex: 1; padding: 7px 9px; font-size: 12px; }
+.notatka-aukcji button { padding: 7px 10px; font-size: 12px; }
+.podsumowanie-licytacji {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(155px, 1fr));
+  gap: 1px;
+  margin: 14px 0 18px;
+  border: 1px solid var(--obramowanie);
+  border-radius: var(--promien-maly);
+  overflow: hidden;
 }
+.podsumowanie-licytacji > div { padding: 12px 14px; background: var(--tlo-pola); }
+.podsumowanie-licytacji span,
+.podsumowanie-licytacji small { display: block; color: var(--przygaszony); font-size: 10px; letter-spacing: .08em; text-transform: uppercase; }
+.podsumowanie-licytacji strong { display: block; margin-top: 4px; font-size: 17px; }
 
 .linki { margin-top: 18px; font-size: 13px; }
 .linki a { font-weight: 600; text-decoration: none; }
@@ -938,7 +948,6 @@ table.zestawienie tr.ostrzezenie td {
 .ostrzezenie-inline { color: var(--alarm); font-weight: 600; }
 .uwaga { color: var(--przygaszony); }
 .pusto { color: var(--przygaszony); padding: 16px 0; }
-.ponizej-progu-info { color: var(--sukces); font-weight: 600; }
 
 code {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
@@ -1625,10 +1634,6 @@ button:hover { filter: none; background: #ff6d52; }
   color: var(--akcent-tekst);
   text-decoration: none;
 }
-.oferta.ponizej-progu { border-color: var(--sukces); }
-.oferta.ponizej-progu .kwota { color: var(--sukces); }
-.oferta.ponad-limitem { border-color: var(--alarm); }
-.oferta.ponad-limitem .kwota { color: var(--alarm); }
 .oferta.po-terminie { opacity: 0.65; }
 
 .dalej { padding: 16px 0 2px; }
@@ -1729,7 +1734,6 @@ code { border-radius: 6px; background: #171a1f; color: #dce1e7; }
 .suwak-uchwyt::-moz-range-track { height: 4px; background: transparent; }
 .suwak-uchwyt::-webkit-slider-thumb { margin-top: -6px; }
 .ostrzezenie-inline { color: #ffad9b; }
-.ponizej-progu-info { color: var(--sukces); }
 
 @media (max-width: 900px) {
   .zawartosc,

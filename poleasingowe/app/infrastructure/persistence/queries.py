@@ -33,9 +33,11 @@ from app.application.read_models import (
     Strona,
     Szczegoly,
     Zakres,
+    ZdarzenieLicytacji,
 )
 from app.domain.enums import (
     AuctionStatus,
+    BidCountSemantics,
     Currency,
     FinalPriceState,
     PollTier,
@@ -86,7 +88,7 @@ KOLUMNY_LISTY = sql.SQL("""
     a.location, a.price_start, a.price_current, a.currency, a.bid_count,
     a.ends_at, a.first_seen_at, a.final_price_state,
     (w.auction_id IS NOT NULL) AS obserwowana,
-    w.target_price, w.currency AS target_currency, w.note
+    w.note
 """)
 
 ZRODLO_LISTY = sql.SQL("""
@@ -103,14 +105,11 @@ SELECT
     a.location, a.price_start, a.price_current, a.currency, a.bid_count,
     a.ends_at, a.first_seen_at, a.final_price_state,
     (w.auction_id IS NOT NULL) AS obserwowana,
-    w.target_price, w.currency AS target_currency, w.note,
+    w.note,
     a.vin, a.body, a.color, a.engine_ccm, a.engine_hp, a.seller,
     a.bid_increment_raw, a.last_seen_at, a.next_poll_at, a.poll_tier,
     a.last_price_lead_seconds, a.duplicate_of,
-    -- 'OFFERS' znaczy, ze licznik zlicza POSTAPIENIA, a lista ofert jest
-    -- chronologia licytacji. Przy 'PARTICIPANTS' (EFL) nie jest — RECON.md
-    -- §3.5a — i wtedy karta jej nie pokazuje.
-    (s.bid_count_semantics = 'OFFERS') AS historia_ofert
+    s.bid_count_semantics AS semantyka_licznika
 FROM app.auction AS a
 JOIN app.source AS s ON s.id = a.source_id
 LEFT JOIN app.watchlist AS w ON w.auction_id = a.id
@@ -202,6 +201,7 @@ SELECT
     o.amount,
     o.currency,
     o.placed_at,
+    o.first_seen_at,
     row_number() OVER (ORDER BY o.amount DESC, o.placed_at) = 1 AS najwyzsza
 FROM app.offer AS o
 WHERE o.auction_id = %(auction_id)s
@@ -350,7 +350,6 @@ def _na_pozycje(w: dict[str, Any]) -> PozycjaListy:
         first_seen_at=w["first_seen_at"],
         final_price_state=FinalPriceState(w["final_price_state"]),
         obserwowana=w["obserwowana"],
-        cena_docelowa=_money(w["target_price"], w["target_currency"]),
         notatka=w["note"],
     )
 
@@ -598,7 +597,7 @@ class PgZapytania:
             poll_tier=PollTier(wiersz["poll_tier"]),
             last_price_lead_seconds=wiersz["last_price_lead_seconds"],
             duplicate_of=wiersz["duplicate_of"],
-            historia_ofert=wiersz["historia_ofert"],
+            semantyka_licznika=BidCountSemantics(wiersz["semantyka_licznika"]),
         )
 
     async def porownania_rynkowe(
@@ -666,10 +665,68 @@ class PgZapytania:
             OfertaNaKarcie(
                 amount=Money(w["amount"], Currency(w["currency"])),
                 placed_at=w["placed_at"],
+                first_seen_at=w["first_seen_at"],
                 najwyzsza=w["najwyzsza"],
             )
             for w in wiersze
         )
+
+    async def przebieg_licytacji(
+        self, auction_id: int, semantyka_licznika: BidCountSemantics
+    ) -> tuple[ZdarzenieLicytacji, ...]:
+        """Łączy dokładne oferty z naszymi odczytami bez fałszywych duplikatów."""
+        historia = await self.historia_cen(auction_id)
+        oferty = (
+            await self.oferty(auction_id)
+            if semantyka_licznika is BidCountSemantics.OFFERS
+            else ()
+        )
+
+        # Oferta i snapshot z jednej odpowiedzi dispatchera mają ten sam
+        # `first_seen_at`/`ts`. Gdy cena się zgadza, oferta daje dokładny czas,
+        # a snapshot uzupełnia licznik lub dogrywkę; zamiast dwóch wierszy
+        # pokazujemy jeden.
+        snapshoty = list(historia)
+        wynik: list[ZdarzenieLicytacji] = []
+        zuzyte: set[int] = set()
+        for oferta in oferty:
+            indeks = next(
+                (
+                    i
+                    for i, punkt in enumerate(snapshoty)
+                    if i not in zuzyte
+                    and punkt.ts == oferta.first_seen_at
+                    and punkt.price == oferta.amount
+                ),
+                None,
+            )
+            punkt = snapshoty[indeks] if indeks is not None else None
+            if indeks is not None:
+                zuzyte.add(indeks)
+            wynik.append(
+                ZdarzenieLicytacji(
+                    ts=oferta.placed_at,
+                    price=oferta.amount,
+                    dokladna_oferta=True,
+                    bid_count=None if punkt is None else punkt.bid_count,
+                    ends_at=None if punkt is None else punkt.ends_at,
+                    bid_gap=None if punkt is None else punkt.bid_gap,
+                    najwyzsza=oferta.najwyzsza,
+                )
+            )
+        wynik.extend(
+            ZdarzenieLicytacji(
+                ts=punkt.ts,
+                price=punkt.price,
+                bid_count=punkt.bid_count,
+                ends_at=punkt.ends_at,
+                bid_gap=punkt.bid_gap,
+            )
+            for i, punkt in enumerate(snapshoty)
+            if i not in zuzyte
+        )
+        uporzadkowane = sorted(wynik, key=lambda zdarzenie: zdarzenie.ts, reverse=True)
+        return tuple(uporzadkowane[:200])
 
     async def powiazane_wystawienia(
         self, auction_id: int

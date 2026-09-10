@@ -16,14 +16,13 @@ from typing import Protocol, runtime_checkable
 from app.application.read_models import (
     Kryteria,
     Kursor,
-    OfertaNaKarcie,
     PorownanieRynkowe,
     PowiazaneWystawienie,
-    PunktHistorii,
     StanZrodla,
     Strona,
     Szczegoly,
     Zakres,
+    ZdarzenieLicytacji,
 )
 from app.domain.entities import (
     Auction,
@@ -35,7 +34,7 @@ from app.domain.entities import (
     WatchlistEntry,
     WycenaAukcji,
 )
-from app.domain.enums import PollTier
+from app.domain.enums import BidCountSemantics, PollTier
 from app.domain.value_objects import Vin
 
 
@@ -111,6 +110,10 @@ class OfertaRepository(Protocol):
 
 class WatchlistRepository(Protocol):
     async def dodaj(self, wpis: WatchlistEntry) -> WatchlistEntry: ...
+
+    async def zapisz_notatke(
+        self, auction_id: int, note: str | None
+    ) -> WatchlistEntry | None: ...
     async def usun(self, auction_id: int) -> bool: ...
     async def obserwowana(self, auction_id: int) -> bool: ...
     async def wpis(self, auction_id: int) -> WatchlistEntry | None: ...
@@ -355,17 +358,9 @@ class Zapytania(Protocol):
         """
         ...
 
-    async def historia_cen(self, auction_id: int) -> tuple[PunktHistorii, ...]:
-        """Przebieg licytacji jednej aukcji (§8.4).
-
-        Snapshoty powstają tylko przy zmianie, więc to lista zdarzeń,
-        a nie pomiar co N minut.
-        """
-        ...
-
-    async def oferty(self, auction_id: int) -> tuple[OfertaNaKarcie, ...]:
-        """Oferty ze strony aukcji (SPEC.md §11.8). Pusto, gdy źródło ich nie daje."""
-        ...
+    async def przebieg_licytacji(
+        self, auction_id: int, semantyka_licznika: BidCountSemantics
+    ) -> tuple[ZdarzenieLicytacji, ...]: ...
 
     async def powiazane_wystawienia(
         self, auction_id: int

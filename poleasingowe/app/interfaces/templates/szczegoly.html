@@ -66,66 +66,43 @@
   </div>
 </section>
 
-<section class="karta" id="obserwacja">
-  {% include "fragmenty/obserwacja.html" %}
-</section>
-
-{% if oferty %}
-<section class="karta">
-  <h2>Oferty</h2>
-  <p class="drobne podtytul">
-    Kolejne postąpienia tak, jak podaje je serwis — od najnowszego.
-  </p>
-  {# SPEC.md §11.8. Ta sekcja pojawia sie WYLACZNIE dla zrodel, w ktorych
-     lista ofert jest chronologia licytacji (`bid_count_semantics = OFFERS`).
-     Tabela EFL nia nie jest — RECON.md §3.5a. #}
-  <table class="zestawienie">
-    <thead>
-      <tr><th>Kiedy</th><th>Kwota</th></tr>
-    </thead>
-    <tbody>
-      {% for oferta in oferty %}
-        <tr>
-          <td>{{ oferta.placed_at | czas_lokalny(z_sekundami=True) }}</td>
-          <td class="kwota">
-            {{ oferta.amount | kwota }}
-            {%- if oferta.najwyzsza %}
-              <span class="znacznik najwyzsza">najwyższa</span>
-            {%- endif %}
-          </td>
-        </tr>
-      {% endfor %}
-    </tbody>
-  </table>
-  <p class="drobne">
-    Serwis pokazuje na stronie tylko <strong>dziesięć ostatnich</strong> ofert
-    i czyści tę listę kilka minut po zakończeniu aukcji. Wcześniejsze mamy
-    o tyle, o ile zdążyliśmy je zobaczyć — najwięcej dla aukcji obserwowanych,
-    bo tylko te odpytujemy często. Ceny wywoławczej serwis nie podaje w ogóle.
-  </p>
-</section>
-{% endif %}
-
-{% if historia %}
+{% if przebieg or p.price_start or p.price_current %}
 <section class="karta">
   <h2>Przebieg licytacji</h2>
-  <p class="drobne podtytul">
-    Historia ceny bieżącej — tej, którą trzeba przebić, żeby licytować.
-  </p>
-  {# Snapshot powstaje TYLKO przy zmianie ceny, liczby ofert albo terminu
-     (§8.4), wiec to lista zdarzen, a nie pomiar co N minut. Odstep miedzy
-     wierszami mowi o licytacji, nie o naszym harmonogramie. #}
+  {% set cena_poczatkowa = p.price_start or (przebieg[-1].price if przebieg else none) %}
+  <div class="podsumowanie-licytacji">
+    <div>
+      <span>{{ 'Cena wywoławcza' if p.price_start else 'Pierwsza zaobserwowana' }}</span>
+      <strong class="kwota">{{ cena_poczatkowa | kwota }}</strong>
+    </div>
+    <div>
+      <span>{{ 'Cena końcowa' if p.status.value != 'ACTIVE' else 'Cena bieżąca' }}</span>
+      <strong class="kwota">{{ p.price_current | kwota }}</strong>
+      {% if p.status.value != 'ACTIVE' %}<small>{{ p.final_price_state.value }}</small>{% endif %}
+    </div>
+    {% if p.bid_count is not none %}
+      <div>
+        <span>{{ 'Ofert' if dane.semantyka_licznika.value == 'OFFERS' else 'Uczestników' if dane.semantyka_licznika.value == 'PARTICIPANTS' else 'Licznik serwisu' }}</span>
+        <strong>{{ p.bid_count }}</strong>
+      </div>
+    {% endif %}
+  </div>
+  {% if przebieg %}
   <table class="zestawienie">
     <thead>
-      <tr><th>Kiedy</th><th>Cena</th><th>Ofert</th><th>Koniec</th></tr>
+      <tr><th>Kiedy</th><th>Cena</th><th>Informacja</th><th>Koniec</th></tr>
     </thead>
     <tbody>
-      {% for punkt in historia %}
+      {% for punkt in przebieg %}
         <tr>
           <td>{{ punkt.ts | czas_lokalny(z_sekundami=True) }}</td>
-          <td class="kwota">{{ punkt.price | kwota }}</td>
+          <td class="kwota">
+            {{ punkt.price | kwota }}
+            {%- if punkt.najwyzsza %}<span class="znacznik najwyzsza">najwyższa</span>{% endif %}
+          </td>
           <td>
-            {{ punkt.bid_count if punkt.bid_count is not none else '—' }}
+            <span class="etykieta">{{ 'oferta z serwisu' if punkt.dokladna_oferta else 'odczyt aplikacji' }}</span>
+            {% if punkt.bid_count is not none %} · {{ punkt.bid_count }}{% endif %}
             {% if punkt.bid_gap %}
               <span class="drobne">(+{{ punkt.bid_gap }} przegapionych)</span>
             {% endif %}
@@ -135,9 +112,8 @@
       {% endfor %}
     </tbody>
   </table>
-  <p class="drobne">
-    Zapisujemy wyłącznie zmiany — odpyt bez zmiany ceny nie tworzy wiersza.
-  </p>
+  {% endif %}
+  <p class="drobne">Oferty mają czas podany przez serwis, a odczyty pokazują chwile, w których aplikacja zauważyła zmianę.</p>
 </section>
 {% endif %}
 

@@ -84,6 +84,23 @@ async def test_powstaly_wszystkie_tabele_i_indeksy(
     ), "identyfikator oferty z serwisu rozstrzyga duplikaty (`013`)"
 
 
+async def test_watchlista_ma_notatke_bez_ceny_docelowej(
+    pusta_baza: psycopg.AsyncConnection,
+) -> None:
+    async with pusta_baza.cursor() as cur:
+        await cur.execute(
+            "SELECT column_name FROM information_schema.columns "
+            "WHERE table_schema = 'app' AND table_name = 'watchlist' "
+            "ORDER BY ordinal_position"
+        )
+        kolumny = [wiersz[0] for wiersz in await cur.fetchall()]
+        await cur.execute(
+            "SELECT watch_target_price FROM reporting.v_auction_current LIMIT 1"
+        )
+        assert await cur.fetchone() is None
+    assert kolumny == ["id", "auction_id", "note", "added_at"]
+
+
 async def test_indeks_na_next_poll_jest_czesciowy(
     pusta_baza: psycopg.AsyncConnection,
 ) -> None:

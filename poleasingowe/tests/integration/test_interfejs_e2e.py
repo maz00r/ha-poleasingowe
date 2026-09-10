@@ -130,6 +130,7 @@ async def test_szczegoly_linkuja_do_oferty_i_do_grafany(
     odp = await klient.get(f"/aukcja/{identyfikatory['audi-za-godzine']}")
     assert odp.status_code == 200
     assert "WAUZZZ4G7KN123456" in odp.text
+    assert "Lokalizacja" in odp.text and "Warszawa" in odp.text
     assert "https://przyklad.test/audi-za-godzine" in odp.text
     assert "Wycena AI" in odp.text
     assert f"aukcja/{identyfikatory['audi-za-godzine']}/wycena" in odp.text
@@ -171,15 +172,10 @@ async def test_karta_pokazuje_historie_ceny_biezacej(
     assert "57" in odp.text and "52" in odp.text, "obie ceny w historii"
 
 
-async def test_oferty_widac_tylko_tam_gdzie_sa_chronologia_licytacji(
+async def test_przebieg_laczy_dokladne_oferty_ze_snapshotami(
     klient: httpx.AsyncClient, pusta_baza: psycopg.AsyncConnection
 ) -> None:
-    """SPEC.md §11.8 razem z RECON.md §3.5a — bramka po semantyce licznika.
-
-    Dla `OFFERS` lista ofert jest przebiegiem licytacji i karta ją pokazuje.
-    Dla `PARTICIPANTS` (EFL) nie jest — pokazana raz, wprowadzała w błąd,
-    bo niższa kwota z późniejszą datą wygląda na przekłamane dane.
-    """
+    """Jedna historia pokazuje dokładne oferty tylko, gdy są chronologiczne."""
     identyfikatory = await _dane(pusta_baza)
     aukcja_id = identyfikatory["audi-za-godzine"]
     uow = PgUnitOfWork(pusta_baza)
@@ -204,14 +200,15 @@ async def test_oferty_widac_tylko_tam_gdzie_sa_chronologia_licytacji(
     async with pusta_baza.cursor() as cur:
         await cur.execute("UPDATE app.source SET bid_count_semantics = 'PARTICIPANTS'")
     bez_ofert = await klient.get(f"/aukcja/{aukcja_id}")
-    assert "332" not in bez_ofert.text, "przy PARTICIPANTS lista ofert się nie pokazuje"
+    assert "332" not in bez_ofert.text, "uczestników EFL nie pokazujemy jako ofert"
 
     async with pusta_baza.cursor() as cur:
         await cur.execute("UPDATE app.source SET bid_count_semantics = 'OFFERS'")
     z_ofertami = await klient.get(f"/aukcja/{aukcja_id}")
 
-    assert "Oferty" in z_ofertami.text
+    assert "Przebieg licytacji" in z_ofertami.text
     assert "332" in z_ofertami.text
+    assert "oferta z serwisu" in z_ofertami.text
     assert "najwyższa" in z_ofertami.text, "widać, która oferta prowadzi"
 
 
@@ -223,61 +220,33 @@ async def test_nieistniejaca_aukcja_daje_404_a_nie_500(
     assert "Nie ma takiej aukcji" in odp.text
 
 
-async def test_obserwowanie_zapisuje_notatke_i_prog(
+async def test_obserwowanie_w_szczegolach_zapisuje_notatke(
     klient: httpx.AsyncClient, pusta_baza: psycopg.AsyncConnection
 ) -> None:
-    """SPEC.md §12 — dodaj/usuń, notatka, cena docelowa, wyróżnienie progu."""
+    """Szczegóły nie mają osobnego panelu: notatka jest przy obserwowaniu."""
     identyfikatory = await _dane(pusta_baza)
     identyfikator = identyfikatory["audi-za-tydzien"]
 
+    karta = await klient.get(f"/aukcja/{identyfikator}")
+    assert "Obserwacja" not in karta.text
+    assert "Cena docelowa" not in karta.text
+    assert "Obserwuj" in karta.text
+
+    odp = await klient.post(f"/aukcja/{identyfikator}/przelacz?wariant=szczegoly")
+    assert odp.status_code == 200
+    assert "Obserwowane" in odp.text
+    assert "Dodaj notatkę" in odp.text
+
     odp = await klient.post(
-        f"/aukcja/{identyfikator}/obserwuj",
-        data={"notatka": "sprawdzić opony", "cena_docelowa": "95 000,50"},
+        f"/aukcja/{identyfikator}/notatka", data={"notatka": "sprawdzić opony"}
     )
     assert odp.status_code == 200
-    assert "sprawdzić opony" in odp.text
-    assert "Przestań obserwować" in odp.text
-    # 90 000 zł jest poniżej progu 95 000,50 zł — wyróżnienie ma się zapalić.
-    assert "mieści się w limicie" in odp.text
+    assert "Edytuj notatkę" in odp.text
 
     async with FabrykaNaPolaczeniu(pusta_baza)() as kontekst:
         wpis = await kontekst.uow.watchlist.wpis(identyfikator)
     assert wpis is not None
     assert wpis.note == "sprawdzić opony"
-    assert wpis.target_price is not None
-    assert str(wpis.target_price.amount) == "95000.50"
-
-
-async def test_zaprzestanie_obserwacji_usuwa_wpis(
-    klient: httpx.AsyncClient, pusta_baza: psycopg.AsyncConnection
-) -> None:
-    identyfikatory = await _dane(pusta_baza)
-    identyfikator = identyfikatory["vw-za-dwie-godziny"]
-
-    odp = await klient.post(f"/aukcja/{identyfikator}/przestan-obserwowac")
-    assert odp.status_code == 200
-    assert "Przestań obserwować" not in odp.text
-
-    async with FabrykaNaPolaczeniu(pusta_baza)() as kontekst:
-        assert not await kontekst.uow.watchlist.obserwowana(identyfikator)
-
-
-async def test_bezsensowna_cena_docelowa_nie_wywala_zapisu(
-    klient: httpx.AsyncClient, pusta_baza: psycopg.AsyncConnection
-) -> None:
-    """Wpisane „tanio" ma znaczyć „bez progu", a nie zerwać obserwację."""
-    identyfikatory = await _dane(pusta_baza)
-    identyfikator = identyfikatory["audi-za-tydzien"]
-
-    odp = await klient.post(
-        f"/aukcja/{identyfikator}/obserwuj",
-        data={"notatka": "", "cena_docelowa": "tanio"},
-    )
-    assert odp.status_code == 200
-
-    async with FabrykaNaPolaczeniu(pusta_baza)() as kontekst:
-        wpis = await kontekst.uow.watchlist.wpis(identyfikator)
-    assert wpis is not None and wpis.target_price is None
 
 
 async def test_zapisany_filtr_wraca_na_liste(

@@ -90,28 +90,6 @@ def test_bez_marki_i_modelu_zostaje_identyfikator() -> None:
     assert pozycja().nazwa == "435508"
 
 
-def test_wyroznienie_progu_wymaga_i_ceny_i_progu() -> None:
-    """SPEC.md §12 — brak którejkolwiek liczby znaczy „nie wiadomo", nie „tak"."""
-    cena = Money(Decimal("40000"), Currency.PLN)
-    prog = Money(Decimal("45000"), Currency.PLN)
-    assert pozycja(price_current=cena, cena_docelowa=prog).ponizej_progu
-    assert not pozycja(price_current=cena).ponizej_progu
-    assert not pozycja(cena_docelowa=prog).ponizej_progu
-
-
-def test_prog_zadziala_takze_przy_rownosci() -> None:
-    cena = Money(Decimal("45000"), Currency.PLN)
-    assert pozycja(price_current=cena, cena_docelowa=cena).ponizej_progu
-
-
-def test_progu_nie_porownujemy_miedzy_walutami() -> None:
-    """45 000 EUR to nie 45 000 PLN — porównanie byłoby po prostu błędem."""
-    assert not pozycja(
-        price_current=Money(Decimal("40000"), Currency.PLN),
-        cena_docelowa=Money(Decimal("45000"), Currency.EUR),
-    ).ponizej_progu
-
-
 def test_kwota_w_polu_nie_dokleja_zer_ani_waluty() -> None:
     """Pole formularza to nie to samo co kwota do czytania.
 

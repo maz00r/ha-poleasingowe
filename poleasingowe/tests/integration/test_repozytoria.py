@@ -74,6 +74,21 @@ async def test_source_zapis_odczyt_i_upsert(
     assert zaktualizowane.name == "EFL nowa nazwa"
 
 
+async def test_pusty_szczegol_nie_kasuje_lokalizacji_z_listy(
+    pusta_baza: psycopg.AsyncConnection,
+) -> None:
+    uow = PgUnitOfWork(pusta_baza)
+    source = await uow.source.zapisz(zrodlo())
+    assert source.id is not None
+
+    z_listy = await uow.auction.zapisz(
+        aukcja(source.id, location="Warszawa, Kasztanowa 5")
+    )
+    ze_szczegolow = await uow.auction.zapisz(aukcja(source.id, location=None))
+    assert ze_szczegolow.id == z_listy.id
+    assert ze_szczegolow.location == "Warszawa, Kasztanowa 5"
+
+
 async def test_source_wlaczone_pomija_wylaczone(
     pusta_baza: psycopg.AsyncConnection,
 ) -> None:
@@ -393,11 +408,10 @@ async def test_watchlist_dodaj_sprawdz_usun(
             auction_id=aid,
             added_at=TERAZ,
             note="sprawdzić lakier",
-            target_price=Money(Decimal("45000.00"), Currency.PLN),
         )
     )
     assert wpis.id is not None
-    assert wpis.target_price == Money(Decimal("45000.00"), Currency.PLN)
+    assert wpis.note == "sprawdzić lakier"
     assert await uow.watchlist.obserwowana(aid)
 
     assert await uow.watchlist.usun(aid)

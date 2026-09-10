@@ -282,7 +282,6 @@ class WatchlistEntry:
     auction_id: int
     added_at: dt.datetime
     note: str | None = None
-    target_price: Money | None = None
     id: int | None = None
 
     def __post_init__(self) -> None:

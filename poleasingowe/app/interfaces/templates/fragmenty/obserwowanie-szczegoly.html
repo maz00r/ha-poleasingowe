@@ -1,0 +1,24 @@
+{% set p = dane.pozycja %}
+<div class="obserwowanie-szczegoly" id="obserwowanie-szczegoly">
+  <button type="button"
+          class="przycisk-obserwacji {{ 'wlaczony' if p.obserwowana else '' }}"
+          aria-pressed="{{ 'true' if p.obserwowana else 'false' }}"
+          hx-post="{{ sciezka(request, 'przelacz_obserwacje', auction_id=p.id) }}?wariant=szczegoly"
+          hx-target="#obserwowanie-szczegoly"
+          hx-swap="outerHTML">
+    {{ 'Obserwowane' if p.obserwowana else 'Obserwuj' }}
+  </button>
+  {% if p.obserwowana %}
+    <details class="notatka-aukcji"{% if p.notatka %} open{% endif %}>
+      <summary>{{ 'Edytuj notatkę' if p.notatka else 'Dodaj notatkę' }}</summary>
+      <form hx-post="{{ sciezka(request, 'zapisz_notatke', auction_id=p.id) }}"
+            hx-target="#obserwowanie-szczegoly"
+            hx-swap="outerHTML">
+        <label class="sr-only" for="notatka-{{ p.id }}">Notatka</label>
+        <input id="notatka-{{ p.id }}" name="notatka" value="{{ p.notatka or '' }}"
+               placeholder="Twoja notatka o aucie">
+        <button type="submit" class="przycisk-lekki">Zapisz</button>
+      </form>
+    </details>
+  {% endif %}
+</div>

@@ -19,7 +19,13 @@ import json
 from dataclasses import dataclass, field
 from enum import StrEnum
 
-from app.domain.enums import AuctionStatus, FinalPriceState, PollTier, RodzajPojazdu
+from app.domain.enums import (
+    AuctionStatus,
+    BidCountSemantics,
+    FinalPriceState,
+    PollTier,
+    RodzajPojazdu,
+)
 from app.domain.value_objects import Money
 
 LIMIT_STRONY = 50
@@ -220,7 +226,6 @@ class PozycjaListy:
     first_seen_at: dt.datetime | None = None
     final_price_state: FinalPriceState = FinalPriceState.UNKNOWN
     obserwowana: bool = False
-    cena_docelowa: Money | None = None
     notatka: str | None = None
 
     @property
@@ -228,46 +233,6 @@ class PozycjaListy:
         """Marka, model i wersja w jednym — do nagłówka wiersza."""
         czesci = [c for c in (self.make, self.model, self.variant) if c]
         return " ".join(czesci) or self.external_id
-
-    @property
-    def ponizej_progu(self) -> bool:
-        """Czy cena mieści się jeszcze w Twoim limicie (SPEC.md §12).
-
-        **Na aukcji cena tylko rośnie**, więc ten stan jest prawdziwy na
-        starcie i w pewnym momencie przestaje być — i to właśnie ta chwila
-        jest informacją. Patrz `ponad_limitem`.
-
-        Bez ceny albo bez progu odpowiedź brzmi „nie wiadomo", a nie „tak".
-        """
-        if not self._porownywalne():
-            return False
-        assert self.price_current is not None and self.cena_docelowa is not None
-        return self.price_current.amount <= self.cena_docelowa.amount
-
-    @property
-    def ponad_limitem(self) -> bool:
-        """Licytacja przebiła Twój limit — aukcja wypadła z budżetu.
-
-        To jest sygnał operacyjny, po który się tu przychodzi: przy
-        kilkudziesięciu obserwowanych nie da się pamiętać, ile za którą
-        chciało się dać, a licytacja przesuwa granicę bez ostrzeżenia.
-        """
-        if not self._porownywalne():
-            return False
-        assert self.price_current is not None and self.cena_docelowa is not None
-        return self.price_current.amount > self.cena_docelowa.amount
-
-    def _porownywalne(self) -> bool:
-        """Cena i próg istnieją i są w tej samej walucie.
-
-        Porównanie 50 000 PLN z 50 000 EUR dałoby odpowiedź wyglądającą na
-        sensowną, więc wolimy nie odpowiadać wcale.
-        """
-        return (
-            self.cena_docelowa is not None
-            and self.price_current is not None
-            and self.cena_docelowa.currency is self.price_current.currency
-        )
 
 
 @dataclass(slots=True, frozen=True)
@@ -304,12 +269,7 @@ class Szczegoly:
     poll_tier: PollTier = PollTier.IDLE
     last_price_lead_seconds: int | None = None
     duplicate_of: int | None = None
-    historia_ofert: bool = False
-    """Czy lista ofert tego źródła jest chronologią licytacji (§11.8).
-
-    Wynika z `bid_count_semantics = OFFERS`. Dla `PARTICIPANTS`
-    (EFL) i `UNKNOWN` karta ofert nie pokazuje — patrz RECON.md §3.5a.
-    """
+    semantyka_licznika: BidCountSemantics = BidCountSemantics.UNKNOWN
 
 
 @dataclass(slots=True, frozen=True)
@@ -342,8 +302,27 @@ class OfertaNaKarcie:
 
     amount: Money
     placed_at: dt.datetime
+    first_seen_at: dt.datetime
     najwyzsza: bool = False
     """Najwyższa kwota w tej aukcji — czyli oferta, która prowadzi albo wygrała."""
+
+
+@dataclass(slots=True, frozen=True)
+class ZdarzenieLicytacji:
+    """Jeden wpis wspólnej historii ceny i ofert.
+
+    `dokladna_oferta` odróżnia czas nadany przez serwis od chwili, w której
+    aplikacja zobaczyła zmianę ceny. Widok jest jeden, ale nie ukrywa jakości
+    danych pod pozornie identycznymi wierszami.
+    """
+
+    ts: dt.datetime
+    price: Money
+    dokladna_oferta: bool = False
+    bid_count: int | None = None
+    ends_at: dt.datetime | None = None
+    bid_gap: int | None = None
+    najwyzsza: bool = False
 
 
 class PewnoscPowiazania(StrEnum):

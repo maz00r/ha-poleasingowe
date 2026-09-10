@@ -114,6 +114,23 @@ def sparsuj_szczegoly(html: str, external_id: str, url: str) -> SurowaOferta:
         )
 
     pola = _pary_z_tabeli(produkt)
+    # Lokalizacja nie leży w `div.product`, lecz w sąsiednim panelu danych
+    # aukcji. Bez tego szczegóły zwracały `None` i kasowały lokalizację
+    # wyciągniętą wcześniej z listy.
+    dane_aukcji = drzewo.css_first("div.auction-info-details")
+    if dane_aukcji is not None:
+        for parametr in dane_aukcji.css("p.auction-param"):
+            etykieta = parametr.css_first("label")
+            czy_lokalizacja = (
+                etykieta is not None
+                and etykieta.text(strip=True).rstrip(":") == "Lokalizacja"
+            )
+            if not czy_lokalizacja:
+                continue
+            wartosc = parametr.css_first("span")
+            if wartosc is not None and (lokalizacja := wartosc.text(strip=True)):
+                pola["Lokalizacja"] = lokalizacja
+            break
     nazwa = produkt.css_first("div.product-name")
     if nazwa is not None:
         pola["tytul"] = " ".join(nazwa.text(strip=True).split())

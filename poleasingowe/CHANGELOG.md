@@ -1,5 +1,13 @@
 # Historia zmian
 
+## 0.27.4 — w przygotowaniu
+
+**Szczegóły aukcji są prostsze i dokładniejsze.** Lokalizacja z EFL jest
+odczytywana ze strony szczegółów i pusty odczyt nie kasuje znanej wartości.
+Obserwowanie przeniesiono przy cenę; cena docelowa została usunięta, a notatka
+jest krótkim rozwijanym polem. „Oferty” i „Przebieg licytacji” tworzą teraz
+jedną historię z widocznym rozróżnieniem danych serwisu i odczytów aplikacji.
+
 ## 0.27.3 — w przygotowaniu
 
 **Dopracowanie interfejsu według projektu GUI.** Panel filtrów można teraz

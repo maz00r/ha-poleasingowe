@@ -141,7 +141,10 @@ ON CONFLICT (source_id, external_id) DO UPDATE SET
     engine_ccm = EXCLUDED.engine_ccm, engine_hp = EXCLUDED.engine_hp,
     vin = EXCLUDED.vin, body = EXCLUDED.body,
     vehicle_kind = EXCLUDED.vehicle_kind, color = EXCLUDED.color,
-    location = EXCLUDED.location, seller = EXCLUDED.seller,
+    -- Brak lokalizacji w szczegółach nie może kasować wartości znalezionej
+    -- wcześniej na liście. Pełna, nowa wartość nadal poprawia starą.
+    location = COALESCE(EXCLUDED.location, app.auction.location),
+    seller = EXCLUDED.seller,
     -- Ceny wywolawczej RAZ POZNANEJ nie tracimy. Wnioskujemy ja z
     -- `bid_count = 0` (§8.2), a to znika w chwili pierwszej oferty:
     -- nadpisanie NULL-em kasowaloby jedyna liczbe, ktorej juz nie da sie
@@ -485,18 +488,20 @@ ORDER BY placed_at, id
 """
 
 SQL_WATCHLIST_DODAJ = """
-INSERT INTO app.watchlist (auction_id, note, target_price, currency, added_at)
-VALUES (%s, %s, %s, %s, %s)
+INSERT INTO app.watchlist (auction_id, note, added_at)
+VALUES (%s, %s, %s)
 ON CONFLICT (auction_id) DO UPDATE SET
-    note = EXCLUDED.note,
-    target_price = EXCLUDED.target_price,
-    currency = EXCLUDED.currency
-RETURNING id, auction_id, note, target_price, currency, added_at
+    note = COALESCE(EXCLUDED.note, app.watchlist.note)
+RETURNING id, auction_id, note, added_at
+"""
+SQL_WATCHLIST_NOTATKA = """
+UPDATE app.watchlist SET note = %s WHERE auction_id = %s
+RETURNING id, auction_id, note, added_at
 """
 SQL_WATCHLIST_USUN = "DELETE FROM app.watchlist WHERE auction_id = %s"
 SQL_WATCHLIST_JEST = "SELECT 1 FROM app.watchlist WHERE auction_id = %s"
 SQL_WATCHLIST_WPIS = """
-SELECT id, auction_id, note, target_price, currency, added_at
+SELECT id, auction_id, note, added_at
 FROM app.watchlist WHERE auction_id = %s
 """
 
@@ -1055,15 +1060,12 @@ class PgWatchlistRepository:
         self._conn = conn
 
     async def dodaj(self, wpis: WatchlistEntry) -> WatchlistEntry:
-        cena = wpis.target_price
         async with self._conn.cursor(row_factory=dict_row) as cur:
             await cur.execute(
                 SQL_WATCHLIST_DODAJ,
                 (
                     wpis.auction_id,
                     wpis.note,
-                    None if cena is None else cena.amount,
-                    (cena.currency if cena else Currency.PLN).value,
                     wpis.added_at,
                 ),
             )
@@ -1073,7 +1075,21 @@ class PgWatchlistRepository:
             id=w["id"],
             auction_id=w["auction_id"],
             note=w["note"],
-            target_price=_money(w["target_price"], w["currency"]),
+            added_at=w["added_at"],
+        )
+
+    async def zapisz_notatke(
+        self, auction_id: int, note: str | None
+    ) -> WatchlistEntry | None:
+        async with self._conn.cursor(row_factory=dict_row) as cur:
+            await cur.execute(SQL_WATCHLIST_NOTATKA, (note, auction_id))
+            w = await cur.fetchone()
+        if w is None:
+            return None
+        return WatchlistEntry(
+            id=w["id"],
+            auction_id=w["auction_id"],
+            note=w["note"],
             added_at=w["added_at"],
         )
 
@@ -1097,7 +1113,6 @@ class PgWatchlistRepository:
             id=w["id"],
             auction_id=w["auction_id"],
             note=w["note"],
-            target_price=_money(w["target_price"], w["currency"]),
             added_at=w["added_at"],
         )
 

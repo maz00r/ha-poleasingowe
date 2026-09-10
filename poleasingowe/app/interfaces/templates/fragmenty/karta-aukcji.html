@@ -1,4 +1,5 @@
 {% set p = dane.pozycja %}
+{% set etykieta_licznika = 'Ofert' if dane.semantyka_licznika.value == 'OFFERS' else 'Uczestników' if dane.semantyka_licznika.value == 'PARTICIPANTS' else 'Licznik serwisu' %}
 {# Karta wyjeta do fragmentu, zeby dalo sie ja podmienic w miejscu po
    odswiezeniu danych ze zrodla (SPEC.md §12). Wczesniej trzeba by bylo
    przeladowac cala strone, co gubi pozycje przewiniecia i zaladowana
@@ -39,8 +40,9 @@
       <span class="kwota">{{ p.price_current | kwota }}</span>
       <div class="drobne">
         {% if p.ends_at %}{{ p.ends_at | do_konca(teraz) }} · {% endif %}
-        {% if p.bid_count is not none %}{{ p.bid_count }} ofert{% else %}liczba ofert nieznana{% endif %}
+        {% if p.bid_count is not none %}{{ p.bid_count }} {{ etykieta_licznika | lower }}{% else %}liczba ofert nieznana{% endif %}
       </div>
+      {% include "fragmenty/obserwowanie-szczegoly.html" %}
     </div>
   </div>
 
@@ -57,7 +59,7 @@
   <div class="siatka">
     <div><span>Cena bieżąca</span><strong class="kwota">{{ p.price_current | kwota }}</strong></div>
     <div><span>Cena wywoławcza</span><strong>{{ p.price_start | kwota }}</strong></div>
-    <div><span>Ofert</span><strong>{{ p.bid_count if p.bid_count is not none else '—' }}</strong></div>
+    <div><span>{{ etykieta_licznika }}</span><strong>{{ p.bid_count if p.bid_count is not none else '—' }}</strong></div>
     <div><span>Postąpienie</span><strong>{{ dane.bid_increment_raw or '—' }}</strong></div>
     <div><span>Koniec</span><strong>{{ p.ends_at | czas_lokalny(z_sekundami=True) }}</strong></div>
     <div><span>Zostało</span><strong>{{ p.ends_at | do_konca(teraz) }}</strong></div>

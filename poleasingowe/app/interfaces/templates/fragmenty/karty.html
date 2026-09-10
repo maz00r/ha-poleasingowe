@@ -5,7 +5,7 @@
    3:2, licznik i zrodlo NA zdjeciu, cena jako najwiekszy element tresci. #}
 {% for p in strona.pozycje %}
 {% set pilnosc = p.ends_at | pilnosc(teraz) %}
-<article class="oferta {{ 'ponizej-progu' if p.ponizej_progu }}{{ 'ponad-limitem' if p.ponad_limitem }} {{ pilnosc }}">
+<article class="oferta {{ pilnosc }}">
   <a class="oferta-zdjecie" href="{{ sciezka(request, 'szczegoly', auction_id=p.id) }}"
      tabindex="-1" aria-hidden="true">
     <img loading="lazy" fetchpriority="low" alt="" width="240" height="160"
@@ -46,10 +46,7 @@
       <div>
         <div class="etykieta-ceny">Aktualna oferta</div>
         <div class="kwota">{{ p.price_current | kwota }}</div>
-        {% if p.ponad_limitem %}
-          <div class="drobne ponad-limitem-info">ponad Twój limit
-            {{ p.cena_docelowa | kwota }}</div>
-        {% elif p.bid_count is not none %}
+        {% if p.bid_count is not none %}
           <div class="drobne">{{ p.bid_count }} ofert</div>
         {% endif %}
       </div>

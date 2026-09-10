@@ -86,7 +86,6 @@ async def test_v_auction_current_pokazuje_flage_obserwowania(
             auction_id=obserwowana.id,
             added_at=TERAZ,
             note="sprawdzić lakier",
-            target_price=Money(Decimal("45000.00"), Currency.PLN),
         )
     )
 

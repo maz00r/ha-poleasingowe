@@ -189,7 +189,6 @@ async def _dane(baza: psycopg.AsyncConnection) -> dict[str, int]:
             auction_id=zapisane["vw-za-dwie-godziny"],
             added_at=TERAZ,
             note="sprawdzić lakier",
-            target_price=_pln("50000"),
         )
     )
     for klucz in ("archiwalna", "zniknieta-obserwowana"):
@@ -358,10 +357,10 @@ async def test_archiwum_niesie_znacznik_pewnosci_ceny(
     assert archiwalna.final_price_state is FinalPriceState.CONFIRMED
 
 
-async def test_lista_niesie_stan_obserwacji_i_prog(
+async def test_lista_niesie_stan_obserwacji_i_notatke(
     pusta_baza: psycopg.AsyncConnection,
 ) -> None:
-    """Bez tego wyróżnienie z §12 wymagałoby zapytania na każdy wiersz."""
+    """Stan obserwacji i krótka notatka pochodzą z jednego odczytu listy."""
     await _dane(pusta_baza)
     strona = await PgZapytania(pusta_baza).lista(
         Kryteria(tylko_obserwowane=True), None, 100
@@ -369,9 +368,7 @@ async def test_lista_niesie_stan_obserwacji_i_prog(
     assert [p.external_id for p in strona.pozycje] == ["vw-za-dwie-godziny"]
     pozycja = strona.pozycje[0]
     assert pozycja.obserwowana
-    assert pozycja.cena_docelowa == _pln("50000")
     assert pozycja.notatka == "sprawdzić lakier"
-    assert pozycja.ponizej_progu, "48 600 zł jest poniżej progu 50 000 zł"
 
 
 async def test_szczegoly_lacza_aukcje_z_watchlista(

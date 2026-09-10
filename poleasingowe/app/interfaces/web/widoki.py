@@ -12,7 +12,6 @@ niestandardowy nagłówek.
 from __future__ import annotations
 
 import datetime as dt
-import decimal
 import logging
 import pathlib
 import posixpath
@@ -43,12 +42,11 @@ from app.application.read_models import (
     Zakres,
 )
 from app.domain.entities import SavedFilter, WatchlistEntry
-from app.domain.enums import AuctionStatus, Currency, PollTier
+from app.domain.enums import AuctionStatus, PollTier
 from app.domain.logowanie import (
     StanLogowania,
     po_recznym_odblokowaniu,
 )
-from app.domain.value_objects import Money, NieprawidlowaWartosc
 from app.infrastructure.supervisor.proces import rss_bajty
 from app.infrastructure.wycena_ai import BladWyceny
 from app.interfaces.web import eksport, filtry_szablonu
@@ -675,9 +673,8 @@ async def szczegoly(request: Request, auction_id: int) -> Response:
                 status_code=404,
             )
         wystawienia = await kontekst.zapytania.powiazane_wystawienia(auction_id)
-        historia = await kontekst.zapytania.historia_cen(auction_id)
-        oferty = (
-            await kontekst.zapytania.oferty(auction_id) if dane.historia_ofert else ()
+        przebieg = await kontekst.zapytania.przebieg_licytacji(
+            auction_id, dane.semantyka_licznika
         )
         # Wejscie na karte = prosba o swiezy odczyt (§11.2). Prosba, nie
         # zadanie do serwisu: poleci dopiero z dyspozytora i tylko wtedy,
@@ -694,8 +691,7 @@ async def szczegoly(request: Request, auction_id: int) -> Response:
             **_kontekst_bazowy(request),
             "dane": dane,
             "wystawienia": wystawienia,
-            "historia": historia,
-            "oferty": oferty,
+            "przebieg": przebieg,
             "odswiezanie": (
                 _stan_odswiezania(dane, dane.last_seen_at or teraz, 0)
                 if poproszono
@@ -705,65 +701,7 @@ async def szczegoly(request: Request, auction_id: int) -> Response:
     )
 
 
-def _cena_docelowa(surowa: str, waluta: Currency) -> Money | None:
-    """Cena z formularza. Pusto znaczy „bez progu", śmieci też."""
-    tekst = surowa.strip()
-    if not tekst:
-        return None
-    try:
-        return Money(decimal.Decimal(tekst.replace(" ", "").replace(",", ".")), waluta)
-    except (decimal.InvalidOperation, NieprawidlowaWartosc):
-        return None
-
-
-@router.post("/aukcja/{auction_id}/obserwuj", response_class=HTMLResponse)
-async def obserwuj(
-    request: Request,
-    auction_id: int,
-    notatka: str = Form(default=""),
-    cena_docelowa: str = Form(default=""),
-) -> Response:
-    """Dodanie lub aktualizacja wpisu watchlisty (SPEC.md §12)."""
-    if _fabryka(request) is None:
-        return _brak_bazy(request)
-
-    async with _fabryka(request)() as kontekst:
-        async with kontekst.uow as uow:
-            await uow.watchlist.dodaj(
-                WatchlistEntry(
-                    auction_id=auction_id,
-                    added_at=dt.datetime.now(dt.UTC),
-                    note=notatka.strip() or None,
-                    target_price=_cena_docelowa(cena_docelowa, Currency.PLN),
-                )
-            )
-            # SPEC.md §11.2 — pojedynczo odpytujemy WYŁĄCZNIE obserwowane.
-            # Bez tego dodanie do watchlisty niczego by nie zmieniało:
-            # aukcja z pustym `next_poll_at` nigdy nie trafia do kolejki
-            # dispatchera, więc jej cena stałaby na wartości z przemiatu.
-            await uow.auction.zaplanuj(
-                auction_id, dt.datetime.now(dt.UTC), PollTier.FAR
-            )
-        dane = await kontekst.zapytania.szczegoly(auction_id)
-    return _panel_obserwacji(request, dane)
-
-
-@router.post("/aukcja/{auction_id}/przestan-obserwowac", response_class=HTMLResponse)
-async def przestan_obserwowac(request: Request, auction_id: int) -> Response:
-    if _fabryka(request) is None:
-        return _brak_bazy(request)
-
-    async with _fabryka(request)() as kontekst:
-        async with kontekst.uow as uow:
-            await uow.watchlist.usun(auction_id)
-            # Koniec obserwacji to koniec pojedynczych odpytów — dalej
-            # wystarcza zbiorczy przemiat listy (§11.2).
-            await uow.auction.zaplanuj(auction_id, None, PollTier.IDLE)
-        dane = await kontekst.zapytania.szczegoly(auction_id)
-    return _panel_obserwacji(request, dane)
-
-
-def _panel_obserwacji(request: Request, dane: Any) -> Response:
+def _kontrolki_obserwacji(request: Request, dane: Any) -> Response:
     if dane is None:
         return SZABLONY.TemplateResponse(
             request=request,
@@ -773,9 +711,24 @@ def _panel_obserwacji(request: Request, dane: Any) -> Response:
         )
     return SZABLONY.TemplateResponse(
         request=request,
-        name="fragmenty/obserwacja.html",
+        name="fragmenty/obserwowanie-szczegoly.html",
         context={**_kontekst_bazowy(request), "dane": dane},
     )
+
+
+@router.post("/aukcja/{auction_id}/notatka", response_class=HTMLResponse)
+async def zapisz_notatke(
+    request: Request, auction_id: int, notatka: str = Form(default="")
+) -> Response:
+    """Zapisuje krótką notatkę wyłącznie dla obserwowanej aukcji."""
+    if _fabryka(request) is None:
+        return _brak_bazy(request)
+
+    async with _fabryka(request)() as kontekst:
+        async with kontekst.uow as uow:
+            await uow.watchlist.zapisz_notatke(auction_id, notatka.strip() or None)
+        dane = await kontekst.zapytania.szczegoly(auction_id)
+    return _kontrolki_obserwacji(request, dane)
 
 
 @router.get("/aukcja/{auction_id}/zdjecia", response_class=HTMLResponse)
@@ -962,7 +915,9 @@ def _brak_zdjecia() -> Response:
 
 
 @router.post("/aukcja/{auction_id}/przelacz", response_class=HTMLResponse)
-async def przelacz_obserwacje(request: Request, auction_id: int) -> Response:
+async def przelacz_obserwacje(
+    request: Request, auction_id: int, wariant: str = "lista"
+) -> Response:
     """Obserwuj / przestań, jednym kliknięciem z listy (SPEC.md §12).
 
     Decyzja „obserwuję to" zapada przy przeglądaniu listy, a nie po wejściu
@@ -990,6 +945,8 @@ async def przelacz_obserwacje(request: Request, auction_id: int) -> Response:
 
     if dane is None:
         return HTMLResponse("", status_code=404)
+    if wariant == "szczegoly":
+        return _kontrolki_obserwacji(request, dane)
     return SZABLONY.TemplateResponse(
         request=request,
         name="fragmenty/gwiazdka.html",

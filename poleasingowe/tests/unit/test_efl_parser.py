@@ -59,6 +59,7 @@ def test_szczegoly_niosa_vin_cene_liczbe_ofert_i_absolutny_koniec() -> None:
     assert d.pola["VIN"] == "TMBC0XXT1S7Y8X23F"
     assert d.pola["cena"] == "48\xa0600,00"
     assert d.pola["liczba_ofert"] == "1"
+    assert d.pola["Lokalizacja"]
     # RECON.md §4.1: obok zgrubnego "22 godz." stoi absolutny znacznik.
     assert d.pola["koniec"] == "07.09.2026 10:47:00"
 
