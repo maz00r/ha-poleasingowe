@@ -446,17 +446,6 @@ button:hover { filter: brightness(1.1); }
   display: block;
 }
 
-/* Przyciemnienie pod plakietkami: bez niego biały samochód zjada biały
-   tekst licznika. Gradient tylko u dołu, żeby nie brudzić całego zdjęcia. */
-.oferta-zdjecie::after {
-  content: "";
-  position: absolute;
-  inset: auto 0 0;
-  height: 58%;
-  background: linear-gradient(to top, rgb(10 14 28 / 78%), rgb(10 14 28 / 0%));
-  pointer-events: none;
-}
-
 .plakietki {
   position: absolute;
   inset: auto 10px 10px;
@@ -1558,11 +1547,6 @@ button:hover { filter: none; background: #ff6d52; }
   overflow: hidden;
   border-radius: var(--promien-maly);
   background: #2d343d;
-}
-
-.oferta-zdjecie::after {
-  height: 62%;
-  background: linear-gradient(to top, rgb(0 0 0 / 70%), transparent);
 }
 
 .plakietki { inset: auto 12px 11px; }

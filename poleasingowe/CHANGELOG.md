@@ -1,5 +1,9 @@
 # Historia zmian
 
+## 0.28.4 — w przygotowaniu
+
+Miniatury aukcji na stronie głównej nie mają już przyciemnionego gradientu.
+
 ## 0.28.3 — w przygotowaniu
 
 **Poprawka galerii zdjęć.** Miniatury w szczegółach aukcji układają się teraz
