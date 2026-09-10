@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import datetime as dt
 import hashlib
+import ssl
 from collections.abc import AsyncIterator, Sequence
 from dataclasses import replace
 from types import TracebackType
@@ -42,6 +43,12 @@ class LeasygroupSource:
                 timeout=timeout,
                 follow_redirects=True,
                 headers={"Accept-Language": "pl-PL,pl;q=0.9"},
+                # Serwis nie wysyła certyfikatu pośredniego. Obraz dodatku
+                # dodaje go do systemowego magazynu zaufanych CA; jawny
+                # kontekst systemowy zapewnia, że httpx go użyje zamiast
+                # własnego pakietu certifi. Weryfikacja hosta pozostaje
+                # domyślnie włączona.
+                verify=ssl.create_default_context(),
             )
         )
 
@@ -67,6 +74,32 @@ class LeasygroupSource:
             raise SourceUnavailable(f"Leasygroup: {sciezka}: {exc}") from exc
         return odpowiedz.content
 
+    async def _pobierz_liste(self, sciezka: str) -> bytes:
+        """Pobiera listę i rozpoznaje błędny status zwracany przez serwis.
+
+        Leasygroup zdarza się zwracać pełną, poprawną listę aukcji z HTTP 404.
+        Nie możemy bezwarunkowo uznać 404 za sukces — WAF lub prawdziwa strona
+        błędu wciąż nie może potwierdzić skanu. Akceptujemy ją wyłącznie po
+        rozpoznaniu własnego kontenera listy przez parser.
+        """
+        try:
+            odpowiedz = await self._klient.get(sciezka)
+        except httpx.HTTPError as exc:
+            raise SourceUnavailable(f"Leasygroup: {sciezka}: {exc}") from exc
+
+        if odpowiedz.is_success:
+            return odpowiedz.content
+        if odpowiedz.status_code == httpx.codes.NOT_FOUND:
+            tresc = odpowiedz.content.decode("utf-8", "replace")
+            try:
+                parser.identyfikatory_wierszy(tresc)
+            except ParseFailed as exc:
+                raise ParseFailed(
+                    f"Leasygroup: HTTP 404 bez poprawnej listy: {sciezka}"
+                ) from exc
+            return odpowiedz.content
+        raise SourceUnavailable(f"Leasygroup: {sciezka}: HTTP {odpowiedz.status_code}")
+
     async def przemiec_liste(self) -> Sequence[SurowaOferta]:
         wynik: list[SurowaOferta] = []
         async for strona in self.strony_przemiatu():
@@ -79,7 +112,7 @@ class LeasygroupSource:
         ostatnia_strona: int | None = None
         for numer in range(1, MAKS_STRON + 1):
             sciezka = parser.SCIEZKA_LISTY.format(numer)
-            tresc = await self._pobierz(sciezka)
+            tresc = await self._pobierz_liste(sciezka)
             html = tresc.decode("utf-8", "replace")
             wszystkie = parser.identyfikatory_wierszy(html)
             czy_powtorzona = wszystkie and any(

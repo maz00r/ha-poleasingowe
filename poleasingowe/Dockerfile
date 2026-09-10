@@ -29,7 +29,13 @@ FROM ${BUILD_FROM}
 # `pg_dump` do wlasnej kopii bazy (SPEC.md §7.1). Wersja klienta MUSI
 # odpowiadac serwerowi (PostgreSQL 17) — starszy `pg_dump` odmawia zrzutu
 # nowszej bazy. Sam klient, bez serwera: dodatek nigdy nie stawia bazy.
-RUN apk add --no-cache postgresql17-client
+RUN apk add --no-cache ca-certificates postgresql17-client
+
+# Leasygroup nie przesyła pośredniego Certum DV TLS G2 R39. Dodajemy
+# publiczny certyfikat wskazany przez pole AIA serwera, zamiast wyłączać
+# weryfikację TLS w kliencie HTTP.
+COPY certyfikaty/certum-dv-tls-g2-r39-ca.crt /usr/local/share/ca-certificates/
+RUN update-ca-certificates
 
 COPY --from=budowanie /instalacja /usr/local
 

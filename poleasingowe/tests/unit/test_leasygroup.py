@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import datetime as dt
 import pathlib
+import ssl
 from decimal import Decimal
 
 import httpx
@@ -22,6 +23,16 @@ TERAZ = dt.datetime(2026, 9, 10, 9, 50, 3, tzinfo=dt.UTC)
 
 def html(nazwa: str) -> str:
     return (FIXTURES / nazwa).read_text(encoding="utf-8", errors="replace")
+
+
+def test_certyfikat_posredni_leasygroup_daje_sie_wczytac_do_tls() -> None:
+    """Obraz instaluje ten publiczny certyfikat do systemowego magazynu CA."""
+    certyfikat = (
+        pathlib.Path(__file__).resolve().parents[2]
+        / "certyfikaty/certum-dv-tls-g2-r39-ca.crt"
+    )
+    kontekst = ssl.create_default_context()
+    kontekst.load_verify_locations(cafile=certyfikat)
 
 
 def test_lista_wp_uszcza_tylko_licytacje_i_bierze_id_z_url() -> None:
@@ -133,6 +144,33 @@ async def test_przerwana_lub_zapetlona_paginacja_przerywa_skan() -> None:
     async with source.LeasygroupSource(klient) as adapter:
         with pytest.raises(ParseFailed, match="zapętlona paginacja"):
             await adapter.przemiec_liste()
+
+
+async def test_lista_z_prawidlowym_html_mimo_http_404_jest_przetwarzana() -> None:
+    """Serwis zwraca listę z 404; jej HTML jest ważniejszy niż zły status."""
+
+    def obsluz(_: httpx.Request) -> httpx.Response:
+        return httpx.Response(404, text=html("lista-widok-lista-01.html"))
+
+    klient = httpx.AsyncClient(
+        base_url=parser.BAZOWY_URL, transport=httpx.MockTransport(obsluz)
+    )
+    async with source.LeasygroupSource(klient) as adapter:
+        tresc = await adapter._pobierz_liste(parser.SCIEZKA_LISTY.format(1))
+
+    assert parser.sparsuj_liste(tresc.decode("utf-8"))[0].external_id == "28163"
+
+
+async def test_pusta_strona_404_nie_udaje_listy_aukcji() -> None:
+    def obsluz(_: httpx.Request) -> httpx.Response:
+        return httpx.Response(404, text="<html><body>Nie znaleziono</body></html>")
+
+    klient = httpx.AsyncClient(
+        base_url=parser.BAZOWY_URL, transport=httpx.MockTransport(obsluz)
+    )
+    async with source.LeasygroupSource(klient) as adapter:
+        with pytest.raises(ParseFailed, match="HTTP 404 bez poprawnej listy"):
+            await adapter._pobierz_liste(parser.SCIEZKA_LISTY.format(1))
 
 
 async def test_szczegoly_i_galeria_korzystaja_z_adresu_z_bazy() -> None:

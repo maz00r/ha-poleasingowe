@@ -10,6 +10,12 @@ pomarańczowej płachty: przyciski galerii (tło modala, strzałki, zamknięcie)
 łapały globalny styl `button:hover`, więc najechanie myszą zalewało cały
 modal kolorem akcentu.
 
+**Poprawka Leasygroup.** Lista serwisu bywa dostarczona z HTTP 404 mimo
+poprawnego kontenera i ofert. Adapter dopuszcza ten wyjątkowy przypadek
+wyłącznie po walidacji HTML; prawdziwa strona błędu nadal przerywa skan.
+Obraz dodatku instaluje publiczny certyfikat pośredni Certum wymagany przez
+niekompletny łańcuch TLS serwisu, bez wyłączania weryfikacji certyfikatu.
+
 ## 0.28.1 — w przygotowaniu
 
 **Poprawka karty aukcji.** Szczegóły aukcji nie podświetlają już zakładki
