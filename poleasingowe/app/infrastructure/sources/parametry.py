@@ -96,12 +96,15 @@ ZNANE: dict[str, ParametryZrodla] = {
         overtime_window_seconds=120,
         overtime_extension_seconds=120,
         overtime_cap_seconds=None,
-        # Niezmierzone — siatka domyślna, do kalibracji (RECON.md §3.6).
-        closing_ladder_seconds=(2, 5, 10, 20, 40),
-        bid_history_ttl_seconds=None,
+        # `Zakończona` z ceną pojawia się około +5 s; dodatkowe dwa kroki
+        # są zapasem dla opóźnienia dispatchera (RECON.md §3.6).
+        closing_ladder_seconds=(2, 5, 10, 20),
+        # Tabela historii znika między +0 a +5 s. Nie zapisujemy jeszcze
+        # jej wierszy: pomiar nie zawierał ani jednego prawdziwego wpisu.
+        bid_history_ttl_seconds=5,
         bid_count_semantics=BidCountSemantics.UNKNOWN,
         wymaga_logowania=False,
-        dowod="RECON.md §4.3",
+        dowod="RECON.md §4.3, §3.6 (pomiar 2026-09-10)",
     ),
 }
 

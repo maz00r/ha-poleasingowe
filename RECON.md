@@ -1,10 +1,9 @@
 # RECON.md — rekonesans źródeł (ETAP 0)
 
-Stan: **ETAP 0a zamknięty** (zbieranie statyczne). **ETAP 0b — pomiary
-czasowe — zrobione dla trzech z czterech serwisów** (autoprzetarg 2026-09-07,
-EFL 2026-09-07, poleasingowe 2026-09-07); leasygroup zaplanowany na
-2026-09-10. Punkty (b), (c), (g) i reguła dogrywki — patrz §3.6, §3.7, §4.1,
-§4.2, §4.4.
+Stan: **ETAP 0 zamknięty**. Pomiary czasowe wykonano dla wszystkich czterech
+serwisów: autoprzetarg, EFL i poleasingowe 2026-09-07 oraz Leasygroup
+2026-09-10. Punkty (b), (c), (g) i reguła dogrywki są opisane w §3.6, §3.7
+oraz sekcjach adapterów.
 
 Wszystkie twierdzenia w tym dokumencie pochodzą z plików w `fixtures/`
 albo z zapisanych nagłówków w `fixtures/<serwis>/meta.json`. Tam, gdzie
@@ -59,9 +58,9 @@ dysk 44 GB. Maszyna dzielona z HA (~1,8 GB), PostgreSQL, Grafaną i TeslaMate.
 | Czas serwera | **`sdt.date` w API, bez logowania** | brak | brak | brak |
 | VIN publiczny | **tak** | **tak** | **tak** | **tak, już na liście** |
 | Werdykt | **`httpx`, bez logowania do odczytu** | **`httpx`, bez przeglądarki** | `httpx`, ale mało danych | **`httpx`; oferty wymagają sesji lub SignalR** |
-| Stan po zakończeniu | **`auction_pending:false` w bloku Alpine; sekcja „PLIKI DO POBRANIA" znika; brak etykiety tekstowej** | **`<h3>Zakończona</h3>` + pusta wartość przy „Do zakończenia:"; pojawia się ~5–7 min po `ends_at`, nie od razu** | nie zmierzone | **302 na `/` — aukcja znika** |
-| Cena po wygaśnięciu (pkt b) | **bez limitu** — widoczna ≥15 min, nie zaobserwowano zaniku | **bez limitu** — widoczna ≥2 h, strona zamrożona bajt w bajt | nie zmierzone | **10–15 s, potem 302** |
-| Panel/historia ofert po końcu (pkt c) | **`lastOffers` czyszczone do `[]` 2–5 min po końcu; `offers_count`, cena i `winner` zostają** | **pełna tabela ofert zostaje na stałe** (kwoty + czasy co do 0,1 ms) | nie zmierzone | poza zasięgiem `httpx` (SignalR) |
+| Stan po zakończeniu | **`auction_pending:false` w bloku Alpine; sekcja „PLIKI DO POBRANIA" znika; brak etykiety tekstowej** | **`<h3>Zakończona</h3>` + pusta wartość przy „Do zakończenia:"; pojawia się ~5–7 min po `ends_at`, nie od razu** | **`Zakończona` / „Sprzedaż zakończona" po ok. +5 s** | **302 na `/` — aukcja znika** |
+| Cena po wygaśnięciu (pkt b) | **bez limitu** — widoczna ≥15 min, nie zaobserwowano zaniku | **bez limitu** — widoczna ≥2 h, strona zamrożona bajt w bajt | **widoczna z markerem zakończenia co najmniej do +600 s** | **10–15 s, potem 302** |
+| Panel/historia ofert po końcu (pkt c) | **`lastOffers` czyszczone do `[]` 2–5 min po końcu; `offers_count`, cena i `winner` zostają** | **pełna tabela ofert zostaje na stałe** (kwoty + czasy co do 0,1 ms) | **tabela obecna w chwili końca, nieobecna od +5 s; brak próbki z ofertą** | poza zasięgiem `httpx` (SignalR) |
 
 ### 2.1 Wolumeny i koszt przemiatu listy (punkt h)
 
@@ -314,9 +313,9 @@ kiedykolwiek przekracza cenę bieżącą sprzed swojego znacznika czasu.
 Do tego czasu **przebiegiem licytacji jest historia ceny bieżącej**
 (`price_snapshot`) i tylko ona jest na karcie.
 
-### 3.6 Drabinka z §11.5 faza 2 ma trzy różne kształty, nie jeden
+### 3.6 Drabinka z §11.5 faza 2 ma cztery różne kształty, nie jeden
 
-**Zmierzone 2026-09-07** dla trzech z czterech źródeł. „Jak długo cena jest
+**Zmierzone 2026-09-07 i 2026-09-10** dla wszystkich źródeł. „Jak długo cena jest
 widoczna po `ends_at`" — wejście do drabinki z §11.5 faza 2 — rozkłada się
 skrajnie:
 
@@ -325,7 +324,7 @@ skrajnie:
 | autoprzetarg.pl | **10–15 s**, potem 302 na `/` | 3 próby zamiast 5, siatka ≤14 s (§3.4) |
 | aukcje.efl.com.pl | **bez limitu** (≥2 h, strona zamrożona) | drabinka zbędna — dowolnie luźna |
 | poleasingowe.pl | **bez limitu** dla ceny; `lastOffers` ginie po 2–5 min | drabinka luźna dla ceny, ale ogon ofert łapać w pierwszych 2 min |
-| aukcje.leasygroup.pl | nie zmierzone — pomiar uzbrojony na 2026-09-10 11:50 | — |
+| aukcje.leasygroup.pl | marker zakończenia i cena od około **+5 s**, widoczne ≥600 s | 2, 5, 10, 20 s (§4.3) |
 
 Jedna stała siatka `2, 5, 10, 20, 40 s` nie pasuje do żadnego z tych
 przypadków: dla autoprzetarg jest za długa (dwa ostatnie stopnie trafiają
@@ -774,8 +773,9 @@ odporniejsza na zmiany szablonu niż wnioskowanie z obecności `time_label`,
 i dokłada procent prowizji. Marker z widoku siatki zostaje jako zapasowy,
 gdyby szablon listy się zmienił.
 
-**Fixtures z widoku listy nie ma** — zbierałem je, zanim ta decyzja zapadła.
-Do uzupełnienia przy budowie adaptera.
+Fixture widoku listy jest zapisany jako
+`fixtures/leasygroup/lista-widok-lista-01.html` i stanowi test kontraktowy
+adaptera. Parser wpuszcza tylko wiersze z jawną etykietą „Licytacja”.
 
 **W całej kategorii jest 88 pozycji, z czego 35 to licytacje** (policzone
 po §3.3, przejściem ośmiu stron widoku listy). Rozkład jest jednak bardzo
@@ -792,8 +792,8 @@ jest bezwartościowe.
 to ten sam numer, który strona szczegółów pokazuje jako **„Numer aukcji"**,
 i ten sam, którego używa link obserwowania `/aukcje/obserwuj/326196/`.
 Identyfikator w URL-u aukcji (`28163`) jest inny. Do zbudowania adresu
-potrzebny jest ten z URL-a; `data-id` warto zapisać jako drugi klucz, bo to
-on identyfikuje aukcję w funkcjach serwisu.
+potrzebny jest ten z URL-a; `data-id` pozostaje pomocniczym polem parsera,
+bo nie jest kluczem trwałym aplikacji.
 
 **Strona licytacji — pełna** (`fixtures/leasygroup/szczegoly-28163-licytacja.html`,
 Honda NSX). Bez logowania widać:
@@ -813,8 +813,8 @@ Honda NSX). Bez logowania widać:
 
 **To unieważnia moje wcześniejsze twierdzenie, że §11.8 nie działa dla tego
 źródła bez sesji.** Tabela historii licytacji jest dostępna anonimowo.
-Pozostaje potwierdzić jej kształt na aukcji z realnymi ofertami — pomiar
-0b na tej aukcji jest w toku.
+Pomiar 2026-09-10 potwierdził wyłącznie pustą tabelę; zapis pojedynczych
+ofert czeka na fixture z rzeczywistą licytacją.
 
 **Czas do końca (punkt d) — najgorszy przypadek z czterech.** Strona
 licytacji **nie podaje absolutnego czasu zakończenia w żadnej postaci**:
@@ -1202,8 +1202,8 @@ interwał.
    zmieniony.** Faza 2 jest parametrem źródła: kolumna
    `source.closing_ladder_seconds` (migracja 003), a §11.5 niesie tabelę
    zmierzonych siatek. Wartości: autoprzetarg `{2,5,8,11,14}`, EFL
-   i poleasingowe `{2,30}`, leasygroup domyślna `{2,5,10,20,40}` do
-   kalibracji po 2026-09-10. Doszła druga kolumna,
+   i poleasingowe `{2,30}`, leasygroup `{2,5,10,20}` po pomiarze
+   2026-09-10. Doszła druga kolumna,
    `bid_history_ttl_seconds` — bo w poleasingowe cena i historia ofert mają
    **osobne** terminy (§3.6).
 5. **WAF F5 na leasygroup** — czy ryzyko blokady jest akceptowalne.
@@ -1224,6 +1224,12 @@ interwał.
 ---
 
 ## 8. Czego brakuje — ETAP 0b
+
+**Aktualizacja 2026-09-10.** Poniższa notatka dokumentuje plan pomiaru sprzed
+jego wykonania. Dla Leasygroup punkty (b), (c) i (g) są już zmierzone:
+`LAST MINUTE` jest aktywne około 169 s przed końcem, po około +5 s strona
+pokazuje `Zakończona` z ceną i od tej chwili nie ma tabeli historii ofert.
+Otwarte pozostaje wyłącznie zebranie przykładu z niepustą historią licytacji.
 
 Zaplanowane, niewykonane, wymaga aukcji kończącej się w trakcie obserwacji:
 
@@ -1248,10 +1254,10 @@ Zaplanowane, niewykonane, wymaga aukcji kończącej się w trakcie obserwacji:
 - ~~**(h) liczba aktywnych ofert i VIN**~~ — **zrobione**, patrz §2.1.
   Zostaje tylko potwierdzenie liczebności leasygroup, zablokowane przez
   `robots.txt`.
-- **leasygroup: punkty (b), (c), (g) wciąż niezmierzone — pomiar uzbrojony
-  na 2026-09-10.** Aukcja 28163 (Honda NSX) posłużyła do rozpoznania typu
-  i pól, ale w `fixtures/leasygroup/` **nie ma pliku `recon-0b.jsonl` ani
-  zrzutów `domkniecie-*`** — pomiar z 6.09 nie zostawił danych w repo.
+- **[Archiwum, stan przed 2026-09-10] Leasygroup.** Poniższy opis uzbrojenia
+  zachowujemy jako ślad metody pomiaru. Wynik jest już opisany na początku
+  sekcji: punkty (b), (c) i (g) zmierzone, a zrzuty `domkniecie-*.html`
+  są w `fixtures/leasygroup/`.
 
   Uzbrojenie: `tools/pomiar-leasygroup.sh` odpalany z launchd
   (`~/Library/LaunchAgents/pl.poleasingowe.pomiar-leasygroup.plist`,

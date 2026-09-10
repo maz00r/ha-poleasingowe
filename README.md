@@ -17,8 +17,8 @@ do `poleasingowe/DOCS.md`.
 
 Kolejność etapów jest w `SPEC.md` §14. Zrobione:
 
-- **ETAP 0** — rekonesans czterech źródeł, `RECON.md`, fixtures. Zaakceptowany.
-  Pomiary czasowe (0b) w toku.
+- **ETAP 0** — rekonesans czterech źródeł, `RECON.md`, fixtures i pomiary
+  czasowe. Zaakceptowany.
 - **ETAP 2** — szkielet warstw, import-linter, ruff, mypy, CI.
 - **ETAP 3** — `domain/`, `persistence/`, migracja `001_init.sql`, repozytoria
   i testy na lokalnym PostgreSQL 17.
@@ -74,7 +74,9 @@ Kolejność etapów jest w `SPEC.md` §14. Zrobione:
   Heurystyka marki i modelu wyniesiona do `sources/marki.py`, wspólna dla
   adapterów. Dołożony adapter **autoprzetarg.pl** — czyta anonimowo wszystko
   poza liczbą ofert, bo tej serwis nie podaje bez sesji.
-  ← zostaje leasygroup (po pomiarze 2026-09-10).
+  Adapter **Leasygroup** zbiera anonimowo wyłącznie licytacje z widoku listy;
+  ceny brutto normalizuje do PLN netto, a zapisany URL aukcji pozwala odczytać
+  szczegóły i galerię również po restarcie. Źródło pozostaje opt-in w opcjach.
 
 - **ETAP 11** — backup `pg_dump` własnej bazy raz na dobę do `/share`
   (siedem kopii, data w diagnostyce), trzy dashboardy Grafany jako JSON
@@ -102,10 +104,9 @@ ich jako takiej wprowadzała w błąd (RECON.md §3.5a). Dla **poleasingowe.pl**
 jest odwrotnie — `lastOffers` to realny przebieg licytacji i karta go
 pokazuje; bramką jest `bid_count_semantics = 'OFFERS'`, nie nazwa źródła.
 
-Następny: **leasygroup** po pomiarze z 2026-09-10 (`tools/pomiar-leasygroup.sh`
-uzbrojony w launchd). Logowanie z ETAPU 8 zostaje na razie odłożone —
-mechanizm jest gotowy i przetestowany, ale żaden adapter jeszcze się nie
-loguje.
+Następny krok to siedmiodniowa obserwacja Leasygroup na HA: porównanie
+domknięć z serwisem, kontrola WAF/TLS oraz RSS. Logowanie z ETAPU 8 zostaje
+na razie odłożone — wszystkie obecne adaptery czytają dane anonimowo.
 
 Repozytorium add-onu: <https://github.com/maz00r/ha-poleasingowe> —
 instrukcja instalacji w [`poleasingowe/DOCS.md`](poleasingowe/DOCS.md).
@@ -245,10 +246,9 @@ python3 tools/recon_0b.py --dry-run --source efl --url "<URL>"
   „zakończona" — `auction_pending:false`, nagłówek `Zakończona` — cena
   zostaje zapisana jako `CONFIRMED`. Gdy drabinka się wyczerpie, aukcja
   kończy na `LAST_SEEN` razem z `last_price_lead_seconds`.
-  Czego brakuje: siatka dla leasygroup pozostaje domyślna do czasu pomiaru,
-  a `bid_history_ttl_seconds` nadal jest wypełnione i nieczytane — dla EFL
-  przestało być potrzebne (lista ofert jest inline), dla pozostałych źródeł
-  nie ma czego czytać.
+  Leasygroup ma zmierzoną siatkę `2,5,10,20 s`; tabela historii ofert znika
+  między odczytem w chwili końca i +5 s, ale nie zapisujemy jej jeszcze bez
+  przykładu z rzeczywistą ofertą.
 - **Ponowne wystawienia bez VIN-u to tylko przypuszczenie.** Powiązanie
   po VIN jest pewne; bez niego opieramy się na zgodności marki, modelu,
   rocznika, silnika, koloru i przebiegu — i tak jest oznaczone w interfejsie.

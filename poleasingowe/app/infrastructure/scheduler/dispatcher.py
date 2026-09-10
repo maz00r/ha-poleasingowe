@@ -45,7 +45,7 @@ from app.domain.entities import (
 )
 from app.domain.enums import AuctionStatus, PollTier, SweepStatus
 from app.domain.errors import DomainError
-from app.domain.harmonogram import nastepny_odpyt, tier
+from app.domain.harmonogram import floor_zrodla, nastepny_odpyt, tier
 from app.domain.logowanie import ZrodloZablokowane
 from app.infrastructure.kopia import BladKopii, KopiaZapasowa
 from app.infrastructure.scheduler.tempo import Bezpiecznik, KubelekTokenow
@@ -528,7 +528,7 @@ class Dispatcher:
         # zwraca `ETag` ani `Last-Modified` (RECON.md §3.1).
         async with self.bramka_sieci(zrodlo.key, domykanie=domykanie):
             surowa = await adapter.pobierz_szczegoly(
-                aukcja.external_id, aukcja.content_hash
+                aukcja.external_id, aukcja.content_hash, url=aukcja.url
             )
 
         teraz = await kontekst.zapytania.czas_serwera()
@@ -606,6 +606,17 @@ class Dispatcher:
         if not obserwowana:
             return replace(
                 aukcja, last_seen_at=teraz, next_poll_at=None, poll_tier=PollTier.IDLE
+            )
+
+        # „LAST MINUTE” nie niesie dokładnego terminu. Dla obserwowanej
+        # aukcji nie czekamy więc do następnego pełnego skanu ani nie
+        # wymyślamy `ends_at`: ponawiamy po bezpiecznym floorze źródła.
+        if aukcja.status is AuctionStatus.ACTIVE and aukcja.ends_at is None:
+            return replace(
+                aukcja,
+                last_seen_at=teraz,
+                next_poll_at=teraz + dt.timedelta(seconds=floor_zrodla(zrodlo)),
+                poll_tier=PollTier.ENDGAME,
             )
 
         if w_domykaniu(aukcja, teraz):

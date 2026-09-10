@@ -100,7 +100,10 @@ class ZrodloAtrapa:
                 raise SourceUnavailable("przerwana paginacja")
 
     async def pobierz_szczegoly(
-        self, external_id: str, znany_hash: str | None = None
+        self,
+        external_id: str,
+        znany_hash: str | None = None,
+        url: str | None = None,
     ) -> SurowaOferta | None:
         self.pobrania += 1
         self.podane_hashe.append(znany_hash)
@@ -150,11 +153,14 @@ class WolneZrodlo(ZrodloAtrapa):
         self.zezwol = asyncio.Event()
 
     async def pobierz_szczegoly(
-        self, external_id: str, znany_hash: str | None = None
+        self,
+        external_id: str,
+        znany_hash: str | None = None,
+        url: str | None = None,
     ) -> SurowaOferta | None:
         self.rozpoczeto.set()
         await self.zezwol.wait()
-        return await super().pobierz_szczegoly(external_id, znany_hash)
+        return await super().pobierz_szczegoly(external_id, znany_hash, url)
 
 
 class KopiaWTrakcie:
@@ -1221,9 +1227,12 @@ class ZrodloZListaOfert(ZrodloAtrapa):
         self.oferty: list[tuple[str, str, dt.datetime]] = []
 
     async def pobierz_szczegoly(
-        self, external_id: str, znany_hash: str | None = None
+        self,
+        external_id: str,
+        znany_hash: str | None = None,
+        url: str | None = None,
     ) -> SurowaOferta | None:
-        surowa = await super().pobierz_szczegoly(external_id, znany_hash)
+        surowa = await super().pobierz_szczegoly(external_id, znany_hash, url)
         if surowa is None:
             return None
         return replace(

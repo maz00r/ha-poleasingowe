@@ -145,7 +145,10 @@ class PoleasingoweSource:
                 )
 
     async def pobierz_szczegoly(
-        self, external_id: str, znany_hash: str | None = None
+        self,
+        external_id: str,
+        znany_hash: str | None = None,
+        url: str | None = None,
     ) -> SurowaOferta | None:
         """Szczegóły jednej aukcji. Wywoływane tylko dla obserwowanych (§11.2).
 
@@ -157,7 +160,11 @@ class PoleasingoweSource:
         slug. Stały slug jest przy okazji lepszy dla `content_hash`, bo slug
         pojawia się w treści strony.
         """
-        sciezka = f"/pl/auctions/details/x/{external_id}"
+        sciezka = strona_aukcji(
+            url,
+            bazowy=parser.BAZOWY_URL,
+            zapasowa=f"/pl/auctions/details/x/{external_id}",
+        )
         tresc = await self._pobierz(sciezka)
         biezacy = hash_tresci(tresc)
         if znany_hash is not None and biezacy == znany_hash:
@@ -165,7 +172,9 @@ class PoleasingoweSource:
 
         html = tresc.decode("utf-8", "replace")
         surowa = parser.sparsuj_szczegoly(
-            html, external_id, f"{parser.BAZOWY_URL}{sciezka}"
+            html,
+            external_id,
+            sciezka if sciezka.startswith("http") else f"{parser.BAZOWY_URL}{sciezka}",
         )
         # `lastOffers` przyjezdza TA SAMA odpowiedzia co cena — zero
         # dodatkowych zadan (SPEC.md §11.8). Serwis czysci te liste 2-5 min

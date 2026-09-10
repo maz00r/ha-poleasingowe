@@ -130,7 +130,10 @@ class EflSource:
         raise ParseFailed(f"EFL: osiągnięto limit {MAKS_STRON} stron")
 
     async def pobierz_szczegoly(
-        self, external_id: str, znany_hash: str | None = None
+        self,
+        external_id: str,
+        znany_hash: str | None = None,
+        url: str | None = None,
     ) -> SurowaOferta | None:
         """Szczegóły jednej aukcji. Wywoływane tylko dla obserwowanych (§11.2).
 
@@ -138,7 +141,9 @@ class EflSource:
         oszczędność z §11.3 znika, bo najdroższa operacja i tak by się
         wykonała.
         """
-        sciezka = f"/Auction/x-id{external_id}"
+        sciezka = strona_aukcji(
+            url, bazowy=parser.BAZOWY_URL, zapasowa=f"/Auction/x-id{external_id}"
+        )
         tresc = await self._pobierz(sciezka)
         biezacy = hash_tresci(tresc)
         if znany_hash is not None and biezacy == znany_hash:
@@ -146,7 +151,9 @@ class EflSource:
 
         html = tresc.decode("utf-8", "replace")
         surowa = parser.sparsuj_szczegoly(
-            html, external_id, f"{parser.BAZOWY_URL}{sciezka}"
+            html,
+            external_id,
+            sciezka if sciezka.startswith("http") else f"{parser.BAZOWY_URL}{sciezka}",
         )
         # Lista ofert wychodzi z TEJ SAMEJ odpowiedzi — zero dodatkowych
         # zadan. SPEC.md §11.8 stawia ja ponad czestszym odpytywaniem

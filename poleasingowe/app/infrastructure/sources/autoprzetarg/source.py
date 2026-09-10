@@ -129,7 +129,10 @@ class AutoprzetargSource:
         raise ParseFailed(f"autoprzetarg: osiągnięto limit {MAKS_STRON} stron")
 
     async def pobierz_szczegoly(
-        self, external_id: str, znany_hash: str | None = None
+        self,
+        external_id: str,
+        znany_hash: str | None = None,
+        url: str | None = None,
     ) -> SurowaOferta | None:
         """Szczegóły jednej aukcji (SPEC.md §11.2).
 
@@ -137,7 +140,9 @@ class AutoprzetargSource:
         Zwracamy wtedy pozycję ze znacznikiem, żeby warstwa wyżej mogła
         zamknąć aukcję zamiast liczyć to jako awarię źródła (§11.5).
         """
-        sciezka = f"/aukcja/x,{external_id},x"
+        sciezka = strona_aukcji(
+            url, bazowy=parser.BAZOWY_URL, zapasowa=f"/aukcja/x,{external_id},x"
+        )
         odpowiedz = await self._pobierz(sciezka)
 
         if parser.czy_zakonczona(
@@ -145,7 +150,9 @@ class AutoprzetargSource:
         ):
             return SurowaOferta(
                 external_id=external_id,
-                url=f"{parser.BAZOWY_URL}{sciezka}",
+                url=sciezka
+                if sciezka.startswith("http")
+                else f"{parser.BAZOWY_URL}{sciezka}",
                 pola={"zniknela": "1"},
             )
 
@@ -154,7 +161,9 @@ class AutoprzetargSource:
             return None
 
         surowa = parser.sparsuj_szczegoly(
-            odpowiedz.text, external_id, f"{parser.BAZOWY_URL}{sciezka}"
+            odpowiedz.text,
+            external_id,
+            sciezka if sciezka.startswith("http") else f"{parser.BAZOWY_URL}{sciezka}",
         )
         return replace(surowa, content_hash=biezacy)
 

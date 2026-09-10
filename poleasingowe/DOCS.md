@@ -59,6 +59,10 @@ sources:
     enabled: true
     rate_limit_per_minute: 30
     floor_seconds: 60
+  - key: leasygroup
+    enabled: true
+    rate_limit_per_minute: 30
+    floor_seconds: 60
 ```
 
 Ustawiasz tylko trzy rzeczy: czy źródło działa, ile żądań na minutę i jaki

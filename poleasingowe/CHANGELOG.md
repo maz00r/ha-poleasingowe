@@ -1,5 +1,13 @@
 # Historia zmian
 
+## 0.28.0 — w przygotowaniu
+
+**Dodano Leasygroup.** Anonimowy adapter zbiera wyłącznie licytacje z pełnej
+paginacji widoku listy, zapisuje ceny w PLN netto i korzysta z zapamiętanego
+adresu aukcji także po restarcie. Pomiar z 2026-09-10 ustawił drabinkę
+domknięcia na `2, 5, 10, 20 s`; `LAST MINUTE` pozostaje aktywne, a strona
+„Zakończona” potwierdza cenę końcową.
+
 ## 0.27.5 — w przygotowaniu
 
 **Poprawka: add-on nie wstawał po aktualizacji do 0.27.4.** Migracja

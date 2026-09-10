@@ -1,0 +1,1 @@
+"""Adapter publicznych licytacji Leasygroup."""

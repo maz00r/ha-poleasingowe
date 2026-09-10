@@ -276,7 +276,10 @@ class AuctionSource(Protocol):
         ...
 
     async def pobierz_szczegoly(
-        self, external_id: str, znany_hash: str | None = None
+        self,
+        external_id: str,
+        znany_hash: str | None = None,
+        url: str | None = None,
     ) -> SurowaOferta | None:
         """Pojedyncza aukcja. Wywoływane tylko dla obserwowanych (§11.2).
 
@@ -284,6 +287,10 @@ class AuctionSource(Protocol):
         nie zmieniła, adapter zwraca `None` **bez parsowania** (§11.3 krok 2):
         parsowanie jest najdroższą operacją CPU w całej aplikacji i nie wolno
         go wykonywać na niezmienionej treści.
+
+        `url` to zapamiętany adres z listy. Adapter używa go, gdy sam
+        identyfikator nie wystarcza do odtworzenia ścieżki po restarcie;
+        adres musi zostać ograniczony do hosta źródła.
 
         Porównanie musi siedzieć w adapterze, nie u wywołującego — inaczej
         parsowanie i tak by się wykonało, a oszczędność zniknęła.
