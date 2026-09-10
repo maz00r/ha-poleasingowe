@@ -399,9 +399,15 @@ _KWOTY = re.compile(r'id="kwoty">(.*?)</div>\s*<div class="clear">', re.S)
 _PARKING = re.compile(r'<div class="adres">(.*?)</div>', re.S)
 _OPIS_FIRMY = re.compile(r'<div class="opis">\s*(.*?)\s*</div>', re.S)
 _PELNE_ZDJECIE = re.compile(r'<a class="jackbox"[^>]*href="(/cache/zdjecia/[^"]+)"')
+# Tytuł pojazdu to <h1 class="fl nazwa-przedmiotu">. Bez zakotwiczenia
+# w tej klasie `.search` łapał pierwszy <h1> ze strony — a od kiedy regulamin
+# aukcji jest wstawiany inline w #regulamin, jego nagłówki ("I. Słownik pojęć")
+# stoją przed blokiem POLECANE i wygrywały. Numer rejestracyjny doklejony do
+# nazwy ("Hummer H2, DW929KM") ucinamy tak samo jak na liście.
 _H1_SZCZEGOLY = re.compile(
-    r"<h1>\s*([^<]*?)\s*(?:,\s*[A-Z]{2,3}[0-9A-Z]{4,5})?\s*</h1>"
+    r'<h1[^>]*class="[^"]*nazwa-przedmiotu[^"]*"[^>]*>\s*(.*?)\s*</h1>', re.S
 )
+_TABLICA_W_NAZWIE = re.compile(r",\s*[A-Z]{2,3}[0-9A-Z]{4,5}\s*$")
 
 _MAPA_POL = {
     "vin": ("vin",),
@@ -496,10 +502,11 @@ def parsuj_szczegoly(tekst: str, external_id: str) -> dict[str, object]:
         else []
     )
     h1 = _H1_SZCZEGOLY.search(tekst)
+    nazwa_pojazdu = _TABLICA_W_NAZWIE.sub("", _czysty(h1.group(1))) if h1 else None
 
     return {
         "external_id": external_id,
-        "nazwa": _czysty(h1.group(1)) if h1 else pola.get("opis_modelu"),
+        "nazwa": nazwa_pojazdu or pola.get("opis_modelu"),
         "end_ts": _end_z_ts(tekst),
         "czas_trwania": (
             list(m_czas.groups()) if (m_czas := _CZAS_TRWANIA.search(blok)) else None

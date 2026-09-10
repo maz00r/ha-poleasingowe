@@ -92,7 +92,9 @@ DETAL = """
 <a class="przycisk-przystap" href="#" onclick="Dialog.logowanie();">PRZYSTĄP DO AUKCJI</a>
 <div id="zdjecie-male">{galeria}</div>
 </div>
-<h1>{model}{h1_plate}</h1>
+<h1 class="fl nazwa-przedmiotu">
+  {model}{h1_plate}			</h1>
+<div id="regulamin"><h1>I. Słownik pojęć</h1><p>Postąpienie oznacza...</p></div>
 <script>Zegar.odliczanie({ts}); Licytacja.pasekInformacyjny({eid});
   var html = 'Aukcja zakończona!';</script>
 <div class="polecane"><h1>POLECANE AUKCJE</h1>
@@ -215,6 +217,14 @@ def test_szczegoly_wyciagaja_pola_pojazdu() -> None:
     assert pola["sprzedawca"] == "STELLANTIS"
     assert d["parking"] == "Dawro Warszawa ul. Mrówcza 79 04-768 Warszawa"
     assert d["liczba_zdjec"] == 4
+    # nazwa z <h1 class="nazwa-przedmiotu">, nie z nagłówka regulaminu
+    # wstawionego inline ("I. Słownik pojęć"); tablica ucięta z końca.
+    assert d["nazwa"] == "PEUGEOT 308 III"
+
+
+def test_nazwa_pomija_naglowek_regulaminu_i_ucina_tablice() -> None:
+    d = pd.parsuj_szczegoly(detal(model="Hummer H2", plate="DW929KM"), "16761")
+    assert d["nazwa"] == "Hummer H2"
 
 
 def test_end_ts_z_odliczania_ma_pierwszenstwo() -> None:

@@ -255,6 +255,16 @@ terminie). Gdy najbliższa aukcja kończy się za ponad dobę, skrypt zapisuje
 skan i wypisuje status „pomiar domknięcia do wykonania później"; wtedy trzeba
 go odpalić bliżej terminu (`--url <URL>`).
 
+`tools/pomiar-dawro.sh` + `tools/pomiar-dawro.plist` — wrapper i szablon
+agenta launchd, który uzbraja ten pomiar na konkretny termin (`caffeinate`,
+log, stempel, próba na sucho przed startem). Wzorowany na
+`tools/pomiar-leasygroup.sh`. Instalacja:
+
+```bash
+cp tools/pomiar-dawro.plist ~/Library/LaunchAgents/pl.poleasingowe.pomiar-dawro.plist
+launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/pl.poleasingowe.pomiar-dawro.plist
+```
+
 ## Znane luki
 
 - **Faza domknięcia z §11.5 działa od 0.15.0, ale nie jest zmierzona na

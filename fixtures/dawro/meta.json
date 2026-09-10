@@ -3,6 +3,28 @@
   "user_agent": "Chrome/126 (desktop UA)",
   "zalogowany": false,
   "pliki": {
+    "regulamin-strony.html": {
+      "status": 200,
+      "bytes": 77738,
+      "redirects": 0,
+      "url_koncowy": "https://www.dawro.pl/dokument,Regulamin_Strony",
+      "pobrano_utc": "2026-09-10T12:00:00+00:00",
+      "uwaga": "Regulamin korzystania z portalu, Wrocław 2025-06-01. Art. 4.9 — autorytet zegara serwerowego. Brak klauzuli o dogrywce.",
+      "headers": {
+        "content-type": "text/html"
+      }
+    },
+    "regulamin-jak-licytowac.html": {
+      "status": 200,
+      "bytes": 70520,
+      "redirects": 0,
+      "url_koncowy": "https://www.dawro.pl/jak-licytowac",
+      "pobrano_utc": "2026-09-10T12:00:00+00:00",
+      "uwaga": "Instrukcja uczestnika. Rozdz. V: 'Aukcja kończy się o wyznaczonej godzinie'. Rozdz. IV: postąpienie 100-2000 zł, automat, Opcja Twoja Oferta.",
+      "headers": {
+        "content-type": "text/html"
+      }
+    },
     "lista-01.html": {
       "status": 200,
       "bytes": 122457,

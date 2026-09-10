@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>pl.poleasingowe.pomiar-dawro</string>
+
+  <!-- Pomiar domkniecia: seria dawro z 2026-09-14 domyka sie co 2 minuty
+       od 10:00 czasu lokalnego (Hummer H2, id 16761, konczy sie 10:00).
+       Startujemy 09:45 — skrypt najpierw robi skan katalogu (~24 aukcje
+       + galerie, kilka minut przy 20 zadaniach/min), a potem pomiar sam
+       czeka do T-180 s i po drodze odswieza termin. Zegar launchd to czas
+       LOKALNY maszyny (CEST) —
+       ten sam, ktorym posluguje sie serwis (RECON.md §4.5, art. 4.9
+       regulaminu: autorytet zegara serwerowego na stronie aukcji). -->
+  <key>StartCalendarInterval</key>
+  <dict>
+    <key>Month</key><integer>9</integer>
+    <key>Day</key><integer>14</integer>
+    <key>Hour</key><integer>9</integer>
+    <key>Minute</key><integer>45</integer>
+  </dict>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>/Users/Patryk/apka-poleasingowe/tools/pomiar-dawro.sh</string>
+  </array>
+
+  <key>WorkingDirectory</key>
+  <string>/Users/Patryk/apka-poleasingowe</string>
+
+  <!-- Gdyby Mac spal o 09:50: launchd odpali zadanie zaraz po wybudzeniu.
+       Skrypt wykryje wtedy z proby na sucho, ze aukcja skonczyla sie
+       ponad godzine temu, i zapisze to w logu zamiast udawac pomiar. -->
+  <key>StandardOutPath</key>
+  <string>/Users/Patryk/apka-poleasingowe/fixtures/dawro/pomiar-domkniecie.launchd.log</string>
+  <key>StandardErrorPath</key>
+  <string>/Users/Patryk/apka-poleasingowe/fixtures/dawro/pomiar-domkniecie.launchd.log</string>
+
+  <key>ProcessType</key>
+  <string>Interactive</string>
+</dict>
+</plist>

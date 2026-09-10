@@ -1101,10 +1101,12 @@ aukcję bez licytacji w końcówce.
 ### 4.5 dawro.pl — piąte źródło, dodane 2026-09-10
 
 Rekonesans statyczny (skan + szczegóły + galeria) wykonany
-`tools/pomiar_dawro.py --static-only`. Pomiar domknięcia **do wykonania
-później** — najbliższa aukcja kończyła się 2026-09-14, a skan nie ma czekać
-w `sleep` przez cztery dni (§4 pkt b). Fixtures: `fixtures/dawro/`, pełny
-raport pokrycia pól: `fixtures/dawro/raport.md`.
+`tools/pomiar_dawro.py --static-only`. Regulaminy przeczytane osobno
+(`fixtures/dawro/regulamin-strony.html`, `regulamin-jak-licytowac.html`).
+Pomiar domknięcia **uzbrojony na 2026-09-14** (launchd, niżej) — najbliższa
+aukcja kończy się tego dnia, a skan nie ma czekać w `sleep` przez cztery
+dni (§4 pkt b). Fixtures: `fixtures/dawro/`, pełny raport pokrycia pól:
+`fixtures/dawro/raport.md`.
 
 **URL-e.** `dawro.pl` → `301` → `www.dawro.pl` (kanoniczny host z `www`).
 Lista paginowana: `/aukcje/sortuj,data-zakonczenia,kierunek,rosnaco,strona,
@@ -1194,6 +1196,30 @@ bxSlider klonuje pierwszy i ostatni slajd dla pętli — `pomiar_dawro.py`
 odsiewa duplikaty. Dostępność pierwszego i ostatniego zdjęcia każdej aukcji
 sprawdzona (`--probe-images all` sprawdza wszystkie); w próbce 24/24 OK.
 
+**Regulamin — twarde zamknięcie, brak dogrywki (punkt a).** Regulamin
+strony (`/dokument,Regulamin_Strony`, Wrocław 2025-06-01) w art. 4.9 mówi
+tylko o autorytecie zegara serwerowego: „Czas złożenia oferty […] ustalany
+jest według czasu serwerowego […] widocznego na stronie aukcji". Instrukcja
+`/jak-licytowac` rozdz. V: „Aukcja kończy się o wyznaczonej godzinie".
+Regulamin konkretnej aukcji (wstawiony inline w `#regulamin` na stronie
+szczegółów; w próbce — wzorzec KRUK S.A. dla VeloLeasing/Santander/
+Stellantis) pkt 17: „Składanie Ofert w ramach Aukcji **kończy się
+w terminie i o godzinie wskazanej w ogłoszeniu**" — **żadnej klauzuli
+o przedłużeniu po ofercie w ostatnich minutach**. Potwierdza to układ
+katalogu: aukcje w jednej serii domykają się **co 2 minuty** (2026-09-14:
+10:00, 10:02, 10:04…), co wyklucza długą dogrywkę — kolidowałaby z kolejnym
+zamknięciem. Postąpienie: min. 100 zł, maks. 2000 zł; automat podbija
+o minimalne postąpienie. Wniosek dla adaptera: `overtime_window_seconds`
+= brak (twardy koniec). Zastrzeżenie: sprawdzony jeden wzorzec regulaminu
+aukcji; inni sprzedawcy (Noble Finance, b2 impact) mogą mieć własny —
+pomiar domknięcia zweryfikuje zachowanie faktyczne.
+
+**Odliczanie (punkt d, uszczegółowienie).** `funkcja liczanieDoKonca(id)`:
+`parseInt($(id).attr('koniec')) - Math.floor(Date.now()/1000)`; przy `<= 0`
+wpisuje literał `'Aukcja zakończona!'`. Czyli koniec liczy przeglądarka
+z atrybutu `koniec="<unix>"` — zero round-tripów do serwera, marker końca
+po stronie klienta (potwierdza akapit „Marker stanu końcowego").
+
 **robots.txt.** `User-Agent: *` → `Allow: /`, `Sitemap:
 https://www.dawro.pl/sitemap.xml`. Bez `Disallow`.
 
@@ -1203,10 +1229,40 @@ stronie aukcji), brak `ETag`/`Last-Modified`, brak nagłówków limitu tempa.
 **Werdykt: `httpx` wystarczy** do ceny, terminu, VIN-u, galerii i pól
 opisowych. Domyślne tempo skanu w narzędziu to 20 żądań/min.
 
-**Do zmierzenia (punkty b, c, e, g):** pomiar domknięcia jednej aukcji —
-`python3 tools/pomiar_dawro.py` bliżej terminu albo z `--url <URL>`.
-Wynik uzupełni drabinkę domknięcia i potwierdzi, który sygnał strukturalny
-znika po zakończeniu.
+**Do zmierzenia (punkty b, c, e, g).** Punkt (a) — dogrywka —
+**rozstrzygnięty z regulaminu: brak** (patrz wyżej). Zostają:
+(b) jak długo po `koniec` cena i strona aukcji są widoczne / czy strona
+redirectuje, (c) czy historia ofert przeżywa zamknięcie, (e) czy w końcówce
+cena idzie AJAX-em (`POST /WebService/PasekInformacyjny/`), (g) zrzut aukcji
+zakończonej + który sygnał strukturalny (`div.pasek-informacyjny-licytacji`,
+`a.przycisk-przystap`) znika.
+
+Uzbrojenie: `tools/pomiar-dawro.sh` odpalany z launchd
+(`~/Library/LaunchAgents/pl.poleasingowe.pomiar-dawro.plist`, szablon
+`tools/pomiar-dawro.plist`; **2026-09-14 09:45** czasu lokalnego). Cel
+domyślny: Hummer H2 (id `16761`), pierwsza z serii domykającej się
+**2026-09-14 co 2 min od 10:00 Europe/Warsaw** (odczytane z katalogu:
+`koniec` na kafelku, minutowa rozdzielczość; `Zegar.odliczanie(<unix>)`
+na stronie szczegółów daje sekundę). Skrypt startuje T−15 min bo
+`pomiar_dawro.py --url` najpierw przeskanuje katalog (~24 aukcje + galerie),
+a dopiero potem czeka do T−180 s i gęsto próbkuje run-up co 10 s, potem
+drabinę po końcu `0,2,5,10,15,20,30,45,60,90,120,180,300,600` s.
+
+**Warunek konieczny: Mac wybudzony i online 2026-09-14 ok. 09:45.**
+`caffeinate -i` blokuje zaśnięcie z bezczynności w trakcie, ale nie obudzi
+maszyny, która już śpi. Skrypt zaczyna od próby na sucho (`--dry-run --url`)
+i **przerywa, jeśli aukcja skończyła się ponad godzinę temu** — inaczej
+zebrałby samą zamrożoną stronę wyglądającą jak wynik. Jeśli pomiar
+przepadnie: ta sama seria domyka kolejne pozycje co 2 min (16762 10:02,
+16763 10:04, …), a następna seria kończy się **2026-09-15 od 12:00** —
+wtedy `POMIAR_URL="https://www.dawro.pl/aukcja/<id>,<slug>"
+tools/pomiar-dawro.sh` albo przestawić termin w pliku `.plist`.
+
+Po udanym pomiarze skrypt zostawia stempel
+`fixtures/dawro/.pomiar-domkniecie-wykonany`, więc kolejne odpalenia agenta
+nie ruszają serwisu. Samego agenta usuwa się ręcznie:
+`launchctl bootout gui/$(id -u)/pl.poleasingowe.pomiar-dawro`. Wynik uzupełni
+drabinkę domknięcia adaptera dawro i potwierdzi marker stanu końcowego.
 
 ## 5. Które serwisy obsłuży sam `httpx` (§4 pkt 3)
 
