@@ -1,5 +1,15 @@
 # Historia zmian
 
+## 0.27.5 — w przygotowaniu
+
+**Poprawka: add-on nie wstawał po aktualizacji do 0.27.4.** Migracja
+usuwająca cenę docelową odtwarzała widok raportowy z kolumną `numeric`
+zamiast `numeric(12,2)`, a PostgreSQL odmawia zmiany typu istniejącej
+kolumny widoku przez `CREATE OR REPLACE VIEW` — również na luźniejszy typ.
+Migracja padała przy każdym starcie, pula połączeń nigdy się nie otwierała
+i interfejs zwracał 500. Rzutowanie na `numeric(12,2)` naprawia start; kto
+nie zdążył wejść na 0.27.4, przejdzie prosto na 0.27.5.
+
 ## 0.27.4 — w przygotowaniu
 
 **Szczegóły aukcji są prostsze i dokładniejsze.** Lokalizacja z EFL jest

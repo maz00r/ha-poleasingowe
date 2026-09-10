@@ -12,4 +12,4 @@ arkusz do nowego HTML-a — a to wygląda dokładnie jak zepsuty panel.
 
 from __future__ import annotations
 
-WERSJA = "0.27.4"
+WERSJA = "0.27.5"

@@ -2,6 +2,10 @@
 -- obserwowanej aukcji, ale sama obserwacja ma byc jednym, lekkim przelacznikiem.
 -- Widok raportowy zachowuje dawny naglowek, aby dashboardy nie przestaly sie
 -- wykonywac; kolumna ma odtad zawsze NULL.
+--
+-- Rzutowanie MUSI byc na numeric(12,2), nie na goly numeric: kolumna widoku
+-- powstala w 002 jako `w.target_price` (numeric(12,2)), a CREATE OR REPLACE
+-- VIEW odmawia zmiany typu istniejacej kolumny — nawet na luzniejszy.
 CREATE OR REPLACE VIEW reporting.v_auction_current AS
 SELECT
     a.id AS auction_id,
@@ -37,7 +41,7 @@ SELECT
     a.duplicate_of,
     (w.auction_id IS NOT NULL) AS watched,
     w.note AS watch_note,
-    NULL::numeric AS watch_target_price
+    NULL::numeric(12,2) AS watch_target_price
 FROM app.auction AS a
 JOIN app.source AS src ON src.id = a.source_id
 LEFT JOIN app.watchlist AS w ON w.auction_id = a.id;
