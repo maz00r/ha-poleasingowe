@@ -1,6 +1,6 @@
 # Historia zmian
 
-## 0.28.2 — w przygotowaniu
+## 0.28.3 — w przygotowaniu
 
 **Poprawka galerii zdjęć.** Miniatury w szczegółach aukcji układają się teraz
 obok siebie, a nie w jednej pionowej kolumnie — stara reguła sprzed przebudowy
