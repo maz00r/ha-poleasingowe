@@ -6,10 +6,10 @@ import io
 import pathlib
 import ssl
 
+import httpx
 import pytest
 from PIL import Image
 
-from app.infrastructure import zdjecia
 from app.infrastructure.zdjecia import GaleriaZdjec
 
 
@@ -59,8 +59,13 @@ async def test_klient_galerii_uzywa_systemowego_magazynu_ca(
         def __init__(self, **kw: object) -> None:
             wywolania.append(kw["verify"])
 
-    monkeypatch.setattr(zdjecia.ssl, "create_default_context", lambda: kontekst)
-    monkeypatch.setattr(zdjecia.httpx, "AsyncClient", Klient)
+    # Patchujemy `ssl`/`httpx` pod ich WŁASNYM importem w tym pliku, nie pod
+    # `zdjecia.ssl`/`zdjecia.httpx` — moduł jest tym samym obiektem w
+    # sys.modules, więc podmiana działa identycznie, a mypy --strict nie
+    # uznaje `import ssl` w zdjecia.py za świadomy re-eksport (przez co
+    # `zdjecia.ssl` jako atrybut jest błędem pod --no-implicit-reexport).
+    monkeypatch.setattr(ssl, "create_default_context", lambda: kontekst)
+    monkeypatch.setattr(httpx, "AsyncClient", Klient)
 
     await galeria(ZrodloZeZdjeciami([]), tmp_path)._klient_http()
     assert wywolania == [kontekst]
