@@ -1,5 +1,16 @@
 # Historia zmian
 
+## 0.29.4 — w przygotowaniu
+
+**Wyścig w cache'u zdjęć.** Miniatura na liście i galeria szczegółów proszą
+o to samo zdjęcie (indeks 0) niemal równocześnie — dwa wątki zapisu na ten
+sam plik cache'u kończyły się log-iem `nie udało się zapisać zdjęcia do
+cache'u: [Errno 2] No such file or directory`. Nieszkodliwe (zdjęcie i tak
+się wyświetlało — zawiódł tylko zapis na dysk), ale zbędne powtórzone
+pobranie z sieci i szum w logu. `_zapisz` sprawdza teraz, czy plik już
+istnieje, zanim zacznie pisać — kto pierwszy, ten lepszy, drugi zapis jest
+cichym no-opem.
+
 ## 0.29.3 — w przygotowaniu
 
 **Poprawka backupu, tym razem właściwa.** 0.29.2 naprawiał zły trop —

@@ -264,6 +264,13 @@ class GaleriaZdjec:
         return self._katalog / f"{odcisk}.miniatura.jpg"
 
     def _zapisz(self, sciezka: pathlib.Path, dane: bytes) -> None:
+        # Ta sama karta (miniatura na liście) i galeria szczegółów proszą
+        # o indeks 0 tego samego zdjęcia niemal równocześnie — dwa wątki
+        # `asyncio.to_thread` mogą trafić tu w tej samej milisekundzie.
+        # Jeśli ktoś już zdążył zapisać ten plik, nie ma czego robić
+        # drugi raz: krótsza droga niż łapanie wyścigu w środku zapisu.
+        if sciezka.exists():
+            return
         try:
             self._katalog.mkdir(parents=True, exist_ok=True)
             uchwyt, tymczasowy = tempfile.mkstemp(dir=self._katalog, suffix=".tmp")

@@ -131,6 +131,23 @@ def test_rotacja_trzyma_katalog_w_limicie(tmp_path: pathlib.Path) -> None:
     assert (katalog / "5.jpg").exists(), "najnowszy plik ma przetrwać rotację"
 
 
+def test_zapisz_pomija_plik_ktory_juz_istnieje(tmp_path: pathlib.Path) -> None:
+    """Miniatura na liście i galeria szczegółów proszą o to samo zdjęcie
+    (indeks 0) niemal równocześnie — dwa wątki `_zapisz` na ten sam plik.
+
+    Kto pierwszy, ten lepszy: drugi zapis ma być cichym no-opem, nie
+    nadpisywać efektu pierwszego ani zgłaszać błędu.
+    """
+    katalog = tmp_path / "zdjecia"
+    g = GaleriaZdjec({}, katalog=katalog)
+    cel = katalog / "0.jpg"
+
+    g._zapisz(cel, b"pierwszy zapis")
+    g._zapisz(cel, b"drugi, spozniony zapis")
+
+    assert cel.read_bytes() == b"pierwszy zapis"
+
+
 def test_typ_mime_bierze_sie_z_rozszerzenia(tmp_path: pathlib.Path) -> None:
     g = galeria(ZrodloZeZdjeciami([]), tmp_path)
     assert g._sciezka_cache("https://x.test/a.png").suffix == ".png"
