@@ -316,6 +316,22 @@ def test_katalogi_wykonywalne_daja_takze_odczyt(sciezka: str) -> None:
     ), f"{sciezka} musi mieć `rix`, inaczej skrypty się nie wczytają ({wzorzec})"
 
 
+def test_pg_dump_ma_prawo_wykonania_pod_libexec() -> None:
+    """`postgresql17-client` na Alpine instaluje binarki NIE pod `/usr/bin`.
+
+    Sprawdzone w indeksie pakietów Alpine: `pg_dump` leży pod
+    `/usr/libexec/postgresql17/pg_dump`. Bez tej reguły ma tylko odczyt
+    z ogólnego `/** mr,` — `exec()` dostaje odmowę, która w logu wygląda
+    jak goły `PermissionError` bez nazwy pliku, nieodróżnialny na pierwszy
+    rzut oka od błędu zapisu w `/share` (backup zawsze najpierw tworzy tam
+    katalog, więc obie przyczyny dają ten sam komunikat).
+    """
+    tresc = _apparmor()
+    assert re.search(
+        r"^\s*/usr/libexec/postgresql17/\*\*\s+\w*rix,", tresc, re.MULTILINE
+    ), "/usr/libexec/postgresql17/** musi mieć `rix`, inaczej pg_dump się nie uruchomi"
+
+
 def test_profil_nie_ma_blankietowego_dostepu_do_plikow() -> None:
     """`file,` daje wszystko łącznie z zapisem i czyni profil dekoracją.
 

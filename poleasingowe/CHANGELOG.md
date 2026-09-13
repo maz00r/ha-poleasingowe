@@ -1,5 +1,16 @@
 # Historia zmian
 
+## 0.29.3 — w przygotowaniu
+
+**Poprawka backupu, tym razem właściwa.** 0.29.2 naprawiał zły trop —
+katalog `/share/poleasingowe/backup` istniał od dawna i miał poprawne
+uprawnienia (potwierdzone `stat` na produkcji). Prawdziwa przyczyna:
+pakiet Alpine `postgresql17-client` instaluje `pg_dump` pod
+`/usr/libexec/postgresql17/`, nie pod `/usr/bin/`. Profil AppArmor dawał
+tej ścieżce tylko odczyt, więc `exec()` dostawał odmowę — w logu
+nieodróżnialną od błędu zapisu, bo obie kończą się tym samym gołym
+`PermissionError: [Errno 13] Permission denied` bez nazwy pliku.
+
 ## 0.29.2 — w przygotowaniu
 
 **Poprawka backupu.** Kopia bazy (`pg_dump` do `/share`) wywalała się

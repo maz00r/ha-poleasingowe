@@ -46,6 +46,14 @@ profile poleasingowe flags=(attach_disconnected,mediate_deleted) {
   /usr/sbin/** rix,
   /usr/local/bin/** rix,
   /usr/lib/bashio/** rix,
+
+  # Pakiet Alpine `postgresql17-client` (Dockerfile) instaluje `pg_dump`
+  # NIE pod /usr/bin, tylko pod /usr/libexec/postgresql17/ — sprawdzone
+  # w indeksie pakietow pkgs.alpinelinux.org. Bez tej reguly `pg_dump` ma
+  # tylko odczyt z ogolnego `/** mr,` wyzej, a `exec()` dostaje odmowe,
+  # ktora w logu wyglada jak zwykly PermissionError bez nazwy pliku —
+  # nieodrozniona na pierwszy rzut oka od bledu zapisu w /share.
+  /usr/libexec/postgresql17/** rix,
   /package/** rix,
   /command/** rix,
   /run/{s6,s6-rc*,service}/** rix,
