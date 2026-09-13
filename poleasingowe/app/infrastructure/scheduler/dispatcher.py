@@ -372,6 +372,8 @@ class Dispatcher:
                     nowe += await uow.auction.zapisz_z_przemiatu(pozycje)
                 liczba_pozycji += len(pozycje)
                 liczba_stron += 1
+                if not strona.kompletny:
+                    status = SweepStatus.PARTIAL
                 await self._obsluz_zalegle(po_id)
             bezpiecznik.zglos_sukces()
         except (DomainError, OSError) as exc:

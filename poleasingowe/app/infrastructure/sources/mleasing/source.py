@@ -23,6 +23,10 @@ NA_STRONE = 15
 MAKS_STRON = 100
 
 
+class _BrakPelnegoWyszukiwania(SourceUnavailable):
+    """Publiczna wyszukiwarka zwróciła 400 przed pierwszą stroną."""
+
+
 def _parametry_wyszukiwania(kategoria: str, numer: int) -> dict[str, Any]:
     """Kontrakt generowany przez obecną aplikację Next.js mLeasing."""
     return {
@@ -107,11 +111,40 @@ class MleasingSource:
                 json=_parametry_wyszukiwania(kategoria, numer),
             )
             odpowiedz.raise_for_status()
+        except httpx.HTTPStatusError as exc:
+            if exc.response.status_code == httpx.codes.BAD_REQUEST:
+                raise _BrakPelnegoWyszukiwania(
+                    f"mLeasing: wyszukiwanie {kategoria}, strona {numer}: " "HTTP 400"
+                ) from exc
+            raise SourceUnavailable(
+                f"mLeasing: wyszukiwanie {kategoria}, strona {numer}: {exc}"
+            ) from exc
         except httpx.HTTPError as exc:
             raise SourceUnavailable(
                 f"mLeasing: wyszukiwanie {kategoria}, strona {numer}: {exc}"
             ) from exc
         return odpowiedz.content
+
+    async def _strona_awaryjna(self) -> StronaPrzemiatu:
+        """Łączy działające, ale niepełne publiczne kolekcje mLeasing.
+
+        Nie udajemy pełnego skanu: dispatcher zapisze znalezione aukcje,
+        lecz nie potraktuje braku pozostałych jako ich zniknięcia.
+        """
+        najnowsze = parser.sparsuj_wyroznione(
+            await self._get("/api/offer-read/latest-offers")
+        )
+        promowane = parser.sparsuj_wyroznione(
+            await self._get("/api/offer-read/promoted-offers")
+        )
+        widziane: set[str] = set()
+        pozycje: list[SurowaOferta] = []
+        for pozycja in (*najnowsze, *promowane):
+            if pozycja.external_id in widziane:
+                continue
+            widziane.add(pozycja.external_id)
+            pozycje.append(pozycja)
+        return StronaPrzemiatu(tuple(pozycje), kompletny=False)
 
     async def przemiec_liste(self) -> Sequence[SurowaOferta]:
         wynik: list[SurowaOferta] = []
@@ -126,9 +159,18 @@ class MleasingSource:
             oczekiwana_liczba: int | None = None
             oczekiwane_strony: int | None = None
             for numer in range(1, MAKS_STRON + 1):
-                wynik = parser.sparsuj_strone(
-                    await self._strona(kategoria, numer), kategoria=kategoria
-                )
+                try:
+                    tresc = await self._strona(kategoria, numer)
+                except _BrakPelnegoWyszukiwania:
+                    if (
+                        not widziane_globalnie
+                        and kategoria == parser.KATEGORIE[0]
+                        and numer == 1
+                    ):
+                        yield await self._strona_awaryjna()
+                        return
+                    raise
+                wynik = parser.sparsuj_strone(tresc, kategoria=kategoria)
                 if oczekiwana_liczba is None:
                     oczekiwana_liczba = wynik.total_count
                     oczekiwane_strony = max(1, math.ceil(wynik.total_count / NA_STRONE))

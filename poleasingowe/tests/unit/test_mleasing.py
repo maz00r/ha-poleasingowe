@@ -56,6 +56,14 @@ def test_pusta_lista_jest_poprawna_a_zly_kontrakt_nie() -> None:
         parser.sparsuj_strone(b"<html>blad</html>", kategoria="Passenger")
 
 
+def test_wyroznione_oferty_przyjmuja_tylko_licytacje() -> None:
+    rekordy = [_rekord(182214), {**_rekord(182215), "auctionType": "Advertisement"}]
+    wynik = parser.sparsuj_wyroznione(json.dumps(rekordy).encode())
+
+    assert [oferta.external_id for oferta in wynik] == ["182214"]
+    assert wynik[0].pola["kategoria"] == ""
+
+
 def test_szczegoly_mapuja_pojazd_lokalizacje_i_ceny() -> None:
     surowa = parser.sparsuj_szczegoly(
         dane("szczegoly-182214.json"),
@@ -163,8 +171,33 @@ async def test_http_400_nie_udaje_pustego_pelnego_skanu() -> None:
         transport=httpx.MockTransport(lambda _: httpx.Response(400)),
     )
     async with source.MleasingSource(klient) as adapter:
-        with pytest.raises(SourceUnavailable, match="wyszukiwanie"):
+        with pytest.raises(SourceUnavailable, match="latest-offers"):
             await adapter.przemiec_liste()
+
+
+async def test_http_400_pokazuje_publiczne_wyroznione_oferty_jako_czesciowe() -> None:
+    def obsluz(zadanie: httpx.Request) -> httpx.Response:
+        if zadanie.url.path.endswith("/search"):
+            return httpx.Response(400)
+        if zadanie.url.path.endswith("/latest-offers"):
+            return httpx.Response(200, json=[_rekord(182214), _rekord(182215)])
+        if zadanie.url.path.endswith("/promoted-offers"):
+            return httpx.Response(200, json=[_rekord(182215), _rekord(182216)])
+        raise AssertionError(str(zadanie.url))
+
+    klient = httpx.AsyncClient(
+        base_url=parser.BAZOWY_URL, transport=httpx.MockTransport(obsluz)
+    )
+    async with source.MleasingSource(klient) as adapter:
+        strony = [strona async for strona in adapter.strony_przemiatu()]
+
+    assert len(strony) == 1
+    assert strony[0].kompletny is False
+    assert [oferta.external_id for oferta in strony[0].pozycje] == [
+        "182214",
+        "182215",
+        "182216",
+    ]
 
 
 async def test_szczegoly_i_zdjecia_uzywaja_publicznych_endpointow() -> None:

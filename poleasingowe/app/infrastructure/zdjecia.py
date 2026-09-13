@@ -30,6 +30,7 @@ import io
 import logging
 import os
 import pathlib
+import ssl
 import tempfile
 import time
 from collections.abc import AsyncIterator, Callable, Mapping, Sequence
@@ -100,7 +101,14 @@ class GaleriaZdjec:
     async def _klient_http(self) -> httpx.AsyncClient:
         if self._klient is None:
             self._klient = httpx.AsyncClient(
-                timeout=self._timeout, follow_redirects=True
+                timeout=self._timeout,
+                follow_redirects=True,
+                # Leasygroup nie wysyła pełnego łańcucha certyfikatów. Obraz
+                # dodatku instaluje jego publiczny certyfikat pośredni do
+                # systemowego magazynu CA; domyślny klient httpx używa zaś
+                # własnego certifi i przez to galeria nie mogła pobrać zdjęć.
+                # Weryfikacja TLS pozostaje włączona.
+                verify=ssl.create_default_context(),
             )
         return self._klient
 

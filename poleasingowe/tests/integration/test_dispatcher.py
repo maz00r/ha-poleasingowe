@@ -70,6 +70,7 @@ class ZrodloAtrapa:
         self.na_liscie: list[str] = []
         self.strony_listy: list[list[str]] | None = None
         self.blad_po_stronie: int | None = None
+        self.niepelna_strona = False
         self.ends_at_na_liscie: dt.datetime | None = None
 
     async def przemiec_liste(self) -> list[SurowaOferta]:
@@ -94,7 +95,8 @@ class ZrodloAtrapa:
                         pola={"z_listy": "1"},
                     )
                     for eid in identyfikatory
-                )
+                ),
+                kompletny=not self.niepelna_strona,
             )
             if self.blad_po_stronie == numer:
                 raise SourceUnavailable("przerwana paginacja")
@@ -1165,6 +1167,36 @@ async def test_czesciowy_przemiat_nie_jest_dowodem_znikniecia(
 
     await dispatcher(pusta_baza, adapter).jeden_obrot()
     assert (await wczytaj(pusta_baza, auction_id)).status is AuctionStatus.ACTIVE
+
+
+async def test_jawnie_niepelna_strona_nie_jest_dowodem_znikniecia(
+    pusta_baza: psycopg.AsyncConnection,
+) -> None:
+    adapter = ZrodloAtrapa()
+    auction_id, _ = await przygotuj(pusta_baza, adapter, do_konca_min=600)
+    adapter.strony_listy = [["sztuczna-2"]]
+    adapter.niepelna_strona = True
+
+    async with pusta_baza.cursor() as cur:
+        await cur.execute(
+            "UPDATE app.auction SET last_seen_at = now() - interval '12 hours' "
+            "WHERE id = %s",
+            (auction_id,),
+        )
+        await cur.execute(
+            "UPDATE app.source SET last_sweep_at = now() - interval '9 hours', "
+            "last_sweep_attempt_at = now() - interval '9 hours', "
+            "last_sweep_status = 'COMPLETE'"
+        )
+
+    await dispatcher(pusta_baza, adapter).jeden_obrot()
+    assert (await wczytaj(pusta_baza, auction_id)).status is AuctionStatus.ACTIVE
+
+    async with pusta_baza.cursor() as cur:
+        await cur.execute(
+            "SELECT last_sweep_status FROM app.source WHERE key = %s", (adapter.key,)
+        )
+        assert await cur.fetchone() == (SweepStatus.PARTIAL.value,)
 
     async with pusta_baza.cursor() as cur:
         await cur.execute(

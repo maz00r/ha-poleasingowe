@@ -1,5 +1,16 @@
 # Historia zmian
 
+## 0.29.1 — w przygotowaniu
+
+**Poprawka Leasygroup.** Proxy zdjęć używa teraz systemowego magazynu
+certyfikatów, do którego obraz dodatku instaluje wymagany certyfikat
+pośredni. Galeria zachowuje weryfikację TLS i może pobierać obrazy serwisu.
+
+**Poprawka mLeasing.** Gdy pełna publiczna wyszukiwarka serwisu zwraca
+`HTTP 400`, adapter zbiera dostępne aukcje z kolekcji „najnowsze” i
+„promowane”. Wynik jest jawnie częściowy: aktualizuje znalezione aukcje,
+ale nigdy nie potwierdza zniknięcia pozostałych.
+
 ## 0.29.0 — w przygotowaniu
 
 **Dodano mLeasing.** Anonimowy adapter publicznego API

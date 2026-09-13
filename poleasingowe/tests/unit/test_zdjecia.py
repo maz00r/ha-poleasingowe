@@ -4,9 +4,12 @@ from __future__ import annotations
 
 import io
 import pathlib
+import ssl
 
+import pytest
 from PIL import Image
 
+from app.infrastructure import zdjecia
 from app.infrastructure.zdjecia import GaleriaZdjec
 
 
@@ -43,6 +46,24 @@ async def test_adresy_sa_cache_owane_w_pamieci(tmp_path: pathlib.Path) -> None:
     assert await g.adresy("atrapa", "a1") == ("https://x.test/1.jpg",)
     assert await g.adresy("atrapa", "a1") == ("https://x.test/1.jpg",)
     assert zrodlo.wywolania == 1
+
+
+async def test_klient_galerii_uzywa_systemowego_magazynu_ca(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Galeria musi zauważyć certyfikat pośredni Leasygroup z obrazu add-onu."""
+    kontekst = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+    wywolania: list[object] = []
+
+    class Klient:
+        def __init__(self, **kw: object) -> None:
+            wywolania.append(kw["verify"])
+
+    monkeypatch.setattr(zdjecia.ssl, "create_default_context", lambda: kontekst)
+    monkeypatch.setattr(zdjecia.httpx, "AsyncClient", Klient)
+
+    await galeria(ZrodloZeZdjeciami([]), tmp_path)._klient_http()
+    assert wywolania == [kontekst]
 
 
 async def test_zrodlo_bez_galerii_zwraca_pustke_zamiast_bledu(

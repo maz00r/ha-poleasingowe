@@ -206,11 +206,19 @@ class StronaPrzemiatu:
     """Jedna prawidłowo rozpoznana strona listy aukcji.
 
     Adapter oddaje strony osobno, aby dispatcher mógł między nimi obsłużyć
-    aukcje w dogrywce. Normalne zakończenie iteratora znaczy pełny przemiat;
-    wyjątek po części stron daje wynik `PARTIAL`, a przed pierwszą `FAILED`.
+    aukcje w dogrywce. Normalne zakończenie iteratora znaczy pełny przemiat,
+    chyba że adapter jawnie oznaczy stronę jako niekompletną. Wyjątek po
+    części stron daje wynik `PARTIAL`, a przed pierwszą `FAILED`.
     """
 
     pozycje: tuple[SurowaOferta, ...]
+    kompletny: bool = True
+    """Czy ten wynik wystarcza jako dowód pełnego przemiatu źródła.
+
+    Publiczny serwis może czasem udostępniać jedynie wyróżnione oferty.
+    Są przydatne do pokazania i aktualizacji znalezionych aukcji, ale nie
+    mogą potwierdzać zniknięcia pozostałych.
+    """
 
 
 @dataclass(slots=True, frozen=True)
