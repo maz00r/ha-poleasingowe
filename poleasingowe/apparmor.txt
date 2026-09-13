@@ -63,7 +63,20 @@ profile poleasingowe flags=(attach_disconnected,mediate_deleted) {
   # zalogowaniu zawiera dane osobowe wlasciciela (§10.2).
   /data/{,**} rwk,
 
-  # Eksporty CSV/XLSX i backup pg_dump (SPEC.md §7.1, §12). Wlasny
-  # podkatalog, nie cale /share — tam mieszkaja tez inne dodatki.
-  /share/poleasingowe/{,**} rwk,
+  # Backup pg_dump (SPEC.md §7.1, §12). Wlasny podkatalog, nie cale /share —
+  # tam mieszkaja tez inne dodatki.
+  #
+  # DWIE LINIE, NIE `{,**}`. `/share` sam istnieje zawsze (standardowy
+  # wolumin Supervisora), ale `/share/poleasingowe` — w przeciwienstwie do
+  # `/data` czy `/run` wyzej — nikt go wczesniej nie tworzyl: eksport CSV
+  # leci przez Ingress strumieniem (bez dotykania dysku), wiec pierwsze
+  # realne zapisanie tej sciezki to `mkdir` w kopii zapasowej. Brace-owy
+  # zapis `/share/poleasingowe/{,**}` rozwija sie na `/share/poleasingowe/`
+  # (z koncowym `/`) i `/share/poleasingowe/**` — zaden z nich nie pasuje
+  # gwarantowanie do GOLEJ sciezki `/share/poleasingowe` (bez ukosnika),
+  # ktora jadro sprawdza przy tworzeniu TEGO katalogu. Ten sam rodzaj
+  # niedopasowania juz raz zablokowal `/init` (patrz git log tego pliku) —
+  # tu piszemy oba warianty wprost, bez polegania na normalizacji sciezki.
+  /share/poleasingowe/ rw,
+  /share/poleasingowe/** rwk,
 }

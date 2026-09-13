@@ -1,5 +1,14 @@
 # Historia zmian
 
+## 0.29.2 — w przygotowaniu
+
+**Poprawka backupu.** Kopia bazy (`pg_dump` do `/share`) wywalała się
+komunikatem `[Errno 13] Permission denied` — profil AppArmor pozwalał na
+zapis w `/share/poleasingowe/**`, ale nie na UTWORZENIE samego katalogu
+`/share/poleasingowe` (gołej ścieżki, bez końcowego ukośnika), bo nikt go
+wcześniej nie tworzył: eksport CSV leci przez Ingress strumieniem, nie przez
+dysk. Profil ma teraz osobną regułę na sam katalog i na jego zawartość.
+
 ## 0.29.1 — w przygotowaniu
 
 **Poprawka Leasygroup.** Proxy zdjęć używa teraz systemowego magazynu
