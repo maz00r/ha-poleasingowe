@@ -1,0 +1,31 @@
+{
+  "offer": {
+    "id": 182214,
+    "number": "617011/1",
+    "name": "SKODA Octavia 2.0 TDI Kombi",
+    "startingAmount": 110700.00,
+    "currentAmount": 123000.00,
+    "incrementAmount": 500.00,
+    "isGrossAmount": true,
+    "to": "2026-09-18T12:00:00+02:00",
+    "isWithdrawn": false,
+    "auctionType": "Auction",
+    "offerState": "Active"
+  },
+  "leaseObject": {
+    "id": 182214,
+    "productCardType": "POJ",
+    "make": "SKODA",
+    "model": "Octavia",
+    "type": "2.0 TDI",
+    "gearBoxType": "Automatyczna",
+    "fuelType": "Diesel",
+    "productionYear": 2021,
+    "milage": 123456,
+    "bodyType": "Kombi",
+    "engineCapacity": 1968,
+    "enginePowerHp": 150,
+    "vin": "WVWZZZ1JZXW000001",
+    "color": "Srebrny"
+  }
+}

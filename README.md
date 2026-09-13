@@ -17,7 +17,7 @@ do `poleasingowe/DOCS.md`.
 
 Kolejność etapów jest w `SPEC.md` §14. Zrobione:
 
-- **ETAP 0** — rekonesans czterech źródeł, `RECON.md`, fixtures i pomiary
+- **ETAP 0** — rekonesans źródeł, `RECON.md`, fixtures i pomiary
   czasowe. Zaakceptowany.
 - **ETAP 2** — szkielet warstw, import-linter, ruff, mypy, CI.
 - **ETAP 3** — `domain/`, `persistence/`, migracja `001_init.sql`, repozytoria
@@ -77,6 +77,9 @@ Kolejność etapów jest w `SPEC.md` §14. Zrobione:
   Adapter **Leasygroup** zbiera anonimowo wyłącznie licytacje z widoku listy;
   ceny brutto normalizuje do PLN netto, a zapisany URL aukcji pozwala odczytać
   szczegóły i galerię również po restarcie. Źródło pozostaje opt-in w opcjach.
+  Adapter **mLeasing** czyta z publicznego API wyłącznie licytacje samochodów
+  osobowych i dostawczych, normalizuje ceny oraz pobiera lokalizacje i zdjęcia.
+  Także pozostaje opt-in.
 
 - **ETAP 11** — backup `pg_dump` własnej bazy raz na dobę do `/share`
   (siedem kopii, data w diagnostyce), trzy dashboardy Grafany jako JSON
@@ -104,9 +107,10 @@ ich jako takiej wprowadzała w błąd (RECON.md §3.5a). Dla **poleasingowe.pl**
 jest odwrotnie — `lastOffers` to realny przebieg licytacji i karta go
 pokazuje; bramką jest `bid_count_semantics = 'OFFERS'`, nie nazwa źródła.
 
-Następny krok to siedmiodniowa obserwacja Leasygroup na HA: porównanie
-domknięć z serwisem, kontrola WAF/TLS oraz RSS. Logowanie z ETAPU 8 zostaje
-na razie odłożone — wszystkie obecne adaptery czytają dane anonimowo.
+Następny krok to siedmiodniowa obserwacja Leasygroup i mLeasing na HA:
+porównanie domknięć z serwisami, kontrola błędów źródeł oraz RSS. Logowanie
+z ETAPU 8 zostaje na razie odłożone — wszystkie obecne adaptery czytają dane
+anonimowo.
 
 Repozytorium add-onu: <https://github.com/maz00r/ha-poleasingowe> —
 instrukcja instalacji w [`poleasingowe/DOCS.md`](poleasingowe/DOCS.md).
@@ -254,6 +258,14 @@ musi zostać wybudzony i online przez całe okno domknięcia (do ~10 min po
 terminie). Gdy najbliższa aukcja kończy się za ponad dobę, skrypt zapisuje
 skan i wypisuje status „pomiar domknięcia do wykonania później"; wtedy trzeba
 go odpalić bliżej terminu (`--url <URL>`).
+
+`tools/pomiar_mleasing.py` — jednorazowy, anonimowy pomiar publicznego API
+mLeasing. Zapisuje cenę, stan, termin serwera i zredagowaną historię ofert od
+T−180 s do T+600 s, a po wykryciu dogrywki przesuwa pomiar na nowy koniec.
+
+```bash
+.venv/bin/python tools/pomiar_mleasing.py --offer-id 182076 --dry-run
+```
 
 `tools/pomiar-dawro.sh` + `tools/pomiar-dawro.plist` — wrapper i szablon
 agenta launchd, który uzbraja ten pomiar na konkretny termin (`caffeinate`,

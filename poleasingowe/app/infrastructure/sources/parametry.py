@@ -106,6 +106,21 @@ ZNANE: dict[str, ParametryZrodla] = {
         wymaga_logowania=False,
         dowod="RECON.md §4.3, §3.6 (pomiar 2026-09-10)",
     ),
+    "mleasing": ParametryZrodla(
+        nazwa="portalaukcyjny.mleasing.pl",
+        # Regulamin portalu: oferta w ostatnich 2 minutach przesuwa koniec
+        # o kolejne 2 minuty, bez opisanego limitu łącznego.
+        overtime_window_seconds=120,
+        overtime_extension_seconds=120,
+        overtime_cap_seconds=None,
+        # Publiczne API daje bezwzględny termin i stan Sold/Expired. Siatka
+        # jest ostrożnym ustawieniem startowym do kalibracji po pomiarze.
+        closing_ladder_seconds=(2, 5, 10, 20, 40),
+        bid_history_ttl_seconds=None,
+        bid_count_semantics=BidCountSemantics.UNKNOWN,
+        wymaga_logowania=False,
+        dowod="RECON.md §4.5 (rekonesans 2026-09-13)",
+    ),
 }
 
 

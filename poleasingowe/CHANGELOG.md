@@ -1,5 +1,18 @@
 # Historia zmian
 
+## 0.29.0 — w przygotowaniu
+
+**Dodano mLeasing.** Anonimowy adapter publicznego API
+`portalaukcyjny.mleasing.pl` zbiera licytacje samochodów osobowych i
+dostawczych, rozpoznaje stany `Active`, `Expired`, `Withdrawn` i `Sold`,
+normalizuje ceny brutto do PLN netto oraz pobiera lokalizację i galerię.
+Pełność skanu jest sprawdzana licznikiem API, zmianą liczby wyników i
+powtórzeniami stron, więc błąd wyszukiwarki nie archiwizuje ofert.
+
+Dogrywka 120 s wynika z zasad serwisu. Drabinka `2, 5, 10, 20, 40 s` jest
+ustawieniem początkowym do kalibracji po pomiarze rzeczywistego domknięcia.
+Źródło pozostaje opt-in.
+
 ## 0.28.4 — w przygotowaniu
 
 Miniatury aukcji na stronie głównej nie mają już przyciemnionego gradientu.

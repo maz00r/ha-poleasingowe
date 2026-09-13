@@ -1,0 +1,210 @@
+"""Parser, mapper i adapter publicznego API mLeasing."""
+
+from __future__ import annotations
+
+import datetime as dt
+import json
+import pathlib
+from decimal import Decimal
+
+import httpx
+import pytest
+
+from app.domain.enums import AuctionStatus, AuthState, Currency
+from app.domain.errors import ParseFailed, SourceUnavailable
+from app.domain.value_objects import Money
+from app.infrastructure.sources import parametry
+from app.infrastructure.sources.mleasing import mapper, parser, source
+
+FIXTURES = pathlib.Path(__file__).resolve().parents[3] / "fixtures" / "mleasing"
+TERAZ = dt.datetime(2026, 9, 13, 12, 0, tzinfo=dt.UTC)
+
+
+def dane(nazwa: str) -> bytes:
+    return (FIXTURES / nazwa).read_bytes()
+
+
+def test_lista_przyjmuje_tylko_licytacje_i_id_z_api() -> None:
+    wynik = parser.sparsuj_strone(dane("lista-01.json"), kategoria="Passenger")
+
+    assert wynik.total_count == 2
+    assert wynik.identyfikatory == ("182214", "182215")
+    assert [x.external_id for x in wynik.pozycje] == ["182214"]
+    assert wynik.pozycje[0].url == f"{parser.BAZOWY_URL}/oferta/182214/"
+
+
+def test_lista_brutto_jest_przeliczona_na_netto() -> None:
+    surowa = parser.sparsuj_strone(
+        dane("lista-01.json"), kategoria="Passenger"
+    ).pozycje[0]
+    aukcja = mapper.na_aukcje(surowa, 1, TERAZ)
+
+    assert aukcja.price_current == Money(Decimal("100000.00"), Currency.PLN)
+    assert aukcja.make == "Škoda"
+    assert aukcja.location == "Testowa 1, 00-001 Warszawa"
+    assert "600" not in aukcja.location
+
+
+def test_pusta_lista_jest_poprawna_a_zly_kontrakt_nie() -> None:
+    wynik = parser.sparsuj_strone(
+        b'{"items": [], "totalCount": 0}', kategoria="Passenger"
+    )
+    assert wynik.pozycje == ()
+    with pytest.raises(ParseFailed, match="items i totalCount"):
+        parser.sparsuj_strone(b'{"message": "WAF"}', kategoria="Passenger")
+    with pytest.raises(ParseFailed, match="JSON"):
+        parser.sparsuj_strone(b"<html>blad</html>", kategoria="Passenger")
+
+
+def test_szczegoly_mapuja_pojazd_lokalizacje_i_ceny() -> None:
+    surowa = parser.sparsuj_szczegoly(
+        dane("szczegoly-182214.json"),
+        dane("lokalizacje-182214.json"),
+        external_id="182214",
+        url=f"{parser.BAZOWY_URL}/oferta/182214/",
+    )
+    aukcja = mapper.na_aukcje(surowa, 1, TERAZ)
+
+    assert aukcja.status is AuctionStatus.ACTIVE
+    assert aukcja.price_start == Money(Decimal("90000.00"), Currency.PLN)
+    assert aukcja.price_current == Money(Decimal("100000.00"), Currency.PLN)
+    assert aukcja.ends_at == dt.datetime(2026, 9, 18, 10, 0, tzinfo=dt.UTC)
+    assert aukcja.location == "Testowa 1, 00-001 Warszawa"
+    assert (aukcja.engine_ccm, aukcja.engine_hp) == (1968, 150)
+    assert str(aukcja.vin) == "WVWZZZ1JZXW000001"
+
+
+@pytest.mark.parametrize("stan", ["Expired", "Withdrawn", "Sold"])
+def test_stany_koncowe_zachowuja_cene(stan: str) -> None:
+    szczegoly = json.loads(dane("szczegoly-182214.json"))
+    szczegoly["offer"]["offerState"] = stan
+    surowa = parser.sparsuj_szczegoly(
+        json.dumps(szczegoly).encode(),
+        dane("lokalizacje-182214.json"),
+        external_id="182214",
+        url=f"{parser.BAZOWY_URL}/oferta/182214/",
+    )
+    aukcja = mapper.na_aukcje(surowa, 1, TERAZ)
+    assert aukcja.status is AuctionStatus.ENDED
+    assert aukcja.price_current == Money(Decimal("100000.00"), Currency.PLN)
+
+
+def test_galeria_zwraca_duze_zdjecia_z_glownym_na_poczatku() -> None:
+    assert parser.zdjecia(dane("zdjecia-182214.json")) == (
+        f"{parser.BAZOWY_URL}/files/test/duze-1.jpg",
+        "https://pliki-portalaukcyjny.mleasing.pl/files/test/duze-2.jpg",
+    )
+
+
+def _rekord(identyfikator: int) -> dict[str, object]:
+    return {
+        "id": identyfikator,
+        "name": f"Auto {identyfikator}",
+        "amount": 10000,
+        "isGrossAmount": False,
+        "to": "2026-09-18T12:00:00+02:00",
+        "auctionType": "Auction",
+    }
+
+
+async def test_pelna_paginacja_obu_kategorii() -> None:
+    zadania: list[tuple[str, int]] = []
+
+    def obsluz(zadanie: httpx.Request) -> httpx.Response:
+        body = json.loads(zadanie.content)
+        kategoria, numer = body["category"], body["pageNumber"]
+        zadania.append((kategoria, numer))
+        if kategoria == "Passenger":
+            rekordy = (
+                [_rekord(x) for x in range(1, 16)] if numer == 1 else [_rekord(16)]
+            )
+            return httpx.Response(200, json={"items": rekordy, "totalCount": 16})
+        return httpx.Response(200, json={"items": [], "totalCount": 0})
+
+    klient = httpx.AsyncClient(
+        base_url=parser.BAZOWY_URL, transport=httpx.MockTransport(obsluz)
+    )
+    async with source.MleasingSource(klient) as adapter:
+        wynik = await adapter.przemiec_liste()
+
+    assert len(wynik) == 16
+    assert zadania == [("Passenger", 1), ("Passenger", 2), ("Vans", 1)]
+
+
+async def test_zapetlona_paginacja_i_zmiana_licznika_przerywaja_skan() -> None:
+    def zapetlona(zadanie: httpx.Request) -> httpx.Response:
+        rekordy = [_rekord(x) for x in range(1, 16)]
+        return httpx.Response(200, json={"items": rekordy, "totalCount": 16})
+
+    klient = httpx.AsyncClient(
+        base_url=parser.BAZOWY_URL, transport=httpx.MockTransport(zapetlona)
+    )
+    async with source.MleasingSource(klient) as adapter:
+        with pytest.raises(ParseFailed, match="zapętlona"):
+            await adapter.przemiec_liste()
+
+    def zmienna(zadanie: httpx.Request) -> httpx.Response:
+        numer = json.loads(zadanie.content)["pageNumber"]
+        liczba = 16 if numer == 1 else 17
+        rekordy = [_rekord(x) for x in range(1, 16)] if numer == 1 else [_rekord(16)]
+        return httpx.Response(200, json={"items": rekordy, "totalCount": liczba})
+
+    klient = httpx.AsyncClient(
+        base_url=parser.BAZOWY_URL, transport=httpx.MockTransport(zmienna)
+    )
+    async with source.MleasingSource(klient) as adapter:
+        with pytest.raises(ParseFailed, match="zmieniła się"):
+            await adapter.przemiec_liste()
+
+
+async def test_http_400_nie_udaje_pustego_pelnego_skanu() -> None:
+    klient = httpx.AsyncClient(
+        base_url=parser.BAZOWY_URL,
+        transport=httpx.MockTransport(lambda _: httpx.Response(400)),
+    )
+    async with source.MleasingSource(klient) as adapter:
+        with pytest.raises(SourceUnavailable, match="wyszukiwanie"):
+            await adapter.przemiec_liste()
+
+
+async def test_szczegoly_i_zdjecia_uzywaja_publicznych_endpointow() -> None:
+    zadania: list[str] = []
+
+    def obsluz(zadanie: httpx.Request) -> httpx.Response:
+        zadania.append(str(zadanie.url))
+        if zadanie.url.path.endswith("/get"):
+            return httpx.Response(200, content=dane("szczegoly-182214.json"))
+        if zadanie.url.path.endswith("/get-locations"):
+            return httpx.Response(200, content=dane("lokalizacje-182214.json"))
+        return httpx.Response(200, content=dane("zdjecia-182214.json"))
+
+    klient = httpx.AsyncClient(
+        base_url=parser.BAZOWY_URL, transport=httpx.MockTransport(obsluz)
+    )
+    adres = f"{parser.BAZOWY_URL}/oferta/182214/"
+    async with source.MleasingSource(klient) as adapter:
+        szczegoly = await adapter.pobierz_szczegoly("182214", url=adres)
+        assert szczegoly is not None and szczegoly.url == adres
+        assert (
+            await adapter.pobierz_szczegoly(
+                "182214", znany_hash=szczegoly.content_hash, url=adres
+            )
+            is None
+        )
+        await adapter.zdjecia("182214", url=adres)
+
+    assert zadania[-1].endswith("get-images?offerId=182214")
+    assert all("zly.example" not in x for x in zadania)
+
+
+def test_parametry_zrodla_sa_oparte_na_regulaminie() -> None:
+    wynik = parametry.zbuduj_source(
+        "mleasing", enabled=True, rate_limit_per_minute=30, floor_seconds=60
+    )
+    assert wynik.name == "portalaukcyjny.mleasing.pl"
+    assert wynik.auth_state is AuthState.ANONYMOUS
+    assert (wynik.overtime_window_seconds, wynik.overtime_extension_seconds) == (
+        120,
+        120,
+    )
+    assert wynik.closing_ladder_seconds == (2, 5, 10, 20, 40)

@@ -1461,3 +1461,37 @@ Zaplanowane, niewykonane, wymaga aukcji kończącej się w trakcie obserwacji:
 - **autoprzetarg.pl**: (b) i (g) **zmierzone 2026-09-07** (§4.4 — okno
   10–15 s, 302 na `/`). Zostaje **(f) czas życia sesji** — wymaga
   zalogowania.
+
+### 4.5 portalaukcyjny.mleasing.pl — rekonesans 2026-09-13
+
+Portal jest aplikacją Next.js z publicznym API. Lista używa `POST
+/api/offer-read/search`, szczegóły `GET /api/offer-read/get?id=…`, a galeria
+i lokalizacja mają osobne endpointy `get-images?offerId=…` oraz
+`get-locations?id=…`. Identyfikator liczbowy z API jest stabilnym
+`external_id`; publiczna strona ma adres `/oferta/{id}/`.
+
+Zakres pierwszego adaptera to kategorie `Passenger` i `Vans`, wyłącznie
+rekordy `auctionType: Auction`. API jawnie rozróżnia kwoty netto i brutto
+przez `isGrossAmount`; model aplikacji przechowuje je po normalizacji do PLN
+netto. Stany końcowe to `Expired`, `Withdrawn` i `Sold`, aktywny to `Active`.
+Lokalizacja jest budowana z pól adresowych, bez opisu zawierającego numery
+telefonów. Publiczny endpoint historii ofert istnieje i w sprawdzonej aukcji
+zwrócił pustą listę; pojedynczych ofert nie zapisujemy bez próbki niepustej.
+
+Zasady licytacji serwisu mówią o dogrywce: oferta w ostatnich 2 minutach
+przedłuża aukcję o 2 minuty, a kolejne oferty powtarzają przedłużenie.
+Regulamin nie podaje limitu łącznego. Drabinka domknięcia
+`{2,5,10,20,40}` pozostaje tymczasowa do pomiaru zakończenia.
+
+W dniu rekonesansu endpoint wyszukiwania zwracał HTTP 400 również dla
+kontraktu generowanego przez aktualny kod portalu, a widok listy nie
+pokazywał kart. Endpointy szczegółów, lokalizacji, zdjęć i najnowszych ofert
+działały. Adapter uznaje 400 za nieudany skan; nie interpretuje go jako pustej
+listy, więc awaria portalu nie może oznaczyć zapisanych aukcji jako zniknięte.
+
+Pomiar domknięcia przygotowuje `tools/pomiar_mleasing.py`. Dla aukcji
+`182076` (Porsche 911 Carrera Turbo S Cabrio) termin z API to
+**2026-09-14 12:00 CEST**. Siatka obejmuje T−180…T co 10 s oraz
+T+2, +5, +10, +20, +40, +60, +120, +300 i +600 s. Skrypt śledzi zmianę
+`to`, więc dogrywka automatycznie przesuwa dalsze próbki. Wynik trafia do
+ignorowanego przez Git pliku `fixtures/mleasing/recon-0b.jsonl`.

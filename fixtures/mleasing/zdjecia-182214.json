@@ -1,0 +1,12 @@
+[
+  {
+    "url": "https://pliki-portalaukcyjny.mleasing.pl/files/test/duze-2.jpg",
+    "name": "duze-2.jpg",
+    "isMain": false
+  },
+  {
+    "url": "/files/test/duze-1.jpg",
+    "name": "duze-1.jpg",
+    "isMain": true
+  }
+]

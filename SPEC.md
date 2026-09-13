@@ -138,6 +138,7 @@ Zasady bez wyjątków:
 - aukcje.efl.com.pl
 - autoprzetarg.pl
 - aukcje.leasygroup.pl (zweryfikuj dokładny adres)
+- portalaukcyjny.mleasing.pl
 
 Większość wymaga zalogowania, żeby widzieć pełne dane licytacji.
 
@@ -648,6 +649,7 @@ Wartości wynikające z tej reguły dla źródeł z rekonesansu (`RECON.md` §3.
 | poleasingowe.pl | 30 s | **15 s** |
 | aukcje.leasygroup.pl | 2 min | 60 s |
 | autoprzetarg.pl | 2 min | 60 s |
+| portalaukcyjny.mleasing.pl | 2 min | 60 s |
 | aukcje.efl.com.pl | brak dogrywki | endgame się nie uruchamia |
 
 Okno dogrywki, długość przedłużenia i sufit łącznego przedłużenia są
@@ -749,6 +751,7 @@ więc jedna siatka nie mogła pasować do wszystkich:
 | aukcje.efl.com.pl | bez limitu (≥2 h) | `{2,30}` |
 | poleasingowe.pl | bez limitu dla ceny | `{2,30}` |
 | aukcje.leasygroup.pl | niezmierzone | `{2,5,10,20,40}` — domyślna, do kalibracji |
+| portalaukcyjny.mleasing.pl | niezmierzone | `{2,5,10,20,40}` — domyślna, do kalibracji |
 
 Domyślna siatka `{2,5,10,20,40}` obowiązuje tylko dla źródeł niezmierzonych.
 Wpisanie jej dla źródła zmierzonego jest błędem konfiguracji, nie

@@ -68,6 +68,9 @@ KATEGORIE: dict[str, RodzajPojazdu] = {
     "ecr motorcycles": RodzajPojazdu.MOTOCYKL,
     "ecr trailers1": RodzajPojazdu.PRZYCZEPA,
     "ecr bus": RodzajPojazdu.AUTOBUS,
+    # portalaukcyjny.mleasing.pl — wartości enum publicznego API.
+    "passenger": RodzajPojazdu.OSOBOWY,
+    "vans": RodzajPojazdu.DOSTAWCZY,
 }
 
 # Nadwozia rozpoznawane w nazwie. Kolejność MA ZNACZENIE: dłuższe wyrażenia
