@@ -107,10 +107,21 @@ ich jako takiej wprowadzała w błąd (RECON.md §3.5a). Dla **poleasingowe.pl**
 jest odwrotnie — `lastOffers` to realny przebieg licytacji i karta go
 pokazuje; bramką jest `bid_count_semantics = 'OFFERS'`, nie nazwa źródła.
 
-Następny krok to siedmiodniowa obserwacja Leasygroup i mLeasing na HA:
-porównanie domknięć z serwisami, kontrola błędów źródeł oraz RSS. Logowanie
-z ETAPU 8 zostaje na razie odłożone — wszystkie obecne adaptery czytają dane
-anonimowo.
+**Adapter dawro.pl (0.29.12)** czyta anonimowo cenę, termin, VIN i galerię.
+Serwis nie podaje paliwa, skrzyni ani nadwozia — te pola zostają `NULL`,
+a cena zapisuje się bez przeliczania VAT, bo serwis nigdy nie podaje
+podstawy (RECON.md §4.5). Domknięcie wykrywane jest jawnym tekstem serwera
+„AUKCJA ZAKOŃCZONA", nie zanikiem ceny — pomiar z 2026-09-14 pokazał, że
+okno odzyskania ceny końcowej po terminie wynosi zero, więc drabinka z
+§11.5 jest krótka (`5, 20` s) i służy tylko potwierdzeniu zamknięcia.
+Bieżąca najwyższa oferta odświeża się przy przemiacie listy, nie przy
+odpycie pojedynczej aukcji: strona szczegółów jej nie renderuje serwerowo.
+Źródło pozostaje opt-in.
+
+Następny krok to siedmiodniowa obserwacja Leasygroup, mLeasing i dawro na
+HA: porównanie domknięć z serwisami, kontrola błędów źródeł oraz RSS.
+Logowanie z ETAPU 8 zostaje na razie odłożone — wszystkie obecne adaptery
+czytają dane anonimowo.
 
 Repozytorium add-onu: <https://github.com/maz00r/ha-poleasingowe> —
 instrukcja instalacji w [`poleasingowe/DOCS.md`](poleasingowe/DOCS.md).

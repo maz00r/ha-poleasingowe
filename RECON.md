@@ -1306,6 +1306,46 @@ więc kolejne odpalenia agenta nie ruszają serwisu. **Agent zrobił swoje —
 można go usunąć:** `launchctl bootout
 gui/$(id -u)/pl.poleasingowe.pomiar-dawro`.
 
+**Adapter zrobiony** (`app/infrastructure/sources/dawro/`, testy
+`tests/unit/test_dawro.py`). Trzy punkty zostawione otwarte w
+`fixtures/dawro/raport.md` („Do ustalenia w planie adaptera") rozstrzygnięte
+tak:
+
+- **Podstawa VAT.** Bez przeliczania — kwota trafia do `Money` tak, jak
+  podał ją serwis, tak samo jak w EFL, autoprzetarg.pl i poleasingowe.pl.
+  „To pewnie brutto" albo „to pewnie netto" byłoby założeniem bez dowodu:
+  próbka dała `UNKNOWN` w 24/24 aukcjach, a jedyny domyślny sygnał podatkowy
+  („Forma sprzedaży: faktura VAT" / „umowa k/s") jest formą transakcji, nie
+  podstawą kwoty — to rozróżnienie było już odrzucone w tym pomiarze
+  (wyżej). Leasygroup i mLeasing przeliczają, bo tam podstawa jest znana
+  per pozycja; tutaj nie ma żadnej.
+- **`POST /WebService/PasekInformacyjny/`.** Adapter go nie wywołuje.
+  Kontrakt (`{id}` → `{kwota, twoja_oferta}`) jest znany z obserwacji JS-u
+  strony, nie ze zmierzonego wywołania — w przeciwieństwie do
+  `bid-details` w poleasingowe.pl (§5), które jest w tym samym repo
+  wywoływane, bo jego kontrakt BYŁ zmierzony. Zgadnięcie formatu żądania
+  (JSON czy formularz, `id` czy inna nazwa pola) ryzykowałoby wstrzyknięcie
+  złych danych pod pretekstem „świeższej" ceny. Konsekwencja: adapter
+  odświeża `price_current` wyłącznie przy przemiacie listy
+  (`sweep_interval_seconds` = 6 h, stała w `parametry.py`, nie opcja
+  użytkownika) — pojedynczy odpyt szczegółów
+  w fazie ENDGAME/NEAR nigdy nie niesie bieżącej oferty, bo strona jej tam
+  serwerowo nie renderuje. Udokumentowane w `mapper.py` i `DOCS.md`, nie
+  ukryte. Jeśli po obserwacji na HA okaże się to zbyt rzadkie, endpoint da
+  się zweryfikować przez podgląd ruchu sieciowego na żywej aukcji i dodać
+  jako wzbogacenie `pobierz_szczegoly` (analogicznie do `bid-details`).
+- **Drabinka domknięcia.** Krótka, `(5, 20)` s — okno odzyskania ceny jest
+  zmierzone jako zero (punkt „b" wyżej, 32/32 próbek), więc drabinka
+  z §11.5 nie ma czego łapać. Zamknięcie wykrywane jest jawnym, serwerowym
+  tekstem „AUKCJA ZAKOŃCZONA" (`a.przycisk-licytuj`), nie zanikiem ceny —
+  ten odczyt mapuje się na `AuctionStatus.DISAPPEARED` (jak zniknięcie
+  strony w autoprzetarg.pl), żeby nie nadpisać ostatniej znanej ceny
+  wartością `None`.
+
+Punkt (c) — historia ofert po zamknięciu na aukcji z realną licytacją —
+zostaje otwarty do siedmiodniowej obserwacji na HA, razem z Leasygroup
+i mLeasing (README.md „Stan prac").
+
 ## 5. Które serwisy obsłuży sam `httpx` (§4 pkt 3)
 
 **Wszystkie cztery. Playwright nie jest potrzebny.**

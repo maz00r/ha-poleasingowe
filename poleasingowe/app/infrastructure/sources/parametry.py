@@ -106,6 +106,30 @@ ZNANE: dict[str, ParametryZrodla] = {
         wymaga_logowania=False,
         dowod="RECON.md §4.3, §3.6 (pomiar 2026-09-10)",
     ),
+    "dawro": ParametryZrodla(
+        nazwa="dawro.pl",
+        # (a) Dogrywka — potwierdzona empirycznie: BRAK. `end_ts` nie drgnął
+        # ani raz przez 32 próbki wokół terminu (RECON.md §4.5).
+        overtime_window_seconds=0,
+        overtime_extension_seconds=0,
+        overtime_cap_seconds=None,
+        # (b) Okno widoczności ceny końcowej po terminie: ZERO. Serwer
+        # przełącza stan w ~724 ms (zmierzone: pre-0s ma jeszcze cenę,
+        # post+0s w T+0,7s już nie — i tak przez całe okno pomiaru do
+        # T+600s). Drabinka więc nie ma czego odzyskiwać: jeden szczebel
+        # bezpiecznie po flipie, drugi jako zapas na aukcję z realną
+        # licytacją, którą pomiar nie objął (RECON.md §4.5, pkt „c").
+        closing_ladder_seconds=(5, 20),
+        # Serwis nie pokazuje listy ofert na stronie aukcji — jedynie
+        # zagregowaną najwyższą ofertę na kafelku listy. Cecha nie istnieje,
+        # nie jest tylko nieznana, więc `None` tak jak u mLeasing.
+        bid_history_ttl_seconds=None,
+        # Brak liczby ofert w ogóle (tylko kwota) — UNKNOWN jak
+        # autoprzetarg/Leasygroup/mLeasing.
+        bid_count_semantics=BidCountSemantics.UNKNOWN,
+        wymaga_logowania=False,
+        dowod="RECON.md §4.5 (rekonesans 2026-09-10, pomiar domknięcia 2026-09-14)",
+    ),
     "mleasing": ParametryZrodla(
         nazwa="portalaukcyjny.mleasing.pl",
         # Regulamin portalu: oferta w ostatnich 2 minutach przesuwa koniec

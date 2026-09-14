@@ -10,6 +10,7 @@ from collections.abc import Callable, Mapping
 
 from app.application.ports import AuctionSource
 from app.infrastructure.sources.autoprzetarg.source import AutoprzetargSource
+from app.infrastructure.sources.dawro.source import DawroSource
 from app.infrastructure.sources.efl.source import EflSource
 from app.infrastructure.sources.leasygroup.source import LeasygroupSource
 from app.infrastructure.sources.mleasing.source import MleasingSource
@@ -17,6 +18,7 @@ from app.infrastructure.sources.poleasingowe.source import PoleasingoweSource
 
 REJESTR: Mapping[str, Callable[[], AuctionSource]] = {
     AutoprzetargSource.key: AutoprzetargSource.utworz,
+    DawroSource.key: DawroSource.utworz,
     EflSource.key: EflSource.utworz,
     LeasygroupSource.key: LeasygroupSource.utworz,
     MleasingSource.key: MleasingSource.utworz,

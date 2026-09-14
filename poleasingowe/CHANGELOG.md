@@ -1,5 +1,14 @@
 # Historia zmian
 
+## 0.29.12 — w przygotowaniu
+
+**Nowe źródło: dawro.pl.** Odczyt anonimowy cen, terminów, VIN-u i galerii.
+Serwis nie podaje paliwa, skrzyni ani nadwozia — te pola zostają puste
+zamiast zgadywane, a cena zapisuje się bez przeliczania VAT (serwis nigdy
+nie podaje podstawy). Bieżąca najwyższa oferta odświeża się przy przemiacie
+listy, nie przy odpycie pojedynczej aukcji — szczegóły jej nie renderują
+serwerowo. Źródło pozostaje opt-in w opcjach (klucz `dawro`).
+
 ## 0.29.11 — w przygotowaniu
 
 **mLeasing — poprawne osobowe i ceny.** Odczyt szczegółów zachowuje kategorię

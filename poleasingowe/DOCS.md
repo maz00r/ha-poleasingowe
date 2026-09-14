@@ -67,10 +67,31 @@ sources:
     enabled: true
     rate_limit_per_minute: 30
     floor_seconds: 60
+  - key: dawro
+    enabled: true
+    rate_limit_per_minute: 30
+    floor_seconds: 60
 ```
 
 `mleasing` obejmuje publiczne licytacje samochodów osobowych i dostawczych.
 Ogłoszenia i samodzielne oferty „kup teraz” nie są zapisywane jako licytacje.
+
+`dawro` (dawro.pl) ma dwa ograniczenia wynikające z tego, co serwis w ogóle
+udostępnia, nie z braku w adapterze:
+
+- **Paliwo, skrzynia i typ nadwozia zostają puste.** Serwis nie podaje ich
+  w żadnym polu — adapter nie zgaduje ich z nazwy modelu.
+- **Bieżąca najwyższa oferta odświeża się tylko przy przemiacie listy**
+  (co 6 godzin), nie przy każdym odpycie obserwowanej aukcji: strona
+  szczegółów nigdy nie renderuje jej serwerowo (dociąga ją AJAX-em, którego
+  adapter nie wywołuje — kontrakt tego endpointu nie był zmierzony,
+  RECON.md §4.5). W praktyce między przemiatami karta obserwowanej aukcji
+  pokazuje cenę wywoławczą pod właściwą etykietą. Cena wywoławcza, termin
+  i VIN odświeżają się normalnie przy każdym odpycie, a zakończenie aukcji
+  jest wykrywane od razu.
+- **Cena podana jest bez ustalonej podstawy VAT** (serwis nigdy nie pisze
+  „netto"/„brutto") — adapter zapisuje kwotę tak, jak podał ją serwis, bez
+  przeliczania.
 
 Ustawiasz tylko trzy rzeczy: czy źródło działa, ile żądań na minutę i jaki
 jest **floor**, czyli najmniejszy odstęp między odpytami w końcówce aukcji.

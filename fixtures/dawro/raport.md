@@ -51,7 +51,7 @@ Wygenerowano: 2026-09-14T10:10:00+02:00
 - Przycisk „PRZYSTĄP DO AUKCJI” znika przy: post+0s
 - Cena wywoławcza przestaje być czytana przy: post+0s
 
-## Do ustalenia w planie adaptera
-- Drabinka domknięcia (z `pomiar-domkniecie-*.json`).
-- Polityka brutto/netto per sprzedawca (kolumna `podstawa_ceny`).
-- Czy `POST /WebService/PasekInformacyjny/` wolno odpytywać w adapterze, czy trzymać się kafelka listy.
+## Do ustalenia w planie adaptera — rozstrzygnięte (RECON.md §4.5)
+- ~~Drabinka domknięcia~~ — **`(5, 20)` s**: okno odzyskania ceny zmierzone jako zero, drabinka nie ma czego łapać.
+- ~~Polityka brutto/netto per sprzedawca~~ — **bez przeliczania**: kwota zapisywana tak, jak podał ją serwis (jak EFL/autoprzetarg/poleasingowe), bo próbka nie dała żadnego dowodu podstawy.
+- ~~Czy `POST /WebService/PasekInformacyjny/` wolno odpytywać w adapterze~~ — **nie**: kontrakt endpointu nie był zmierzony (tylko obserwowany w JS-ie strony), więc adapter trzyma się kafelka listy; `price_current` odświeża się przy przemiacie, nie przy odpycie szczegółów.
