@@ -12,7 +12,10 @@ from app.domain.errors import ParseFailed
 
 BAZOWY_URL = "https://portalaukcyjny.mleasing.pl"
 SCIEZKA_SZUKANIA = "/api/offer-read/search"
-KATEGORIE = ("Passenger", "Vans")
+# Katalog główny aplikacji jest katalogiem samochodów osobowych. mLeasing ma
+# osobny widok `Vans`, ale nie pobieramy go bez wyraźnego rozszerzenia zakresu
+# źródła — mieszanie dostawczych z osobowymi zaciera wybór użytkownika.
+KATEGORIE = ("Passenger",)
 
 
 @dataclass(slots=True, frozen=True)

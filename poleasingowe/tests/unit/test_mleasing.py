@@ -138,7 +138,7 @@ async def test_wyszukiwanie_najpierw_zaklada_sesje_i_wysyla_token_xsrf() -> None
     def obsluz(zadanie: httpx.Request) -> httpx.Response:
         zadania.append(zadanie)
         if zadanie.method == "GET":
-            assert zadanie.url.path in {"/oferty/osobowe/", "/oferty/dostawcze/"}
+            assert zadanie.url.path == "/oferty/osobowe/"
             return httpx.Response(
                 200,
                 headers={"set-cookie": "XSRF-TOKEN=token%20sesji; Path=/"},
@@ -147,13 +147,9 @@ async def test_wyszukiwanie_najpierw_zaklada_sesje_i_wysyla_token_xsrf() -> None
         parametry = json.loads(zadanie.content)
         assert zadanie.headers["X-XSRF-TOKEN"] == "token sesji"
         assert zadanie.headers["Origin"] == parser.BAZOWY_URL
-        assert zadanie.headers["Referer"] == (
-            f"{parser.BAZOWY_URL}/oferty/osobowe/"
-            if parametry["category"] == "Passenger"
-            else f"{parser.BAZOWY_URL}/oferty/dostawcze/"
-        )
+        assert zadanie.headers["Referer"] == f"{parser.BAZOWY_URL}/oferty/osobowe/"
         assert parametry["auctionTypes"] is None
-        assert parametry["category"] in {"Passenger", "Vans"}
+        assert parametry["category"] == "Passenger"
         return httpx.Response(200, json={"items": [], "totalCount": 0})
 
     klient = httpx.AsyncClient(
@@ -164,8 +160,6 @@ async def test_wyszukiwanie_najpierw_zaklada_sesje_i_wysyla_token_xsrf() -> None
 
     assert [(zadanie.method, zadanie.url.path) for zadanie in zadania] == [
         ("GET", "/oferty/osobowe/"),
-        ("POST", "/api/offer-read/search"),
-        ("GET", "/oferty/dostawcze/"),
         ("POST", "/api/offer-read/search"),
     ]
 
@@ -193,10 +187,12 @@ async def test_http_400_odswieza_token_i_ponawia_ta_sama_strone() -> None:
     async with source.MleasingSource(klient) as adapter:
         assert await adapter.przemiec_liste() == []
 
-    assert liczba_wizyt == 3
+    # Jedyna obsługiwana kategoria to obecnie Passenger: pierwsze wejście
+    # zakłada sesję, drugie odświeża token po odpowiedzi HTTP 400.
+    assert liczba_wizyt == 2
 
 
-async def test_pelna_paginacja_obu_kategorii() -> None:
+async def test_pelna_paginacja_kategorii_osobowej() -> None:
     zadania: list[tuple[str, int]] = []
 
     def obsluz(zadanie: httpx.Request) -> httpx.Response:
@@ -210,7 +206,7 @@ async def test_pelna_paginacja_obu_kategorii() -> None:
                 [_rekord(x) for x in range(1, 16)] if numer == 1 else [_rekord(16)]
             )
             return httpx.Response(200, json={"items": rekordy, "totalCount": 16})
-        return httpx.Response(200, json={"items": [], "totalCount": 0})
+        raise AssertionError(f"nieoczekiwana kategoria: {kategoria}")
 
     klient = httpx.AsyncClient(
         base_url=parser.BAZOWY_URL, transport=httpx.MockTransport(obsluz)
@@ -219,7 +215,7 @@ async def test_pelna_paginacja_obu_kategorii() -> None:
         wynik = await adapter.przemiec_liste()
 
     assert len(wynik) == 16
-    assert zadania == [("Passenger", 1), ("Passenger", 2), ("Vans", 1)]
+    assert zadania == [("Passenger", 1), ("Passenger", 2)]
 
 
 async def test_zapetlona_paginacja_i_zmiana_licznika_przerywaja_skan() -> None:

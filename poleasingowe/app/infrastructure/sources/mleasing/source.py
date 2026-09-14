@@ -24,7 +24,6 @@ NA_STRONE = 15
 MAKS_STRON = 100
 _SCIEZKI_KATEGORII = {
     "Passenger": "/oferty/osobowe/",
-    "Vans": "/oferty/dostawcze/",
 }
 _CIASTECZKO_XSRF = "XSRF-TOKEN"
 _NAGLOWEK_XSRF = "X-XSRF-TOKEN"

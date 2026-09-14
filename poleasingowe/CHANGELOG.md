@@ -1,5 +1,11 @@
 # Historia zmian
 
+## 0.29.9 — w przygotowaniu
+
+**mLeasing — wyłącznie osobowe.** Źródło pobiera teraz tylko kategorię
+„osobowe”. Migracja usuwa pobrane wcześniej dostawcze i wymusza od razu
+świeży skan po aktualizacji.
+
 ## 0.29.8 — w przygotowaniu
 
 **mLeasing — odczyt po aktualizacji.** Po usunięciu błędnych wpisów dodatek
