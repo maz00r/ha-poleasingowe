@@ -1,103 +1,75 @@
-"""Ujednolicenie rodzaju paliwa (SPEC.md §6.2).
+"""Ujednolicenie rodzaju paliwa (SPEC.md §6.2) — **zamknięta lista**.
 
-Ten sam problem co z markami, tylko ostrzejszy: serwisy używają **różnych
-słów**, nie tylko różnej wielkości liter. Zmierzone w danych:
+Serwisy używają tu **różnych słów**, nie tylko różnej wielkości liter:
+`Olej napędowy`, `Olej napedowy`, `Diesel`, `ON`; `Hybryda`, `Hybryda/benzyna`,
+`Hybryda plug-in`, `PHEV`, `MHEV`; `LPG`, `Benzyna+LPG`, `CNG`, `Gaz`.
+Słownik dokładnych dopasowań (wersje do 0.29.13) przepuszczał każdy nowy
+wariant jako osobną pozycję filtra — w danych na HA skończyło się kilkoma
+rodzajami hybryd i wartościami, które paliwem nie są wcale.
 
-| Serwis | Co pisze |
-|---|---|
-| poleasingowe.pl | `Benzyna`, `Hybryda/benzyna`, `Olej napedowy` (bez ogonka) |
-| autoprzetarg.pl | `Benzyna`, `Diesel`, `Elektryczny` |
-| aukcje.efl.com.pl | `Hybryda`, `Olej napędowy` (z ogonkiem) |
+Od 0.29.14 filtr paliwa to **zamknięta lista sześciu wartości**
+(decyzja właściciela repo, 2026-09-14):
 
-Czyli jedno paliwo pod trzema nazwami (`Olej napedowy`, `Olej napędowy`,
-`Diesel`) i hybryda pod dwiema. Lista rozwijana w filtrach miała przez to
-pięć pozycji na trzy paliwa, a filtr po którejkolwiek gubił wyniki
-z pozostałych serwisów.
+    Benzyna · Diesel · Hybryda · Elektryczny · Wodór · Gaz
 
-**Słownik jest jawny, nie heurystyczny.** Że `Olej napędowy` to `Diesel`,
-wie człowiek, a nie algorytm — z kształtu napisu tego nie widać. Lista ma
-rosnąć, gdy w danych pojawi się kolejna nazwa; to jej normalny tryb życia.
+Rozpoznanie idzie po słowach kluczowych, nie po pełnym napisie — więc
+`Hybryda plug-in (PHEV)`, `Benzyna + LPG`, `Olej napędowy (Diesel)` trafiają
+tam, gdzie trzeba, bez dopisywania każdego wariantu z osobna. Kolejność
+wzorców ma znaczenie: „hybryda/benzyna" ma być hybrydą, „benzyna+LPG" —
+gazem, więc te dwa sprawdzamy PRZED benzyną.
 
-Klucze podajemy w obu wariantach zapisu, z ogonkami i bez, bo `lower()` ich
-nie zrówna, a rozszerzenia `unaccent` nie mamy (SPEC.md §8.3 zabrania
-rozszerzeń).
+**Nieznana wartość daje `None`, nie napis.** To zmiana wobec poprzedniej
+polityki „nieznane zostaje widoczne": filtr z zamkniętą listą nie może
+rosnąć od danych, a wartość, której nie umiemy przypisać do żadnej
+z sześciu, to z definicji nie paliwo (albo śmieć w źródle). Sygnałem, że
+trzeba dopisać wzorzec, jest test, nie pozycja w filtrze.
+
+Migracja `023` powtarza te wzorce w SQL dla wierszy już zebranych — także
+zakończonych, których przemiat już nie dotknie, a to one niosą ceny końcowe.
+Rozjazdu między SQL a Pythonem pilnuje `test_paliwa.py`.
 """
 
 from __future__ import annotations
 
 import re
 
-SLOWNIK: dict[str, str] = {
-    # Diesel
-    "olej napedowy": "Diesel",
-    "olej napędowy": "Diesel",
-    "on": "Diesel",
-    "diesel": "Diesel",
-    # Benzyna
-    "benzyna": "Benzyna",
-    "petrol": "Benzyna",
-    "pb": "Benzyna",
-    # Hybrydy. Scalamy je świadomie: EFL pisze samo `Hybryda`, a poleasingowe
-    # `Hybryda/benzyna` — najczęściej o tym samym rodzaju auta. Trzymanie ich
-    # osobno gwarantowałoby duplikat między serwisami, a rodzaj silnika
-    # i tak widać w danych technicznych aukcji.
-    "hybryda": "Hybryda",
-    "hybryda benzyna": "Hybryda",
-    "hybryda olej napedowy": "Hybryda",
-    "hybryda olej napędowy": "Hybryda",
-    "hybrid": "Hybryda",
-    # Hybryda ładowana z gniazdka to osobna kategoria — inaczej się jej
-    # używa i inaczej wycenia, więc nie zlewamy jej ze zwykłą hybrydą.
-    "hybryda plug-in": "Hybryda plug-in",
-    "plug-in": "Hybryda plug-in",
-    "phev": "Hybryda plug-in",
-    # Elektryczne
-    "elektryczny": "Elektryczny",
-    "elektryczne": "Elektryczny",
-    "electric": "Elektryczny",
-    "ev": "Elektryczny",
-    # Gaz. Instalacja LPG jest zawsze DODATKIEM do benzyny, więc „LPG",
-    # „benzyna+LPG" i „benzyna + gaz" opisują to samo auto — serwisy piszą
-    # to raz tak, raz tak, a filtr rozbijał je na trzy osobne pozycje.
-    "lpg": "LPG",
-    "gaz": "LPG",
-    "benzyna lpg": "LPG",
-    "benzyna gaz": "LPG",
-    "benzyna z instalacja gazowa": "LPG",
-    "benzyna instalacja gazowa": "LPG",
-    "lpg benzyna": "LPG",
-    "cng": "CNG",
-    "benzyna cng": "CNG",
-}
+BENZYNA = "Benzyna"
+DIESEL = "Diesel"
+HYBRYDA = "Hybryda"
+ELEKTRYCZNY = "Elektryczny"
+WODOR = "Wodór"
+GAZ = "Gaz"
 
+KANONICZNE: tuple[str, ...] = (BENZYNA, DIESEL, HYBRYDA, ELEKTRYCZNY, WODOR, GAZ)
 
-# Serwisy sklejają paliwa różnymi znakami: „Benzyna+LPG", „Benzyna / LPG",
-# „Benzyna i gaz". Wszystkie znaczą to samo, więc separator sprowadzamy do
-# pojedynczej spacji, zanim zajrzymy do słownika — inaczej każdy wariant
-# zapisu byłby osobnym wpisem w liście filtrów.
-_SEPARATORY = re.compile(r"\s*(?:[+/,&]|\bi\b|\bz\b)\s*")
+# (wzorzec, paliwo) — pierwszy pasujący wygrywa. Wzorce są bez ogonków
+# i bez wielkości liter: wejście jest wcześniej sprowadzane do tej postaci.
+# `\b` to granica słowa — `ev` nie ma łapać `diesel` ani `benzyna`.
+# Ta sama lista stoi w `023_paliwa_i_skrzynie.sql` (POSIX: `\y` zamiast `\b`).
+WZORCE: tuple[tuple[str, str], ...] = (
+    # Wodór przed hybrydą: ogniwo paliwowe (FCEV) to nie hybryda.
+    (r"wodor|hydrogen|fcev", WODOR),
+    # Hybryda przed benzyną i dieslem: „hybryda/benzyna" to hybryda.
+    # Wszystkie odmiany (HEV, MHEV, PHEV, plug-in) to jedna pozycja filtra.
+    (r"hybr|\bphev\b|\bmhev\b|\bhev\b|plug-?in", HYBRYDA),
+    # Gaz przed benzyną: instalacja jest dodatkiem do benzyny, ale auto
+    # z LPG ma stać w „Gaz", nie w „Benzyna". `\bgas\b` nie łapie `gasoline`.
+    (r"\blpg\b|\bcng\b|\blng\b|\bgaz\b|\bgas\b|instalacj", GAZ),
+    (r"elektr|electric|\bev\b|\bbev\b", ELEKTRYCZNY),
+    (r"diesel|olej|napedow|\bon\b|\btdi\b|\bhdi\b|\bcrdi\b|\bdci\b", DIESEL),
+    (r"benz|petrol|gasoline|etylin|\bpb\b", BENZYNA),
+)
+
 _BEZ_OGONKOW = str.maketrans("ąćęłńóśżź", "acelnoszz")
+_SKOMPILOWANE = tuple((re.compile(w), paliwo) for w, paliwo in WZORCE)
 
 
-def kanoniczne_paliwo(wartosc: str) -> str:
-    """Jedna nazwa paliwa niezależnie od tego, jak zapisał ją serwis.
-
-    Nazwa spoza słownika wraca z ujednoliconą wielkością liter, a nie jako
-    `None`: nieznane paliwo to nadal informacja, tylko nie umiemy jej jeszcze
-    scalić z żadną inną. Pokaże się w filtrach osobno i to jest sygnał, żeby
-    dopisać ją do słownika.
-    """
-    oczyszczone = re.sub(r"\s+", " ", wartosc).strip()
-    if not oczyszczone:
-        return oczyszczone
-
-    klucz = _SEPARATORY.sub(" ", oczyszczone.lower()).strip()
-    if (kanoniczne := SLOWNIK.get(klucz)) is not None:
-        return kanoniczne
-    # Drugie podejście bez ogonków: „Benzyna + gaz ziemny" bywa zapisane
-    # z diakrytykami, a rozszerzenia `unaccent` nie mamy (§8.3).
-    if (kanoniczne := SLOWNIK.get(klucz.translate(_BEZ_OGONKOW))) is not None:
-        return kanoniczne
-    if (kanoniczne := SLOWNIK.get(oczyszczone.lower())) is not None:
-        return kanoniczne
-    return oczyszczone[:1].upper() + oczyszczone[1:].lower()
+def kanoniczne_paliwo(wartosc: str) -> str | None:
+    """Jedna z sześciu nazw albo `None`, gdy napis nie opisuje paliwa."""
+    klucz = " ".join(wartosc.split()).lower().translate(_BEZ_OGONKOW)
+    if not klucz:
+        return None
+    for wzorzec, paliwo in _SKOMPILOWANE:
+        if wzorzec.search(klucz):
+            return paliwo
+    return None

@@ -14,6 +14,7 @@ from app.domain.value_objects import Mileage, Money, NieprawidlowaWartosc, Vin
 from app.infrastructure.sources.marki import kanoniczna_marka, podziel_marke_model
 from app.infrastructure.sources.paliwa import kanoniczne_paliwo
 from app.infrastructure.sources.rodzaje import rozpoznaj
+from app.infrastructure.sources.skrzynie import kanoniczna_skrzynia
 
 _VAT = Decimal("1.23")
 _GROSZ = Decimal("0.01")
@@ -103,7 +104,7 @@ def na_aukcje(surowa: SurowaOferta, source_id: int, teraz: dt.datetime) -> Aucti
         year=_int(pola.get("Rok produkcji")),
         mileage=przebieg,
         fuel=kanoniczne_paliwo(pola["Paliwo"]) if pola.get("Paliwo") else None,
-        gearbox=pola.get("Skrzynia biegów"),
+        gearbox=kanoniczna_skrzynia(pola.get("Skrzynia biegów") or ""),
         engine_ccm=_int(pola.get("Pojemność")),
         engine_hp=_int(pola.get("Moc")),
         vin=_vin(pola.get("VIN")),

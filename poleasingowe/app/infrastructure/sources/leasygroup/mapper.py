@@ -20,6 +20,7 @@ from app.domain.value_objects import Mileage, Money, NieprawidlowaWartosc, Vin
 from app.infrastructure.sources.marki import kanoniczna_marka, podziel_marke_model
 from app.infrastructure.sources.paliwa import kanoniczne_paliwo
 from app.infrastructure.sources.rodzaje import rozpoznaj
+from app.infrastructure.sources.skrzynie import kanoniczna_skrzynia
 
 _ODLICZANIE = re.compile(r"^(\d+)\s*:\s*(\d{1,2})\s*:\s*(\d{1,2})$")
 _LICZBA = re.compile(r"\d+")
@@ -107,7 +108,7 @@ def na_aukcje(surowa: SurowaOferta, source_id: int, teraz: dt.datetime) -> Aucti
         year=_int_lub_none(pola.get("Rok produkcji")),
         mileage=przebieg,
         fuel=kanoniczne_paliwo(pola["Paliwo"]) if pola.get("Paliwo") else None,
-        gearbox=pola.get("Skrzynia biegów"),
+        gearbox=kanoniczna_skrzynia(pola.get("Skrzynia biegów") or ""),
         engine_ccm=_int_lub_none(pola.get("Pojemność")),
         engine_hp=(
             int(dopasowanie.group(1))

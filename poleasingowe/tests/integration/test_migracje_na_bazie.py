@@ -409,7 +409,7 @@ async def test_migracja_wymusza_odswiezenie_nierozpoznanych_aukcji_dawro(
             "INSERT INTO app.source (key, name) VALUES ('dawro', 'DAWRO'),"
             " ('inne', 'Inne') RETURNING key, id"
         )
-        zrodla = dict(await cur.fetchall())
+        zrodla: dict[str, int] = dict(await cur.fetchall())
         await cur.executemany(
             "INSERT INTO app.auction (source_id, external_id, url, status,"
             " vehicle_kind, content_hash, next_poll_at)"
@@ -434,3 +434,104 @@ async def test_migracja_wymusza_odswiezenie_nierozpoznanych_aukcji_dawro(
             ("zakonczony", "stary", False),
             ("znany", "stary", False),
         ]
+
+
+async def test_migracja_023_zamyka_listy_paliw_i_skrzyn_tak_samo_jak_python(
+    pusta_baza: psycopg.AsyncConnection,
+) -> None:
+    """SQL powtarza wzorce za `paliwa.py`/`skrzynie.py` — tu obie strony
+    dostają TE SAME próbki i muszą dać ten sam wynik. `\\y` (POSIX) i `\\b`
+    (Python) różnią się w szczegółach, a rozjazd byłby cichy."""
+    from app.infrastructure.sources import paliwa, skrzynie
+
+    probki = [
+        ("Olej napędowy", "Automatyczna"),
+        ("Olej napedowy", "Automat"),
+        ("Diesel", "automatyczna"),
+        ("Hybryda plug-in", "DSG"),
+        ("PHEV", "A/T"),
+        ("Hybryda/benzyna", "S tronic"),
+        ("Benzyna+LPG", "Manualna"),
+        ("Benzyna z instalacją gazową", "Ręczna"),
+        ("CNG", "M/T"),
+        ("Elektryczny", "brak danych"),
+        ("EV", "zautomatyzowana manualna"),
+        ("Wodór", "bezstopniowa"),
+        ("Gasoline", "mechaniczna"),
+        ("Kategoria 1", "1"),
+        ("nie dotyczy", ""),
+    ]
+    async with pusta_baza.cursor() as cur:
+        await cur.execute(
+            "INSERT INTO app.source (key, name) VALUES ('x', 'X') RETURNING id"
+        )
+        wiersz = await cur.fetchone()
+        assert wiersz is not None
+        await cur.executemany(
+            "INSERT INTO app.auction (source_id, external_id, url, status,"
+            " fuel, gearbox) VALUES (%s, %s, %s, 'ACTIVE', %s, %s)",
+            [(wiersz[0], str(i), "u", f, g) for i, (f, g) in enumerate(probki)],
+        )
+        await cur.execute((MIGRACJE / "023_paliwa_i_skrzynie.sql").read_text())
+        await cur.execute(
+            "SELECT fuel, gearbox FROM app.auction ORDER BY external_id::int"
+        )
+        z_sql = await cur.fetchall()
+
+    z_pythona = [
+        (paliwa.kanoniczne_paliwo(f), skrzynie.kanoniczna_skrzynia(g))
+        for f, g in probki
+    ]
+    assert z_sql == z_pythona
+    assert {f for f, _ in z_sql} - {None} <= set(paliwa.KANONICZNE)
+    assert {g for _, g in z_sql} - {None} <= set(skrzynie.KANONICZNE)
+
+
+async def test_migracja_024_porzadkuje_marki_tak_samo_jak_python(
+    pusta_baza: psycopg.AsyncConnection,
+) -> None:
+    from app.infrastructure.sources import marki
+
+    probki = [
+        "Mercedes- Benz",
+        "MERCEDES",
+        "Mini",
+        "SKODA",
+        "Škoda",
+        "TESLA",
+        "Bmw",
+        "Land-Rover",
+        "vw",
+        "DS Automobiles",
+        "Opel",
+    ]
+    async with pusta_baza.cursor() as cur:
+        await cur.execute(
+            "INSERT INTO app.source (key, name) VALUES ('x', 'X') RETURNING id"
+        )
+        wiersz = await cur.fetchone()
+        assert wiersz is not None
+        sid = wiersz[0]
+        await cur.executemany(
+            "INSERT INTO app.auction (source_id, external_id, url, make)"
+            " VALUES (%s, %s, 'u', %s)",
+            [(sid, str(i), m) for i, m in enumerate(probki)],
+        )
+        # Tytuł aukcji jako marka (poleasingowe po zakończeniu) i dopisek
+        # w nawiasie jako model (dawro „MINI [BMW] Countryman").
+        await cur.executemany(
+            "INSERT INTO app.auction (source_id, external_id, url, make, model,"
+            " variant) VALUES (%s, %s, 'u', %s, %s, %s)",
+            [
+                (sid, "aukcja", "Aukcja", "nr", "1384/STR/AU/2026 zakończyła się"),
+                (sid, "mini", "Mini", "[BMW]", "Countryman Cooper S ALL4"),
+            ],
+        )
+        await cur.execute((MIGRACJE / "024_marki_porzadek.sql").read_text())
+        await cur.execute("SELECT external_id, make, model, variant FROM app.auction")
+        wynik = {w[0]: w[1:] for w in await cur.fetchall()}
+
+    for i, m in enumerate(probki):
+        assert wynik[str(i)][0] == marki.kanoniczna_marka(m), m
+    assert wynik["aukcja"] == (None, None, None)
+    assert wynik["mini"] == ("MINI", "Countryman", "Cooper S ALL4")

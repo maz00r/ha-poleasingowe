@@ -20,6 +20,7 @@ from app.domain.value_objects import Mileage, Money, NieprawidlowaWartosc, Vin
 from app.infrastructure.sources.marki import podziel_marke_model
 from app.infrastructure.sources.paliwa import kanoniczne_paliwo
 from app.infrastructure.sources.rodzaje import rozpoznaj
+from app.infrastructure.sources.skrzynie import kanoniczna_skrzynia
 
 # RECON.md §4.1: serwis podaje czas bez strefy. Zakladamy czas lokalny Polski,
 # bo taki pokazuje uzytkownikowi. Do bazy idzie UTC (SPEC.md §8.2).
@@ -210,7 +211,7 @@ def na_aukcje(surowa: SurowaOferta, source_id: int, teraz: dt.datetime) -> Aucti
         year=_int_lub_none(pola.get("Rok produkcji")),
         mileage=przebieg,
         fuel=_paliwo(pola.get("Rodzaj paliwa")),
-        gearbox=pola.get("Skrzynia biegów"),
+        gearbox=kanoniczna_skrzynia(pola.get("Skrzynia biegów") or ""),
         engine_ccm=pojemnosc,
         engine_hp=moc,
         vin=vin,

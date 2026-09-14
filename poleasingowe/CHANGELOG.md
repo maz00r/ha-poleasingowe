@@ -1,5 +1,23 @@
 # Historia zmian
 
+## 0.29.14 — w przygotowaniu
+
+**Zamknięte listy w filtrach.** Paliwo to odtąd dokładnie sześć wartości:
+Benzyna, Diesel, Hybryda, Elektryczny, Wodór, Gaz — wszystkie odmiany hybryd
+(HEV, MHEV, PHEV, plug-in) to jedna pozycja, LPG i CNG to „Gaz", a wartość,
+która paliwem nie jest, znika zamiast tworzyć nową pozycję. Skrzynia biegów
+to dwie wartości: Automatyczna i Manualna („Automat" scalony). Marki:
+`Mercedes- Benz` ze spacją po myślniku scalony z `Mercedes-Benz`, `MINI`
+pisane wersalikami z modelem bez dopisku `[BMW]`, a tytuł „Aukcja nr …
+zakończyła się" z poleasingowe.pl nie trafia już do bazy jako marka
+`Aukcja` — szczegóły biorą markę i model z osobnych pól. Migracje `023`
+i `024` porządkują tak samo wiersze już zebrane.
+
+**dawro.pl — aukcja po godzinach.** Strona zakończonej aukcji po kilku
+godzinach przekierowuje na stronę główną; adapter rozpoznaje to jako
+zniknięcie aukcji, a nie awarię źródła, i nie bierze strony głównej za
+katalog.
+
 ## 0.29.13 — w przygotowaniu
 
 **DAWRO — poprawny rodzaj pojazdu.** Adapter odczytuje kategorię deklarowaną

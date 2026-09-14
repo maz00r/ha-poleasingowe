@@ -403,3 +403,56 @@ async def test_koduje_odpowiedz_jako_utf8_mimo_naglowka_iso88591() -> None:
     assert szczegoly is not None
     lokalizacja = "Dawro Wrocław Wodzisławska 8 52-017 Wrocław"
     assert szczegoly.pola["Lokalizacja"] == lokalizacja
+
+
+# --------------------------------------------------------------------------
+# source — przekierowanie na stronę główną (zmierzone na żywo 2026-09-14)
+# --------------------------------------------------------------------------
+
+_STRONA_GLOWNA = (
+    '<div id="tresc-strony">'
+    + '<div class="fl aukcja-box"><a href="/aukcja/1,x"><h2 class="nazwa" '
+    'title="A">A</h2><div class="parametry"></div></a></div>' * 12 + "</div>"
+)
+
+
+def _przekierowanie_na_glowna(zadanie: httpx.Request) -> httpx.Response:
+    if zadanie.url.path == "/":
+        return httpx.Response(200, content=_STRONA_GLOWNA.encode("utf-8"))
+    return httpx.Response(302, headers={"location": "/"})
+
+
+def _klient_jak_produkcyjny() -> httpx.AsyncClient:
+    return httpx.AsyncClient(
+        base_url=parser.BAZOWY_URL,
+        follow_redirects=True,
+        transport=httpx.MockTransport(_przekierowanie_na_glowna),
+    )
+
+
+async def test_szczegoly_przekierowane_na_glowna_to_zniknieta_a_nie_awaria() -> None:
+    """Aukcja 16761 (koniec 10:00) o ~21:00 dawała `302` na `/` — jak autoprzetarg."""
+    async with source.DawroSource(_klient_jak_produkcyjny()) as adapter:
+        surowa = await adapter.pobierz_szczegoly(
+            "16761", url="https://www.dawro.pl/aukcja/16761,hummer-h2"
+        )
+
+    assert surowa is not None
+    assert surowa.pola == {"zamknieta": "1"}
+    aukcja = mapper.na_aukcje(surowa, source_id=1, teraz=TERAZ)
+    assert aukcja.status is AuctionStatus.DISAPPEARED
+
+
+async def test_lista_przekierowana_na_glowna_to_blad_a_nie_katalog_12_pozycji() -> None:
+    """Strona główna ma `#tresc-strony` i kafelki, ale to nie jest katalog."""
+    async with source.DawroSource(_klient_jak_produkcyjny()) as adapter:
+        with pytest.raises(ParseFailed, match="poza katalog"):
+            await adapter.przemiec_liste()
+
+
+async def test_galeria_przekierowana_na_glowna_jest_pusta() -> None:
+    async with source.DawroSource(_klient_jak_produkcyjny()) as adapter:
+        assert (
+            await adapter.zdjecia("16761", url="https://www.dawro.pl/aukcja/16761,x")
+            == []
+        )

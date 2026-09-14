@@ -96,15 +96,27 @@ class DawroSource:
     async def zamknij(self) -> None:
         await self._klient.aclose()
 
-    async def _pobierz(self, sciezka: str) -> str:
-        """GET zdekodowany jako UTF-8 — nagłówek deklaruje `iso-8859-1`,
-        treść jest UTF-8 (RECON.md §4.5). `.text` httpx ufałby nagłówkowi."""
+    async def _pobierz(self, sciezka: str) -> tuple[str, str]:
+        """GET → (ścieżka KOŃCOWA, treść zdekodowana jako UTF-8).
+
+        Treść: nagłówek deklaruje `iso-8859-1`, a jest UTF-8 (RECON.md §4.5)
+        — `.text` httpx ufałby nagłówkowi.
+
+        Ścieżka końcowa: klient podąża za przekierowaniami (`dawro.pl` →
+        `www.`), więc przekierowanie NIE jest widoczne w kodzie odpowiedzi.
+        A jest informacją: aukcja zakończona przed godzinami dostaje `302`
+        na `/` (zmierzone na żywo 2026-09-14 ~21:00 dla `16761`, zakończonej
+        o 10:00 — pomiar domknięcia sięgał tylko T+600 s, gdzie strona
+        jeszcze stała). Strona główna ma `#tresc-strony` i kafelki
+        `aukcja-box`, więc bez tej informacji uchodziłaby za listę albo
+        rzucała `ParseFailed` liczonym jako awaria źródła.
+        """
         try:
             odpowiedz = await self._klient.get(sciezka)
             odpowiedz.raise_for_status()
         except httpx.HTTPError as exc:
             raise SourceUnavailable(f"dawro: {sciezka}: {exc}") from exc
-        return odpowiedz.content.decode("utf-8", "replace")
+        return odpowiedz.url.path, odpowiedz.content.decode("utf-8", "replace")
 
     async def przemiec_liste(self) -> Sequence[SurowaOferta]:
         wynik: list[SurowaOferta] = []
@@ -116,7 +128,17 @@ class DawroSource:
         """Czyta strony, aż strona > 1 nie przyniesie żadnego nowego ID."""
         widziane: set[str] = set()
         for numer in range(1, MAKS_STRON + 1):
-            html = await self._pobierz(parser.SCIEZKA_LISTY.format(numer))
+            sciezka_koncowa, html = await self._pobierz(
+                parser.SCIEZKA_LISTY.format(numer)
+            )
+            if not sciezka_koncowa.startswith("/aukcje/"):
+                # Przekierowanie POZA katalog (na `/` albo landing). Strona
+                # główna też ma kafelki — ale 12 wyróżnionych, nie katalog —
+                # więc wynik nie może udawać kompletnego przemiatu. Błąd
+                # daje `FAILED`, który niczego nie oznacza jako zniknięte.
+                raise ParseFailed(
+                    f"dawro: lista przekierowana poza katalog: {sciezka_koncowa}"
+                )
             pozycje = parser.sparsuj_liste(html)
             # Odsiew także W OBRĘBIE strony: dwa kafelki tej samej aukcji
             # w jednym `zapisz_z_przemiatu` to konflikt w jednym `INSERT`.
@@ -151,13 +173,21 @@ class DawroSource:
         sciezka = strona_aukcji(
             url, bazowy=parser.BAZOWY_URL, zapasowa=f"/aukcja/{external_id}"
         )
-        tekst = await self._pobierz(sciezka)
-        biezacy = hash_tresci(tekst)
-        if znany_hash is not None and znany_hash == biezacy:
-            return None
         pelny_url = (
             sciezka if sciezka.startswith("http") else f"{parser.BAZOWY_URL}{sciezka}"
         )
+        sciezka_koncowa, tekst = await self._pobierz(sciezka)
+        if not sciezka_koncowa.startswith("/aukcja/"):
+            # `302` na `/` godziny po końcu — aukcja przestała istnieć pod
+            # swoim adresem, jak w autoprzetarg.pl. To fakt zniknięcia, nie
+            # awaria: ten sam znacznik co „AUKCJA ZAKOŃCZONA", ta sama
+            # minimalna encja `DISAPPEARED` w mapperze.
+            return SurowaOferta(
+                external_id=external_id, url=pelny_url, pola={"zamknieta": "1"}
+            )
+        biezacy = hash_tresci(tekst)
+        if znany_hash is not None and znany_hash == biezacy:
+            return None
         return replace(
             parser.sparsuj_szczegoly(tekst, external_id, pelny_url),
             content_hash=biezacy,
@@ -167,7 +197,12 @@ class DawroSource:
         sciezka = strona_aukcji(
             url, bazowy=parser.BAZOWY_URL, zapasowa=f"/aukcja/{external_id}"
         )
-        return parser.zdjecia(await self._pobierz(sciezka))
+        sciezka_koncowa, tekst = await self._pobierz(sciezka)
+        # Aukcja przekierowana na `/` nie ma już galerii — pusta lista, nie
+        # zdjęcia z karuzeli strony głównej.
+        if not sciezka_koncowa.startswith("/aukcja/"):
+            return []
+        return parser.zdjecia(tekst)
 
     def na_aukcje(
         self, surowa: SurowaOferta, source_id: int, teraz: dt.datetime

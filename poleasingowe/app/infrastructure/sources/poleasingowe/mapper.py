@@ -22,9 +22,10 @@ from app.domain.entities import Auction, OfertaUczestnika
 from app.domain.enums import AuctionStatus, Currency
 from app.domain.errors import ParseFailed
 from app.domain.value_objects import Mileage, Money, NieprawidlowaWartosc, Vin
-from app.infrastructure.sources.marki import podziel_marke_model
+from app.infrastructure.sources.marki import kanoniczna_marka, podziel_marke_model
 from app.infrastructure.sources.paliwa import kanoniczne_paliwo
 from app.infrastructure.sources.rodzaje import rozpoznaj
+from app.infrastructure.sources.skrzynie import kanoniczna_skrzynia
 
 # Serwis podaje `endDate` z jawną strefą: `moment('...').tz("Europe/Warsaw")`.
 # Do bazy idzie UTC (SPEC.md §8.2).
@@ -102,6 +103,13 @@ def na_aukcje(surowa: SurowaOferta, source_id: int, teraz: dt.datetime) -> Aucti
     marka = model = wersja = None
     if nazwa := pola.get("nazwa"):
         marka, model, wersja = podziel_marke_model(_nazwa_bez_powtorzen(nazwa, pola))
+    # Szczegóły podają `Marka` i `Model` wprost — to pewniejsze niż tytuł,
+    # który po zakończeniu zmienia się w „Aukcja nr … zakończyła się …"
+    # (`fixtures/poleasingowe/domkniecie-post+900s.html`). Z takiego tytułu
+    # do bazy trafiała marka `Aukcja`.
+    if wprost := pola.get("Marka"):
+        marka = kanoniczna_marka(wprost)
+        model = pola.get("Model") or model
 
     przebieg = None
     if km := _int_lub_none(pola.get("Przebieg") or pola.get("przebieg")):
@@ -139,7 +147,7 @@ def na_aukcje(surowa: SurowaOferta, source_id: int, teraz: dt.datetime) -> Aucti
         year=_int_lub_none(pola.get("Rok produkcji") or pola.get("rocznik")),
         mileage=przebieg,
         fuel=_paliwo(pola.get("Paliwo") or pola.get("paliwo")),
-        gearbox=pola.get("Skrzynia biegów"),
+        gearbox=kanoniczna_skrzynia(pola.get("Skrzynia biegów") or ""),
         engine_ccm=_int_lub_none(pola.get("Pojemność silnika")),
         engine_hp=_int_lub_none(pola.get("Moc silnika")),
         vin=_vin(pola),

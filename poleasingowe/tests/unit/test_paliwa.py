@@ -1,8 +1,8 @@
-"""Ujednolicenie nazw paliwa (SPEC.md §6.2).
+"""Ujednolicenie nazw paliwa — zamknięta lista sześciu wartości (SPEC.md §6.2).
 
-Serwisy używają tu **różnych słów**, nie tylko różnej wielkości liter —
-i to jest różnica wobec marek. Wartości w testach pochodzą z rzeczywistych
-danych trzech źródeł.
+Serwisy używają tu **różnych słów**, nie tylko różnej wielkości liter.
+Wartości w testach pochodzą z rzeczywistych danych źródeł i z filtra na HA
+(2026-09-14: kilka rodzajów hybryd, wartości niebędące paliwem).
 """
 
 from __future__ import annotations
@@ -14,18 +14,52 @@ import pytest
 
 from app.infrastructure.sources import paliwa
 
+MIGRACJA = (
+    pathlib.Path(__file__).resolve().parents[2]
+    / "app/migrations/023_paliwa_i_skrzynie.sql"
+)
+
 
 @pytest.mark.parametrize(
     "warianty,kanoniczne",
     [
-        # Jedno paliwo pod trzema nazwami — poleasingowe pisze bez ogonka,
-        # EFL z ogonkiem, autoprzetarg zupełnie inaczej.
-        (["Olej napedowy", "Olej napędowy", "Diesel", "diesel", "ON"], "Diesel"),
-        (["Benzyna", "benzyna", "Petrol"], "Benzyna"),
-        # EFL pisze samo `Hybryda`, poleasingowe `Hybryda/benzyna`.
-        (["Hybryda", "Hybryda/benzyna", "hybryda/olej napędowy"], "Hybryda"),
-        (["Elektryczny", "elektryczne", "Electric"], "Elektryczny"),
-        (["LPG", "lpg", "benzyna+lpg"], "LPG"),
+        (
+            ["Olej napedowy", "Olej napędowy", "Diesel", "diesel", "ON", "2.0 TDI"],
+            "Diesel",
+        ),
+        (["Benzyna", "benzyna", "Petrol", "PB", "Gasoline"], "Benzyna"),
+        # WSZYSTKIE hybrydy to jedna pozycja — decyzja właściciela repo.
+        (
+            [
+                "Hybryda",
+                "Hybryda/benzyna",
+                "hybryda/olej napędowy",
+                "Hybryda plug-in",
+                "PHEV",
+                "MHEV",
+                "Hybrid (HEV)",
+                "Mild Hybrid",
+            ],
+            "Hybryda",
+        ),
+        (["Elektryczny", "elektryczne", "Electric", "EV", "BEV"], "Elektryczny"),
+        (["Wodór", "wodor", "Hydrogen", "FCEV"], "Wodór"),
+        # Gaz obejmuje LPG i CNG, także jako dodatek do benzyny.
+        (
+            [
+                "LPG",
+                "lpg",
+                "Gaz",
+                "CNG",
+                "Benzyna+LPG",
+                "Benzyna + LPG",
+                "Benzyna / LPG",
+                "Benzyna + gaz",
+                "benzyna i gaz",
+                "Benzyna z instalacją gazową",
+            ],
+            "Gaz",
+        ),
     ],
 )
 def test_to_samo_paliwo_dostaje_jedna_nazwe(
@@ -34,79 +68,40 @@ def test_to_samo_paliwo_dostaje_jedna_nazwe(
     assert {paliwa.kanoniczne_paliwo(w) for w in warianty} == {kanoniczne}
 
 
-def test_hybryda_z_gniazdka_zostaje_osobno() -> None:
-    """Inaczej się jej używa i inaczej wycenia, więc nie zlewamy jej
-    ze zwykłą hybrydą — scalanie ma mieć granicę."""
-    assert paliwa.kanoniczne_paliwo("PHEV") == "Hybryda plug-in"
-    assert paliwa.kanoniczne_paliwo("PHEV") != paliwa.kanoniczne_paliwo("Hybryda")
+def test_wynik_zawsze_z_zamknietej_listy_albo_none() -> None:
+    probki = ["Diesel", "PHEV", "LPG", "Kategoria 1", "1", "brak danych", "", "  "]
+    for p in probki:
+        wynik = paliwa.kanoniczne_paliwo(p)
+        assert wynik is None or wynik in paliwa.KANONICZNE, p
 
 
-def test_ogonki_nie_rozdzielaja_paliwa() -> None:
-    """`Olej napedowy` i `Olej napędowy` to jedno paliwo, a `lower()` ich
-    nie zrówna — dlatego oba warianty są w słowniku."""
-    assert paliwa.kanoniczne_paliwo("Olej napedowy") == paliwa.kanoniczne_paliwo(
-        "Olej napędowy"
-    )
+def test_nieznana_wartosc_daje_none_a_nie_nowa_pozycje_filtra() -> None:
+    """Filtr z zamkniętą listą nie rośnie od danych; „Kategoria 1" to nie paliwo."""
+    assert paliwa.kanoniczne_paliwo("Kategoria 1") is None
+    assert paliwa.kanoniczne_paliwo("nie dotyczy") is None
+    assert paliwa.kanoniczne_paliwo("") is None
+    assert paliwa.kanoniczne_paliwo("  ") is None
 
 
-def test_nieznane_paliwo_zostaje_widoczne() -> None:
-    """Nieznana nazwa to nadal informacja — tylko nie umiemy jej scalić.
+def test_granice_slow_nie_lapia_podciagow() -> None:
+    """`ev` nie ma łapać `diesel`, `gas` — `gasoline`, `on` — `benzyna+on`?"""
+    assert paliwa.kanoniczne_paliwo("Diesel") == "Diesel"
+    assert paliwa.kanoniczne_paliwo("Gasoline") == "Benzyna"
+    assert paliwa.kanoniczne_paliwo("Steven") is None
 
-    Zwrócenie `None` skasowałoby dane; pokazanie osobno jest sygnałem, żeby
-    dopisać ją do słownika.
+
+def test_migracja_i_kod_maja_te_same_wzorce() -> None:
+    """Migracja `023` POWTARZA wzorce za kodem Pythona (SQL nie zawoła
+    `paliwa.py`). Rozjazd byłby cichy, więc pilnuje go ten test.
+
+    POSIX pisze granicę słowa `\\y`, Python `\\b` — porównujemy po
+    sprowadzeniu do jednej postaci, w tej samej kolejności.
     """
-    assert paliwa.kanoniczne_paliwo("wodór") == "Wodór"
-    assert paliwa.kanoniczne_paliwo("WODÓR") == "Wodór"
-
-
-def test_pusta_wartosc_nie_wybucha() -> None:
-    assert paliwa.kanoniczne_paliwo("") == ""
-    assert paliwa.kanoniczne_paliwo("  ") == ""
-
-
-def test_migracja_i_kod_maja_ten_sam_slownik() -> None:
-    """Najnowsza migracja paliw POWTARZA słownik za kodem Pythona.
-
-    SQL nie zawoła funkcji z `paliwa.py`, więc powtórzenie jest konieczne —
-    ale rozjazd byłby cichy, bo obie strony nadal by działały. Ten test jest
-    jedynym miejscem, w którym boli od razu.
-
-    Porównujemy z `011`, a nie z `007`: starych migracji nie wolno zmieniać
-    (mają zapisane sumy kontrolne), więc to najnowsza z nich niesie aktualny
-    słownik.
-    """
-    sql = (
-        pathlib.Path(__file__).resolve().parents[2]
-        / "app/migrations/011_paliwa_gaz.sql"
-    ).read_text(encoding="utf-8")
-    z_sql = dict(re.findall(r"\('([^']+)',\s*'([^']+)'\)", sql))
-    assert z_sql == paliwa.SLOWNIK, "słownik paliw rozjechał się z kodem"
-
-
-@pytest.mark.parametrize(
-    "zapis",
-    [
-        "LPG",
-        "lpg",
-        "Gaz",
-        "Benzyna+LPG",
-        "Benzyna + LPG",
-        "Benzyna / LPG",
-        "Benzyna + gaz",
-        "benzyna i gaz",
-        "Benzyna z instalacją gazową",
-    ],
-)
-def test_benzyna_z_gazem_i_samo_lpg_to_jedno_paliwo(zapis: str) -> None:
-    """Instalacja gazowa jest zawsze DODATKIEM do benzyny.
-
-    Serwisy piszą to na kilka sposobów, a filtr robił z tego kilka osobnych
-    pozycji, z których każda gubiła część ofert.
-    """
-    assert paliwa.kanoniczne_paliwo(zapis) == "LPG"
-
-
-def test_separator_nie_tworzy_nowego_paliwa() -> None:
-    """`+`, `/` i „i" to ten sam znak sklejenia, nie inna wartość."""
-    warianty = {"Hybryda/benzyna", "Hybryda + benzyna", "Hybryda i benzyna"}
-    assert {paliwa.kanoniczne_paliwo(w) for w in warianty} == {"Hybryda"}
+    sql = MIGRACJA.read_text(encoding="utf-8")
+    blok = sql.split("SET fuel = CASE", 1)[1].split("END", 1)[0]
+    z_sql = [
+        (wzorzec.replace("\\y", "\\b"), paliwo)
+        for wzorzec, paliwo in re.findall(r"WHEN k ~\* '([^']+)' THEN '([^']+)'", blok)
+    ]
+    assert z_sql == list(paliwa.WZORCE), "wzorce paliw rozjechały się z kodem"
+    assert {paliwo for _, paliwo in z_sql} == set(paliwa.KANONICZNE)

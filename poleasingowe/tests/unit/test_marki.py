@@ -109,9 +109,36 @@ def test_znaki_diakrytyczne_nie_rozdzielaja_marki() -> None:
     assert marki.kanoniczna_marka("Skoda") == marki.kanoniczna_marka("Škoda")
 
 
-def test_pusta_wartosc_nie_wybucha() -> None:
-    assert marki.kanoniczna_marka("") == ""
-    assert marki.kanoniczna_marka("   ") == ""
+def test_pusta_wartosc_daje_none() -> None:
+    assert marki.kanoniczna_marka("") is None
+    assert marki.kanoniczna_marka("   ") is None
+
+
+@pytest.mark.parametrize(
+    "wariant",
+    ["Mercedes-Benz", "Mercedes- Benz", "MERCEDES -BENZ", "MERCEDES  BENZ", "mercedes"],
+)
+def test_lacznik_ze_spacja_nie_rozdziela_marki(wariant: str) -> None:
+    """Leasygroup pisze `Mercedes- Benz` — w filtrze na HA stały obok siebie."""
+    assert marki.kanoniczna_marka(wariant) == "Mercedes-Benz"
+
+
+def test_nawias_w_nazwie_nie_laduje_w_modelu() -> None:
+    """dawro: „MINI [BMW] Countryman Cooper S ALL4" dawało `Mini` / `[BMW]`."""
+    assert marki.podziel_marke_model("MINI [BMW] Countryman Cooper S ALL4") == (
+        "MINI",
+        "Countryman",
+        "Cooper S ALL4",
+    )
+    assert marki.kanoniczna_marka("Mini") == "MINI"
+
+
+def test_tytul_aukcji_nie_jest_marka() -> None:
+    """poleasingowe.pl po zakończeniu: „Aukcja nr 1384/STR/AU/2026 zakończyła
+    się …" — z tego szła do bazy marka `Aukcja`."""
+    tytul = "Aukcja nr 1384/STR/AU/2026 zakończyła się 2026-09-07 12:00:00"
+    assert marki.podziel_marke_model(tytul) == (None, None, None)
+    assert marki.kanoniczna_marka("Aukcja") is None
 
 
 def test_podzial_marki_zwraca_juz_postac_kanoniczna() -> None:
@@ -122,7 +149,7 @@ def test_podzial_marki_zwraca_juz_postac_kanoniczna() -> None:
 
 
 def test_migracja_i_kod_maja_te_same_listy() -> None:
-    """Migracja `006_marki.sql` POWTARZA skróty i aliasy za kodem Pythona.
+    """Migracja `024_marki_porzadek.sql` POWTARZA skróty i aliasy za kodem Pythona.
 
     Powtórzenie jest konieczne — SQL nie zawoła funkcji z `marki.py` — ale
     dwie listy rozjeżdżają się przy pierwszej dopisanej marce i nikt tego
@@ -133,13 +160,18 @@ def test_migracja_i_kod_maja_te_same_listy() -> None:
     import re
 
     sql = (
-        pathlib.Path(__file__).resolve().parents[2] / "app/migrations/006_marki.sql"
+        pathlib.Path(__file__).resolve().parents[2]
+        / "app/migrations/024_marki_porzadek.sql"
     ).read_text(encoding="utf-8")
 
-    blok_skrotow = re.search(r"ARRAY\[([^\]]+)\]", sql)
-    assert blok_skrotow is not None
-    z_sql = {s.strip().strip("'") for s in blok_skrotow.group(1).split(",")}
+    # Pierwsza tablica to słowa-nie-marki, druga — skróty.
+    tablice = re.findall(r"ARRAY\[([^\]]+)\]", sql)
+    assert len(tablice) == 2
+    z_sql = {s.strip().strip("'") for s in tablice[1].split(",")}
     assert z_sql == set(marki.AKRONIMY), "lista skrótów rozjechała się z kodem"
 
-    klucze_sql = set(re.findall(r"\('([^']+)',\s*'[^']+'\)", sql))
-    assert klucze_sql == set(marki.ALIASY), "lista aliasów rozjechała się z kodem"
+    aliasy_sql = dict(re.findall(r"\('([^']+)',\s*'([^']+)'\)", sql))
+    assert aliasy_sql == marki.ALIASY, "lista aliasów rozjechała się z kodem"
+
+    nie_marki = {s.strip().strip("'") for s in tablice[0].split(",")}
+    assert nie_marki == set(marki.NIE_MARKA), "lista słów-nie-marek rozjechała się"
