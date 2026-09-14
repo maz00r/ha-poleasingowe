@@ -276,10 +276,9 @@ class Szczegoly:
 class PunktHistorii:
     """Jedna zmiana ceny obserwowanej aukcji (SPEC.md §8.4).
 
-    Snapshoty powstają **wyłącznie przy zmianie** ceny, liczby ofert albo
-    terminu — odpyt bez zmiany aktualizuje tylko `last_seen_at`. Historia
-    jest więc listą zdarzeń, a nie pomiarem co N minut, i tak trzeba ją
-    czytać: odstęp między wierszami mówi o licytacji, nie o harmonogramie.
+    Snapshoty powstają **wyłącznie przy zmianie ceny**. Pozostałe zmiany
+    aktualizują bieżący stan aukcji. Historia jest więc listą zmian kwoty,
+    a nie pomiarem co N minut.
     """
 
     ts: dt.datetime

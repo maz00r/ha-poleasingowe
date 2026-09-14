@@ -279,26 +279,31 @@ async def test_snapshot_nie_zapisuje_sie_bez_zmiany(
     assert len(await uow.snapshot.historia(aid)) == 1
 
 
-@pytest.mark.parametrize(
-    "zmiana",
-    [
-        {"cena": "1100", "bid_count": 1},
-        {"cena": "1000", "bid_count": 2},
-        {"cena": "1000", "bid_count": 1, "ends_at": TERAZ + dt.timedelta(minutes=2)},
-    ],
-    ids=["zmiana ceny", "zmiana liczby ofert", "przesunięty ends_at"],
-)
-async def test_snapshot_zapisuje_sie_przy_kazdej_z_trzech_zmian(
-    pusta_baza: psycopg.AsyncConnection, zmiana: dict[str, object]
+async def test_snapshot_zapisuje_sie_tylko_przy_zmianie_ceny(
+    pusta_baza: psycopg.AsyncConnection,
 ) -> None:
-    """SPEC.md §8.4 wymienia trzy wyzwalacze: cena, liczba ofert, `ends_at`."""
+    """Historia ceny nie powiela kwoty przy zmianie licznika ani terminu."""
     uow = PgUnitOfWork(pusta_baza)
     aid = await _aukcja_do_snapshotow(uow)
     await uow.snapshot.zapisz_jesli_zmienil_sie(_snap(aid, "1000", bid_count=1))
 
-    cena = str(zmiana.pop("cena"))
+    licznik = await uow.snapshot.zapisz_jesli_zmienil_sie(
+        _snap(aid, "1000", bid_count=2, ts=TERAZ + dt.timedelta(minutes=1))
+    )
+    termin = await uow.snapshot.zapisz_jesli_zmienil_sie(
+        _snap(
+            aid,
+            "1000",
+            bid_count=2,
+            ends_at=TERAZ + dt.timedelta(minutes=2),
+            ts=TERAZ + dt.timedelta(minutes=2),
+        )
+    )
+    assert licznik is None
+    assert termin is None
+
     drugi = await uow.snapshot.zapisz_jesli_zmienil_sie(
-        _snap(aid, cena, ts=TERAZ + dt.timedelta(minutes=1), **zmiana)
+        _snap(aid, "1100", bid_count=2, ts=TERAZ + dt.timedelta(minutes=3))
     )
     assert drugi is not None
     assert len(await uow.snapshot.historia(aid)) == 2

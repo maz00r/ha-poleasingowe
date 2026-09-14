@@ -590,9 +590,9 @@ class Dispatcher:
                     else ()
                 )
             if scalona.price_current is not None and zapisana.id is not None:
-                # SPEC.md §8.4 — snapshot WYŁĄCZNIE przy zmianie ceny, liczby
-                # ofert albo `ends_at`. Bez tej reguły dogrywka generuje setki
-                # identycznych wierszy na aukcję.
+                # Historia ceny ma po jednym wierszu na kwotę. Zmiana terminu
+                # lub licznika bez zmiany kwoty aktualizuje aukcję, ale nie
+                # tworzy duplikatu w historii widocznej dla użytkownika.
                 zmieniony = await uow.snapshot.zapisz_jesli_zmienil_sie(
                     PriceSnapshot(
                         auction_id=zapisana.id,

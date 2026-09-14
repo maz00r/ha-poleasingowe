@@ -189,8 +189,8 @@ class Auction:
 class PriceSnapshot:
     """Zapis stanu ceny w czasie.
 
-    SPEC.md §8.4: zapisywany **wyłącznie** gdy zmieniła się cena, liczba ofert
-    albo `ends_at`. Odpyt bez zmiany aktualizuje tylko `last_seen_at`.
+    Zapisywany **wyłącznie** gdy zmieniła się cena. Odpyt bez zmiany
+    aktualizuje tylko bieżący stan aukcji i `last_seen_at`.
     """
 
     auction_id: int

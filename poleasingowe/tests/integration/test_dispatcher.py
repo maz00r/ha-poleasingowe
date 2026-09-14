@@ -315,14 +315,14 @@ async def test_endgame_na_sztucznej_aukcji(pusta_baza: psycopg.AsyncConnection) 
     assert odstep == pytest.approx(15, abs=2), "floor = połowa okna dogrywki 30 s"
 
 
-async def test_dogrywka_przesuwa_termin_i_jest_widoczna_w_snapshotach(
+async def test_dogrywka_przesuwa_termin_bez_duplikowania_historii_ceny(
     pusta_baza: psycopg.AsyncConnection,
 ) -> None:
     """SPEC.md §11.4 — przesunięcie `ends_at` to nie błąd parsowania.
 
     Aukcja `9mjrl4k9` przeszła z 12:00 na 12:18 (RECON.md §3.7). Świeży
-    odczyt ma wygrywać z wartością w bazie, a zmiana `ends_at` sama w sobie
-    jest powodem do zapisania snapshotu (§8.4).
+    odczyt ma wygrywać z wartością w bazie, ale ta sama cena nie może
+    powielać się w historii tylko dlatego, że zmienił się termin.
     """
     adapter = ZrodloAtrapa()
     auction_id, koniec = await przygotuj(pusta_baza, adapter, do_konca_min=1)
@@ -346,7 +346,7 @@ async def test_dogrywka_przesuwa_termin_i_jest_widoczna_w_snapshotach(
 
     async with PgUnitOfWork(pusta_baza) as uow:
         historia = await uow.snapshot.historia(auction_id)
-    assert [s.ends_at for s in historia][-1] == przedluzony
+    assert len(historia) == 1
 
 
 # --------------------------------------------------------------------------

@@ -987,10 +987,10 @@ class PgSnapshotRepository:
     async def zapisz_jesli_zmienil_sie(
         self, snapshot: PriceSnapshot, *, licznik_liczy_oferty: bool = False
     ) -> PriceSnapshot | None:
-        """Zapisuje snapshot **wyłącznie** przy zmianie (SPEC.md §8.4).
+        """Zapisuje snapshot **wyłącznie** przy zmianie ceny.
 
-        Bez tej reguły dogrywka generuje setki identycznych wierszy na aukcję
-        i niepotrzebnie obciąża instancję dzieloną z TeslaMate.
+        Bez tej reguły kolejne odczyty tej samej kwoty generują identyczne
+        wiersze na aukcję i niepotrzebnie obciążają instancję.
 
         Przy okazji wylicza `bid_gap` (SPEC.md §11.8): przyrost `bid_count`
         ponad 1, liczony względem **poprzedniego snapshotu tej aukcji**.
@@ -1012,14 +1012,8 @@ class PgSnapshotRepository:
 
         poprzedni = None if wiersz is None else _na_snapshot(wiersz)
 
-        if poprzedni is not None:
-            bez_zmian = (
-                poprzedni.price == snapshot.price
-                and poprzedni.bid_count == snapshot.bid_count
-                and poprzedni.ends_at == snapshot.ends_at
-            )
-            if bez_zmian:
-                return None
+        if poprzedni is not None and poprzedni.price == snapshot.price:
+            return None
 
         bid_gap: int | None = None
         if (

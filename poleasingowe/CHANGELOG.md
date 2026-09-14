@@ -1,5 +1,11 @@
 # Historia zmian
 
+## 0.29.10 — w przygotowaniu
+
+**Historia ceny bez duplikatów.** Kolejny odczyt z tą samą ceną nie tworzy
+nowego wiersza, nawet gdy serwis zmienił licznik ofert albo termin aukcji.
+Migracja usuwa z dotychczasowej historii kolejne wpisy z tą samą kwotą.
+
 ## 0.29.9 — w przygotowaniu
 
 **mLeasing — wyłącznie osobowe.** Źródło pobiera teraz tylko kategorię
