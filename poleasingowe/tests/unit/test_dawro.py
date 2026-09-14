@@ -108,6 +108,22 @@ def test_szczegoly_mapuja_vin_cene_lokalizacje_i_termin() -> None:
     assert not {"Paliwo", "Skrzynia biegów", "Karoseria"} & pola.keys()
 
 
+@pytest.mark.parametrize(
+    ("fixture", "kategoria"),
+    [
+        ("szczegoly-16762.html", "samochody osobowe"),
+        ("szczegoly-16761.html", "samochody terenowe"),
+        ("szczegoly-16770.html", "samochody dostawcze"),
+    ],
+)
+def test_szczegoly_czytaja_kategorie_z_opisu_strony(
+    fixture: str, kategoria: str
+) -> None:
+    surowa = parser.sparsuj_szczegoly(html(fixture), "1", "u")
+
+    assert surowa.pola["kategoria"] == kategoria
+
+
 def test_szczegoly_bez_paska_licytacji_to_blad() -> None:
     with pytest.raises(ParseFailed, match="aukcję"):
         parser.sparsuj_szczegoly("<html><body>nic</body></html>", "1", "u")
@@ -188,7 +204,7 @@ def test_mapper_nie_wymysla_paliwa_skrzyni_i_nadwozia() -> None:
     assert aukcja.body is None
 
 
-def test_mapper_rozpoznaje_marke_model_i_rodzaj_z_nazwy() -> None:
+def test_mapper_rozpoznaje_marke_i_model_z_listy() -> None:
     pozycje = parser.sparsuj_liste(html("lista-01.html"))
     hummer = next(p for p in pozycje if p.external_id == "16761")
 
@@ -196,11 +212,29 @@ def test_mapper_rozpoznaje_marke_model_i_rodzaj_z_nazwy() -> None:
 
     assert aukcja.make == "Hummer"
     assert aukcja.model == "H2"
-    # "Hummer H2" nie ma słowa nadwozia w nazwie i dawro nie podaje kategorii
-    # — `rozpoznaj` słusznie nie zgaduje z samej marki (RECON.md, rodzaje.py).
+    # Lista nie podaje kategorii per kafelek. Szczegóły uzupełnią ją w tym
+    # samym obrocie; do tego czasu mapper słusznie nie zgaduje z marki.
     assert aukcja.vehicle_kind is RodzajPojazdu.NIEZNANY
     assert aukcja.status is AuctionStatus.ACTIVE
     assert aukcja.ends_at == dt.datetime(2026, 9, 14, 8, 0, tzinfo=dt.UTC)
+
+
+@pytest.mark.parametrize(
+    ("fixture", "oczekiwany"),
+    [
+        ("szczegoly-16762.html", RodzajPojazdu.OSOBOWY),
+        ("szczegoly-16761.html", RodzajPojazdu.OSOBOWY),
+        ("szczegoly-16770.html", RodzajPojazdu.DOSTAWCZY),
+    ],
+)
+def test_mapper_rozpoznaje_rodzaj_z_kategorii_szczegolow(
+    fixture: str, oczekiwany: RodzajPojazdu
+) -> None:
+    surowa = parser.sparsuj_szczegoly(html(fixture), "1", "u")
+
+    aukcja = mapper.na_aukcje(surowa, source_id=1, teraz=TERAZ)
+
+    assert aukcja.vehicle_kind is oczekiwany
 
 
 def test_mapper_zamknieta_aukcja_daje_minimalna_encje_disappeared() -> None:

@@ -1,5 +1,12 @@
 # Historia zmian
 
+## 0.29.13 — w przygotowaniu
+
+**DAWRO — poprawny rodzaj pojazdu.** Adapter odczytuje kategorię deklarowaną
+na stronie szczegółów. Samochody osobowe i terenowe są dzięki temu widoczne
+jako osobowe, a dostawcze pozostają dostawcze. Migracja wymusza jednorazowe
+odświeżenie aktywnych, nierozpoznanych aukcji DAWRO.
+
 ## 0.29.12 — w przygotowaniu
 
 **Nowe źródło: dawro.pl.** Odczyt anonimowy cen, terminów, VIN-u i galerii.

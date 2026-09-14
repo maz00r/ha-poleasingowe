@@ -142,7 +142,7 @@ def na_aukcje(surowa: SurowaOferta, source_id: int, teraz: dt.datetime) -> Aucti
         vin=_vin(pola.get("VIN")),
         location=pola.get("Lokalizacja"),
         seller=pola.get("Sprzedawca") or pola.get("Sprzedający"),
-        vehicle_kind=rozpoznaj(kategoria=None, nazwa=nazwa),
+        vehicle_kind=rozpoznaj(kategoria=pola.get("kategoria"), nazwa=nazwa),
         price_start=_cena(pola.get("cena_wywolawcza")),
         # Najwyższa oferta jest WYŁĄCZNIE polem listy (`najwyzsza_oferta`,
         # atrybut `kwota` z kafelka) — szczegóły jej nigdy nie niosą, bo

@@ -22,6 +22,7 @@ from app.infrastructure.sources import rodzaje
         # autoprzetarg.pl — segment kategorii w adresie aukcji. Te pięć
         # wartości pokrywa całą listę w fixtures (2 strony, 24 pozycje).
         ("Samochody-osobowe", RodzajPojazdu.OSOBOWY),
+        ("Samochody terenowe", RodzajPojazdu.OSOBOWY),
         ("Samochody-dostawcze", RodzajPojazdu.DOSTAWCZY),
         ("Samochody-ciężarowe", RodzajPojazdu.CIEZAROWY),
         ("Naczepy-i-przyczepy", RodzajPojazdu.PRZYCZEPA),

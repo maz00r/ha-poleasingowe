@@ -39,6 +39,8 @@ from app.domain.enums import RodzajPojazdu
 KATEGORIE: dict[str, RodzajPojazdu] = {
     # autoprzetarg.pl — segment kategorii w adresie aukcji
     "samochody osobowe": RodzajPojazdu.OSOBOWY,
+    # dawro.pl — osobna kategoria portalu dla SUV-ów i aut terenowych
+    "samochody terenowe": RodzajPojazdu.OSOBOWY,
     "samochody dostawcze": RodzajPojazdu.DOSTAWCZY,
     "samochody ciezarowe": RodzajPojazdu.CIEZAROWY,
     "naczepy i przyczepy": RodzajPojazdu.PRZYCZEPA,

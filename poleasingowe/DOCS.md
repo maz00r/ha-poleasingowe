@@ -80,7 +80,9 @@ Ogłoszenia i samodzielne oferty „kup teraz” nie są zapisywane jako licytac
 udostępnia, nie z braku w adapterze:
 
 - **Paliwo, skrzynia i typ nadwozia zostają puste.** Serwis nie podaje ich
-  w żadnym polu — adapter nie zgaduje ich z nazwy modelu.
+  w żadnym polu — adapter nie zgaduje ich z nazwy modelu. Rodzaj pojazdu
+  pochodzi z deklarowanej kategorii aukcji; osobowe i terenowe są widoczne
+  w filtrze osobowych, a dostawcze w filtrze dostawczych.
 - **Bieżąca najwyższa oferta odświeża się tylko przy przemiacie listy**
   (co 6 godzin), nie przy każdym odpycie obserwowanej aukcji: strona
   szczegółów nigdy nie renderuje jej serwerowo (dociąga ją AJAX-em, którego

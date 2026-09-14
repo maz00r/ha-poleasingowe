@@ -70,6 +70,7 @@ _ID_ZE_SCIEZKI = re.compile(r"^/aukcja/(\d+),([^/]+)$")
 _TABLICA_W_NAZWIE = re.compile(r",\s*[A-Z]{2,3}[0-9A-Z]{4,5}\s*$")
 _TS_ODLICZANIA = re.compile(r"Zegar\.odliczanie\((\d{9,})\)")
 _KWOTA = re.compile(r"([\d\s\xa0]+,\d{2}|\d[\d\s\xa0]*\d)")
+_KATEGORIA_W_OPISIE = re.compile(r"\bsamochody\s+(osobowe|terenowe|dostawcze)\b", re.I)
 
 
 def _tekst(wezel: Node | None) -> str:
@@ -122,6 +123,16 @@ def _ts_odliczania(tekst: str) -> str | None:
     """
     dopasowanie = _TS_ODLICZANIA.search(tekst)
     return dopasowanie.group(1) if dopasowanie is not None else None
+
+
+def _kategoria_z_meta(html: str) -> str | None:
+    """Deklarowany rodzaj z opisu strony, np. „samochody osobowe”."""
+    meta = HTMLParser(html).css_first('meta[name="description"]')
+    opis = (meta.attributes.get("content") or "") if meta is not None else ""
+    dopasowanie = _KATEGORIA_W_OPISIE.search(opis)
+    if dopasowanie is None:
+        return None
+    return f"samochody {dopasowanie.group(1).lower()}"
 
 
 def _najwyzsza_oferta_z_kafelka(kafelek: Node) -> str | None:
@@ -234,7 +245,7 @@ def odcisk_aukcji(html: str) -> str:
     nie zakładać tego na zapas jako niezmiennika.
     """
     blok = _blok_glowny(html)
-    return f"{blok}|{_ts_odliczania(html) or ''}"
+    return f"{blok}|{_ts_odliczania(html) or ''}|{_kategoria_z_meta(html) or ''}"
 
 
 def sparsuj_szczegoly(html: str, external_id: str, url: str) -> SurowaOferta:
@@ -245,6 +256,10 @@ def sparsuj_szczegoly(html: str, external_id: str, url: str) -> SurowaOferta:
     pola = _pary(drzewo, "v")
 
     nazwa_pojazdu: dict[str, str] = {}
+    # DAWRO nie podaje nadwozia w tabeli, ale deklaruje kategorię aukcji
+    # w opisie strony. To pewny sygnał rodzaju, a nie domysł z modelu.
+    if wartosc := _kategoria_z_meta(html):
+        nazwa_pojazdu["kategoria"] = wartosc
     if wartosc := pola.get("opis modelu"):
         nazwa_pojazdu["nazwa"] = wartosc
     if wartosc := pola.get("vin"):

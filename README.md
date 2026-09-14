@@ -107,10 +107,11 @@ ich jako takiej wprowadzała w błąd (RECON.md §3.5a). Dla **poleasingowe.pl**
 jest odwrotnie — `lastOffers` to realny przebieg licytacji i karta go
 pokazuje; bramką jest `bid_count_semantics = 'OFFERS'`, nie nazwa źródła.
 
-**Adapter dawro.pl (0.29.12)** czyta anonimowo cenę, termin, VIN i galerię.
+**Adapter dawro.pl (0.29.13)** czyta anonimowo cenę, termin, VIN i galerię.
 Serwis nie podaje paliwa, skrzyni ani nadwozia — te pola zostają `NULL`,
-a cena zapisuje się bez przeliczania VAT, bo serwis nigdy nie podaje
-podstawy (RECON.md §4.5). Domknięcie wykrywane jest jawnym tekstem serwera
+a rodzaj pojazdu bierze z deklarowanej kategorii aukcji. Cena zapisuje się
+bez przeliczania VAT, bo serwis nigdy nie podaje podstawy (RECON.md §4.5).
+Domknięcie wykrywane jest jawnym tekstem serwera
 „AUKCJA ZAKOŃCZONA", nie zanikiem ceny — pomiar z 2026-09-14 pokazał, że
 okno odzyskania ceny końcowej po terminie wynosi zero, więc drabinka z
 §11.5 jest krótka (`5, 20` s) i służy tylko potwierdzeniu zamknięcia.

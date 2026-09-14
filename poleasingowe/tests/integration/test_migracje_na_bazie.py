@@ -399,3 +399,38 @@ async def test_migracja_rozpoznaje_rodzaj_pojazdu_w_zebranych_wierszach(
             # Nazwa bez nadwozia zostaje nierozpoznana, a nie zgadnięta.
             ("pol-nieznany", "NIEZNANY"),
         ]
+
+
+async def test_migracja_wymusza_odswiezenie_nierozpoznanych_aukcji_dawro(
+    pusta_baza: psycopg.AsyncConnection,
+) -> None:
+    async with pusta_baza.cursor() as cur:
+        await cur.execute(
+            "INSERT INTO app.source (key, name) VALUES ('dawro', 'DAWRO'),"
+            " ('inne', 'Inne') RETURNING key, id"
+        )
+        zrodla = dict(await cur.fetchall())
+        await cur.executemany(
+            "INSERT INTO app.auction (source_id, external_id, url, status,"
+            " vehicle_kind, content_hash, next_poll_at)"
+            " VALUES (%s, %s, %s, %s, %s, 'stary', now() + interval '1 day')",
+            [
+                (zrodla["dawro"], "do-odswiezenia", "u1", "ACTIVE", "NIEZNANY"),
+                (zrodla["dawro"], "znany", "u2", "ACTIVE", "OSOBOWY"),
+                (zrodla["dawro"], "zakonczony", "u3", "ENDED", "NIEZNANY"),
+                (zrodla["inne"], "obcy", "u4", "ACTIVE", "NIEZNANY"),
+            ],
+        )
+
+        await cur.execute((MIGRACJE / "022_napraw_dawro_rodzaje.sql").read_text())
+        await cur.execute(
+            "SELECT external_id, content_hash, next_poll_at <= now()"
+            " FROM app.auction ORDER BY external_id"
+        )
+
+        assert await cur.fetchall() == [
+            ("do-odswiezenia", None, True),
+            ("obcy", "stary", False),
+            ("zakonczony", "stary", False),
+            ("znany", "stary", False),
+        ]

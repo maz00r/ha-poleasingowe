@@ -1146,11 +1146,15 @@ pokrycie w próbce 24 aukcji:
 | sprzedawca, forma sprzedaży | 24 | 0 |
 | zdjęcia | 24 | 0 |
 | przebieg | 20 | 4 |
+| kategoria w `meta[name="description"]` | 24 | 0 |
 | **paliwo, skrzynia, nadwozie** | **0** | **24** |
 
 **dawro w ogóle nie podaje paliwa, skrzyni ani typu nadwozia** w tabeli
-parametrów. Adapter musi je wyprowadzić z nazwy modelu albo zostawić `NULL`
-— to nie jest brak danych w tej próbce, to brak pola w szablonie.
+parametrów. Te pola zostają `NULL` — to nie jest brak danych w tej próbce,
+tylko brak pola w szablonie. Serwis deklaruje za to kategorię aukcji w
+`meta[name="description"]`: „samochody osobowe”, „samochody terenowe” albo
+„samochody dostawcze”. Adapter używa jej wyłącznie do ustalenia rodzaju
+pojazdu; „terenowe” mapuje na osobowe, bez wymyślania typu nadwozia.
 
 **Adres parkingu jest osobny od adresu domu aukcyjnego.** `div.opis` niesie
 dane kontaktowe firmy („Dom Aukcyjny Mariola Nosko, Wodzisławska 8, Wrocław,
