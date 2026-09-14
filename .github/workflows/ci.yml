@@ -102,11 +102,17 @@ jobs:
         # app/infrastructure/kopia.py i w Dockerfile (SPEC.md §7.1).
         # Bez tego test_kopia.py pada na kazdym przebiegu:
         #   "pg_dump: error: aborting because of server version mismatch"
-        # Sufiks "pgdg24.04" w wersji z bledu potwierdza, ze repo PGDG jest
-        # juz skonfigurowane na runnerze, wiec wystarczy sama instalacja
-        # pakietu bez dodawania zrodla apt.
+        #
+        # PIERWSZA PROBA (`apt-get install postgresql-client-17` bez
+        # dodania repo) wywalila sie exit 100 — PGDG NIE jest domyslnie
+        # skonfigurowane na runnerze, mimo ze sufiks "pgdg24.04" w wersji
+        # domyslnego klienta 16 tak sugerowal. `postgresql-common` niesie
+        # oficjalny skrypt PGDG (apt.postgresql.org.sh), ktory sam dodaje
+        # klucz i zrodlo — bez recznej gimnastyki z apt-key.
         run: |
           sudo apt-get update
+          sudo apt-get install -y --no-install-recommends postgresql-common
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
           sudo apt-get install -y --no-install-recommends postgresql-client-17
           echo "/usr/lib/postgresql/17/bin" >> "$GITHUB_PATH"
 
