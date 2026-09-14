@@ -1231,6 +1231,16 @@ summary:focus-visible {
   top: 94px;
 }
 
+/* Po rozwinięciu rzadkich filtrów panel może być dłuższy od okna. To jego
+   własny przewijany obszar: kółko myszy nad filtrami nie wymaga przejazdu
+   przez całą, niezależną listę aukcji. */
+.panel-filtrow[open] {
+  max-height: calc(100vh - 112px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+
 .katalog-uklad:has(.panel-filtrow:not([open])) {
   grid-template-columns: minmax(0, 1fr);
   gap: 12px;
@@ -1836,7 +1846,7 @@ body.galeria-otwarta { overflow: hidden; }
   .opis-marki { display: none; }
   .katalog-uklad { grid-template-columns: 1fr; gap: 26px; }
   .katalog-uklad:has(.panel-filtrow:not([open])) { grid-template-columns: 1fr; }
-  .panel-filtrow { position: static; }
+  .panel-filtrow { position: static; max-height: none; overflow-y: visible; }
   .filtry { padding: 18px; border: 1px solid var(--obramowanie-mocna); background: var(--karta); }
   .pasek-filtrow { grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 16px; }
   .pasek-filtrow .pole.rosnie,

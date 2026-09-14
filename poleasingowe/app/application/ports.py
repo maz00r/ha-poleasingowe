@@ -111,6 +111,20 @@ class OfertaRepository(Protocol):
 class WatchlistRepository(Protocol):
     async def dodaj(self, wpis: WatchlistEntry) -> WatchlistEntry: ...
 
+    async def przenies_na_ponowne_wystawienia(
+        self,
+        source_id: int,
+        external_ids: Sequence[str],
+        added_at: dt.datetime,
+    ) -> Sequence[int]:
+        """Obserwuje nowe wystawienia wcześniej obserwowanych aut.
+
+        Dopasowanie po VIN-ie i zakończeniu wcześniejszej aukcji robi baza,
+        bo tylko tam oba wystawienia oraz watchlista są widoczne atomowo.
+        Zwraca identyfikatory nowo dodanych obserwacji.
+        """
+        ...
+
     async def zapisz_notatke(
         self, auction_id: int, note: str | None
     ) -> WatchlistEntry | None: ...

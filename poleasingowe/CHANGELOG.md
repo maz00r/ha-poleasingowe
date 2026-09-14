@@ -1,5 +1,15 @@
 # Historia zmian
 
+## 0.29.6 — w przygotowaniu
+
+**Ponownie wystawione auta.** Obserwacja przechodzi na nową aukcję tego
+samego pojazdu, gdy wcześniejsza obserwowana aukcja już się zakończyła.
+Dopasowanie wymaga identycznego VIN-u, więc nie obejmuje podobnych aut z tej
+samej floty. Nowa obserwacja dostaje szczegóły w tym samym obrocie.
+
+**Filtry.** Lista wielokrotnego wyboru zamyka się po kliknięciu poza nią.
+Rozwinięty panel „Więcej filtrów” przewija się niezależnie od listy aukcji.
+
 ## 0.29.5 — w przygotowaniu
 
 **mLeasing — pełna lista.** Adapter zakłada teraz tę samą publiczną sesję

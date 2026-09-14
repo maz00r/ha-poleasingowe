@@ -37,7 +37,7 @@ from app.domain.enums import (
     SweepStatus,
 )
 from app.domain.errors import SourceUnavailable
-from app.domain.value_objects import Money
+from app.domain.value_objects import Money, Vin
 from app.infrastructure.kopia import KopiaZapasowa
 from app.infrastructure.persistence.pula import PgFabrykaKontekstu
 from app.infrastructure.persistence.repositories import PgUnitOfWork
@@ -72,6 +72,7 @@ class ZrodloAtrapa:
         self.blad_po_stronie: int | None = None
         self.niepelna_strona = False
         self.ends_at_na_liscie: dt.datetime | None = None
+        self.vin: Vin | None = None
 
     async def przemiec_liste(self) -> list[SurowaOferta]:
         wynik: list[SurowaOferta] = []
@@ -141,6 +142,7 @@ class ZrodloAtrapa:
             last_seen_at=teraz,
             price_current=Money(self.cena, Currency.PLN),
             bid_count=self.bid_count,
+            vin=self.vin,
             ends_at=self.ends_at_na_liscie if z_listy else self.ends_at,
             content_hash=surowa.content_hash,
         )
@@ -931,6 +933,58 @@ async def test_obserwowana_aukcja_jest_odpytywana_dalej(
     po = await wczytaj(pusta_baza, auction_id)
     assert po.next_poll_at is not None, "obserwowana ma zaplanowany kolejny odpyt"
     assert po.poll_tier is not PollTier.IDLE
+
+
+async def test_obserwacja_przechodzi_na_ponownie_wystawiony_pojazd(
+    pusta_baza: psycopg.AsyncConnection,
+) -> None:
+    """Nowy numer aukcji tego samego niesprzedanego auta nie gubi watchlisty."""
+    adapter = ZrodloAtrapa()
+    vin = Vin("WVWZZZ1JZXW000001")
+    teraz = await _czas_bazy(pusta_baza)
+    adapter.vin = vin
+    adapter.na_liscie = ["drugie-podejscie"]
+    adapter.ends_at = teraz + dt.timedelta(minutes=20)
+
+    async with PgUnitOfWork(pusta_baza) as uow:
+        zrodlo_zapisane = await uow.source.zapisz(zrodlo(adapter.key))
+        assert zrodlo_zapisane.id is not None
+        pierwsza = await uow.auction.zapisz(
+            Auction(
+                source_id=zrodlo_zapisane.id,
+                external_id="pierwsze-podejscie",
+                url="https://atrapa.test/pierwsze-podejscie",
+                status=AuctionStatus.ENDED,
+                first_seen_at=teraz - dt.timedelta(days=7),
+                last_seen_at=teraz - dt.timedelta(days=1),
+                ends_at=teraz - dt.timedelta(days=1),
+                price_current=Money(Decimal("40000"), Currency.PLN),
+                vin=vin,
+            )
+        )
+        assert pierwsza.id is not None
+        await uow.watchlist.dodaj(
+            WatchlistEntry(
+                auction_id=pierwsza.id,
+                added_at=teraz - dt.timedelta(days=7),
+                note="sprawdzić historię serwisową",
+            )
+        )
+
+    await dispatcher(pusta_baza, adapter).jeden_obrot()
+
+    async with PgUnitOfWork(pusta_baza) as uow:
+        druga = await uow.auction.po_kluczu_naturalnym(
+            zrodlo_zapisane.id, "drugie-podejscie"
+        )
+        assert druga is not None and druga.id is not None
+        wpis = await uow.watchlist.wpis(druga.id)
+
+    assert wpis is not None
+    assert wpis.note == "sprawdzić historię serwisową"
+    assert druga.next_poll_at is not None
+    assert druga.poll_tier is not PollTier.IDLE
+    assert adapter.pobrania == 1, "przeniesiona obserwacja odpytuje się od razu"
 
 
 async def test_migracja_ujednolica_marki_juz_zebrane(

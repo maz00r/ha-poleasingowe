@@ -494,6 +494,44 @@ ON CONFLICT (auction_id) DO UPDATE SET
     note = COALESCE(EXCLUDED.note, app.watchlist.note)
 RETURNING id, auction_id, note, added_at
 """
+
+# Obserwacja dotyczy samochodu, a nie jednego numeru aukcji. Gdy
+# niesprzedany egzemplarz wraca z nowym `external_id`, szukamy WYLACZNIE
+# zgodnego VIN-u i wystawienia, które już się skończyło. Marka, model i
+# przebieg nie wystarczają — flota może zawierać kilkadziesiąt bliźniaczych
+# samochodów. Notatka przechodzi razem z obserwacją, bo opisuje zwykle auto,
+# nie tymczasowy numer aukcji.
+SQL_WATCHLIST_PRZENIES_NA_PONOWNE_WYSTAWIENIA = """
+WITH biezace AS (
+    SELECT id, vin, first_seen_at
+    FROM app.auction
+    WHERE source_id = %s
+      AND external_id = ANY(%s)
+      AND status = 'ACTIVE'
+      AND vin IS NOT NULL
+      AND duplicate_of IS NULL
+), poprzednie AS (
+    SELECT DISTINCT ON (b.id)
+        b.id AS auction_id, w.note
+    FROM biezace AS b
+    JOIN app.auction AS p ON p.vin = b.vin
+                          AND p.id <> b.id
+                          AND p.duplicate_of IS NULL
+    JOIN app.watchlist AS w ON w.auction_id = p.id
+    WHERE p.first_seen_at < b.first_seen_at
+      AND (
+          p.status IN ('ENDED', 'DISAPPEARED')
+          OR (p.ends_at IS NOT NULL AND p.ends_at <= b.first_seen_at)
+      )
+    ORDER BY b.id, COALESCE(p.ends_at, p.last_seen_at) DESC, p.id DESC
+), dodane AS (
+    INSERT INTO app.watchlist (auction_id, note, added_at)
+    SELECT auction_id, note, %s FROM poprzednie
+    ON CONFLICT (auction_id) DO NOTHING
+    RETURNING auction_id
+)
+SELECT auction_id FROM dodane
+"""
 SQL_WATCHLIST_NOTATKA = """
 UPDATE app.watchlist SET note = %s WHERE auction_id = %s
 RETURNING id, auction_id, note, added_at
@@ -1077,6 +1115,21 @@ class PgWatchlistRepository:
             note=w["note"],
             added_at=w["added_at"],
         )
+
+    async def przenies_na_ponowne_wystawienia(
+        self,
+        source_id: int,
+        external_ids: Sequence[str],
+        added_at: dt.datetime,
+    ) -> Sequence[int]:
+        if not external_ids:
+            return ()
+        async with self._conn.cursor() as cur:
+            await cur.execute(
+                SQL_WATCHLIST_PRZENIES_NA_PONOWNE_WYSTAWIENIA,
+                (source_id, list(external_ids), added_at),
+            )
+            return tuple(w[0] for w in await cur.fetchall())
 
     async def zapisz_notatke(
         self, auction_id: int, note: str | None

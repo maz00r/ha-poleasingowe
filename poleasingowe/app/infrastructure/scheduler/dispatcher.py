@@ -370,6 +370,15 @@ class Dispatcher:
                 ]
                 async with self._fabryka() as kontekst, kontekst.uow as uow:
                     nowe += await uow.auction.zapisz_z_przemiatu(pozycje)
+                    przeniesione = await uow.watchlist.przenies_na_ponowne_wystawienia(
+                        zrodlo.id,
+                        [pozycja.external_id for pozycja in pozycje],
+                        teraz,
+                    )
+                    for auction_id in przeniesione:
+                        # Nowa obserwacja ma dostać szczegóły w tym obrocie,
+                        # aby nie czekała na następny, wielogodzinny przemiat.
+                        await uow.auction.zaplanuj(auction_id, teraz, PollTier.FAR)
                 liczba_pozycji += len(pozycje)
                 liczba_stron += 1
                 if not strona.kompletny:
@@ -535,6 +544,7 @@ class Dispatcher:
 
         teraz = await kontekst.zapytania.czas_serwera()
         assert aukcja.id is not None
+        assert zrodlo.id is not None
 
         if surowa is None:
             # Treść bez zmian. W fazie domknięcia to nie jest „nic się nie
@@ -549,14 +559,24 @@ class Dispatcher:
                 )
             return False
 
-        swieza = z_cena_wywolawcza(
-            adapter.na_aukcje(surowa, zrodlo.id or aukcja.source_id, teraz)
-        )
+        swieza = z_cena_wywolawcza(adapter.na_aukcje(surowa, zrodlo.id, teraz))
 
         async with kontekst.uow as uow:
             obserwowana = await uow.watchlist.obserwowana(aukcja.id)
             scalona = self._scal(aukcja, swieza, zrodlo, teraz, obserwowana)
             zapisana = await uow.auction.zapisz(scalona)
+            if zapisana.id is not None:
+                przeniesione = await uow.watchlist.przenies_na_ponowne_wystawienia(
+                    zrodlo.id,
+                    [zapisana.external_id],
+                    teraz,
+                )
+                if zapisana.id in przeniesione:
+                    # Lista źródła nie zawsze podaje VIN. Po pierwszym
+                    # odczycie szczegółów możemy go jednak już rozpoznać i
+                    # włączyć harmonogram bez czekania na kolejny przemiat.
+                    scalona = self._termin_po_odpycie(scalona, zrodlo, teraz, True)
+                    zapisana = await uow.auction.zapisz(scalona)
             zmieniony = None
             nowe_oferty = 0
             if zapisana.id is not None:
