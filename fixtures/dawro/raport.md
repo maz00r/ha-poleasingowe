@@ -1,6 +1,6 @@
 # RECON dawro.pl — ETAP 0
-Wygenerowano: 2026-09-10T21:28:22+02:00  
-Żądań w tym przebiegu: 74
+Wygenerowano: 2026-09-14T10:10:00+02:00  
+Żądań w tym przebiegu: 106
 ## Listy i identyfikatory
 - Adres skanu: `/aukcje/sortuj,data-zakonczenia,kierunek,rosnaco,strona,N,ilosc,100,wyswietlanie,boxy` (sortowanie po dacie zakończenia rosnąco, 100/stronę, układ *boxy*)
 - `external_id`: liczba ze ścieżki `/aukcja/<id>,<slug>` — slug jest zmienny, `<id>` stały
@@ -44,7 +44,12 @@ Wygenerowano: 2026-09-10T21:28:22+02:00
   - `16770`: 8 zdjęć, pierwsze/ostatnie OK
 
 ## Domknięcie
-- Status: **pominięte (--static-only)**
+- Status: **wykonane**
+- Próbek: 32 (`[0, 2, 5, 10, 15, 20, 30, 45, 60, 90, 120, 180, 300, 600]` s po terminie, run-up co 10 s od T-180 s)
+- Surowe odczyty: `pomiar-domkniecie-*.json`, zrzuty `domkniecie-*.html`
+- Strona przestaje być stroną aukcji przy: nie zaobserwowano w oknie pomiaru
+- Przycisk „PRZYSTĄP DO AUKCJI” znika przy: post+0s
+- Cena wywoławcza przestaje być czytana przy: post+0s
 
 ## Do ustalenia w planie adaptera
 - Drabinka domknięcia (z `pomiar-domkniecie-*.json`).

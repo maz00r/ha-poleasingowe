@@ -1103,10 +1103,9 @@ aukcję bez licytacji w końcówce.
 Rekonesans statyczny (skan + szczegóły + galeria) wykonany
 `tools/pomiar_dawro.py --static-only`. Regulaminy przeczytane osobno
 (`fixtures/dawro/regulamin-strony.html`, `regulamin-jak-licytowac.html`).
-Pomiar domknięcia **uzbrojony na 2026-09-14** (launchd, niżej) — najbliższa
-aukcja kończy się tego dnia, a skan nie ma czekać w `sleep` przez cztery
-dni (§4 pkt b). Fixtures: `fixtures/dawro/`, pełny raport pokrycia pól:
-`fixtures/dawro/raport.md`.
+Pomiar domknięcia **wykonany 2026-09-14 10:00** na aukcji 16761 (niżej) —
+punkty (a), (b) i (g) rozstrzygnięte, (c) i (e) zostają otwarte. Fixtures:
+`fixtures/dawro/`, pełny raport pokrycia pól: `fixtures/dawro/raport.md`.
 
 **URL-e.** `dawro.pl` → `301` → `www.dawro.pl` (kanoniczny host z `www`).
 Lista paginowana: `/aukcje/sortuj,data-zakonczenia,kierunek,rosnaco,strona,
@@ -1229,15 +1228,58 @@ stronie aukcji), brak `ETag`/`Last-Modified`, brak nagłówków limitu tempa.
 **Werdykt: `httpx` wystarczy** do ceny, terminu, VIN-u, galerii i pól
 opisowych. Domyślne tempo skanu w narzędziu to 20 żądań/min.
 
-**Do zmierzenia (punkty b, c, e, g).** Punkt (a) — dogrywka —
-**rozstrzygnięty z regulaminu: brak** (patrz wyżej). Zostają:
-(b) jak długo po `koniec` cena i strona aukcji są widoczne / czy strona
-redirectuje, (c) czy historia ofert przeżywa zamknięcie, (e) czy w końcówce
-cena idzie AJAX-em (`POST /WebService/PasekInformacyjny/`), (g) zrzut aukcji
-zakończonej + który sygnał strukturalny (`div.pasek-informacyjny-licytacji`,
-`a.przycisk-przystap`) znika.
+### Pomiar domknięcia — wykonany 2026-09-14, aukcja 16761
 
-Uzbrojenie: `tools/pomiar-dawro.sh` odpalany z launchd
+32 próbki wokół terminu `2026-09-14 10:00:00` (run-up co ~11 s od T−180 s,
+potem drabina `0,2,5,10,15,20,30,45,60,90,120,180,300,600` s). Surowe
+odczyty: `fixtures/dawro/pomiar-domkniecie-16761.json`, zrzuty
+`fixtures/dawro/domkniecie-*.html`, log `pomiar-domkniecie.log`.
+
+**(a) Dogrywka — potwierdzona empirycznie: BRAK.** `end_ts` nie drgnął ani
+raz przez wszystkie 32 próbki: `2026-09-14 10:00:00` przed terminem i po nim.
+Zgadza się z regulaminem (wyżej).
+
+**(g) Marker stanu końcowego — DWA sygnały, oba naraz.** Ostatnia próbka
+przed terminem (`pre-0s`, 10:00:00.008) miała jeszcze komplet; pierwsza po
+(`post+0s`, 10:00:00.732) już nie:
+
+| sygnał | przed (T−0,0 s) | po (T+0,7 s) |
+|---|---|---|
+| `cena_wywolawcza` | `85 900,00` | **`null`** |
+| `przystap_do_aukcji_widoczne` | `true` | **`false`** |
+| `strona_aukcji` | `true` | `true` |
+| `przekierowano_poza_aukcje` | `false` | `false` |
+
+Serwer przełącza stan w **724 ms** po terminie. Strona aukcji **nie znika
+i nie redirectuje** — przez całe okno pomiaru (do T+600 s) oddaje HTTP 200,
+tyle że bez ceny i bez przycisku.
+
+**(b) Okno widoczności ceny po terminie: ZERO.** To jest najważniejszy wynik
+tego pomiaru i różni dawro od pozostałych źródeł: cena znika **natychmiast**,
+nie po 15 s jak w autoprzetargu i nie zostaje zamrożona na godziny jak w EFL.
+
+Konsekwencja dla adaptera jest twarda: **drabinka domknięcia nie ma czego
+odzyskiwać.** Odpyt po `ends_at` potwierdzi wyłącznie fakt zakończenia
+(zniknięcie ceny i przycisku), nigdy kwoty końcowej. Cenę trzeba złapać
+**przed** terminem — a ponieważ strona szczegółów i tak nie renderuje
+najwyższej oferty serwerowo (leci AJAX-em przez `PasekInformacyjny`, którego
+nie wołamy), jedynym serwerowym źródłem kwoty pozostaje kafelek listy
+(`div.najwyzsza-oferta`). Dla dawro „domknięcie" znaczy więc: odczyt LISTY
+tuż przed terminem, nie odpyt szczegółów po nim.
+
+**(c) Historia ofert po zamknięciu — nie zaobserwowano.** Zmierzona aukcja
+nie miała ani jednej oferty (`najwyzsza_oferta_placeholder` = `null` przez
+cały pomiar, cena = wywoławcza 85 900,00). Punkt zostaje otwarty do pomiaru
+na aukcji z realną licytacją.
+
+**(e) AJAX w końcówce — nie wołany świadomie.** `POST
+/WebService/PasekInformacyjny/` pozostaje zapisany, nie wywoływany (§4).
+Placeholder najwyższej oferty był `null` na każdej próbce, więc pomiar nie
+zmienia tej decyzji.
+
+---
+
+Uzbrojenie (zachowane jako ślad metody): `tools/pomiar-dawro.sh` odpalany z launchd
 (`~/Library/LaunchAgents/pl.poleasingowe.pomiar-dawro.plist`, szablon
 `tools/pomiar-dawro.plist`; **2026-09-14 09:45** czasu lokalnego). Cel
 domyślny: Hummer H2 (id `16761`), pierwsza z serii domykającej się
@@ -1259,10 +1301,10 @@ wtedy `POMIAR_URL="https://www.dawro.pl/aukcja/<id>,<slug>"
 tools/pomiar-dawro.sh` albo przestawić termin w pliku `.plist`.
 
 Po udanym pomiarze skrypt zostawia stempel
-`fixtures/dawro/.pomiar-domkniecie-wykonany`, więc kolejne odpalenia agenta
-nie ruszają serwisu. Samego agenta usuwa się ręcznie:
-`launchctl bootout gui/$(id -u)/pl.poleasingowe.pomiar-dawro`. Wynik uzupełni
-drabinkę domknięcia adaptera dawro i potwierdzi marker stanu końcowego.
+`fixtures/dawro/.pomiar-domkniecie-wykonany` (jest, `2026-09-14 10:10:01`),
+więc kolejne odpalenia agenta nie ruszają serwisu. **Agent zrobił swoje —
+można go usunąć:** `launchctl bootout
+gui/$(id -u)/pl.poleasingowe.pomiar-dawro`.
 
 ## 5. Które serwisy obsłuży sam `httpx` (§4 pkt 3)
 

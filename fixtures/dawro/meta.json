@@ -1,33 +1,11 @@
 {
-  "pobrano_utc": "2026-09-10T19:27:08+00:00",
+  "pobrano_utc": "2026-09-14T07:45:07+00:00",
   "user_agent": "Chrome/126 (desktop UA)",
   "zalogowany": false,
   "pliki": {
-    "regulamin-strony.html": {
-      "status": 200,
-      "bytes": 77738,
-      "redirects": 0,
-      "url_koncowy": "https://www.dawro.pl/dokument,Regulamin_Strony",
-      "pobrano_utc": "2026-09-10T12:00:00+00:00",
-      "uwaga": "Regulamin korzystania z portalu, Wrocław 2025-06-01. Art. 4.9 — autorytet zegara serwerowego. Brak klauzuli o dogrywce.",
-      "headers": {
-        "content-type": "text/html"
-      }
-    },
-    "regulamin-jak-licytowac.html": {
-      "status": 200,
-      "bytes": 70520,
-      "redirects": 0,
-      "url_koncowy": "https://www.dawro.pl/jak-licytowac",
-      "pobrano_utc": "2026-09-10T12:00:00+00:00",
-      "uwaga": "Instrukcja uczestnika. Rozdz. V: 'Aukcja kończy się o wyznaczonej godzinie'. Rozdz. IV: postąpienie 100-2000 zł, automat, Opcja Twoja Oferta.",
-      "headers": {
-        "content-type": "text/html"
-      }
-    },
     "lista-01.html": {
       "status": 200,
-      "bytes": 122457,
+      "bytes": 122463,
       "redirects": 0,
       "url_koncowy": "https://www.dawro.pl/aukcje/sortuj,data-zakonczenia,kierunek,rosnaco,strona,1,ilosc,100,wyswietlanie,boxy",
       "headers": {
@@ -37,7 +15,7 @@
     },
     "lista-02.html": {
       "status": 200,
-      "bytes": 122457,
+      "bytes": 122463,
       "redirects": 1,
       "url_koncowy": "https://www.dawro.pl/aukcje/sortuj,data-zakonczenia,kierunek,rosnaco,strona,1,ilosc,100,wyswietlanie,boxy",
       "headers": {
@@ -47,7 +25,7 @@
     },
     "szczegoly-16761.html": {
       "status": 200,
-      "bytes": 143852,
+      "bytes": 143833,
       "redirects": 0,
       "url_koncowy": "https://www.dawro.pl/aukcja/16761,hummer-h2",
       "headers": {
@@ -57,7 +35,7 @@
     },
     "szczegoly-16762.html": {
       "status": 200,
-      "bytes": 143133,
+      "bytes": 143114,
       "redirects": 0,
       "url_koncowy": "https://www.dawro.pl/aukcja/16762,audi-q5-awd-tiptronic",
       "headers": {
@@ -67,7 +45,7 @@
     },
     "szczegoly-16763.html": {
       "status": 200,
-      "bytes": 148751,
+      "bytes": 148732,
       "redirects": 0,
       "url_koncowy": "https://www.dawro.pl/aukcja/16763,mini-bmw-countryman-cooper-s-all4",
       "headers": {
@@ -77,7 +55,7 @@
     },
     "szczegoly-16764.html": {
       "status": 200,
-      "bytes": 147610,
+      "bytes": 147591,
       "redirects": 0,
       "url_koncowy": "https://www.dawro.pl/aukcja/16764,kia-ceed-1-6-crdi-m-aut",
       "headers": {
@@ -87,7 +65,7 @@
     },
     "szczegoly-16770.html": {
       "status": 200,
-      "bytes": 135140,
+      "bytes": 135121,
       "redirects": 0,
       "url_koncowy": "https://www.dawro.pl/aukcja/16770,fiat-ducato-l2h2",
       "headers": {
@@ -97,7 +75,7 @@
     },
     "szczegoly-16771.html": {
       "status": 200,
-      "bytes": 135119,
+      "bytes": 135100,
       "redirects": 0,
       "url_koncowy": "https://www.dawro.pl/aukcja/16771,skoda-scala-1-0-tsi-monte-carlo-dsg",
       "headers": {
@@ -107,7 +85,7 @@
     },
     "szczegoly-16773.html": {
       "status": 200,
-      "bytes": 130358,
+      "bytes": 130339,
       "redirects": 0,
       "url_koncowy": "https://www.dawro.pl/aukcja/16773,peugeot-boxer-333-2-2-bluehdi-l2h2-premium",
       "headers": {
@@ -117,7 +95,7 @@
     },
     "szczegoly-16774.html": {
       "status": 200,
-      "bytes": 130977,
+      "bytes": 130958,
       "redirects": 0,
       "url_koncowy": "https://www.dawro.pl/aukcja/16774,fiat-ducato-35-2-2-m-jet-l2h2",
       "headers": {
@@ -127,7 +105,7 @@
     },
     "szczegoly-16776.html": {
       "status": 200,
-      "bytes": 129159,
+      "bytes": 129140,
       "redirects": 0,
       "url_koncowy": "https://www.dawro.pl/aukcja/16776,opel-movano-2-2-diesel-l4",
       "headers": {
@@ -137,7 +115,7 @@
     },
     "szczegoly-16777.html": {
       "status": 200,
-      "bytes": 131058,
+      "bytes": 131039,
       "redirects": 0,
       "url_koncowy": "https://www.dawro.pl/aukcja/16777,opel-movano-heavy-2-2-diesel-l4",
       "headers": {
@@ -147,7 +125,7 @@
     },
     "szczegoly-16778.html": {
       "status": 200,
-      "bytes": 131041,
+      "bytes": 131022,
       "redirects": 0,
       "url_koncowy": "https://www.dawro.pl/aukcja/16778,peugeot-308-active-pack-s-s",
       "headers": {
@@ -157,7 +135,7 @@
     },
     "szczegoly-16780.html": {
       "status": 200,
-      "bytes": 130425,
+      "bytes": 130406,
       "redirects": 0,
       "url_koncowy": "https://www.dawro.pl/aukcja/16780,jeep-compass-1-5-mhev-compass-1-5-mhev",
       "headers": {
@@ -167,7 +145,7 @@
     },
     "szczegoly-16782.html": {
       "status": 200,
-      "bytes": 131075,
+      "bytes": 131056,
       "redirects": 0,
       "url_koncowy": "https://www.dawro.pl/aukcja/16782,fiat-ducato-maxi-2-2-m-jet-l4h3",
       "headers": {
@@ -177,7 +155,7 @@
     },
     "szczegoly-16798.html": {
       "status": 200,
-      "bytes": 131068,
+      "bytes": 131049,
       "redirects": 0,
       "url_koncowy": "https://www.dawro.pl/aukcja/16798,peugeot-308-iii-active-pack-s-s",
       "headers": {
@@ -187,7 +165,7 @@
     },
     "szczegoly-16799.html": {
       "status": 200,
-      "bytes": 131112,
+      "bytes": 131093,
       "redirects": 0,
       "url_koncowy": "https://www.dawro.pl/aukcja/16799,peugeot-jumper-35-2-2-bluehdi-35-l4h2",
       "headers": {
@@ -197,7 +175,7 @@
     },
     "szczegoly-16800.html": {
       "status": 200,
-      "bytes": 131107,
+      "bytes": 131088,
       "redirects": 0,
       "url_koncowy": "https://www.dawro.pl/aukcja/16800,peugeot-308-swiii-hdi-allure-s-s-eat",
       "headers": {
@@ -207,7 +185,7 @@
     },
     "szczegoly-16801.html": {
       "status": 200,
-      "bytes": 131095,
+      "bytes": 131076,
       "redirects": 0,
       "url_koncowy": "https://www.dawro.pl/aukcja/16801,ds-ds7-crossback-e-tense-rivoli-eat",
       "headers": {
@@ -217,7 +195,7 @@
     },
     "szczegoly-16802.html": {
       "status": 200,
-      "bytes": 129446,
+      "bytes": 129427,
       "redirects": 0,
       "url_koncowy": "https://www.dawro.pl/aukcja/16802,fiat-ducato-maxi-2-2-h3-power-l4h2",
       "headers": {
@@ -227,7 +205,7 @@
     },
     "szczegoly-16803.html": {
       "status": 200,
-      "bytes": 131124,
+      "bytes": 131105,
       "redirects": 0,
       "url_koncowy": "https://www.dawro.pl/aukcja/16803,opel-astra-vi-sports-tourer-gs-s-s-aut",
       "headers": {
@@ -237,7 +215,7 @@
     },
     "szczegoly-16804.html": {
       "status": 200,
-      "bytes": 131227,
+      "bytes": 131208,
       "redirects": 0,
       "url_koncowy": "https://www.dawro.pl/aukcja/16804,opel-grandland-mild-hybrid-edition-145-dcs",
       "headers": {
@@ -247,7 +225,7 @@
     },
     "szczegoly-16805.html": {
       "status": 200,
-      "bytes": 131055,
+      "bytes": 131036,
       "redirects": 0,
       "url_koncowy": "https://www.dawro.pl/aukcja/16805,peugeot-308-swiii-gt-s-s-eat",
       "headers": {
@@ -257,7 +235,7 @@
     },
     "szczegoly-16806.html": {
       "status": 200,
-      "bytes": 131031,
+      "bytes": 131012,
       "redirects": 0,
       "url_koncowy": "https://www.dawro.pl/aukcja/16806,peugeot-2008-ii-1-2-gt-s-s-eat",
       "headers": {
@@ -267,7 +245,7 @@
     },
     "szczegoly-16775.html": {
       "status": 200,
-      "bytes": 131172,
+      "bytes": 131153,
       "redirects": 0,
       "url_koncowy": "https://www.dawro.pl/aukcja/16775,citro-n-berlingo-iii-1-5-16v-bluehdi-m-feel-pack",
       "headers": {
@@ -277,9 +255,329 @@
     },
     "szczegoly-16779.html": {
       "status": 200,
-      "bytes": 128880,
+      "bytes": 128861,
       "redirects": 0,
       "url_koncowy": "https://www.dawro.pl/aukcja/16779,fiat-ducato-maxi-2-2-h3-power-l4h3",
+      "headers": {
+        "content-type": "text/html",
+        "cache-control": "no-store, no-cache, must-revalidate, post-check=0, pre-check=0"
+      }
+    },
+    "domkniecie-t0.html": {
+      "status": 200,
+      "bytes": 143833,
+      "redirects": 0,
+      "url_koncowy": "https://www.dawro.pl/aukcja/16761,hummer-h2",
+      "headers": {
+        "content-type": "text/html",
+        "cache-control": "no-store, no-cache, must-revalidate, post-check=0, pre-check=0"
+      }
+    },
+    "domkniecie-pre-169s.html": {
+      "status": 200,
+      "bytes": 143833,
+      "redirects": 0,
+      "url_koncowy": "https://www.dawro.pl/aukcja/16761,hummer-h2",
+      "headers": {
+        "content-type": "text/html",
+        "cache-control": "no-store, no-cache, must-revalidate, post-check=0, pre-check=0"
+      }
+    },
+    "domkniecie-pre-159s.html": {
+      "status": 200,
+      "bytes": 143833,
+      "redirects": 0,
+      "url_koncowy": "https://www.dawro.pl/aukcja/16761,hummer-h2",
+      "headers": {
+        "content-type": "text/html",
+        "cache-control": "no-store, no-cache, must-revalidate, post-check=0, pre-check=0"
+      }
+    },
+    "domkniecie-pre-148s.html": {
+      "status": 200,
+      "bytes": 143833,
+      "redirects": 0,
+      "url_koncowy": "https://www.dawro.pl/aukcja/16761,hummer-h2",
+      "headers": {
+        "content-type": "text/html",
+        "cache-control": "no-store, no-cache, must-revalidate, post-check=0, pre-check=0"
+      }
+    },
+    "domkniecie-pre-137s.html": {
+      "status": 200,
+      "bytes": 143833,
+      "redirects": 0,
+      "url_koncowy": "https://www.dawro.pl/aukcja/16761,hummer-h2",
+      "headers": {
+        "content-type": "text/html",
+        "cache-control": "no-store, no-cache, must-revalidate, post-check=0, pre-check=0"
+      }
+    },
+    "domkniecie-pre-127s.html": {
+      "status": 200,
+      "bytes": 143833,
+      "redirects": 0,
+      "url_koncowy": "https://www.dawro.pl/aukcja/16761,hummer-h2",
+      "headers": {
+        "content-type": "text/html",
+        "cache-control": "no-store, no-cache, must-revalidate, post-check=0, pre-check=0"
+      }
+    },
+    "domkniecie-pre-116s.html": {
+      "status": 200,
+      "bytes": 143833,
+      "redirects": 0,
+      "url_koncowy": "https://www.dawro.pl/aukcja/16761,hummer-h2",
+      "headers": {
+        "content-type": "text/html",
+        "cache-control": "no-store, no-cache, must-revalidate, post-check=0, pre-check=0"
+      }
+    },
+    "domkniecie-pre-106s.html": {
+      "status": 200,
+      "bytes": 143833,
+      "redirects": 0,
+      "url_koncowy": "https://www.dawro.pl/aukcja/16761,hummer-h2",
+      "headers": {
+        "content-type": "text/html",
+        "cache-control": "no-store, no-cache, must-revalidate, post-check=0, pre-check=0"
+      }
+    },
+    "domkniecie-pre-95s.html": {
+      "status": 200,
+      "bytes": 143833,
+      "redirects": 0,
+      "url_koncowy": "https://www.dawro.pl/aukcja/16761,hummer-h2",
+      "headers": {
+        "content-type": "text/html",
+        "cache-control": "no-store, no-cache, must-revalidate, post-check=0, pre-check=0"
+      }
+    },
+    "domkniecie-pre-84s.html": {
+      "status": 200,
+      "bytes": 143833,
+      "redirects": 0,
+      "url_koncowy": "https://www.dawro.pl/aukcja/16761,hummer-h2",
+      "headers": {
+        "content-type": "text/html",
+        "cache-control": "no-store, no-cache, must-revalidate, post-check=0, pre-check=0"
+      }
+    },
+    "domkniecie-pre-74s.html": {
+      "status": 200,
+      "bytes": 143833,
+      "redirects": 0,
+      "url_koncowy": "https://www.dawro.pl/aukcja/16761,hummer-h2",
+      "headers": {
+        "content-type": "text/html",
+        "cache-control": "no-store, no-cache, must-revalidate, post-check=0, pre-check=0"
+      }
+    },
+    "domkniecie-pre-62s.html": {
+      "status": 200,
+      "bytes": 143833,
+      "redirects": 0,
+      "url_koncowy": "https://www.dawro.pl/aukcja/16761,hummer-h2",
+      "headers": {
+        "content-type": "text/html",
+        "cache-control": "no-store, no-cache, must-revalidate, post-check=0, pre-check=0"
+      }
+    },
+    "domkniecie-pre-52s.html": {
+      "status": 200,
+      "bytes": 143725,
+      "redirects": 0,
+      "url_koncowy": "https://www.dawro.pl/aukcja/16761,hummer-h2",
+      "headers": {
+        "content-type": "text/html",
+        "cache-control": "no-store, no-cache, must-revalidate, post-check=0, pre-check=0"
+      }
+    },
+    "domkniecie-pre-41s.html": {
+      "status": 200,
+      "bytes": 143833,
+      "redirects": 0,
+      "url_koncowy": "https://www.dawro.pl/aukcja/16761,hummer-h2",
+      "headers": {
+        "content-type": "text/html",
+        "cache-control": "no-store, no-cache, must-revalidate, post-check=0, pre-check=0"
+      }
+    },
+    "domkniecie-pre-29s.html": {
+      "status": 200,
+      "bytes": 143833,
+      "redirects": 0,
+      "url_koncowy": "https://www.dawro.pl/aukcja/16761,hummer-h2",
+      "headers": {
+        "content-type": "text/html",
+        "cache-control": "no-store, no-cache, must-revalidate, post-check=0, pre-check=0"
+      }
+    },
+    "domkniecie-pre-18s.html": {
+      "status": 200,
+      "bytes": 143833,
+      "redirects": 0,
+      "url_koncowy": "https://www.dawro.pl/aukcja/16761,hummer-h2",
+      "headers": {
+        "content-type": "text/html",
+        "cache-control": "no-store, no-cache, must-revalidate, post-check=0, pre-check=0"
+      }
+    },
+    "domkniecie-pre-7s.html": {
+      "status": 200,
+      "bytes": 143833,
+      "redirects": 0,
+      "url_koncowy": "https://www.dawro.pl/aukcja/16761,hummer-h2",
+      "headers": {
+        "content-type": "text/html",
+        "cache-control": "no-store, no-cache, must-revalidate, post-check=0, pre-check=0"
+      }
+    },
+    "domkniecie-pre-0s.html": {
+      "status": 200,
+      "bytes": 143833,
+      "redirects": 0,
+      "url_koncowy": "https://www.dawro.pl/aukcja/16761,hummer-h2",
+      "headers": {
+        "content-type": "text/html",
+        "cache-control": "no-store, no-cache, must-revalidate, post-check=0, pre-check=0"
+      }
+    },
+    "domkniecie-post+0s.html": {
+      "status": 200,
+      "bytes": 142445,
+      "redirects": 0,
+      "url_koncowy": "https://www.dawro.pl/aukcja/16761,hummer-h2",
+      "headers": {
+        "content-type": "text/html",
+        "cache-control": "no-store, no-cache, must-revalidate, post-check=0, pre-check=0"
+      }
+    },
+    "domkniecie-post+2s.html": {
+      "status": 200,
+      "bytes": 142368,
+      "redirects": 0,
+      "url_koncowy": "https://www.dawro.pl/aukcja/16761,hummer-h2",
+      "headers": {
+        "content-type": "text/html",
+        "cache-control": "no-store, no-cache, must-revalidate, post-check=0, pre-check=0"
+      }
+    },
+    "domkniecie-post+5s.html": {
+      "status": 200,
+      "bytes": 142281,
+      "redirects": 0,
+      "url_koncowy": "https://www.dawro.pl/aukcja/16761,hummer-h2",
+      "headers": {
+        "content-type": "text/html",
+        "cache-control": "no-store, no-cache, must-revalidate, post-check=0, pre-check=0"
+      }
+    },
+    "domkniecie-post+10s.html": {
+      "status": 200,
+      "bytes": 142500,
+      "redirects": 0,
+      "url_koncowy": "https://www.dawro.pl/aukcja/16761,hummer-h2",
+      "headers": {
+        "content-type": "text/html",
+        "cache-control": "no-store, no-cache, must-revalidate, post-check=0, pre-check=0"
+      }
+    },
+    "domkniecie-post+15s.html": {
+      "status": 200,
+      "bytes": 142500,
+      "redirects": 0,
+      "url_koncowy": "https://www.dawro.pl/aukcja/16761,hummer-h2",
+      "headers": {
+        "content-type": "text/html",
+        "cache-control": "no-store, no-cache, must-revalidate, post-check=0, pre-check=0"
+      }
+    },
+    "domkniecie-post+20s.html": {
+      "status": 200,
+      "bytes": 142500,
+      "redirects": 0,
+      "url_koncowy": "https://www.dawro.pl/aukcja/16761,hummer-h2",
+      "headers": {
+        "content-type": "text/html",
+        "cache-control": "no-store, no-cache, must-revalidate, post-check=0, pre-check=0"
+      }
+    },
+    "domkniecie-post+30s.html": {
+      "status": 200,
+      "bytes": 142500,
+      "redirects": 0,
+      "url_koncowy": "https://www.dawro.pl/aukcja/16761,hummer-h2",
+      "headers": {
+        "content-type": "text/html",
+        "cache-control": "no-store, no-cache, must-revalidate, post-check=0, pre-check=0"
+      }
+    },
+    "domkniecie-post+45s.html": {
+      "status": 200,
+      "bytes": 142500,
+      "redirects": 0,
+      "url_koncowy": "https://www.dawro.pl/aukcja/16761,hummer-h2",
+      "headers": {
+        "content-type": "text/html",
+        "cache-control": "no-store, no-cache, must-revalidate, post-check=0, pre-check=0"
+      }
+    },
+    "domkniecie-post+60s.html": {
+      "status": 200,
+      "bytes": 142500,
+      "redirects": 0,
+      "url_koncowy": "https://www.dawro.pl/aukcja/16761,hummer-h2",
+      "headers": {
+        "content-type": "text/html",
+        "cache-control": "no-store, no-cache, must-revalidate, post-check=0, pre-check=0"
+      }
+    },
+    "domkniecie-post+90s.html": {
+      "status": 200,
+      "bytes": 142500,
+      "redirects": 0,
+      "url_koncowy": "https://www.dawro.pl/aukcja/16761,hummer-h2",
+      "headers": {
+        "content-type": "text/html",
+        "cache-control": "no-store, no-cache, must-revalidate, post-check=0, pre-check=0"
+      }
+    },
+    "domkniecie-post+120s.html": {
+      "status": 200,
+      "bytes": 142500,
+      "redirects": 0,
+      "url_koncowy": "https://www.dawro.pl/aukcja/16761,hummer-h2",
+      "headers": {
+        "content-type": "text/html",
+        "cache-control": "no-store, no-cache, must-revalidate, post-check=0, pre-check=0"
+      }
+    },
+    "domkniecie-post+180s.html": {
+      "status": 200,
+      "bytes": 142500,
+      "redirects": 0,
+      "url_koncowy": "https://www.dawro.pl/aukcja/16761,hummer-h2",
+      "headers": {
+        "content-type": "text/html",
+        "cache-control": "no-store, no-cache, must-revalidate, post-check=0, pre-check=0"
+      }
+    },
+    "domkniecie-post+300s.html": {
+      "status": 200,
+      "bytes": 142625,
+      "redirects": 0,
+      "url_koncowy": "https://www.dawro.pl/aukcja/16761,hummer-h2",
+      "headers": {
+        "content-type": "text/html",
+        "cache-control": "no-store, no-cache, must-revalidate, post-check=0, pre-check=0"
+      }
+    },
+    "domkniecie-post+600s.html": {
+      "status": 200,
+      "bytes": 142341,
+      "redirects": 0,
+      "url_koncowy": "https://www.dawro.pl/aukcja/16761,hummer-h2",
       "headers": {
         "content-type": "text/html",
         "cache-control": "no-store, no-cache, must-revalidate, post-check=0, pre-check=0"
