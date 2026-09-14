@@ -1,5 +1,13 @@
 # Historia zmian
 
+## 0.29.7 — w przygotowaniu
+
+**mLeasing — tylko samochody.** Adapter nie korzysta już z ogólnych,
+nieskategoryzowanych kolekcji awaryjnych, z których trafiały analizatory,
+wózki i inne przedmioty. Pełne wyszukiwanie wykonuje teraz osobną sesję dla
+widoków osobowych i dostawczych oraz przekazuje kontekst żądania używany przez
+portal. Migracja usuwa wcześniejsze wpisy mLeasing o innym rodzaju pojazdu.
+
 ## 0.29.6 — w przygotowaniu
 
 **Ponownie wystawione auta.** Obserwacja przechodzi na nową aukcję tego

@@ -144,37 +144,6 @@ def sparsuj_strone(bajty: bytes, *, kategoria: str) -> WynikStrony:
     return WynikStrony(tuple(pozycje), tuple(identyfikatory), liczba)
 
 
-def sparsuj_wyroznione(bajty: bytes) -> tuple[SurowaOferta, ...]:
-    """Czyta publiczną, lecz z założenia niepełną kolekcję ofert.
-
-    Endpointy „najnowsze” i „promowane” nie przekazują kategorii z pełnej
-    wyszukiwarki. Ten brak zachowujemy jako nieznany zamiast zgadywać, a
-    adapter oznacza cały wynik jako częściowy.
-    """
-    rekordy = _json(bajty, "wyróżnione oferty")
-    if not isinstance(rekordy, list):
-        raise ParseFailed("mLeasing: wyróżnione oferty nie są listą")
-
-    wynik: list[SurowaOferta] = []
-    for numer, wartosc in enumerate(rekordy, start=1):
-        dane = _slownik(wartosc, f"wyróżnione oferty, rekord {numer}")
-        identyfikator = _napis(dane.get("id"))
-        if identyfikator is None or not identyfikator.isdigit():
-            raise ParseFailed(
-                f"mLeasing: wyróżniony rekord {numer} nie ma liczbowego id"
-            )
-        if dane.get("auctionType") != "Auction":
-            continue
-        wynik.append(
-            SurowaOferta(
-                external_id=identyfikator,
-                url=f"{BAZOWY_URL}/oferta/{identyfikator}/",
-                pola=_pola_oferty(dane, kategoria=""),
-            )
-        )
-    return tuple(wynik)
-
-
 def sparsuj_szczegoly(
     bajty: bytes,
     lokalizacje: bytes,

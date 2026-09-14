@@ -9,7 +9,7 @@ from collections.abc import AsyncIterator, Sequence
 from dataclasses import replace
 from types import TracebackType
 from typing import Any
-from urllib.parse import unquote
+from urllib.parse import unquote, urlsplit
 
 import httpx
 
@@ -28,10 +28,14 @@ _SCIEZKI_KATEGORII = {
 }
 _CIASTECZKO_XSRF = "XSRF-TOKEN"
 _NAGLOWEK_XSRF = "X-XSRF-TOKEN"
-
-
-class _BrakPelnegoWyszukiwania(SourceUnavailable):
-    """Publiczna wyszukiwarka zwróciła 400 przed pierwszą stroną."""
+_NAGLOWKI_PRZEGLADARKI = {
+    "Accept": "application/json, text/plain, */*",
+    "Origin": parser.BAZOWY_URL,
+    "User-Agent": (
+        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
+        "(KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"
+    ),
+}
 
 
 def _parametry_wyszukiwania(kategoria: str, numer: int) -> dict[str, Any]:
@@ -77,7 +81,8 @@ class MleasingSource:
 
     def __init__(self, klient: httpx.AsyncClient) -> None:
         self._klient = klient
-        self._sesja_wyszukiwania = False
+        self._sesje_wyszukiwania: set[str] = set()
+        self._tokeny_xsrf: dict[str, str] = {}
 
     @classmethod
     def utworz(cls, *, timeout: float = 30.0) -> MleasingSource:
@@ -122,7 +127,7 @@ class MleasingSource:
         cookie `XSRF-TOKEN` jako nagłówek przy POST. Bez tego kroku endpoint
         zwraca HTTP 400 mimo że lista jest widoczna w przeglądarce.
         """
-        if self._sesja_wyszukiwania and not odswiez:
+        if kategoria in self._sesje_wyszukiwania and not odswiez:
             return
         sciezka = _SCIEZKI_KATEGORII.get(kategoria)
         if sciezka is None:
@@ -134,20 +139,57 @@ class MleasingSource:
             raise SourceUnavailable(
                 f"mLeasing: nie udało się otworzyć kategorii {kategoria}: {exc}"
             ) from exc
-        self._sesja_wyszukiwania = True
-
-    def _naglowki_xsrf(self) -> dict[str, str]:
-        """Odtwarza automatyczny nagłówek axiosa używany przez portal."""
-        token = self._klient.cookies.get(_CIASTECZKO_XSRF)
+        token = self._token_xsrf_dla_sciezki(sciezka)
         if token is None:
-            return {}
-        return {_NAGLOWEK_XSRF: unquote(token)}
+            self._tokeny_xsrf.pop(kategoria, None)
+        else:
+            self._tokeny_xsrf[kategoria] = token
+        self._sesje_wyszukiwania.add(kategoria)
+
+    def _token_xsrf_dla_sciezki(self, sciezka: str) -> str | None:
+        """Zwraca najwężej dopasowany token widoczny na stronie kategorii.
+
+        mLeasing może nadać osobne cookie `XSRF-TOKEN` dla `/oferty/osobowe/`
+        i `/oferty/dostawcze/`. `httpx.Cookies.get()` zgłasza wtedy konflikt;
+        przeglądarka wybiera cookie o najdłuższej pasującej ścieżce i my robimy
+        to samo, zanim przekażemy token w nagłówku axiosa.
+        """
+        host = urlsplit(parser.BAZOWY_URL).hostname
+        pasujace = []
+        for cookie in self._klient.cookies.jar:
+            if cookie.name != _CIASTECZKO_XSRF:
+                continue
+            domena = cookie.domain.lstrip(".")
+            if host is not None and domena not in {"", host}:
+                continue
+            sciezka_cookie = cookie.path or "/"
+            if sciezka.startswith(sciezka_cookie.rstrip("/") + "/") or sciezka == (
+                sciezka_cookie.rstrip("/") or "/"
+            ):
+                pasujace.append(cookie)
+        if not pasujace:
+            return None
+        token = max(pasujace, key=lambda cookie: len(cookie.path or "/")).value
+        if token is None:
+            return None
+        return unquote(token)
+
+    def _naglowki_wyszukiwania(self, kategoria: str) -> dict[str, str]:
+        """Odtwarza kontekst żądania wysyłanego przez widok kategorii."""
+        sciezka = _SCIEZKI_KATEGORII[kategoria]
+        naglowki = {
+            **_NAGLOWKI_PRZEGLADARKI,
+            "Referer": f"{parser.BAZOWY_URL}{sciezka}",
+        }
+        if (token := self._tokeny_xsrf.get(kategoria)) is not None:
+            naglowki[_NAGLOWEK_XSRF] = token
+        return naglowki
 
     async def _wyslij_wyszukiwanie(self, kategoria: str, numer: int) -> httpx.Response:
         return await self._klient.post(
             parser.SCIEZKA_SZUKANIA,
             json=_parametry_wyszukiwania(kategoria, numer),
-            headers=self._naglowki_xsrf(),
+            headers=self._naglowki_wyszukiwania(kategoria),
         )
 
     async def _strona(self, kategoria: str, numer: int) -> bytes:
@@ -155,16 +197,17 @@ class MleasingSource:
             await self._przygotuj_wyszukiwanie(kategoria, odswiez=False)
             odpowiedz = await self._wyslij_wyszukiwanie(kategoria, numer)
             # Token sesji może wygasnąć między kolejnymi przemiotami. Jedna
-            # próba po odświeżeniu odwzorowuje zwykłe ponowne wejście na listę,
-            # a trwałe 400 nadal uruchamia bezpieczny wynik częściowy.
+            # próba po odświeżeniu odwzorowuje zwykłe ponowne wejście na listę.
+            # Trwałe 400 przerywa skan: ogólne kolekcje awaryjne nie niosą
+            # kategorii, więc nie wolno nimi zastępować listy samochodów.
             if odpowiedz.status_code == httpx.codes.BAD_REQUEST:
                 await self._przygotuj_wyszukiwanie(kategoria, odswiez=True)
                 odpowiedz = await self._wyslij_wyszukiwanie(kategoria, numer)
             odpowiedz.raise_for_status()
         except httpx.HTTPStatusError as exc:
             if exc.response.status_code == httpx.codes.BAD_REQUEST:
-                raise _BrakPelnegoWyszukiwania(
-                    f"mLeasing: wyszukiwanie {kategoria}, strona {numer}: " "HTTP 400"
+                raise SourceUnavailable(
+                    f"mLeasing: wyszukiwanie {kategoria}, strona {numer}: HTTP 400"
                 ) from exc
             raise SourceUnavailable(
                 f"mLeasing: wyszukiwanie {kategoria}, strona {numer}: {exc}"
@@ -174,27 +217,6 @@ class MleasingSource:
                 f"mLeasing: wyszukiwanie {kategoria}, strona {numer}: {exc}"
             ) from exc
         return odpowiedz.content
-
-    async def _strona_awaryjna(self) -> StronaPrzemiatu:
-        """Łączy działające, ale niepełne publiczne kolekcje mLeasing.
-
-        Nie udajemy pełnego skanu: dispatcher zapisze znalezione aukcje,
-        lecz nie potraktuje braku pozostałych jako ich zniknięcia.
-        """
-        najnowsze = parser.sparsuj_wyroznione(
-            await self._get("/api/offer-read/latest-offers")
-        )
-        promowane = parser.sparsuj_wyroznione(
-            await self._get("/api/offer-read/promoted-offers")
-        )
-        widziane: set[str] = set()
-        pozycje: list[SurowaOferta] = []
-        for pozycja in (*najnowsze, *promowane):
-            if pozycja.external_id in widziane:
-                continue
-            widziane.add(pozycja.external_id)
-            pozycje.append(pozycja)
-        return StronaPrzemiatu(tuple(pozycje), kompletny=False)
 
     async def przemiec_liste(self) -> Sequence[SurowaOferta]:
         wynik: list[SurowaOferta] = []
@@ -209,17 +231,7 @@ class MleasingSource:
             oczekiwana_liczba: int | None = None
             oczekiwane_strony: int | None = None
             for numer in range(1, MAKS_STRON + 1):
-                try:
-                    tresc = await self._strona(kategoria, numer)
-                except _BrakPelnegoWyszukiwania:
-                    if (
-                        not widziane_globalnie
-                        and kategoria == parser.KATEGORIE[0]
-                        and numer == 1
-                    ):
-                        yield await self._strona_awaryjna()
-                        return
-                    raise
+                tresc = await self._strona(kategoria, numer)
                 wynik = parser.sparsuj_strone(tresc, kategoria=kategoria)
                 if oczekiwana_liczba is None:
                     oczekiwana_liczba = wynik.total_count

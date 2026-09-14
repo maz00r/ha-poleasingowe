@@ -56,14 +56,6 @@ def test_pusta_lista_jest_poprawna_a_zly_kontrakt_nie() -> None:
         parser.sparsuj_strone(b"<html>blad</html>", kategoria="Passenger")
 
 
-def test_wyroznione_oferty_przyjmuja_tylko_licytacje() -> None:
-    rekordy = [_rekord(182214), {**_rekord(182215), "auctionType": "Advertisement"}]
-    wynik = parser.sparsuj_wyroznione(json.dumps(rekordy).encode())
-
-    assert [oferta.external_id for oferta in wynik] == ["182214"]
-    assert wynik[0].pola["kategoria"] == ""
-
-
 def test_szczegoly_mapuja_pojazd_lokalizacje_i_ceny() -> None:
     surowa = parser.sparsuj_szczegoly(
         dane("szczegoly-182214.json"),
@@ -146,14 +138,20 @@ async def test_wyszukiwanie_najpierw_zaklada_sesje_i_wysyla_token_xsrf() -> None
     def obsluz(zadanie: httpx.Request) -> httpx.Response:
         zadania.append(zadanie)
         if zadanie.method == "GET":
-            assert zadanie.url.path == "/oferty/osobowe/"
+            assert zadanie.url.path in {"/oferty/osobowe/", "/oferty/dostawcze/"}
             return httpx.Response(
                 200,
                 headers={"set-cookie": "XSRF-TOKEN=token%20sesji; Path=/"},
             )
         assert zadanie.method == "POST"
-        assert zadanie.headers["X-XSRF-TOKEN"] == "token sesji"
         parametry = json.loads(zadanie.content)
+        assert zadanie.headers["X-XSRF-TOKEN"] == "token sesji"
+        assert zadanie.headers["Origin"] == parser.BAZOWY_URL
+        assert zadanie.headers["Referer"] == (
+            f"{parser.BAZOWY_URL}/oferty/osobowe/"
+            if parametry["category"] == "Passenger"
+            else f"{parser.BAZOWY_URL}/oferty/dostawcze/"
+        )
         assert parametry["auctionTypes"] is None
         assert parametry["category"] in {"Passenger", "Vans"}
         return httpx.Response(200, json={"items": [], "totalCount": 0})
@@ -167,6 +165,7 @@ async def test_wyszukiwanie_najpierw_zaklada_sesje_i_wysyla_token_xsrf() -> None
     assert [(zadanie.method, zadanie.url.path) for zadanie in zadania] == [
         ("GET", "/oferty/osobowe/"),
         ("POST", "/api/offer-read/search"),
+        ("GET", "/oferty/dostawcze/"),
         ("POST", "/api/offer-read/search"),
     ]
 
@@ -182,10 +181,10 @@ async def test_http_400_odswieza_token_i_ponawia_ta_sama_strone() -> None:
                 200,
                 headers={"set-cookie": f"XSRF-TOKEN=token{liczba_wizyt}; Path=/"},
             )
-        if liczba_wizyt == 1:
-            assert zadanie.headers["X-XSRF-TOKEN"] == "token1"
+        token = zadanie.headers["X-XSRF-TOKEN"]
+        if token == "token1":
             return httpx.Response(400)
-        assert zadanie.headers["X-XSRF-TOKEN"] == "token2"
+        assert token in {"token2", "token3"}
         return httpx.Response(200, json={"items": [], "totalCount": 0})
 
     klient = httpx.AsyncClient(
@@ -194,7 +193,7 @@ async def test_http_400_odswieza_token_i_ponawia_ta_sama_strone() -> None:
     async with source.MleasingSource(klient) as adapter:
         assert await adapter.przemiec_liste() == []
 
-    assert liczba_wizyt == 2
+    assert liczba_wizyt == 3
 
 
 async def test_pelna_paginacja_obu_kategorii() -> None:
@@ -264,35 +263,30 @@ async def test_http_400_nie_udaje_pustego_pelnego_skanu() -> None:
         transport=httpx.MockTransport(obsluz),
     )
     async with source.MleasingSource(klient) as adapter:
-        with pytest.raises(SourceUnavailable, match="latest-offers"):
+        with pytest.raises(SourceUnavailable, match="HTTP 400"):
             await adapter.przemiec_liste()
 
 
-async def test_http_400_pokazuje_publiczne_wyroznione_oferty_jako_czesciowe() -> None:
+async def test_http_400_nie_siega_po_nieskategoryzowane_oferty_awaryjne() -> None:
+    zadania: list[str] = []
+
     def obsluz(zadanie: httpx.Request) -> httpx.Response:
+        zadania.append(zadanie.url.path)
         if zadanie.url.path.startswith("/oferty/"):
             return httpx.Response(200, headers={"set-cookie": "XSRF-TOKEN=token"})
         if zadanie.url.path.endswith("/search"):
             return httpx.Response(400)
-        if zadanie.url.path.endswith("/latest-offers"):
-            return httpx.Response(200, json=[_rekord(182214), _rekord(182215)])
-        if zadanie.url.path.endswith("/promoted-offers"):
-            return httpx.Response(200, json=[_rekord(182215), _rekord(182216)])
         raise AssertionError(str(zadanie.url))
 
     klient = httpx.AsyncClient(
         base_url=parser.BAZOWY_URL, transport=httpx.MockTransport(obsluz)
     )
     async with source.MleasingSource(klient) as adapter:
-        strony = [strona async for strona in adapter.strony_przemiatu()]
+        with pytest.raises(SourceUnavailable, match="HTTP 400"):
+            await adapter.przemiec_liste()
 
-    assert len(strony) == 1
-    assert strony[0].kompletny is False
-    assert [oferta.external_id for oferta in strony[0].pozycje] == [
-        "182214",
-        "182215",
-        "182216",
-    ]
+    assert "/api/offer-read/latest-offers" not in zadania
+    assert "/api/offer-read/promoted-offers" not in zadania
 
 
 async def test_szczegoly_i_zdjecia_uzywaja_publicznych_endpointow() -> None:
