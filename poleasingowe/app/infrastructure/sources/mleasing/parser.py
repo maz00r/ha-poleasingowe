@@ -94,13 +94,14 @@ def _pola_oferty(dane: dict[str, Any], *, kategoria: str) -> dict[str, str]:
             pola[cel] = wartosc
 
     # Wynik wyszukiwania ma `amount`, a szczegóły rozdzielają kwotę
-    # wywoławczą i aktualną. Aktualna może być null przed pierwszą ofertą.
+    # wywoławczą i aktualną. Null pozostaje brakiem ceny, także po końcu
+    # bez ofert (pomiar 182076, RECON.md §4.5).
     start = _napis(dane.get("startingAmount"))
-    biezaca = _napis(dane.get("currentAmount")) or start
+    biezaca = _napis(
+        dane.get("currentAmount") if "currentAmount" in dane else dane.get("amount")
+    )
     if start is not None:
         pola["cena_wywolawcza"] = start
-    if biezaca is None:
-        biezaca = _napis(dane.get("amount"))
     if biezaca is not None:
         pola["cena"] = biezaca
     if "isGrossAmount" in dane and isinstance(dane["isGrossAmount"], bool):

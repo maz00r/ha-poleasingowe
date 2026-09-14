@@ -97,6 +97,31 @@ def test_stany_koncowe_zachowuja_cene(stan: str) -> None:
     assert aukcja.price_current == Money(Decimal("100000.00"), Currency.PLN)
 
 
+def test_wygasla_182076_bez_ofert_nie_ma_ceny_biezacej() -> None:
+    # Pola zaobserwowane w pomiarze 2026-09-14, T+0…T+600 s (RECON §4.5).
+    oferta = {
+        "id": 182076,
+        "auctionType": "Auction",
+        "offerState": "Expired",
+        "to": "2026-09-14T12:00:00+02:00",
+        "startingAmount": 886000.0,
+        "currentAmount": None,
+        "isGrossAmount": False,
+    }
+    surowa = parser.sparsuj_szczegoly(
+        json.dumps({"offer": oferta, "leaseObject": {}}).encode(),
+        b"[]",
+        external_id="182076",
+        url=f"{parser.BAZOWY_URL}/oferta/182076/",
+    )
+    aukcja = mapper.na_aukcje(surowa, 1, dt.datetime(2026, 9, 14, 10, tzinfo=dt.UTC))
+
+    assert aukcja.status is AuctionStatus.ENDED
+    assert aukcja.price_start == Money(Decimal("886000.00"), Currency.PLN)
+    assert aukcja.price_current is None
+    assert aukcja.ends_at == dt.datetime(2026, 9, 14, 10, tzinfo=dt.UTC)
+
+
 def test_galeria_zwraca_duze_zdjecia_z_glownym_na_poczatku() -> None:
     assert parser.zdjecia(dane("zdjecia-182214.json")) == (
         f"{parser.BAZOWY_URL}/files/test/duze-1.jpg",
@@ -115,10 +140,69 @@ def _rekord(identyfikator: int) -> dict[str, object]:
     }
 
 
+async def test_wyszukiwanie_najpierw_zaklada_sesje_i_wysyla_token_xsrf() -> None:
+    zadania: list[httpx.Request] = []
+
+    def obsluz(zadanie: httpx.Request) -> httpx.Response:
+        zadania.append(zadanie)
+        if zadanie.method == "GET":
+            assert zadanie.url.path == "/oferty/osobowe/"
+            return httpx.Response(
+                200,
+                headers={"set-cookie": "XSRF-TOKEN=token%20sesji; Path=/"},
+            )
+        assert zadanie.method == "POST"
+        assert zadanie.headers["X-XSRF-TOKEN"] == "token sesji"
+        parametry = json.loads(zadanie.content)
+        assert parametry["auctionTypes"] is None
+        assert parametry["category"] in {"Passenger", "Vans"}
+        return httpx.Response(200, json={"items": [], "totalCount": 0})
+
+    klient = httpx.AsyncClient(
+        base_url=parser.BAZOWY_URL, transport=httpx.MockTransport(obsluz)
+    )
+    async with source.MleasingSource(klient) as adapter:
+        assert await adapter.przemiec_liste() == []
+
+    assert [(zadanie.method, zadanie.url.path) for zadanie in zadania] == [
+        ("GET", "/oferty/osobowe/"),
+        ("POST", "/api/offer-read/search"),
+        ("POST", "/api/offer-read/search"),
+    ]
+
+
+async def test_http_400_odswieza_token_i_ponawia_ta_sama_strone() -> None:
+    liczba_wizyt = 0
+
+    def obsluz(zadanie: httpx.Request) -> httpx.Response:
+        nonlocal liczba_wizyt
+        if zadanie.method == "GET":
+            liczba_wizyt += 1
+            return httpx.Response(
+                200,
+                headers={"set-cookie": f"XSRF-TOKEN=token{liczba_wizyt}; Path=/"},
+            )
+        if liczba_wizyt == 1:
+            assert zadanie.headers["X-XSRF-TOKEN"] == "token1"
+            return httpx.Response(400)
+        assert zadanie.headers["X-XSRF-TOKEN"] == "token2"
+        return httpx.Response(200, json={"items": [], "totalCount": 0})
+
+    klient = httpx.AsyncClient(
+        base_url=parser.BAZOWY_URL, transport=httpx.MockTransport(obsluz)
+    )
+    async with source.MleasingSource(klient) as adapter:
+        assert await adapter.przemiec_liste() == []
+
+    assert liczba_wizyt == 2
+
+
 async def test_pelna_paginacja_obu_kategorii() -> None:
     zadania: list[tuple[str, int]] = []
 
     def obsluz(zadanie: httpx.Request) -> httpx.Response:
+        if zadanie.method == "GET":
+            return httpx.Response(200, headers={"set-cookie": "XSRF-TOKEN=token"})
         body = json.loads(zadanie.content)
         kategoria, numer = body["category"], body["pageNumber"]
         zadania.append((kategoria, numer))
@@ -141,6 +225,8 @@ async def test_pelna_paginacja_obu_kategorii() -> None:
 
 async def test_zapetlona_paginacja_i_zmiana_licznika_przerywaja_skan() -> None:
     def zapetlona(zadanie: httpx.Request) -> httpx.Response:
+        if zadanie.method == "GET":
+            return httpx.Response(200, headers={"set-cookie": "XSRF-TOKEN=token"})
         rekordy = [_rekord(x) for x in range(1, 16)]
         return httpx.Response(200, json={"items": rekordy, "totalCount": 16})
 
@@ -152,6 +238,8 @@ async def test_zapetlona_paginacja_i_zmiana_licznika_przerywaja_skan() -> None:
             await adapter.przemiec_liste()
 
     def zmienna(zadanie: httpx.Request) -> httpx.Response:
+        if zadanie.method == "GET":
+            return httpx.Response(200, headers={"set-cookie": "XSRF-TOKEN=token"})
         numer = json.loads(zadanie.content)["pageNumber"]
         liczba = 16 if numer == 1 else 17
         rekordy = [_rekord(x) for x in range(1, 16)] if numer == 1 else [_rekord(16)]
@@ -166,9 +254,14 @@ async def test_zapetlona_paginacja_i_zmiana_licznika_przerywaja_skan() -> None:
 
 
 async def test_http_400_nie_udaje_pustego_pelnego_skanu() -> None:
+    def obsluz(zadanie: httpx.Request) -> httpx.Response:
+        if zadanie.url.path.startswith("/oferty/"):
+            return httpx.Response(200, headers={"set-cookie": "XSRF-TOKEN=token"})
+        return httpx.Response(400)
+
     klient = httpx.AsyncClient(
         base_url=parser.BAZOWY_URL,
-        transport=httpx.MockTransport(lambda _: httpx.Response(400)),
+        transport=httpx.MockTransport(obsluz),
     )
     async with source.MleasingSource(klient) as adapter:
         with pytest.raises(SourceUnavailable, match="latest-offers"):
@@ -177,6 +270,8 @@ async def test_http_400_nie_udaje_pustego_pelnego_skanu() -> None:
 
 async def test_http_400_pokazuje_publiczne_wyroznione_oferty_jako_czesciowe() -> None:
     def obsluz(zadanie: httpx.Request) -> httpx.Response:
+        if zadanie.url.path.startswith("/oferty/"):
+            return httpx.Response(200, headers={"set-cookie": "XSRF-TOKEN=token"})
         if zadanie.url.path.endswith("/search"):
             return httpx.Response(400)
         if zadanie.url.path.endswith("/latest-offers"):

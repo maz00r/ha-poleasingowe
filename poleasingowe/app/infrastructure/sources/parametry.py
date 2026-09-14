@@ -113,13 +113,13 @@ ZNANE: dict[str, ParametryZrodla] = {
         overtime_window_seconds=120,
         overtime_extension_seconds=120,
         overtime_cap_seconds=None,
-        # Publiczne API daje bezwzględny termin i stan Sold/Expired. Siatka
-        # jest ostrożnym ustawieniem startowym do kalibracji po pomiarze.
+        # Pomiar 182076: Expired już w T+0 s, potwierdzone w T+2 s.
+        # Zachowujemy zapas: brak ofert nie kalibruje przypadku sprzedaży.
         closing_ladder_seconds=(2, 5, 10, 20, 40),
         bid_history_ttl_seconds=None,
         bid_count_semantics=BidCountSemantics.UNKNOWN,
         wymaga_logowania=False,
-        dowod="RECON.md §4.5 (rekonesans 2026-09-13)",
+        dowod="RECON.md §4.5 (rekonesans 2026-09-13, pomiar 2026-09-14)",
     ),
 }
 

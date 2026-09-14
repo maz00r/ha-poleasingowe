@@ -1483,11 +1483,13 @@ przedłuża aukcję o 2 minuty, a kolejne oferty powtarzają przedłużenie.
 Regulamin nie podaje limitu łącznego. Drabinka domknięcia
 `{2,5,10,20,40}` pozostaje tymczasowa do pomiaru zakończenia.
 
-W dniu rekonesansu endpoint wyszukiwania zwracał HTTP 400 również dla
-kontraktu generowanego przez aktualny kod portalu, a widok listy nie
-pokazywał kart. Endpointy szczegółów, lokalizacji, zdjęć i najnowszych ofert
-działały. Adapter uznaje 400 za nieudany skan; nie interpretuje go jako pustej
-listy, więc awaria portalu nie może oznaczyć zapisanych aukcji jako zniknięte.
+Wyszukiwarka wymaga publicznej sesji strony: frontend najpierw otwiera widok
+kategorii, a potem przekazuje cookie `XSRF-TOKEN` w nagłówku
+`X-XSRF-TOKEN` dla `POST /api/offer-read/search`. Bez tej sekwencji endpoint
+zwraca HTTP 400 mimo że lista jest widoczna w przeglądarce. Adapter odtwarza
+ten przepływ i po pojedynczym 400 odświeża token. Jeżeli odpowiedź nadal jest
+błędna, wynik pozostaje częściowy albo nieudany — nie może oznaczać zapisanych
+aukcji jako zniknięte.
 
 Pomiar domknięcia przygotowuje `tools/pomiar_mleasing.py`. Dla aukcji
 `182076` (Porsche 911 Carrera Turbo S Cabrio) termin z API to
@@ -1495,3 +1497,41 @@ Pomiar domknięcia przygotowuje `tools/pomiar_mleasing.py`. Dla aukcji
 T+2, +5, +10, +20, +40, +60, +120, +300 i +600 s. Skrypt śledzi zmianę
 `to`, więc dogrywka automatycznie przesuwa dalsze próbki. Wynik trafia do
 ignorowanego przez Git pliku `fixtures/mleasing/recon-0b.jsonl`.
+
+
+#### Pomiar domknięcia 182076 — 2026-09-14
+
+Uruchomiono `tools/pomiar_mleasing.py --offer-id 182076 --expected-end
+2026-09-14T12:00:00+02:00`. Proces zakończył się kodem 0 po T+600 s.
+W `fixtures/mleasing/recon-0b.jsonl` jest 29 próbek tego uruchomienia:
+`start`, 19 punktów T−180…T i 9 punktów po końcu; brak błędów i brakujących
+punktów. Wcześniejszy `dry-run` z 2026-09-13 nie wchodzi do tego pomiaru.
+Pierwsza próba uruchomienia nie przeszła DNS w sandboxie; właściwy pomiar
+z dostępem do sieci rozpoczął się o 11:56:49 CEST, przed całą siatką.
+
+- **Stan:** ostatnie `Active` w T−10 s (czas serwera
+  11:59:50,269256 CEST), pierwsze `Expired` już w T+0 s
+  (12:00:00,226749 CEST); dalej `Expired` do T+600 s. To granice
+  obserwacji, nie dokładny moment przełączenia: czas serwera pobierany jest
+  przed osobnym żądaniem szczegółów. Całe próbki zapisano odpowiednio
+  o 11:59:50,570198 i 12:00:00,484495 CEST.
+- **Cena:** `startingAmount=886000.0`, `isGrossAmount=false` we wszystkich
+  próbkach, także o 12:10:00,198245 CEST; cena wywoławcza netto pozostaje
+  publiczna co najmniej do T+600 s. `currentAmount=null` przez cały pomiar.
+  Nie zaobserwowano ceny zwycięskiej ani jej czasu widoczności.
+- **Dogrywka:** `to` stale 12:00:00+02:00, brak zdarzeń `overtime`.
+  Aukcja bez wpisów historii nie weryfikuje regulaminowej dogrywki 120/120 s
+  ani limitu łącznego.
+- **Historia:** endpoint `get-bids-with-hidden-logins` zwracał JSON `[]`
+  przed i po końcu, do T+600 s; `bids_count=0`, `bid_keys=[]`.
+  Potwierdzono dostępność pustej listy, ale format pojedynczego wpisu i TTL
+  niepustej historii pozostają nieustalone. Nie można utożsamiać dostępności
+  endpointu z czasem życia wpisów.
+
+Zachowano drabinkę `{2,5,10,20,40}`: T+2 s potwierdziło stan końcowy,
+lecz pojedynczy pomiar bez ofert nie uzasadnia skrócenia zapasu ani kalibracji
+przypadku sprzedaży. TTL pozostaje `None`, semantyka licznika `UNKNOWN`,
+parametry dogrywki bez zmian. Usunięto z parsera podstawianie ceny wywoławczej pod puste `currentAmount`.
+Test regresyjny utrwala zaobserwowane
+`Expired` z ceną wywoławczą i bez ceny bieżącej; nie zastępuje jej ceną
+wywoławczą. Dalszy pomiar powinien objąć aukcję z niepustą historią ofert.

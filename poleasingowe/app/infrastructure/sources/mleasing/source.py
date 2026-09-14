@@ -9,6 +9,7 @@ from collections.abc import AsyncIterator, Sequence
 from dataclasses import replace
 from types import TracebackType
 from typing import Any
+from urllib.parse import unquote
 
 import httpx
 
@@ -21,6 +22,12 @@ from app.infrastructure.sources.mleasing import mapper, parser
 KLUCZ = "mleasing"
 NA_STRONE = 15
 MAKS_STRON = 100
+_SCIEZKI_KATEGORII = {
+    "Passenger": "/oferty/osobowe/",
+    "Vans": "/oferty/dostawcze/",
+}
+_CIASTECZKO_XSRF = "XSRF-TOKEN"
+_NAGLOWEK_XSRF = "X-XSRF-TOKEN"
 
 
 class _BrakPelnegoWyszukiwania(SourceUnavailable):
@@ -40,7 +47,10 @@ def _parametry_wyszukiwania(kategoria: str, numer: int) -> dict[str, Any]:
         "fuelTypes": None,
         "bodyTypes": None,
         "driveTypes": None,
-        "auctionTypes": ["Auction"],
+        # Portal nie zawęża domyślnej listy parametrem `auctionTypes`.
+        # Bierzemy jego pełny wynik i odrzucamy ogłoszenia po stronie parsera.
+        # Dzięki temu payload pozostaje zgodny z tym z widoku `/oferty/*`.
+        "auctionTypes": None,
         "yearFrom": None,
         "amountTo": None,
         "mileageFrom": None,
@@ -67,6 +77,7 @@ class MleasingSource:
 
     def __init__(self, klient: httpx.AsyncClient) -> None:
         self._klient = klient
+        self._sesja_wyszukiwania = False
 
     @classmethod
     def utworz(cls, *, timeout: float = 30.0) -> MleasingSource:
@@ -104,12 +115,51 @@ class MleasingSource:
             raise SourceUnavailable(f"mLeasing: {sciezka}: {exc}") from exc
         return odpowiedz.content
 
+    async def _przygotuj_wyszukiwanie(self, kategoria: str, *, odswiez: bool) -> None:
+        """Zakłada publiczną sesję wymaganą przez wyszukiwarkę portalu.
+
+        Aplikacja Next.js najpierw otwiera stronę kategorii, a później wysyła
+        cookie `XSRF-TOKEN` jako nagłówek przy POST. Bez tego kroku endpoint
+        zwraca HTTP 400 mimo że lista jest widoczna w przeglądarce.
+        """
+        if self._sesja_wyszukiwania and not odswiez:
+            return
+        sciezka = _SCIEZKI_KATEGORII.get(kategoria)
+        if sciezka is None:
+            raise ParseFailed(f"mLeasing: nieznana kategoria {kategoria!r}")
+        try:
+            odpowiedz = await self._klient.get(sciezka)
+            odpowiedz.raise_for_status()
+        except httpx.HTTPError as exc:
+            raise SourceUnavailable(
+                f"mLeasing: nie udało się otworzyć kategorii {kategoria}: {exc}"
+            ) from exc
+        self._sesja_wyszukiwania = True
+
+    def _naglowki_xsrf(self) -> dict[str, str]:
+        """Odtwarza automatyczny nagłówek axiosa używany przez portal."""
+        token = self._klient.cookies.get(_CIASTECZKO_XSRF)
+        if token is None:
+            return {}
+        return {_NAGLOWEK_XSRF: unquote(token)}
+
+    async def _wyslij_wyszukiwanie(self, kategoria: str, numer: int) -> httpx.Response:
+        return await self._klient.post(
+            parser.SCIEZKA_SZUKANIA,
+            json=_parametry_wyszukiwania(kategoria, numer),
+            headers=self._naglowki_xsrf(),
+        )
+
     async def _strona(self, kategoria: str, numer: int) -> bytes:
         try:
-            odpowiedz = await self._klient.post(
-                parser.SCIEZKA_SZUKANIA,
-                json=_parametry_wyszukiwania(kategoria, numer),
-            )
+            await self._przygotuj_wyszukiwanie(kategoria, odswiez=False)
+            odpowiedz = await self._wyslij_wyszukiwanie(kategoria, numer)
+            # Token sesji może wygasnąć między kolejnymi przemiotami. Jedna
+            # próba po odświeżeniu odwzorowuje zwykłe ponowne wejście na listę,
+            # a trwałe 400 nadal uruchamia bezpieczny wynik częściowy.
+            if odpowiedz.status_code == httpx.codes.BAD_REQUEST:
+                await self._przygotuj_wyszukiwanie(kategoria, odswiez=True)
+                odpowiedz = await self._wyslij_wyszukiwanie(kategoria, numer)
             odpowiedz.raise_for_status()
         except httpx.HTTPStatusError as exc:
             if exc.response.status_code == httpx.codes.BAD_REQUEST:

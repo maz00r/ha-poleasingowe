@@ -1,5 +1,17 @@
 # Historia zmian
 
+## 0.29.5 — w przygotowaniu
+
+**mLeasing — pełna lista.** Adapter zakłada teraz tę samą publiczną sesję
+co widok ofert portalu i przekazuje wymagany token XSRF przy wyszukiwaniu.
+Przy pojedynczym błędzie `HTTP 400` odświeża sesję i ponawia tę samą stronę.
+Jeżeli portal nadal odmawia odpowiedzi, pozostaje bezpieczny odczyt częściowy.
+
+**mLeasing — wynik pomiaru 182076.** Stan `Expired` pojawił się przy samym
+terminie aukcji i pozostał widoczny co najmniej 10 minut. Aukcja bez ofert
+utrzymała cenę wywoławczą, ale nie miała ceny bieżącej; aplikacja nie zastępuje
+już brakującej ceny bieżącej ceną startową.
+
 ## 0.29.4 — w przygotowaniu
 
 **Wyścig w cache'u zdjęć.** Miniatura na liście i galeria szczegółów proszą
