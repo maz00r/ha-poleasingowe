@@ -1,5 +1,11 @@
 # Historia zmian
 
+## 0.29.8 — w przygotowaniu
+
+**mLeasing — odczyt po aktualizacji.** Po usunięciu błędnych wpisów dodatek
+uruchamia ponownie skan mLeasing przy najbliższym obrocie, zamiast czekać na
+koniec poprzedniego interwału.
+
 ## 0.29.7 — w przygotowaniu
 
 **mLeasing — tylko samochody.** Adapter nie korzysta już z ogólnych,
