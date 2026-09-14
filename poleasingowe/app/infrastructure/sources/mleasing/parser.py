@@ -164,10 +164,11 @@ def sparsuj_szczegoly(
     if not isinstance(miejsca, list):
         raise ParseFailed("mLeasing: lokalizacje nie są listą")
     dane["locations"] = miejsca
-    # Szczegóły nie zwracają kategorii wyszukiwarki. `productCardType=POJ`
-    # obejmuje więcej niż auta osobowe, więc nie udajemy, że jest równoważne
-    # `Passenger`. Aktualizacja w bazie zachowa pewny rodzaj ze skanu listy.
-    kategoria = ""
+    # Szczegóły nie zwracają kategorii wyszukiwarki. Ten adapter skanuje
+    # jednak wyłącznie `/oferty/osobowe/`, więc każdy jego zapis szczegółów
+    # ma tę samą, pewną deklarację co wpis na liście. Bez niej mapper próbował
+    # odgadnąć rodzaj z tytułu i mógł nadpisać osobowe jako dostawcze.
+    kategoria = "Passenger"
     return SurowaOferta(
         external_id=external_id,
         url=url,

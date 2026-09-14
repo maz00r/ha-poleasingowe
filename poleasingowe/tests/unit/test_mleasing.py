@@ -72,6 +72,7 @@ def test_szczegoly_mapuja_pojazd_lokalizacje_i_ceny() -> None:
     assert aukcja.location == "Testowa 1, 00-001 Warszawa"
     assert (aukcja.engine_ccm, aukcja.engine_hp) == (1968, 150)
     assert str(aukcja.vin) == "WVWZZZ1JZXW000001"
+    assert aukcja.vehicle_kind.value == "OSOBOWY"
 
 
 @pytest.mark.parametrize("stan", ["Expired", "Withdrawn", "Sold"])

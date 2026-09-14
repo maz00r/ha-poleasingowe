@@ -54,5 +54,5 @@ LABEL \
   io.hass.name="Aukcje poleasingowe" \
   io.hass.description="Zbieranie ofert z serwisow aukcji poleasingowych" \
   io.hass.type="addon" \
-  io.hass.version="0.29.10" \
+  io.hass.version="0.29.11" \
   io.hass.arch="amd64"

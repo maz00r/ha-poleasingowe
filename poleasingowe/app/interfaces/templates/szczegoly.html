@@ -70,14 +70,15 @@
 <section class="karta">
   <h2>Przebieg licytacji</h2>
   {% set cena_poczatkowa = p.price_start or (przebieg[-1].price if przebieg else none) %}
+  {% set cena_biezaca = p.price_current or p.price_start %}
   <div class="podsumowanie-licytacji">
     <div>
       <span>{{ 'Cena wywoławcza' if p.price_start else 'Pierwsza zaobserwowana' }}</span>
       <strong class="kwota">{{ cena_poczatkowa | kwota }}</strong>
     </div>
     <div>
-      <span>{{ 'Cena końcowa' if p.status.value != 'ACTIVE' else 'Cena bieżąca' }}</span>
-      <strong class="kwota">{{ p.price_current | kwota }}</strong>
+      <span>{{ 'Cena końcowa' if p.status.value != 'ACTIVE' else 'Cena bieżąca' if p.price_current else 'Cena wywoławcza' }}</span>
+      <strong class="kwota">{{ cena_biezaca | kwota }}</strong>
       {% if p.status.value != 'ACTIVE' %}<small>{{ p.final_price_state.value }}</small>{% endif %}
     </div>
     {% if p.bid_count is not none %}

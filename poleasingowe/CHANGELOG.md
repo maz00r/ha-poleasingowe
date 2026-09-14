@@ -1,5 +1,12 @@
 # Historia zmian
 
+## 0.29.11 — w przygotowaniu
+
+**mLeasing — poprawne osobowe i ceny.** Odczyt szczegółów zachowuje kategorię
+„osobowe”, zamiast zgadywać ją z tytułu. Gdy serwis nie podał jeszcze
+aktualnej oferty, karta wyświetla cenę wywoławczą pod właściwą etykietą.
+Aktualizacja oznaczy istniejące oferty mLeasing jako osobowe.
+
 ## 0.29.10 — w przygotowaniu
 
 **Historia ceny bez duplikatów.** Kolejny odczyt z tą samą ceną nie tworzy

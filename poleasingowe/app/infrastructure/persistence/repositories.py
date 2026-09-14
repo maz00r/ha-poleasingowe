@@ -195,8 +195,8 @@ RETURNING id, source_id, external_id, url, make, model, variant, year, mileage_k
 # licytacji konczyl sie na pierwszym odczycie.
 #
 # Regula zapisu jest ta sama co przy odpycie szczegolow — wylacznie przy
-# zmianie ceny, liczby ofert albo terminu — wiec przemiat bez zmian nie
-# tworzy ani jednego wiersza i wolumen zapisow pozostaje znikomy (§2).
+# zmianie ceny. Licznik i termin aktualizujemy na aukcji, ale nie tworzymy
+# nimi kolejnych wpisow tej samej kwoty w historii.
 SQL_AUCTION_Z_PRZEMIATU = """
 WITH zapis AS (
 INSERT INTO app.auction (
@@ -291,8 +291,6 @@ snapshot AS (
       AND (
           p.auction_id IS NULL
           OR p.price IS DISTINCT FROM z.price_current
-          OR p.bid_count IS DISTINCT FROM z.bid_count
-          OR p.ends_at IS DISTINCT FROM z.ends_at
       )
 )
 SELECT id, nowa FROM zapis
