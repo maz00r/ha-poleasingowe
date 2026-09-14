@@ -95,6 +95,21 @@ jobs:
                END IF;
              END \$\$;"
 
+      - name: PostgreSQL 17 client (pg_dump musi odpowiadac wersji serwera)
+        # `ubuntu-latest` ma w PATH domyslnie postgresql-client-16 (usluga
+        # postgres tuz wyzej to serwer 17), a pg_dump ODMAWIA zrzutu z
+        # nowszego serwera niz on sam — dokladnie ten sam wymog, co w
+        # app/infrastructure/kopia.py i w Dockerfile (SPEC.md §7.1).
+        # Bez tego test_kopia.py pada na kazdym przebiegu:
+        #   "pg_dump: error: aborting because of server version mismatch"
+        # Sufiks "pgdg24.04" w wersji z bledu potwierdza, ze repo PGDG jest
+        # juz skonfigurowane na runnerze, wiec wystarczy sama instalacja
+        # pakietu bez dodawania zrodla apt.
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends postgresql-client-17
+          echo "/usr/lib/postgresql/17/bin" >> "$GITHUB_PATH"
+
       - name: pytest
         run: .venv/bin/pytest
 
