@@ -426,3 +426,9 @@ class Diagnostyka:
     ostatni_blad_kopii: str | None = None
     pula: dict[str, int] = field(default_factory=dict)
     debug_dumps: bool = False
+    archiwum_zdjec_bajty: int | None = None
+    archiwum_zdjec_wolne_bajty: int | None = None
+    archiwum_zdjec_oczekujace: int | None = None
+    archiwum_zdjec_niedostepne: int | None = None
+    archiwum_zdjec_pelne: int | None = None
+    archiwum_zdjec_wstrzymane: bool = False

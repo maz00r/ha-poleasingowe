@@ -138,6 +138,14 @@ i trafiają do rotowanego cache'u `/data/cache/zdjecia` o maksymalnym rozmiarze
 100 MB — przeglądarka nie łączy się bezpośrednio z serwisem aukcyjnym. Po
 wejściu w szczegóły widoczna jest pełna galeria udostępniona przez źródło.
 
+Niezależnie od cache'u dodatek zapisuje w `/data/archiwum-zdjec` okładkę
+każdej aukcji do 800×600 px. Aukcje obserwowane dostają pełną galerię do
+1280 px na dłuższym boku; odgwiazdkowanie jej nie usuwa. Dzięki temu kafelki
+i galerie historyczne działają również po zniknięciu strony źródłowej.
+Istniejące rekordy są uzupełniane w tle best effort. Archiwum nie ma retencji,
+ale zapis zatrzymuje się przy mniej niż 1 GiB wolnego miejsca; stan i rozmiar
+widać w Diagnostyce.
+
 Wycena AI jest opcjonalna i **nie jest przywiązana do OpenAI**. Wybierasz
 dostawcę opcją `ai_provider`:
 
@@ -265,11 +273,12 @@ Karta aukcji pokazuje wszystkie pola, zdjęcia pojazdu, link do oferty
 w serwisie i linki do Grafany (jeśli ustawiłeś `grafana_base_url`). Wykresu
 tu nie ma świadomie — historia cen jest w Grafanie.
 
-**Zdjęcia nie są trzymane w bazie.** Dodatek pobiera je dopiero, gdy otworzysz
-kartę aukcji, i podaje **przez siebie**, a nie odsyłaczem wprost do serwisu.
-Raz pobrane leżą w cache'u na dysku (`/data/cache/zdjecia`), który ma twardy
-limit 100 MB i kasuje najstarsze pliki. Pierwsze otwarcie karty jest przez to
-wolniejsze o czas pobrania zdjęć; kolejne są natychmiastowe.
+**Bajty zdjęć nie są trzymane w bazie.** Dodatek podaje je **przez siebie**,
+a nie odsyłaczem wprost do serwisu. Oryginały używane dla aktywnych aukcji
+leżą w rotowanym cache'u `/data/cache/zdjecia` (100 MB). Wersje archiwalne
+leżą osobno w `/data/archiwum-zdjec` i nie są automatycznie usuwane. Metadane
+oraz stan kolejki są w PostgreSQL-ie. `pg_dump` nie zawiera JPEG-ów — pełne
+odtworzenie wymaga także kopii danych add-onu Home Assistant.
 
 Watchlist: notatka i cena docelowa. Gdy bieżąca cena zejdzie do progu lub
 niżej, wiersz na liście podświetla się na zielono. Próg porównuje się tylko

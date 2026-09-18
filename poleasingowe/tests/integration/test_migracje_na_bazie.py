@@ -58,7 +58,9 @@ async def test_powstaly_wszystkie_tabele_i_indeksy(
     assert tabele == [
         "ai_valuation",
         "auction",
+        "auction_photo",
         "offer",
+        "photo_archive_state",
         "price_snapshot",
         "run_log",
         "saved_filter",

@@ -18,6 +18,7 @@ from psycopg.rows import dict_row
 from app.application.ports import (
     AuctionRepository,
     OfertaRepository,
+    PhotoArchiveRepository,
     RunLogRepository,
     SavedFilterRepository,
     SnapshotRepository,
@@ -26,8 +27,10 @@ from app.application.ports import (
     WycenaRepository,
 )
 from app.domain.entities import (
+    ArchivedPhoto,
     Auction,
     OfertaUczestnika,
+    PhotoArchiveJob,
     PriceSnapshot,
     RunLog,
     SavedFilter,
@@ -41,6 +44,8 @@ from app.domain.enums import (
     BidCountSemantics,
     Currency,
     FinalPriceState,
+    PhotoArchiveStatus,
+    PhotoArchiveTarget,
     PollTier,
     RodzajPojazdu,
     SweepStatus,
@@ -602,6 +607,160 @@ UPDATE app.run_log SET
 WHERE id = %s
 RETURNING id, source_id, started_at, finished_at, new_count, changed_count,
           error_count, errors, rss_bytes, database_bytes, notes
+"""
+
+SQL_PHOTO_ARCHIVE_SYNCHRONIZUJ = """
+INSERT INTO app.photo_archive_state (auction_id, target, status, next_attempt_at)
+SELECT a.id,
+       CASE WHEN w.auction_id IS NULL THEN 'COVER' ELSE 'FULL' END,
+       'PENDING', %s
+FROM app.auction AS a
+LEFT JOIN app.watchlist AS w ON w.auction_id = a.id
+ON CONFLICT (auction_id) DO NOTHING
+"""
+
+SQL_PHOTO_ARCHIVE_PODNIES_OBSERWOWANE = """
+UPDATE app.photo_archive_state AS pas
+SET target = 'FULL', status = 'PENDING', attempts = 0,
+    next_attempt_at = %s, last_error = NULL, updated_at = %s
+FROM app.watchlist AS w
+WHERE w.auction_id = pas.auction_id
+  AND pas.target = 'COVER'
+"""
+
+SQL_PHOTO_ARCHIVE_NASTEPNE = """
+SELECT
+    pas.auction_id, s.key AS source_key, a.external_id, a.url,
+    a.status AS auction_status, a.ends_at, pas.target, pas.status,
+    pas.attempts, pas.source_urls,
+    COALESCE(
+        array_agg(ap.position ORDER BY ap.position)
+            FILTER (WHERE ap.position IS NOT NULL), '{}'
+    ) AS archived_positions,
+    COALESCE(
+        array_agg(ap.position ORDER BY ap.position)
+            FILTER (WHERE ap.target = 'FULL'), '{}'
+    ) AS archived_full_positions
+FROM app.photo_archive_state AS pas
+JOIN app.auction AS a ON a.id = pas.auction_id
+JOIN app.source AS s ON s.id = a.source_id
+LEFT JOIN app.auction_photo AS ap ON ap.auction_id = a.id
+WHERE pas.status IN ('PENDING', 'PARTIAL')
+  AND pas.next_attempt_at <= %s
+GROUP BY pas.auction_id, s.key, a.external_id, a.url, a.status, a.ends_at,
+         pas.target, pas.status, pas.attempts, pas.source_urls, pas.updated_at
+ORDER BY
+    CASE
+        WHEN a.status = 'ACTIVE' AND pas.target = 'FULL' THEN 0
+        WHEN a.status = 'ACTIVE' THEN 1
+        WHEN pas.target = 'FULL' THEN 2
+        ELSE 3
+    END,
+    a.ends_at NULLS LAST,
+    pas.updated_at,
+    pas.auction_id
+LIMIT 1
+"""
+
+SQL_PHOTO_ARCHIVE_DLA_AUKCJI = """
+SELECT auction_id, position, target, width, height, byte_size, sha256, archived_at
+FROM app.auction_photo
+WHERE auction_id = %s
+ORDER BY position
+"""
+
+SQL_PHOTO_ARCHIVE_USTAW_ADRESY = """
+UPDATE app.photo_archive_state
+SET source_urls = %s, expected_count = %s, updated_at = %s,
+    last_error = NULL
+WHERE auction_id = %s
+"""
+
+SQL_PHOTO_ARCHIVE_ZAPISZ_ZDJECIE = """
+INSERT INTO app.auction_photo (
+    auction_id, position, target, width, height, byte_size, sha256, archived_at
+) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+ON CONFLICT (auction_id, position) DO UPDATE SET
+    target = EXCLUDED.target,
+    width = EXCLUDED.width,
+    height = EXCLUDED.height,
+    byte_size = EXCLUDED.byte_size,
+    sha256 = EXCLUDED.sha256,
+    archived_at = EXCLUDED.archived_at
+"""
+
+SQL_PHOTO_ARCHIVE_ZAKONCZ_KROK = """
+WITH liczniki AS (
+    SELECT
+        count(*)::integer AS wszystkie,
+        count(*) FILTER (WHERE target = 'FULL')::integer AS pelne,
+        bool_or(position = 0) AS ma_okladke
+    FROM app.auction_photo
+    WHERE auction_id = %(auction_id)s
+)
+UPDATE app.photo_archive_state AS pas
+SET expected_count = %(oczekiwane)s,
+    archived_count = CASE WHEN pas.target = 'FULL' THEN l.pelne ELSE l.wszystkie END,
+    attempts = 0,
+    last_error = NULL,
+    next_attempt_at = %(teraz)s,
+    updated_at = %(teraz)s,
+    status = CASE
+        WHEN pas.target = 'COVER' AND COALESCE(l.ma_okladke, false) THEN 'COMPLETE'
+        WHEN pas.target = 'FULL' AND %(oczekiwane)s > 0
+             AND l.pelne >= %(oczekiwane)s THEN 'COMPLETE'
+        ELSE 'PARTIAL'
+    END
+FROM liczniki AS l
+WHERE pas.auction_id = %(auction_id)s
+"""
+
+SQL_PHOTO_ARCHIVE_BLAD = """
+UPDATE app.photo_archive_state
+SET attempts = attempts + 1,
+    last_error = %s,
+    status = CASE
+        WHEN attempts + 1 >= 5 THEN 'UNAVAILABLE'
+        WHEN archived_count > 0 THEN 'PARTIAL'
+        ELSE 'PENDING'
+    END,
+    next_attempt_at = %s + make_interval(secs => CASE attempts
+        WHEN 0 THEN 60
+        WHEN 1 THEN 300
+        WHEN 2 THEN 1800
+        WHEN 3 THEN 7200
+        ELSE 21600
+    END),
+    updated_at = %s
+WHERE auction_id = %s
+"""
+
+SQL_PHOTO_ARCHIVE_WYMUS_PELNE = """
+INSERT INTO app.photo_archive_state (
+    auction_id, target, status, attempts, next_attempt_at, updated_at
+) VALUES (%s, 'FULL', 'PENDING', 0, %s, %s)
+ON CONFLICT (auction_id) DO UPDATE SET
+    target = 'FULL',
+    status = CASE
+        WHEN app.photo_archive_state.target = 'FULL'
+             AND app.photo_archive_state.status = 'COMPLETE'
+        THEN 'COMPLETE' ELSE 'PENDING' END,
+    attempts = CASE
+        WHEN app.photo_archive_state.target = 'FULL'
+             AND app.photo_archive_state.status = 'COMPLETE'
+        THEN app.photo_archive_state.attempts ELSE 0 END,
+    next_attempt_at = EXCLUDED.next_attempt_at,
+    last_error = NULL,
+    updated_at = EXCLUDED.updated_at
+"""
+
+SQL_PHOTO_ARCHIVE_STATYSTYKI = """
+SELECT
+    count(*) FILTER (WHERE status IN ('PENDING', 'PARTIAL'))::integer AS oczekujace,
+    count(*) FILTER (WHERE status = 'UNAVAILABLE')::integer AS niedostepne,
+    count(*) FILTER (WHERE target = 'FULL' AND status = 'COMPLETE')::integer
+        AS pelne
+FROM app.photo_archive_state
 """
 
 
@@ -1262,6 +1421,119 @@ class PgSavedFilterRepository:
             return cur.rowcount > 0
 
 
+class PgPhotoArchiveRepository:
+    """Kolejka i metadane archiwum; bajty JPEG pozostają na dysku."""
+
+    def __init__(self, conn: AsyncConnection) -> None:
+        self._conn = conn
+
+    @staticmethod
+    def _na_zdjecie(w: dict[str, Any]) -> ArchivedPhoto:
+        return ArchivedPhoto(
+            auction_id=w["auction_id"],
+            position=w["position"],
+            target=PhotoArchiveTarget(w["target"]),
+            width=w["width"],
+            height=w["height"],
+            byte_size=w["byte_size"],
+            sha256=w["sha256"],
+            archived_at=w["archived_at"],
+        )
+
+    async def synchronizuj(self, teraz: dt.datetime) -> None:
+        async with self._conn.cursor() as cur:
+            await cur.execute(SQL_PHOTO_ARCHIVE_SYNCHRONIZUJ, (teraz,))
+            await cur.execute(SQL_PHOTO_ARCHIVE_PODNIES_OBSERWOWANE, (teraz, teraz))
+
+    async def nastepne(self, teraz: dt.datetime) -> PhotoArchiveJob | None:
+        async with self._conn.cursor(row_factory=dict_row) as cur:
+            await cur.execute(SQL_PHOTO_ARCHIVE_NASTEPNE, (teraz,))
+            w = await cur.fetchone()
+        if w is None:
+            return None
+        return PhotoArchiveJob(
+            auction_id=w["auction_id"],
+            source_key=w["source_key"],
+            external_id=w["external_id"],
+            url=w["url"],
+            auction_status=AuctionStatus(w["auction_status"]),
+            target=PhotoArchiveTarget(w["target"]),
+            status=PhotoArchiveStatus(w["status"]),
+            attempts=w["attempts"],
+            source_urls=tuple(w["source_urls"] or ()),
+            archived_positions=tuple(w["archived_positions"] or ()),
+            archived_full_positions=tuple(w["archived_full_positions"] or ()),
+            ends_at=w["ends_at"],
+        )
+
+    async def dla_aukcji(self, auction_id: int) -> Sequence[ArchivedPhoto]:
+        async with self._conn.cursor(row_factory=dict_row) as cur:
+            await cur.execute(SQL_PHOTO_ARCHIVE_DLA_AUKCJI, (auction_id,))
+            return [self._na_zdjecie(w) for w in await cur.fetchall()]
+
+    async def ustaw_adresy(
+        self, auction_id: int, adresy: Sequence[str], teraz: dt.datetime
+    ) -> None:
+        async with self._conn.cursor() as cur:
+            await cur.execute(
+                SQL_PHOTO_ARCHIVE_USTAW_ADRESY,
+                (list(adresy), len(adresy), teraz, auction_id),
+            )
+
+    async def zapisz_zdjecie(self, zdjecie: ArchivedPhoto) -> None:
+        async with self._conn.cursor() as cur:
+            await cur.execute(
+                SQL_PHOTO_ARCHIVE_ZAPISZ_ZDJECIE,
+                (
+                    zdjecie.auction_id,
+                    zdjecie.position,
+                    zdjecie.target.value,
+                    zdjecie.width,
+                    zdjecie.height,
+                    zdjecie.byte_size,
+                    zdjecie.sha256,
+                    zdjecie.archived_at,
+                ),
+            )
+
+    async def zakoncz_krok(
+        self, auction_id: int, teraz: dt.datetime, oczekiwane: int
+    ) -> None:
+        async with self._conn.cursor() as cur:
+            await cur.execute(
+                SQL_PHOTO_ARCHIVE_ZAKONCZ_KROK,
+                {
+                    "auction_id": auction_id,
+                    "teraz": teraz,
+                    "oczekiwane": oczekiwane,
+                },
+            )
+
+    async def odnotuj_blad(
+        self, auction_id: int, teraz: dt.datetime, blad: str
+    ) -> None:
+        async with self._conn.cursor() as cur:
+            await cur.execute(
+                SQL_PHOTO_ARCHIVE_BLAD,
+                (blad[:500], teraz, teraz, auction_id),
+            )
+
+    async def wymus_pelne(self, auction_id: int, teraz: dt.datetime) -> None:
+        async with self._conn.cursor() as cur:
+            await cur.execute(
+                SQL_PHOTO_ARCHIVE_WYMUS_PELNE,
+                (auction_id, teraz, teraz),
+            )
+
+    async def statystyki(self) -> tuple[int, int, int]:
+        async with self._conn.cursor(row_factory=dict_row) as cur:
+            await cur.execute(SQL_PHOTO_ARCHIVE_STATYSTYKI)
+            w = await cur.fetchone()
+        if w is None:
+            return 0, 0, 0
+        return w["oczekujace"], w["niedostepne"], w["pelne"]
+
+
 class PgRunLogRepository:
     def __init__(self, conn: AsyncConnection) -> None:
         self._conn = conn
@@ -1333,6 +1605,7 @@ class PgUnitOfWork:
         self.saved_filter: SavedFilterRepository = PgSavedFilterRepository(conn)
         self.wycena: WycenaRepository = PgWycenaRepository(conn)
         self.run_log: RunLogRepository = PgRunLogRepository(conn)
+        self.photo_archive: PhotoArchiveRepository = PgPhotoArchiveRepository(conn)
 
     async def __aenter__(self) -> PgUnitOfWork:
         self._transakcja = self._conn.transaction()

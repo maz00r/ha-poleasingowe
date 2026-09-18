@@ -191,6 +191,7 @@ class DawroSource:
         return replace(
             parser.sparsuj_szczegoly(tekst, external_id, pelny_url),
             content_hash=biezacy,
+            zdjecia=tuple(parser.zdjecia(tekst)),
         )
 
     async def zdjecia(self, external_id: str, url: str | None = None) -> Sequence[str]:

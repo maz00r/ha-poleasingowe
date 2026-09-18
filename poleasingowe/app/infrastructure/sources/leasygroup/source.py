@@ -154,11 +154,11 @@ class LeasygroupSource:
         pelny_url = (
             sciezka if sciezka.startswith("http") else f"{parser.BAZOWY_URL}{sciezka}"
         )
+        html = tresc.decode("utf-8", "replace")
         return replace(
-            parser.sparsuj_szczegoly(
-                tresc.decode("utf-8", "replace"), external_id, pelny_url
-            ),
+            parser.sparsuj_szczegoly(html, external_id, pelny_url),
             content_hash=biezacy,
+            zdjecia=tuple(parser.zdjecia(html)),
         )
 
     async def zdjecia(self, external_id: str, url: str | None = None) -> Sequence[str]:

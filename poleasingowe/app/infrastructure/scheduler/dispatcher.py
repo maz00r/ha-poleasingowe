@@ -50,6 +50,7 @@ from app.domain.logowanie import ZrodloZablokowane
 from app.infrastructure.kopia import BladKopii, KopiaZapasowa
 from app.infrastructure.scheduler.tempo import Bezpiecznik, KubelekTokenow
 from app.infrastructure.supervisor.proces import rss_bajty
+from app.infrastructure.zdjecia import GaleriaZdjec
 
 log = logging.getLogger(__name__)
 
@@ -76,12 +77,14 @@ class Dispatcher:
         *,
         limit_partii: int = LIMIT_PARTII,
         kopia: KopiaZapasowa | None = None,
+        galeria: GaleriaZdjec | None = None,
     ) -> None:
         self._fabryka = fabryka
         self._zrodla = zrodla
         self._limit = limit_partii
         # `None` znaczy „bez kopii" — tak chodzą testy i tryb bez `/share`.
         self._kopia = kopia
+        self._galeria = galeria
         self._kubelki: dict[str, KubelekTokenow] = {}
         self._bezpieczniki: dict[str, Bezpiecznik] = {}
         self._blokady_sieci: dict[str, asyncio.Lock] = {}
@@ -565,6 +568,10 @@ class Dispatcher:
             obserwowana = await uow.watchlist.obserwowana(aukcja.id)
             scalona = self._scal(aukcja, swieza, zrodlo, teraz, obserwowana)
             zapisana = await uow.auction.zapisz(scalona)
+            if self._galeria is not None and zapisana.id is not None and surowa.zdjecia:
+                self._galeria.zapamietaj_adresy(
+                    zrodlo.key, zapisana.external_id, surowa.zdjecia
+                )
             if zapisana.id is not None:
                 przeniesione = await uow.watchlist.przenies_na_ponowne_wystawienia(
                     zrodlo.id,

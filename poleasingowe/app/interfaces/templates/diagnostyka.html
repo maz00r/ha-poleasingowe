@@ -40,6 +40,20 @@
   {% endif %}
 </section>
 
+<section class="karta {{ 'ostrzezenie' if dane.archiwum_zdjec_wstrzymane }}">
+  <h2>Archiwum zdjęć</h2>
+  <div class="siatka">
+    <div><span>Rozmiar</span><strong>{{ dane.archiwum_zdjec_bajty | bajty }}</strong></div>
+    <div><span>Wolne miejsce</span><strong>{{ dane.archiwum_zdjec_wolne_bajty | bajty }}</strong></div>
+    <div><span>Oczekujące</span><strong>{{ dane.archiwum_zdjec_oczekujace if dane.archiwum_zdjec_oczekujace is not none else '—' }}</strong></div>
+    <div><span>Niedostępne</span><strong>{{ dane.archiwum_zdjec_niedostepne if dane.archiwum_zdjec_niedostepne is not none else '—' }}</strong></div>
+    <div><span>Pełne galerie</span><strong>{{ dane.archiwum_zdjec_pelne if dane.archiwum_zdjec_pelne is not none else '—' }}</strong></div>
+  </div>
+  {% if dane.archiwum_zdjec_wstrzymane %}
+    <p class="ostrzezenie-inline">Mniej niż 1 GiB wolnego miejsca — nowe zdjęcia nie są zapisywane.</p>
+  {% endif %}
+</section>
+
 <section class="karta">
   <h2>Pula połączeń</h2>
   {% if dane.pula %}

@@ -754,8 +754,23 @@ async def zdjecia_aukcji(request: Request, auction_id: int) -> Response:
     if dane is None:
         return HTMLResponse("")
 
-    adresy = await galeria.adresy(
-        dane.pozycja.source_key, dane.pozycja.external_id, dane.pozycja.url
+    pobierz_archiwalne = getattr(galeria, "archiwalne", None)
+    archiwalne = (
+        () if pobierz_archiwalne is None else await pobierz_archiwalne(auction_id)
+    )
+    po_indeksie = {z.position: z for z in archiwalne}
+    adresy: tuple[str, ...] = ()
+    if dane.pozycja.status is AuctionStatus.ACTIVE or not archiwalne:
+        adresy = await galeria.adresy(
+            dane.pozycja.source_key, dane.pozycja.external_id, dane.pozycja.url
+        )
+    indeksy = tuple(range(len(adresy))) if adresy else tuple(sorted(po_indeksie))
+    zdjecia = tuple(
+        {
+            "indeks": indeks,
+            "wersja": (po_indeksie[indeks].sha256 if indeks in po_indeksie else None),
+        }
+        for indeks in indeksy
     )
     return SZABLONY.TemplateResponse(
         request=request,
@@ -763,7 +778,7 @@ async def zdjecia_aukcji(request: Request, auction_id: int) -> Response:
         context={
             **_kontekst_bazowy(request),
             "auction_id": auction_id,
-            "ile": len(adresy),
+            "zdjecia": zdjecia,
         },
     )
 
@@ -868,20 +883,27 @@ async def zdjecie(
     if dane is None:
         return _brak_zdjecia() if miniatura else Response(status_code=404)
 
-    wynik = await galeria.obraz(
+    wynik = await galeria.obraz_http(
         dane.pozycja.source_key,
         dane.pozycja.external_id,
         indeks,
         miniatura=miniatura,
         url=dane.pozycja.url,
+        auction_id=auction_id,
     )
     if wynik is None:
         return _brak_zdjecia() if miniatura else Response(status_code=404)
-    tresc, typ = wynik
+    tresc, typ, etag = wynik
     # Zdjęcie aukcji nie zmienia się w trakcie jej trwania, a add-on i tak
     # trzyma je na dysku — niech przeglądarka nie pyta o nie przy każdym
     # otwarciu karty.
-    return Response(tresc, media_type=typ, headers={"Cache-Control": "max-age=86400"})
+    naglowki = {"Cache-Control": "max-age=86400"}
+    if etag is not None:
+        znacznik = f'"{etag}"'
+        naglowki["ETag"] = znacznik
+        if request.headers.get("if-none-match") == znacznik:
+            return Response(status_code=304, headers=naglowki)
+    return Response(tresc, media_type=typ, headers=naglowki)
 
 
 def _brak_zdjecia() -> Response:
@@ -933,12 +955,14 @@ async def przelacz_obserwacje(
     if _fabryka(request) is None:
         return _brak_bazy(request)
 
+    dodano = False
     async with _fabryka(request)() as kontekst:
         async with kontekst.uow as uow:
             if await uow.watchlist.obserwowana(auction_id):
                 await uow.watchlist.usun(auction_id)
                 await uow.auction.zaplanuj(auction_id, None, PollTier.IDLE)
             else:
+                dodano = True
                 await uow.watchlist.dodaj(
                     WatchlistEntry(
                         auction_id=auction_id, added_at=dt.datetime.now(dt.UTC)
@@ -948,6 +972,11 @@ async def przelacz_obserwacje(
                     auction_id, dt.datetime.now(dt.UTC), PollTier.FAR
                 )
         dane = await kontekst.zapytania.szczegoly(auction_id)
+
+    if dodano:
+        galeria = getattr(request.app.state, "galeria", None)
+        if galeria is not None:
+            await galeria.wymus_pelne(auction_id)
 
     if dane is None:
         return HTMLResponse("", status_code=404)
@@ -1002,6 +1031,12 @@ async def diagnostyka(request: Request) -> Response:
     # może się rozjechać z rzeczywistością, a znacznik owszem (§7.1).
     kopia = getattr(request.app.state, "kopia", None)
     ostatnia_kopia = kopia.ostatnia() if kopia is not None else None
+    galeria = getattr(request.app.state, "galeria", None)
+    statystyki_zdjec = (
+        await galeria.diagnostyka()
+        if galeria is not None and stan.baza_dostepna
+        else None
+    )
 
     dane = Diagnostyka(
         polaczenie=stan.opcje.bezpieczny_opis(),
@@ -1012,6 +1047,24 @@ async def diagnostyka(request: Request) -> Response:
         ostatni_pg_dump=None if ostatnia_kopia is None else ostatnia_kopia.utworzono,
         kopia_bajty=None if ostatnia_kopia is None else ostatnia_kopia.bajtow,
         ostatni_blad_kopii=None if kopia is None else kopia.ostatni_blad,
+        archiwum_zdjec_bajty=(
+            None if statystyki_zdjec is None else statystyki_zdjec.bajty
+        ),
+        archiwum_zdjec_wolne_bajty=(
+            None if statystyki_zdjec is None else statystyki_zdjec.wolne_bajty
+        ),
+        archiwum_zdjec_oczekujace=(
+            None if statystyki_zdjec is None else statystyki_zdjec.oczekujace
+        ),
+        archiwum_zdjec_niedostepne=(
+            None if statystyki_zdjec is None else statystyki_zdjec.niedostepne
+        ),
+        archiwum_zdjec_pelne=(
+            None if statystyki_zdjec is None else statystyki_zdjec.pelne_galerie
+        ),
+        archiwum_zdjec_wstrzymane=(
+            False if statystyki_zdjec is None else statystyki_zdjec.zapis_wstrzymany
+        ),
     )
     if fabryka is not None:
         async with fabryka() as kontekst:
@@ -1033,6 +1086,12 @@ async def diagnostyka(request: Request) -> Response:
             ostatni_pg_dump=dane.ostatni_pg_dump,
             kopia_bajty=dane.kopia_bajty,
             ostatni_blad_kopii=dane.ostatni_blad_kopii,
+            archiwum_zdjec_bajty=dane.archiwum_zdjec_bajty,
+            archiwum_zdjec_wolne_bajty=dane.archiwum_zdjec_wolne_bajty,
+            archiwum_zdjec_oczekujace=dane.archiwum_zdjec_oczekujace,
+            archiwum_zdjec_niedostepne=dane.archiwum_zdjec_niedostepne,
+            archiwum_zdjec_pelne=dane.archiwum_zdjec_pelne,
+            archiwum_zdjec_wstrzymane=dane.archiwum_zdjec_wstrzymane,
         )
     return SZABLONY.TemplateResponse(
         request=request,

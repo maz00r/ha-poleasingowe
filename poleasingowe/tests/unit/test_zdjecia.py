@@ -5,12 +5,20 @@ from __future__ import annotations
 import io
 import pathlib
 import ssl
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
+from datetime import UTC, datetime
+from types import SimpleNamespace
+from typing import Any, cast
 
 import httpx
 import pytest
 from PIL import Image
 
-from app.infrastructure.zdjecia import GaleriaZdjec
+from app.application.ports import FabrykaKontekstu
+from app.domain.entities import ArchivedPhoto
+from app.domain.enums import PhotoArchiveTarget
+from app.infrastructure.zdjecia import BrakMiejscaArchiwum, GaleriaZdjec
 
 
 class ZrodloZeZdjeciami:
@@ -167,6 +175,119 @@ def test_miniatura_jest_faktycznie_malym_obrazem_jpeg(
         assert obraz.size == (240, 160)
         assert obraz.format == "JPEG"
     assert len(wynik) < len(wejscie.getvalue())
+
+
+def test_archiwum_zachowuje_proporcje_i_nie_powieksza() -> None:
+    duzy = io.BytesIO()
+    Image.new("RGB", (1600, 1200), "#56789a").save(duzy, format="PNG")
+    dane, szerokosc, wysokosc = GaleriaZdjec._pomniejsz_archiwalny(
+        duzy.getvalue(), (800, 600)
+    )
+    assert (szerokosc, wysokosc) == (800, 600)
+
+    maly = io.BytesIO()
+    Image.new("RGB", (320, 200), "#345678").save(maly, format="PNG")
+    wynik, szerokosc, wysokosc = GaleriaZdjec._pomniejsz_archiwalny(
+        maly.getvalue(), (1280, 1280)
+    )
+    assert (szerokosc, wysokosc) == (320, 200)
+    with Image.open(io.BytesIO(wynik)) as obraz:
+        assert obraz.format == "JPEG"
+        assert not obraz.getexif(), "archiwum nie może zachowywać EXIF"
+    assert dane
+
+
+def test_archiwum_stosuje_orientacje_exif() -> None:
+    wejscie = io.BytesIO()
+    obraz = Image.new("RGB", (1200, 800), "#123456")
+    exif = Image.Exif()
+    exif[274] = 6  # obrót o 90 stopni w prawo
+    obraz.save(wejscie, format="JPEG", exif=exif)
+
+    wynik, szerokosc, wysokosc = GaleriaZdjec._pomniejsz_archiwalny(
+        wejscie.getvalue(), (800, 600)
+    )
+
+    assert (szerokosc, wysokosc) == (400, 600)
+    with Image.open(io.BytesIO(wynik)) as zapisany:
+        assert not zapisany.getexif()
+
+
+def test_rezerwa_dysku_nie_nadpisuje_istniejacego_archiwum(
+    tmp_path: pathlib.Path,
+) -> None:
+    g = GaleriaZdjec(
+        {},
+        katalog=tmp_path / "cache",
+        katalog_archiwum=tmp_path / "archiwum",
+        min_wolne_bajty=10**30,
+    )
+    cel = g._sciezka_archiwum(7, 0)
+    cel.parent.mkdir(parents=True)
+    cel.write_bytes(b"poprzednie")
+
+    with pytest.raises(BrakMiejscaArchiwum):
+        g._zapisz_trwale(cel, b"nowe")
+
+    assert cel.read_bytes() == b"poprzednie"
+
+
+async def test_archiwalne_zdjecie_dziala_bez_adaptera_zrodla(
+    tmp_path: pathlib.Path,
+) -> None:
+    wejscie = io.BytesIO()
+    Image.new("RGB", (800, 600), "#56789a").save(wejscie, format="JPEG")
+    dane = wejscie.getvalue()
+    metadane = ArchivedPhoto(
+        auction_id=7,
+        position=0,
+        target=PhotoArchiveTarget.COVER,
+        width=800,
+        height=600,
+        byte_size=len(dane),
+        sha256="a" * 64,
+        archived_at=datetime(2026, 9, 18, tzinfo=UTC),
+    )
+
+    class Repo:
+        async def dla_aukcji(self, auction_id: int) -> tuple[ArchivedPhoto, ...]:
+            assert auction_id == 7
+            return (metadane,)
+
+    class Uow:
+        photo_archive = Repo()
+
+        async def __aenter__(self) -> Uow:
+            return self
+
+        async def __aexit__(self, *wyjatek: object) -> None:
+            return None
+
+    class Fabryka:
+        @asynccontextmanager
+        async def __call__(self) -> AsyncIterator[Any]:
+            yield SimpleNamespace(uow=Uow())
+
+    g = GaleriaZdjec(
+        {},
+        katalog=tmp_path / "cache",
+        katalog_archiwum=tmp_path / "archiwum",
+        fabryka=cast(FabrykaKontekstu, Fabryka()),
+        min_wolne_bajty=0,
+    )
+    cel = g._sciezka_archiwum(7, 0)
+    cel.parent.mkdir(parents=True)
+    cel.write_bytes(dane)
+
+    wynik = await g.obraz_http("nieistniejace", "x", 0, auction_id=7)
+    assert wynik == (dane, "image/jpeg", "a" * 64)
+
+    miniatura = await g.obraz_http(
+        "nieistniejace", "x", 0, auction_id=7, miniatura=True
+    )
+    assert miniatura is not None
+    with Image.open(io.BytesIO(miniatura[0])) as obraz_miniatury:
+        assert obraz_miniatury.size == (240, 160)
 
 
 async def test_adres_aukcji_z_bazy_trafia_do_adaptera(

@@ -165,14 +165,17 @@ class AutoprzetargSource:
             external_id,
             sciezka if sciezka.startswith("http") else f"{parser.BAZOWY_URL}{sciezka}",
         )
-        return replace(surowa, content_hash=biezacy)
+        return replace(
+            surowa,
+            content_hash=biezacy,
+            zdjecia=tuple(parser.zdjecia(odpowiedz.text)),
+        )
 
     async def zdjecia(self, external_id: str, url: str | None = None) -> Sequence[str]:
         """Adresy zdjęć pojazdu (SPEC.md §12).
 
-        Wywoływane **na żądanie**, gdy ktoś otworzy kartę aukcji — nie przy
-        zbieraniu. Adresy nie trafiają do bazy: to jedno żądanie na obejrzaną
-        aukcję zamiast kolumny utrzymywanej dla wszystkich.
+        Ścieżka awaryjna dla UI i backfillu. Zwykły odpyt szczegółów przekazuje
+        te same adresy z już pobranego HTML-u bez drugiego żądania.
         """
         sciezka = strona_aukcji(
             url, bazowy=parser.BAZOWY_URL, zapasowa=f"/aukcja/x,{external_id},x"

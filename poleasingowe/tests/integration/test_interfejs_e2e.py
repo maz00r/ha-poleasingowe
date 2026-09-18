@@ -15,20 +15,25 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import datetime as dt
+import hashlib
+import io
+import pathlib
 from collections.abc import AsyncIterator
 from decimal import Decimal
 
 import httpx
 import psycopg
 import pytest
+from PIL import Image
 
-from app.domain.entities import OfertaUczestnika, PriceSnapshot
-from app.domain.enums import Currency
+from app.domain.entities import ArchivedPhoto, OfertaUczestnika, PriceSnapshot
+from app.domain.enums import Currency, PhotoArchiveTarget
 from app.domain.value_objects import Money
 from app.infrastructure.persistence.pula import KontekstPg
 from app.infrastructure.persistence.queries import PgZapytania
 from app.infrastructure.persistence.repositories import PgUnitOfWork
 from app.infrastructure.supervisor.options import Opcje
+from app.infrastructure.zdjecia import GaleriaZdjec
 from app.interfaces.app import utworz_aplikacje
 from app.interfaces.web.widoki import CIASTECZKO_WIZYTY
 from tests.conftest import wymaga_postgresa
@@ -179,6 +184,56 @@ async def test_fragment_galerii_otwiera_modal_zamiast_nowej_karty(
     assert "data-galeria-wstecz" in odp.text
     assert "data-galeria-dalej" in odp.text
     assert 'target="_blank"' not in odp.text
+
+
+async def test_historyczna_galeria_dziala_bez_adaptera_zrodla_i_ma_etag(
+    pusta_baza: psycopg.AsyncConnection, tmp_path: pathlib.Path
+) -> None:
+    identyfikatory = await _dane(pusta_baza)
+    auction_id = identyfikatory["archiwalna"]
+    fabryka = FabrykaNaPolaczeniu(pusta_baza)
+    galeria = GaleriaZdjec(
+        {},
+        fabryka=fabryka,
+        katalog=tmp_path / "cache",
+        katalog_archiwum=tmp_path / "archiwum",
+        min_wolne_bajty=0,
+    )
+    bufor = io.BytesIO()
+    Image.new("RGB", (800, 600), "#456789").save(bufor, format="JPEG")
+    dane = bufor.getvalue()
+    sha = hashlib.sha256(dane).hexdigest()
+    cel = galeria._sciezka_archiwum(auction_id, 0)
+    galeria._zapisz_trwale(cel, dane)
+    uow = PgUnitOfWork(pusta_baza)
+    await uow.photo_archive.zapisz_zdjecie(
+        ArchivedPhoto(
+            auction_id=auction_id,
+            position=0,
+            target=PhotoArchiveTarget.FULL,
+            width=800,
+            height=600,
+            byte_size=len(dane),
+            sha256=sha,
+            archived_at=dt.datetime.now(dt.UTC),
+        )
+    )
+
+    aplikacja = utworz_aplikacje(OPCJE, fabryka=fabryka, galeria=galeria)
+    transport = httpx.ASGITransport(app=aplikacja)
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as c:
+        fragment = await c.get(f"/aukcja/{auction_id}/zdjecia")
+        obraz = await c.get(f"/aukcja/{auction_id}/zdjecie/0")
+        bez_zmiany = await c.get(
+            f"/aukcja/{auction_id}/zdjecie/0",
+            headers={"If-None-Match": f'"{sha}"'},
+        )
+
+    assert fragment.text.count("data-galeria-otworz") == 1
+    assert f"?v={sha}" in fragment.text
+    assert obraz.content == dane
+    assert obraz.headers["etag"] == f'"{sha}"'
+    assert bez_zmiany.status_code == 304
 
 
 async def test_karta_pokazuje_historie_ceny_biezacej(

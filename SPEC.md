@@ -345,8 +345,10 @@ poleasingowe/
   `sources` (lista z per-źródłowym floorem i limitem tempa), `log_level`,
   `debug_dumps` (bool, domyślnie `false`), `notify_on_critical` (bool,
   domyślnie `false`).
-- W `/data` mieszkają wyłącznie: sesje (`/data/sessions/`, 0600), zrzuty
-  debug (`/data/debug/`, rotacja) i cache. **Dane trwałe są w Postgresie.**
+- W `/data` mieszkają: sesje (`/data/sessions/`, 0600), zrzuty debug
+  (`/data/debug/`, rotacja), cache oraz trwałe, ograniczone rozdzielczością
+  zdjęcia (`/data/archiwum-zdjec`). Dane strukturalne i metadane zdjęć są
+  w Postgresie; bajty JPEG pozostają poza bazą, żeby nie łamać budżetu §1.1.
 - Eksporty do `/share/poleasingowe/`, strumieniowo.
 - **Własny backup, niezależny od snapshotu HA.** Snapshot dodatku Postgres
   obejmuje obie bazy naraz, więc odtworzenie samej bazy `poleasingowe`
@@ -363,8 +365,8 @@ poleasingowe/
 - Dockerfile wieloetapowy, bez kompilatorów w warstwie runtime.
 - **Jeden proces, jeden event loop.** Bez uvicorn workers, bez
   multiprocessingu, bez Redisa, bez Celery.
-- W `DOCS.md` napisz wprost: dane leżą w wolumenie add-onu PostgreSQL, nie
-  w `/data` tego add-onu; odtworzenie wymaga obu.
+- W `DOCS.md` napisz wprost: dane aukcji leżą w wolumenie add-onu PostgreSQL,
+  a archiwum zdjęć w `/data` tego add-onu; pełne odtworzenie wymaga kopii obu.
 
 ---
 
@@ -934,8 +936,10 @@ Add-on obsługuje **operacje**. Analityka jest w Grafanie.
   `AUTH_LOCKED` z przyciskiem resetu, stan puli połączeń, rozmiar bazy,
   RSS procesu, dryf zegara, data ostatniego `pg_dump`.
 - Eksport CSV/XLSX do `/share/poleasingowe/`, strumieniowo.
-- Bez miniatur zdjęć na start. Jeśli kiedyś — proxy z cache na dysku i twardym
-  limitem, nie hotlink.
+- Zdjęcia zawsze przez proxy, nigdy hotlink. Rotowany cache ma twardy limit
+  100 MB. Niezależne archiwum zachowuje okładkę każdej aukcji do 800×600 px,
+  a dla aukcji obserwowanych pełną galerię do 1280 px na dłuższym boku.
+  Archiwum nie ma automatycznej retencji; zapis zatrzymuje rezerwa 1 GiB.
 - HTMX z lokalnego pliku statycznego. Żadnych CDN-ów.
 
 ---

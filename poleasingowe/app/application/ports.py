@@ -25,8 +25,10 @@ from app.application.read_models import (
     ZdarzenieLicytacji,
 )
 from app.domain.entities import (
+    ArchivedPhoto,
     Auction,
     OfertaUczestnika,
+    PhotoArchiveJob,
     PriceSnapshot,
     RunLog,
     SavedFilter,
@@ -157,6 +159,26 @@ class RunLogRepository(Protocol):
     async def zakoncz(self, wpis: RunLog) -> RunLog: ...
 
 
+class PhotoArchiveRepository(Protocol):
+    """Metadane plików zdjęć; same obrazy pozostają poza PostgreSQL-em."""
+
+    async def synchronizuj(self, teraz: dt.datetime) -> None: ...
+    async def nastepne(self, teraz: dt.datetime) -> PhotoArchiveJob | None: ...
+    async def dla_aukcji(self, auction_id: int) -> Sequence[ArchivedPhoto]: ...
+    async def ustaw_adresy(
+        self, auction_id: int, adresy: Sequence[str], teraz: dt.datetime
+    ) -> None: ...
+    async def zapisz_zdjecie(self, zdjecie: ArchivedPhoto) -> None: ...
+    async def zakoncz_krok(
+        self, auction_id: int, teraz: dt.datetime, oczekiwane: int
+    ) -> None: ...
+    async def odnotuj_blad(
+        self, auction_id: int, teraz: dt.datetime, blad: str
+    ) -> None: ...
+    async def wymus_pelne(self, auction_id: int, teraz: dt.datetime) -> None: ...
+    async def statystyki(self) -> tuple[int, int, int]: ...
+
+
 class UnitOfWork(Protocol):
     """Jedna transakcja na use case, nie na zapytanie (SPEC.md §6.2).
 
@@ -171,6 +193,7 @@ class UnitOfWork(Protocol):
     saved_filter: SavedFilterRepository
     wycena: WycenaRepository
     run_log: RunLogRepository
+    photo_archive: PhotoArchiveRepository
 
     async def __aenter__(self) -> UnitOfWork: ...
     async def __aexit__(self, *wyjatek: object) -> None: ...
@@ -213,6 +236,8 @@ class SurowaOferta:
     Pusta krotka znaczy „to źródło jej nie pokazuje **albo** aukcja nie ma
     jeszcze ofert" — te dwa przypadki rozróżnia adapter, nie ten typ.
     """
+    zdjecia: tuple[str, ...] = ()
+    """Adresy wyciągnięte z już pobranych szczegółów, bez dodatkowego HTTP."""
 
 
 @dataclass(slots=True, frozen=True)

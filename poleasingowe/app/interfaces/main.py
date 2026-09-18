@@ -12,6 +12,7 @@ nie ustawił, byłoby gorsze niż zatrzymanie.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import os
 import pathlib
@@ -185,19 +186,19 @@ def main() -> int:
         if not adaptery:
             log.warning("żadne źródło nie jest włączone — dispatcher nie startuje")
             return
-        petla = Dispatcher(fabryka, adaptery, kopia=kopia)
+        petla = Dispatcher(fabryka, adaptery, kopia=kopia, galeria=galeria)
         # Galeria korzysta z tej samej blokady i kubełka, co listy oraz
         # szczegóły. Wejście na kartę nie może ominąć limitu źródła.
         galeria.ustaw_bramke(petla.bramka_sieci)
         # Od tej chwili karta aukcji moze poprosic o wczesniejszy obrot.
         budzik.podepnij(petla)
-        await petla.uruchom()
+        await asyncio.gather(petla.uruchom(), galeria.uruchom_archiwum())
 
     # Galeria dzieli adaptery z dispatcherem — jeden `AsyncClient` per
     # zrodlo, tworzony raz (SPEC.md §11.3).
     adaptery_ui: dict[str, object] = {}
     budzik = BudzikOdroczony()
-    galeria = GaleriaZdjec(adaptery_ui)  # type: ignore[arg-type]
+    galeria = GaleriaZdjec(adaptery_ui, fabryka=fabryka)  # type: ignore[arg-type]
     # Kopia zapasowa WYLACZNIE wlasnej bazy (SPEC.md §7.1) — snapshot HA
     # obejmuje tez TeslaMate, wiec nie da sie z niego odtworzyc samej naszej.
     kopia = KopiaZapasowa(opcje.dsn)

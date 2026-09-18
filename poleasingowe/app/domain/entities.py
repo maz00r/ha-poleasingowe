@@ -17,6 +17,8 @@ from app.domain.enums import (
     AuthState,
     BidCountSemantics,
     FinalPriceState,
+    PhotoArchiveStatus,
+    PhotoArchiveTarget,
     PollTier,
     RodzajPojazdu,
     SweepStatus,
@@ -333,6 +335,44 @@ class WycenaAukcji:
             raise ValueError(
                 "przedział wyceny musi spełniać minimum <= wartość <= maksimum"
             )
+
+
+@dataclass(slots=True, frozen=True)
+class ArchivedPhoto:
+    """Metadane jednego pliku w trwałym archiwum zdjęć."""
+
+    auction_id: int
+    position: int
+    target: PhotoArchiveTarget
+    width: int
+    height: int
+    byte_size: int
+    sha256: str
+    archived_at: dt.datetime
+
+    def __post_init__(self) -> None:
+        _wymagaj_utc("archived_at", self.archived_at)
+
+
+@dataclass(slots=True, frozen=True)
+class PhotoArchiveJob:
+    """Najbliższy krok archiwizacji; pracownik zapisuje jeden obraz naraz."""
+
+    auction_id: int
+    source_key: str
+    external_id: str
+    url: str
+    auction_status: AuctionStatus
+    target: PhotoArchiveTarget
+    status: PhotoArchiveStatus
+    attempts: int
+    source_urls: tuple[str, ...] = ()
+    archived_positions: tuple[int, ...] = ()
+    archived_full_positions: tuple[int, ...] = ()
+    ends_at: dt.datetime | None = None
+
+    def __post_init__(self) -> None:
+        _wymagaj_utc("ends_at", self.ends_at)
 
 
 @dataclass(slots=True, frozen=True)

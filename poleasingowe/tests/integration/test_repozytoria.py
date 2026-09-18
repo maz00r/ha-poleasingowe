@@ -9,6 +9,7 @@ import psycopg
 import pytest
 
 from app.domain.entities import (
+    ArchivedPhoto,
     Auction,
     OfertaUczestnika,
     PriceSnapshot,
@@ -17,7 +18,13 @@ from app.domain.entities import (
     WatchlistEntry,
     WycenaAukcji,
 )
-from app.domain.enums import AuctionStatus, AuthState, Currency, FinalPriceState
+from app.domain.enums import (
+    AuctionStatus,
+    AuthState,
+    Currency,
+    FinalPriceState,
+    PhotoArchiveTarget,
+)
 from app.domain.value_objects import Mileage, Money, Vin
 from app.infrastructure.persistence.repositories import PgUnitOfWork
 from tests.conftest import wymaga_postgresa
@@ -155,6 +162,55 @@ async def test_auction_upsert_po_kluczu_naturalnym(
 
     znalezione = await uow.auction.po_kluczu_naturalnym(src.id, "435508")
     assert znalezione is not None and znalezione.id == a.id
+
+
+async def test_archiwum_podnosi_obserwowana_aukcje_do_pelnej_galerii_i_nie_cofa(
+    pusta_baza: psycopg.AsyncConnection,
+) -> None:
+    uow = PgUnitOfWork(pusta_baza)
+    src = await uow.source.zapisz(zrodlo())
+    assert src.id is not None
+    zapisana = await uow.auction.zapisz(aukcja(src.id))
+    assert zapisana.id is not None
+
+    await uow.photo_archive.synchronizuj(TERAZ)
+    pierwsze = await uow.photo_archive.nastepne(TERAZ)
+    assert pierwsze is not None
+    assert pierwsze.target is PhotoArchiveTarget.COVER
+
+    await uow.watchlist.dodaj(WatchlistEntry(auction_id=zapisana.id, added_at=TERAZ))
+    await uow.photo_archive.synchronizuj(TERAZ)
+    pelne = await uow.photo_archive.nastepne(TERAZ)
+    assert pelne is not None
+    assert pelne.target is PhotoArchiveTarget.FULL
+
+    await uow.photo_archive.ustaw_adresy(
+        zapisana.id, ("https://img.test/0.jpg", "https://img.test/1.jpg"), TERAZ
+    )
+    for pozycja in range(2):
+        await uow.photo_archive.zapisz_zdjecie(
+            ArchivedPhoto(
+                auction_id=zapisana.id,
+                position=pozycja,
+                target=PhotoArchiveTarget.FULL,
+                width=1280,
+                height=853,
+                byte_size=12345,
+                sha256=str(pozycja) * 64,
+                archived_at=TERAZ,
+            )
+        )
+        await uow.photo_archive.zakoncz_krok(zapisana.id, TERAZ, 2)
+
+    assert await uow.photo_archive.nastepne(TERAZ) is None
+    assert await uow.photo_archive.statystyki() == (0, 0, 1)
+
+    await uow.watchlist.usun(zapisana.id)
+    await uow.photo_archive.synchronizuj(TERAZ)
+    assert await uow.photo_archive.nastepne(TERAZ) is None
+    zapisane_zdjecia = await uow.photo_archive.dla_aukcji(zapisana.id)
+    assert [z.position for z in zapisane_zdjecia] == [0, 1]
+    assert all(z.target is PhotoArchiveTarget.FULL for z in zapisane_zdjecia)
 
 
 async def test_auction_do_odpytu_bierze_tylko_aktywne_i_sortuje_po_koncu(

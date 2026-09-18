@@ -1,15 +1,18 @@
 {# Galeria. Każde zdjęcie idzie przez add-on, nie wprost z serwisu
    aukcyjnego (SPEC.md §12 — proxy z cache, nie hotlink). #}
-{% if ile %}
+{% if zdjecia %}
 <section class="galeria" data-galeria aria-label="Galeria zdjęć pojazdu">
   <div class="galeria-miniatury">
-    {% for i in range(ile) %}
-      {% set adres = sciezka(request, 'zdjecie', auction_id=auction_id, indeks=i) %}
+    {% set ile = zdjecia | length %}
+    {% for zdjecie in zdjecia %}
+      {% set i = zdjecie.indeks %}
+      {% set adres_podstawowy = sciezka(request, 'zdjecie', auction_id=auction_id, indeks=i) %}
+      {% set adres = adres_podstawowy ~ ('?v=' ~ zdjecie.wersja if zdjecie.wersja else '') %}
       <button class="galeria-miniatura" type="button"
-              data-galeria-otworz data-galeria-indeks="{{ i }}"
+              data-galeria-otworz data-galeria-indeks="{{ loop.index0 }}"
               data-galeria-src="{{ adres }}"
-              aria-label="Otwórz zdjęcie {{ i + 1 }} z {{ ile }}">
-        <img loading="lazy" alt="Zdjęcie pojazdu {{ i + 1 }} z {{ ile }}"
+              aria-label="Otwórz zdjęcie {{ loop.index }} z {{ ile }}">
+        <img loading="lazy" alt="Zdjęcie pojazdu {{ loop.index }} z {{ ile }}"
              src="{{ adres }}">
       </button>
     {% endfor %}

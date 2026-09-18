@@ -2,6 +2,14 @@
 
 ## 0.29.14 — w przygotowaniu
 
+**Trwałe zdjęcia aukcji.** Każda aukcja dostaje archiwalną okładkę do
+800×600 px, a obserwowane aukcje — pełną galerię do 1280 px na dłuższym
+boku. Pliki JPEG leżą poza bazą w `/data/archiwum-zdjec`, nie podlegają
+rotacji cache'u i są pokazywane także po zniknięciu strony źródłowej.
+Dotychczasowe aukcje są uzupełniane w tle best effort. Diagnostyka pokazuje
+rozmiar archiwum, kolejkę, braki oraz wolne miejsce; zapis zatrzymuje się
+przed naruszeniem rezerwy 1 GiB i nigdy sam nie usuwa galerii.
+
 **Zamknięte listy w filtrach.** Paliwo to odtąd dokładnie sześć wartości:
 Benzyna, Diesel, Hybryda, Elektryczny, Wodór, Gaz — wszystkie odmiany hybryd
 (HEV, MHEV, PHEV, plug-in) to jedna pozycja, LPG i CNG to „Gaz", a wartość,

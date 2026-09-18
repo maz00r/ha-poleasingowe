@@ -59,6 +59,22 @@ class PollTier(StrEnum):
     """Po `ends_at`, faza czujki dogrywki lub drabinki (SPEC.md §11.5)."""
 
 
+class PhotoArchiveTarget(StrEnum):
+    """Ile zdjęć aukcji ma zostać zachowane trwale."""
+
+    COVER = "COVER"
+    FULL = "FULL"
+
+
+class PhotoArchiveStatus(StrEnum):
+    """Stan niezależnego, trwałego archiwum zdjęć."""
+
+    PENDING = "PENDING"
+    PARTIAL = "PARTIAL"
+    COMPLETE = "COMPLETE"
+    UNAVAILABLE = "UNAVAILABLE"
+
+
 class AuthState(StrEnum):
     """Stan uwierzytelnienia źródła (SPEC.md §10.2)."""
 
