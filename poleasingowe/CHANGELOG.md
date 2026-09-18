@@ -1,6 +1,6 @@
 # Historia zmian
 
-## 0.29.14 — w przygotowaniu
+## 0.29.15 — w przygotowaniu
 
 **Trwałe zdjęcia aukcji.** Każda aukcja dostaje archiwalną okładkę do
 800×600 px, a obserwowane aukcje — pełną galerię do 1280 px na dłuższym
@@ -9,6 +9,8 @@ rotacji cache'u i są pokazywane także po zniknięciu strony źródłowej.
 Dotychczasowe aukcje są uzupełniane w tle best effort. Diagnostyka pokazuje
 rozmiar archiwum, kolejkę, braki oraz wolne miejsce; zapis zatrzymuje się
 przed naruszeniem rezerwy 1 GiB i nigdy sam nie usuwa galerii.
+
+## 0.29.14 — w przygotowaniu
 
 **Zamknięte listy w filtrach.** Paliwo to odtąd dokładnie sześć wartości:
 Benzyna, Diesel, Hybryda, Elektryczny, Wodór, Gaz — wszystkie odmiany hybryd

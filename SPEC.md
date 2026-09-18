@@ -959,6 +959,9 @@ Add-on obsługuje **operacje**. Analityka jest w Grafanie.
   Nigdy na instancji `db21ed7f-postgres-latest` — tam mieszka TeslaMate.
   Testy tworzą i kasują własną bazę tymczasową.
 - `mypy --strict` przechodzi. `ruff` bez wyjątków w kodzie aplikacji.
+- **Każda zmiana aplikacji podbija wersję dodatku.** Ten sam numer musi być
+  zapisany w `config.yaml`, `app/wersja.py`, etykiecie `io.hass.version`
+  w `Dockerfile` i w najnowszej sekcji `CHANGELOG.md`.
 - Logi strukturalne, poziom z opcji, domyślnie `INFO`, bez zrzutów treści.
 - Po każdym przebiegu zapis RSS, rozmiaru bazy i stanu puli do `run_log` —
   budżet z §1.1 ma być mierzalny, nie deklaratywny.

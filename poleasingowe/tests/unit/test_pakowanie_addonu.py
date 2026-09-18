@@ -21,6 +21,7 @@ ADDON = KORZEN / "poleasingowe"
 CONFIG = ADDON / "config.yaml"
 REQUIREMENTS = ADDON / "requirements.txt"
 PYPROJECT = KORZEN / "pyproject.toml"
+CHANGELOG = ADDON / "CHANGELOG.md"
 
 
 @pytest.fixture(scope="module")
@@ -366,6 +367,15 @@ def test_wersja_w_kodzie_zgadza_sie_z_config_yaml(config: dict[str, Any]) -> Non
     from app.wersja import WERSJA
 
     assert config["version"] == WERSJA
+
+
+def test_najnowszy_changelog_ma_wersje_z_config_yaml(config: dict[str, Any]) -> None:
+    """Każda zmiana dostaje nową wersję i odpowiadającą jej sekcję historii."""
+    tresc = CHANGELOG.read_text(encoding="utf-8")
+    najnowsza = re.search(r"^## ([0-9]+\.[0-9]+\.[0-9]+)\b", tresc, re.MULTILINE)
+
+    assert najnowsza is not None
+    assert najnowsza.group(1) == config["version"]
 
 
 @pytest.mark.parametrize("jezyk", ["pl", "en"])
