@@ -45,6 +45,7 @@ def utworz_aplikacje(
     galeria: Any = None,
     wycena_ai: Any = None,
     kopia: Any = None,
+    eksporter_migracji: Any = None,
     budzik: Any = None,
 ) -> FastAPI:
     """Buduje aplikację. Zależności wstrzykiwane, bez globalnych singletonów.
@@ -86,6 +87,8 @@ def utworz_aplikacje(
                 await galeria.zamknij()
             if wycena_ai is not None:
                 await wycena_ai.zamknij()
+            if eksporter_migracji is not None:
+                await eksporter_migracji.zamknij()
 
     app = FastAPI(
         title="Aukcje poleasingowe",
@@ -102,6 +105,7 @@ def utworz_aplikacje(
     app.state.wycena_ai = wycena_ai
     # Panel diagnostyczny czyta z niej datę ostatniej kopii (§12).
     app.state.kopia = kopia
+    app.state.eksporter_migracji = eksporter_migracji
     app.state.budzik = budzik
     # `html=False`: to katalog na CSS i HTMX, nie na strony. Bez tego
     # StaticFiles zaczalby serwowac index.html z dowolnego podkatalogu.

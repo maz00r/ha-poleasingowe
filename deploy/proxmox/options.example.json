@@ -1,0 +1,18 @@
+{
+  "db_host": "postgres",
+  "db_port": 5432,
+  "db_name": "poleasingowe",
+  "db_user": "poleasingowe_app",
+  "db_password": "",
+  "grafana_base_url": "",
+  "ai_provider": "openai",
+  "ai_api_key": "",
+  "ai_base_url": "",
+  "ai_model": "",
+  "openai_api_key": "",
+  "credentials": [],
+  "sources": [],
+  "log_level": "INFO",
+  "debug_dumps": false,
+  "notify_on_critical": false
+}

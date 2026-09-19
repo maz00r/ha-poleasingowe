@@ -58,6 +58,36 @@ def test_brak_hasla_zatrzymuje_addon(tmp_path: pathlib.Path) -> None:
     assert "Popraw opcje" in str(blad.value)
 
 
+def test_haslo_bazy_moze_pochodzic_z_pliku_sekretu(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    sekret = tmp_path / "db-password"
+    sekret.write_text("z-pliku-sekretu\n", encoding="utf-8")
+    monkeypatch.setenv("POLEASINGOWE_DB_PASSWORD_FILE", str(sekret))
+
+    opcje = wczytaj_opcje(zapisz(tmp_path, {"db_password": "z-json"}))
+
+    assert opcje.db_password == "z-pliku-sekretu"
+    assert "z-pliku-sekretu" in opcje.dsn
+    assert "z-pliku-sekretu" not in opcje.bezpieczny_opis()
+
+
+@pytest.mark.parametrize("wariant", ["brak", "pusty", "pusta-sciezka"])
+def test_bledny_plik_sekretu_zatrzymuje_start(
+    tmp_path: pathlib.Path,
+    monkeypatch: pytest.MonkeyPatch,
+    wariant: str,
+) -> None:
+    sekret = tmp_path / "db-password"
+    if wariant == "pusty":
+        sekret.write_text("\n", encoding="utf-8")
+    wartosc = "" if wariant == "pusta-sciezka" else str(sekret)
+    monkeypatch.setenv("POLEASINGOWE_DB_PASSWORD_FILE", wartosc)
+
+    with pytest.raises(BladKonfiguracji, match="sekret|Sekret|pustą ścieżkę"):
+        wczytaj_opcje(zapisz(tmp_path, {"db_password": "z-json"}))
+
+
 def test_nieznana_opcja_jest_bledem_a_nie_ignorowana(
     tmp_path: pathlib.Path,
 ) -> None:
@@ -143,6 +173,12 @@ def test_dsn_sklada_sie_z_opcji(tmp_path: pathlib.Path) -> None:
     opcje = wczytaj_opcje(zapisz(tmp_path, dane))
     assert opcje.dsn == "postgresql://rola:tajne-haslo@localhost:5433/testowa"
     assert opcje.bezpieczny_opis() == "rola@localhost:5433/testowa"
+
+
+def test_dsn_koduje_znaki_specjalne_w_hasle(tmp_path: pathlib.Path) -> None:
+    opcje = wczytaj_opcje(zapisz(tmp_path, {"db_password": "p@ss:/?#%"}))
+    assert "p%40ss%3A%2F%3F%23%25" in opcje.dsn
+    assert "p@ss:/?#%" not in opcje.dsn
 
 
 def test_model_odrzuca_nieznany_poziom_logow(tmp_path: pathlib.Path) -> None:

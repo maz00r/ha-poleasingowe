@@ -3,6 +3,7 @@ name: CI
 on:
   push:
     branches: [main]
+    tags: ["v*"]
   pull_request:
 
 # SPEC.md §7: add-on celuje w obraz ghcr.io/home-assistant/amd64-base-python:3.12-alpine,
@@ -147,3 +148,184 @@ jobs:
             exit 1
           fi
           echo "OK — brak plikow -auth-"
+
+  pakowanie-proxmox:
+    name: obraz / compose / PostgreSQL standalone
+    runs-on: ubuntu-latest
+    env:
+      POLEASINGOWE_VERSION: ci
+      APP_BIND_IP: 127.0.0.1
+      POSTGRES_DATA_DIR: /tmp/poleasingowe-ci/postgres
+      APP_DATA_DIR: /tmp/poleasingowe-ci/data
+      APP_SHARE_DIR: /tmp/poleasingowe-ci/share
+      OPTIONS_FILE: /tmp/poleasingowe-ci/options.json
+      POSTGRES_ADMIN_PASSWORD_FILE: /tmp/poleasingowe-ci/secrets/postgres
+      POLEASINGOWE_APP_PASSWORD_FILE: /tmp/poleasingowe-ci/secrets/app
+      GRAFANA_RO_PASSWORD_FILE: /tmp/poleasingowe-ci/secrets/grafana
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Obraz standalone
+        run: >-
+          docker build
+          --build-arg APP_VERSION=ci
+          --build-arg VCS_REF=${{ github.sha }}
+          --tag ghcr.io/maz00r/poleasingowe:ci
+          --file deploy/proxmox/Dockerfile .
+
+      - name: Konfiguracja testowego stosu
+        run: |
+          sudo install -d -o 10001 -g 10001 \
+            /tmp/poleasingowe-ci/data /tmp/poleasingowe-ci/share
+          sudo install -d /tmp/poleasingowe-ci/postgres
+          install -d -m 700 /tmp/poleasingowe-ci/secrets
+          printf '%s\n' postgres-ci > /tmp/poleasingowe-ci/secrets/postgres
+          printf '%s\n' app-ci > /tmp/poleasingowe-ci/secrets/app
+          printf '%s\n' grafana-ci > /tmp/poleasingowe-ci/secrets/grafana
+          cp deploy/proxmox/options.example.json /tmp/poleasingowe-ci/options.json
+          sudo chown 10001:10001 /tmp/poleasingowe-ci/options.json
+          chmod 600 /tmp/poleasingowe-ci/options.json
+          cd deploy/proxmox
+          docker compose config --quiet
+
+      - name: Smoke test stosu
+        working-directory: deploy/proxmox
+        run: |
+          docker compose up -d
+          for proba in $(seq 1 60); do
+            if curl --fail --silent http://127.0.0.1:8099/zdrowie >/dev/null; then
+              break
+            fi
+            if [ "$proba" -eq 60 ]; then
+              docker compose logs
+              exit 1
+            fi
+            sleep 2
+          done
+          test "$(docker compose exec -T app id -u)" = 10001
+          uprawnienia=$(docker compose exec -T postgres psql \
+            -U postgres -d postgres -Atc \
+            "SELECT rolsuper || '|' || rolcreatedb || '|' || rolcreaterole \
+             FROM pg_roles WHERE rolname='poleasingowe_app'")
+          test "$uprawnienia" = "false|false|false"
+          docker compose exec -T postgres psql -U postgres -d poleasingowe \
+            -c "INSERT INTO app.source (key, name) VALUES ('ci-persist', 'CI')"
+          docker compose restart app
+          for proba in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:8099/zdrowie \
+              | grep -q '"dostepna":true'; then
+              break
+            fi
+            sleep 2
+          done
+          rekordy=$(docker compose exec -T postgres psql \
+            -U postgres -d poleasingowe -Atc \
+            "SELECT count(*) FROM app.source WHERE key='ci-persist'")
+          test "$rekordy" = 1
+          docker compose exec -T postgres psql -v ON_ERROR_STOP=1 \
+            -U postgres -d poleasingowe \
+            -c "SET ROLE grafana_ro; SELECT count(*) FROM reporting.v_source_health"
+          if docker compose exec -T postgres psql -v ON_ERROR_STOP=1 \
+            -U postgres -d poleasingowe \
+            -c "SET ROLE grafana_ro; SELECT count(*) FROM app.source"; then
+            echo "grafana_ro nie może czytać app.source"
+            exit 1
+          fi
+
+      - name: Eksport i odtworzenie pakietu
+        working-directory: deploy/proxmox
+        run: |
+          curl --fail --silent --output /dev/null --request POST \
+            http://127.0.0.1:8099/diagnostyka/eksport-migracji
+          for proba in $(seq 1 60); do
+            pakiet=$(find /tmp/poleasingowe-ci/share/poleasingowe/migracja \
+              -name 'poleasingowe-migracja-*.tar' -print -quit 2>/dev/null || true)
+            if [ -n "$pakiet" ]; then
+              break
+            fi
+            if [ "$proba" -eq 60 ]; then
+              echo "Pakiet migracyjny nie powstał"
+              exit 1
+            fi
+            sleep 2
+          done
+          docker compose stop app
+          ./scripts/restore-package.sh --replace "$pakiet"
+          docker compose up -d app
+          rekordy=$(docker compose exec -T postgres psql \
+            -U postgres -d poleasingowe -Atc \
+            "SELECT count(*) FROM app.source WHERE key='ci-persist'")
+          test "$rekordy" = 1
+
+      - name: Logi po błędzie
+        if: failure()
+        working-directory: deploy/proxmox
+        run: docker compose logs
+
+      - name: Zatrzymanie stosu
+        if: always()
+        working-directory: deploy/proxmox
+        run: docker compose down
+
+  publikacja-obrazu:
+    name: publikacja GHCR
+    if: github.event_name == 'push'
+    needs: [jakosc, dane-osobowe, pakowanie-proxmox]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Wersja tagu zgadza się z wydaniem HA
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          wersja=${GITHUB_REF_NAME#v}
+          test "$(sed -n 's/^version: "\([^"]*\)"/\1/p' poleasingowe/config.yaml)" = "$wersja"
+          test "$(sed -n 's/^WERSJA = "\([^"]*\)"/\1/p' poleasingowe/app/wersja.py)" = "$wersja"
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Tagi obrazu
+        id: tagi
+        shell: bash
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            wersja=${GITHUB_REF_NAME#v}
+            {
+              echo 'wartosci<<EOF'
+              echo "ghcr.io/maz00r/poleasingowe:$wersja"
+              echo 'ghcr.io/maz00r/poleasingowe:latest'
+              echo 'EOF'
+              echo "wersja=$wersja"
+            } >> "$GITHUB_OUTPUT"
+          else
+            {
+              echo 'wartosci<<EOF'
+              echo 'ghcr.io/maz00r/poleasingowe:edge'
+              echo 'EOF'
+              echo 'wersja=edge'
+            } >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: deploy/proxmox/Dockerfile
+          platforms: linux/amd64
+          push: true
+          tags: ${{ steps.tagi.outputs.wartosci }}
+          build-args: |
+            APP_VERSION=${{ steps.tagi.outputs.wersja }}
+            VCS_REF=${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          provenance: true
+          sbom: true

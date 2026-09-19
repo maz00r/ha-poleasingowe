@@ -40,6 +40,34 @@
   {% endif %}
 </section>
 
+<section class="karta">
+  <h2>Migracja HA ↔ Proxmox</h2>
+  <p class="uwaga">Pakiet zawiera świeży zrzut bazy i trwałe archiwum zdjęć.
+    Nie zawiera haseł, opcji, sesji, zrzutów debug ani cache.</p>
+  {% if migracja.pakiet %}
+    <div class="siatka">
+      <div><span>Ostatni pakiet</span><strong><code>{{ migracja.pakiet.sciezka.name }}</code></strong></div>
+      <div><span>Utworzono</span><strong>{{ migracja.pakiet.utworzono | czas_lokalny }}</strong></div>
+      <div><span>Rozmiar</span><strong>{{ migracja.pakiet.bajtow | bajty }}</strong></div>
+      <div><span>SHA-256</span><strong><code class="skrot">{{ migracja.pakiet.sha256 }}</code></strong></div>
+    </div>
+  {% endif %}
+  {% if migracja.ostatni_blad %}
+    <p class="ostrzezenie-inline">Ostatni eksport nie powiódł się:
+      <code>{{ migracja.ostatni_blad }}</code></p>
+  {% endif %}
+  {% if migracja.w_trakcie %}
+    <p class="uwaga">Eksport trwa. Po zakończeniu pakiet pojawi się w
+      <code>/share/poleasingowe/migracja</code>.</p>
+  {% else %}
+    <form method="post" action="{{ sciezka(request, 'eksport_migracji') }}">
+      <button type="submit" {% if not dane.baza_dostepna %}disabled{% endif %}>
+        Utwórz pakiet migracyjny
+      </button>
+    </form>
+  {% endif %}
+</section>
+
 <section class="karta {{ 'ostrzezenie' if dane.archiwum_zdjec_wstrzymane }}">
   <h2>Archiwum zdjęć</h2>
   <div class="siatka">

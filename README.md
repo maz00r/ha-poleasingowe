@@ -1,9 +1,18 @@
-# Aukcje poleasingowe — add-on Home Assistant
+# Aukcje poleasingowe — Home Assistant i Proxmox
 
 Zbiera oferty z polskich serwisów aukcji samochodów poleasingowych, trzyma
-pełną historię cen i udostępnia interfejs operacyjny przez Ingress.
+pełną historię cen i udostępnia interfejs operacyjny przez WWW.
 **Aplikacja jest wyłącznie do odczytu** — nigdy nie licytuje, nie składa ofert
 i nie zakłada kont.
+
+Ten sam kod jest dostarczany w dwóch wariantach:
+
+- add-on Home Assistant z uwierzytelnieniem przez Ingress;
+- samodzielny obraz OCI dla Docker Compose na VM w Proxmoxie, przeznaczony
+  do wystawienia przez Cloudflare Tunnel i Cloudflare Access.
+
+Instrukcja wariantu standalone: [`deploy/proxmox/README.md`](deploy/proxmox/README.md).
+Obu wariantów nie wolno uruchamiać jednocześnie z aktywnymi źródłami.
 
 To jest README dla dewelopera. Dokumentacja użytkownika add-onu trafi
 do `poleasingowe/DOCS.md`.

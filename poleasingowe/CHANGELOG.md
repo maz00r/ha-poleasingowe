@@ -1,5 +1,18 @@
 # Historia zmian
 
+## 0.30.0 — w przygotowaniu
+
+**Dwa warianty z jednego repozytorium.** Obok add-onu Home Assistant jest
+teraz samodzielny obraz OCI i gotowy stos Docker Compose dla VM na Proxmoxie
+z prywatnym PostgreSQL 17. Obraz działa bez s6 i bashio, jako użytkownik bez
+uprawnień roota, a hasło bazy może czytać z Docker Secret.
+
+**Bezpieczna migracja.** Panel diagnostyczny tworzy na żądanie atomowy pakiet
+z aktualnym `pg_dump`, archiwum zdjęć i manifestem SHA-256. Nie pakuje opcji,
+haseł, sesji, zrzutów debug ani cache. Do wariantu Proxmox dołączony jest
+walidator i skrypt odtworzenia, który nie nadpisze istniejącej bazy bez
+jawnego `--replace`.
+
 ## 0.29.15 — w przygotowaniu
 
 **Trwałe zdjęcia aukcji.** Każda aukcja dostaje archiwalną okładkę do

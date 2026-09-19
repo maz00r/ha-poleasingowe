@@ -1,0 +1,66 @@
+name: poleasingowe
+
+services:
+  postgres:
+    image: postgres:17-bookworm
+    restart: unless-stopped
+    shm_size: 128mb
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_DB: postgres
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_admin_password
+      POSTGRES_INITDB_ARGS: "--locale=en_US.UTF-8 --encoding=UTF8"
+      POLEASINGOWE_APP_PASSWORD_FILE: /run/secrets/poleasingowe_app_password
+      GRAFANA_RO_PASSWORD_FILE: /run/secrets/grafana_ro_password
+    secrets:
+      - postgres_admin_password
+      - poleasingowe_app_password
+      - grafana_ro_password
+    volumes:
+      - ${POSTGRES_DATA_DIR:?Ustaw POSTGRES_DATA_DIR}:/var/lib/postgresql/data
+      - ./postgres/init-poleasingowe.sh:/docker-entrypoint-initdb.d/10-poleasingowe.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    networks:
+      - backend
+
+  app:
+    image: ghcr.io/maz00r/poleasingowe:${POLEASINGOWE_VERSION:?Ustaw POLEASINGOWE_VERSION}
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      POLEASINGOWE_OPTIONS: /config/options.json
+      POLEASINGOWE_DB_PASSWORD_FILE: /run/secrets/poleasingowe_app_password
+    secrets:
+      - poleasingowe_app_password
+    volumes:
+      - ${OPTIONS_FILE:?Ustaw OPTIONS_FILE}:/config/options.json:ro
+      - ${APP_DATA_DIR:?Ustaw APP_DATA_DIR}:/data
+      - ${APP_SHARE_DIR:?Ustaw APP_SHARE_DIR}:/share
+    ports:
+      - "${APP_BIND_IP:?Ustaw APP_BIND_IP}:8099:8099"
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - backend
+
+networks:
+  backend:
+
+secrets:
+  postgres_admin_password:
+    file: ${POSTGRES_ADMIN_PASSWORD_FILE:?Ustaw POSTGRES_ADMIN_PASSWORD_FILE}
+  poleasingowe_app_password:
+    file: ${POLEASINGOWE_APP_PASSWORD_FILE:?Ustaw POLEASINGOWE_APP_PASSWORD_FILE}
+  grafana_ro_password:
+    file: ${GRAFANA_RO_PASSWORD_FILE:?Ustaw GRAFANA_RO_PASSWORD_FILE}

@@ -1031,6 +1031,8 @@ async def diagnostyka(request: Request) -> Response:
     # może się rozjechać z rzeczywistością, a znacznik owszem (§7.1).
     kopia = getattr(request.app.state, "kopia", None)
     ostatnia_kopia = kopia.ostatnia() if kopia is not None else None
+    eksporter = getattr(request.app.state, "eksporter_migracji", None)
+    ostatni_pakiet = eksporter.ostatni() if eksporter is not None else None
     galeria = getattr(request.app.state, "galeria", None)
     statystyki_zdjec = (
         await galeria.diagnostyka()
@@ -1096,8 +1098,31 @@ async def diagnostyka(request: Request) -> Response:
     return SZABLONY.TemplateResponse(
         request=request,
         name="diagnostyka.html",
-        context={**_kontekst_bazowy(request), "dane": dane},
+        context={
+            **_kontekst_bazowy(request),
+            "dane": dane,
+            "migracja": {
+                "dostepna": eksporter is not None,
+                "w_trakcie": eksporter is not None and eksporter.w_trakcie,
+                "ostatni_blad": (None if eksporter is None else eksporter.ostatni_blad),
+                "pakiet": ostatni_pakiet,
+            },
+        },
     )
+
+
+@router.post("/diagnostyka/eksport-migracji")
+async def eksport_migracji(request: Request) -> Response:
+    """Uruchamia świadomie żądany, przenośny eksport danych."""
+    stan = _stan(request)
+    eksporter = getattr(request.app.state, "eksporter_migracji", None)
+    if not stan.baza_dostepna or eksporter is None:
+        return _brak_bazy(request)
+    if not eksporter.uruchom():
+        return Response("Eksport migracyjny już trwa", status_code=409)
+    # Żądanie jest zagnieżdżone o jeden segment pod panelem. Adres względny
+    # zachowuje zarówno prefiks Ingressu HA, jak i bezpośredni origin Compose.
+    return RedirectResponse("../diagnostyka", status_code=303)
 
 
 @router.post("/zrodlo/{key}/odblokuj")

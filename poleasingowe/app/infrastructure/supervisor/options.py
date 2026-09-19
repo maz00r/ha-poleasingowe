@@ -11,12 +11,15 @@ z wartościami domyślnymi, które użytkownik uzna za swoje (§7.1).
 from __future__ import annotations
 
 import json
+import os
 import pathlib
 from typing import Annotated, Literal
+from urllib.parse import quote
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 SCIEZKA_OPCJI = pathlib.Path("/data/options.json")
+ZMIENNA_PLIKU_HASLA_BAZY = "POLEASINGOWE_DB_PASSWORD_FILE"
 
 # Twarda dolna granica interwalu (SPEC.md §11.2). Floor wylicza sie z reguly —
 # polowa okna dogrywki serwisu — ale nizej niz 10 s nie schodzimy nigdy.
@@ -97,9 +100,12 @@ class Opcje(BaseModel):
     @property
     def dsn(self) -> str:
         """Łańcuch połączenia. **Nie loguj go — zawiera hasło.**"""
+        uzytkownik = quote(self.db_user, safe="")
+        haslo = quote(self.db_password, safe="")
+        baza = quote(self.db_name, safe="")
         return (
-            f"postgresql://{self.db_user}:{self.db_password}"
-            f"@{self.db_host}:{self.db_port}/{self.db_name}"
+            f"postgresql://{uzytkownik}:{haslo}"
+            f"@{self.db_host}:{self.db_port}/{baza}"
         )
 
     @property
@@ -134,6 +140,30 @@ def wczytaj_opcje(sciezka: pathlib.Path = SCIEZKA_OPCJI) -> Opcje:
         dane = json.loads(surowe)
     except json.JSONDecodeError as exc:
         raise BladKonfiguracji(f"{sciezka} nie jest poprawnym JSON-em: {exc}") from exc
+
+    # Docker Compose przekazuje hasło bazy jako sekret montowany w pliku.
+    # Home Assistant nie ustawia tej zmiennej i zachowuje dotychczasowe
+    # zachowanie: hasło pochodzi z `/data/options.json`.
+    plik_hasla = os.environ.get(ZMIENNA_PLIKU_HASLA_BAZY)
+    if plik_hasla is not None:
+        if not plik_hasla.strip():
+            raise BladKonfiguracji(f"{ZMIENNA_PLIKU_HASLA_BAZY} wskazuje pustą ścieżkę")
+        try:
+            haslo = pathlib.Path(plik_hasla).read_text(encoding="utf-8").rstrip("\r\n")
+        except OSError as exc:
+            raise BladKonfiguracji(
+                f"Nie można odczytać sekretu bazy wskazanego przez "
+                f"{ZMIENNA_PLIKU_HASLA_BAZY}: {exc}"
+            ) from exc
+        if not haslo:
+            raise BladKonfiguracji(
+                f"Sekret wskazany przez {ZMIENNA_PLIKU_HASLA_BAZY} jest pusty"
+            )
+        if not isinstance(dane, dict):
+            raise BladKonfiguracji(
+                f"{sciezka} musi zawierać obiekt JSON, nie {type(dane).__name__}"
+            )
+        dane["db_password"] = haslo
 
     try:
         opcje = Opcje.model_validate(dane)

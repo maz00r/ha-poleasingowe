@@ -23,6 +23,7 @@ import uvicorn
 from app.application.use_cases.rejestracja import zarejestruj_zrodla
 from app.infrastructure.ai_klienci import utworz_klienta
 from app.infrastructure.kopia import KopiaZapasowa
+from app.infrastructure.migracja import EksporterMigracji
 from app.infrastructure.persistence.migrations import Migracja
 from app.infrastructure.persistence.polaczenie import polacz_i_zmigruj
 from app.infrastructure.persistence.pula import PgFabrykaKontekstu
@@ -202,6 +203,7 @@ def main() -> int:
     # Kopia zapasowa WYLACZNIE wlasnej bazy (SPEC.md §7.1) — snapshot HA
     # obejmuje tez TeslaMate, wiec nie da sie z niego odtworzyc samej naszej.
     kopia = KopiaZapasowa(opcje.dsn)
+    eksporter_migracji = EksporterMigracji(kopia)
     wycena_ai = _wycena(opcje)
 
     aplikacja = utworz_aplikacje(
@@ -211,6 +213,7 @@ def main() -> int:
         galeria=galeria,
         wycena_ai=wycena_ai,
         kopia=kopia,
+        eksporter_migracji=eksporter_migracji,
         budzik=budzik,
     )
     aplikacja.state.stan = stan_wstepny

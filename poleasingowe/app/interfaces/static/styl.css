@@ -311,6 +311,8 @@ button {
   color: var(--akcent-tekst);
 }
 button:hover { filter: brightness(1.1); }
+button:disabled { cursor: not-allowed; opacity: 0.55; filter: none; }
+.skrot { overflow-wrap: anywhere; }
 
 .przyciski { display: flex; gap: 10px; align-items: center; }
 .przycisk-lekki {

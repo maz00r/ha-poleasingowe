@@ -304,6 +304,16 @@ dodatek zaloguje się przy najbliższej okazji.
 
 ## Gdzie leżą dane — przeczytaj przed pierwszym backupem
 
+### Pakiet migracyjny
+
+Panel **Diagnostyka** ma przycisk „Utwórz pakiet migracyjny”. Najpierw wyłącz
+wszystkie źródła i zrestartuj dodatek, aby podczas eksportu nic już nie
+zmieniało danych. Gotowy plik trafia do
+`/share/poleasingowe/migracja/` i zawiera świeży dump bazy, trwałe archiwum
+zdjęć oraz manifest SHA-256. Nie zawiera opcji, haseł, sesji, debug dumpów ani
+cache. Pakiet służy do kontrolowanego przejścia między HA i wdrożeniem
+standalone; nie jest zamiennikiem regularnego backupu.
+
 **Dane trwałe nie leżą w `/data` tego add-onu.** Są w bazie PostgreSQL,
 czyli w wolumenie **add-onu PostgreSQL**, a nie tego.
 

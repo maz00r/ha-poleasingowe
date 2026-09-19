@@ -139,6 +139,34 @@ def test_panel_diagnostyczny_dziala_takze_bez_bazy() -> None:
     assert "niedostępna" in odp.text
 
 
+def test_eksport_migracji_wymaga_dostepnej_bazy() -> None:
+    with klient() as c:
+        odp = c.post("/diagnostyka/eksport-migracji")
+    assert odp.status_code == 503
+    assert "Baza jest niedostępna" in odp.text
+
+
+def test_eksport_migracji_uruchamia_zadanie_i_wraca_do_diagnostyki() -> None:
+    class Eksporter:
+        def __init__(self) -> None:
+            self.uruchomiono = False
+
+        def uruchom(self) -> bool:
+            self.uruchomiono = True
+            return True
+
+    app = utworz_aplikacje(OPCJE)
+    app.state.stan.baza_dostepna = True
+    eksporter = Eksporter()
+    app.state.eksporter_migracji = eksporter
+    with TestClient(app) as c:
+        odp = c.post("/diagnostyka/eksport-migracji", follow_redirects=False)
+
+    assert odp.status_code == 303
+    assert odp.headers["location"] == "../diagnostyka"
+    assert eksporter.uruchomiono is True
+
+
 def test_htmx_jedzie_z_lokalnego_pliku_a_nie_z_cdn() -> None:
     """SPEC.md §12 — żadnych CDN-ów."""
     with klient() as c:

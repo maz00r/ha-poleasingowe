@@ -1,0 +1,15 @@
+.git
+.github
+.venv
+**/__pycache__
+**/.mypy_cache
+**/.pytest_cache
+**/.ruff_cache
+**/*.pyc
+*.zip
+fixtures
+poleasingowe/tests
+poleasingowe/grafana
+poleasingowe/rootfs
+deploy/proxmox/local
+deploy/proxmox/secrets

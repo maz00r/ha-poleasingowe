@@ -69,6 +69,7 @@ class KopiaZapasowa:
         self._ile_trzymac = ile_trzymac
         self._limit = limit_czasu_s
         self._ostatni_blad: str | None = None
+        self._blokada = asyncio.Lock()
 
     @property
     def ostatni_blad(self) -> str | None:
@@ -107,6 +108,11 @@ class KopiaZapasowa:
 
     async def wykonaj(self, teraz: dt.datetime) -> Kopia:
         """Robi kopię i kasuje najstarsze ponad limit. Zwraca nową kopię."""
+        async with self._blokada:
+            return await self._wykonaj(teraz)
+
+    async def _wykonaj(self, teraz: dt.datetime) -> Kopia:
+        """Właściwy pg_dump, wykonywany pod wspólną blokadą."""
         self._katalog.mkdir(parents=True, exist_ok=True)
         cel = self._katalog / f"poleasingowe-{teraz:%Y%m%d-%H%M%S}.dump"
         # Plik tymczasowy: przerwana kopia nie ma prawa wyglądać jak dobra.

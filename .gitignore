@@ -11,3 +11,5 @@ fixtures/**/.pomiar-*-wykonany
 .mypy_cache/
 .ruff_cache/
 .pytest_cache/
+deploy/proxmox/local/
+deploy/proxmox/secrets/

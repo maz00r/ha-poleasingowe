@@ -365,6 +365,26 @@ poleasingowe/
 - Dockerfile wieloetapowy, bez kompilatorów w warstwie runtime.
 - **Jeden proces, jeden event loop.** Bez uvicorn workers, bez
   multiprocessingu, bez Redisa, bez Celery.
+
+### 7.2 Wariant standalone na Proxmox
+
+- Kod aplikacji, migracje, zależności i numer wydania są wspólne z add-onem.
+  Osobne są wyłącznie Dockerfile i konfiguracja uruchomieniowa w
+  `deploy/proxmox/`.
+- Stos składa się z aplikacji oraz prywatnego PostgreSQL 17. Baza nie publikuje
+  portu. Port 8099 aplikacji wiąże się ze statycznym prywatnym adresem VM i
+  zapora dopuszcza do niego wyłącznie host uruchamiający `cloudflared`.
+- Uwierzytelnienie zapewnia Cloudflare Access; aplikacja nie implementuje
+  drugiego systemu kont ani sesji użytkowników.
+- Standalone czyta ten sam format opcji przez `POLEASINGOWE_OPTIONS`. Hasło
+  bazy może nadpisać bezpiecznie przez `POLEASINGOWE_DB_PASSWORD_FILE`.
+- `/data` i `/share` zachowują znaczenie z add-onu i są trwałymi bind mountami.
+  PostgreSQL ma osobny trwały katalog. Obraz aplikacji działa bez roota,
+  z systemem plików obrazu tylko do odczytu.
+- Tylko jedna instalacja może mieć włączone źródła. Druga pozostaje zatrzymana
+  lub ma `sources: []`; nie budujemy automatycznego active-active.
+- Obraz `ghcr.io/maz00r/poleasingowe` jest publikowany jako `edge` z `main`,
+  a tag wersji i `latest` powstają wyłącznie z odpowiadającego tagu Git.
 - W `DOCS.md` napisz wprost: dane aukcji leżą w wolumenie add-onu PostgreSQL,
   a archiwum zdjęć w `/data` tego add-onu; pełne odtworzenie wymaga kopii obu.
 
