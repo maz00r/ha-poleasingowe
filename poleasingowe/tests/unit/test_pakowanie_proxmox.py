@@ -71,6 +71,7 @@ def test_inicjalizacja_bazy_utrzymuje_granice_uprawnien() -> None:
 def test_postgres_kopiuje_sekrety_do_prywatnych_plikow() -> None:
     compose = _compose()["services"]["postgres"]
     assert compose["entrypoint"] == ["/usr/local/bin/poleasingowe-entrypoint.sh"]
+    assert compose["command"] == ["postgres"]
 
     skrypt_path = DEPLOY / "postgres/entrypoint.sh"
     skrypt = skrypt_path.read_text(encoding="utf-8")

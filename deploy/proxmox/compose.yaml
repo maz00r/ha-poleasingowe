@@ -4,6 +4,7 @@ services:
   postgres:
     image: postgres:17-bookworm
     entrypoint: ["/usr/local/bin/poleasingowe-entrypoint.sh"]
+    command: ["postgres"]
     restart: unless-stopped
     shm_size: 128mb
     environment:
