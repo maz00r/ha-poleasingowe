@@ -175,16 +175,17 @@ jobs:
 
       - name: Konfiguracja testowego stosu
         run: |
-          sudo install -d -o 10001 -g 10001 \
-            /tmp/poleasingowe-ci/data /tmp/poleasingowe-ci/share
-          sudo install -d /tmp/poleasingowe-ci/postgres
           install -d -m 700 /tmp/poleasingowe-ci/secrets
           printf '%s\n' postgres-ci > /tmp/poleasingowe-ci/secrets/postgres
           printf '%s\n' app-ci > /tmp/poleasingowe-ci/secrets/app
           printf '%s\n' grafana-ci > /tmp/poleasingowe-ci/secrets/grafana
           cp deploy/proxmox/options.example.json /tmp/poleasingowe-ci/options.json
+          chmod 600 /tmp/poleasingowe-ci/secrets/* \
+            /tmp/poleasingowe-ci/options.json
+          sudo install -d -o 10001 -g 10001 \
+            /tmp/poleasingowe-ci/data /tmp/poleasingowe-ci/share
+          sudo install -d /tmp/poleasingowe-ci/postgres
           sudo chown 10001:10001 /tmp/poleasingowe-ci/options.json
-          chmod 600 /tmp/poleasingowe-ci/options.json
           cd deploy/proxmox
           docker compose config --quiet
 
