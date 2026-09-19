@@ -3,6 +3,7 @@ name: poleasingowe
 services:
   postgres:
     image: postgres:17-bookworm
+    entrypoint: ["/usr/local/bin/poleasingowe-entrypoint.sh"]
     restart: unless-stopped
     shm_size: 128mb
     environment:
@@ -18,6 +19,7 @@ services:
       - grafana_ro_password
     volumes:
       - ${POSTGRES_DATA_DIR:?Ustaw POSTGRES_DATA_DIR}:/var/lib/postgresql/data
+      - ./postgres/entrypoint.sh:/usr/local/bin/poleasingowe-entrypoint.sh:ro
       - ./postgres/init-poleasingowe.sh:/docker-entrypoint-initdb.d/10-poleasingowe.sh:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d postgres"]

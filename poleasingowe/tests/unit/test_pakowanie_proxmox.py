@@ -68,6 +68,17 @@ def test_inicjalizacja_bazy_utrzymuje_granice_uprawnien() -> None:
     assert "GRANT USAGE ON SCHEMA reporting TO grafana_ro" in skrypt
 
 
+def test_postgres_kopiuje_sekrety_do_prywatnych_plikow() -> None:
+    compose = _compose()["services"]["postgres"]
+    assert compose["entrypoint"] == ["/usr/local/bin/poleasingowe-entrypoint.sh"]
+
+    skrypt_path = DEPLOY / "postgres/entrypoint.sh"
+    skrypt = skrypt_path.read_text(encoding="utf-8")
+    assert skrypt_path.stat().st_mode & 0o111
+    assert "install -m 0400 -o postgres -g postgres" in skrypt
+    assert "exec /usr/local/bin/docker-entrypoint.sh" in skrypt
+
+
 def test_restore_wymaga_jawnego_replace_i_przywraca_granty() -> None:
     skrypt_path = DEPLOY / "scripts/restore-package.sh"
     skrypt = skrypt_path.read_text(encoding="utf-8")

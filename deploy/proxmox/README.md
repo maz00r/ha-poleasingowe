@@ -27,6 +27,8 @@ openssl rand -hex 32 | sudo tee \
 openssl rand -hex 32 | sudo tee \
   /etc/poleasingowe/secrets/grafana_ro_password >/dev/null
 sudo chmod 600 /etc/poleasingowe/secrets/*
+sudo chown 10001:10001 \
+  /etc/poleasingowe/secrets/poleasingowe_app_password
 
 cd deploy/proxmox
 cp .env.example .env
@@ -37,6 +39,11 @@ Ustaw w `.env` statyczny adres VM i właściwe ścieżki. W
 `/etc/poleasingowe/options.json` pozostaw `db_password` pusty — podczas startu
 zastąpi go Docker Secret. Klucze AI i poświadczenia źródeł można wpisać do
 tego pliku; nie wolno dodawać go do Git.
+
+Plik `poleasingowe_app_password` musi pozostać w trybie `0600` i należeć do
+UID/GID `10001`, aby bezrootowa aplikacja mogła go odczytać. PostgreSQL kopiuje
+wszystkie trzy sekrety przy starcie do prywatnych plików należących do jego
+użytkownika, a następnie uruchamia standardowy entrypoint obrazu.
 
 ## 2. Czysty start
 
