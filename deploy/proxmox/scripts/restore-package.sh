@@ -38,6 +38,7 @@ fi
 roboczy=$(mktemp -d)
 trap 'rm -rf "$roboczy"' EXIT INT TERM
 python3 ./scripts/verify_package.py "$pakiet" "$roboczy"
+chmod -R a+rX "$roboczy/archiwum-zdjec"
 
 tabele=$(docker compose exec -T postgres psql -U postgres -d poleasingowe -tAc \
     "SELECT count(*) FROM pg_tables WHERE schemaname IN ('app','reporting')")
@@ -89,7 +90,8 @@ if [ "$replace" -eq 1 ]; then
 fi
 docker compose run --rm --no-deps --entrypoint sh \
     -v "$roboczy/archiwum-zdjec:/import:ro" app -c \
-    'mkdir -p /data/archiwum-zdjec && cp -a /import/. /data/archiwum-zdjec/'
+    'mkdir -p /data/archiwum-zdjec \
+        && cp -R /import/. /data/archiwum-zdjec/'
 
 docker compose exec -T postgres psql -U postgres -d poleasingowe -c \
     "SELECT schemaname, count(*) AS tabele FROM pg_tables WHERE schemaname IN ('app','reporting') GROUP BY schemaname ORDER BY schemaname"
