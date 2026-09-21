@@ -564,6 +564,29 @@ class Dispatcher:
 
         swieza = z_cena_wywolawcza(adapter.na_aukcje(surowa, zrodlo.id, teraz))
 
+        # poleasingowe.pl potrafi po zakończeniu zwrócić licznik większy od
+        # ostatnio widzianego, mimo że cena się nie zmieniła, a `lastOffers`
+        # jest puste. Taki niespójny odczyt nie jest dowodem nowych ofert.
+        # Źródło z pełną listą nadal może zgłosić ofertę proxy bez zmiany ceny,
+        # ale wtedy konkretna oferta znajduje się w `surowa.oferty`.
+        if (
+            isinstance(adapter, ZrodloZOfertami)
+            and not surowa.oferty
+            and aukcja.bid_count is not None
+            and swieza.bid_count is not None
+            and swieza.bid_count > aukcja.bid_count
+            and swieza.price_current == aukcja.price_current
+        ):
+            log.warning(
+                "pomijam niespójny wzrost licznika ofert w %s/%s: %s -> %s "
+                "bez zmiany ceny i bez historii ofert",
+                zrodlo.key,
+                aukcja.external_id,
+                aukcja.bid_count,
+                swieza.bid_count,
+            )
+            swieza = replace(swieza, bid_count=aukcja.bid_count)
+
         async with kontekst.uow as uow:
             obserwowana = await uow.watchlist.obserwowana(aukcja.id)
             scalona = self._scal(aukcja, swieza, zrodlo, teraz, obserwowana)

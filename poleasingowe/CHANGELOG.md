@@ -1,5 +1,12 @@
 # Historia zmian
 
+## 0.30.1 — w przygotowaniu
+
+**Spójny licznik ofert.** Odrzucamy zgłaszany po zakończeniu aukcji wzrost
+licznika, jeżeli cena się nie zmieniła, a źródło nie zwróciło ani jednej
+konkretnej oferty. Chroni to kartę aukcji przed fikcyjnymi ofertami z
+niespójnych danych końcowych poleasingowe.pl.
+
 ## 0.30.0 — w przygotowaniu
 
 **Dwa warianty z jednego repozytorium.** Obok add-onu Home Assistant jest

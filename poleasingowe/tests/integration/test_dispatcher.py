@@ -1421,6 +1421,27 @@ async def test_zrodlo_bez_ofert_nie_zapisuje_nic(
         assert await uow.oferta.dla_aukcji(auction_id) == []
 
 
+async def test_pusty_last_offers_nie_podbija_licznika_przy_stalej_cenie(
+    pusta_baza: psycopg.AsyncConnection,
+) -> None:
+    """Niespójne dane końcowe źródła nie tworzą fikcyjnych ofert.
+
+    poleasingowe.pl zwróciło po końcu aukcji `offers_count = 2`, choć cena
+    pozostała wywoławcza, a `lastOffers` było puste. Ostatni spójny licznik
+    musi wtedy wygrać z samotną liczbą bez potwierdzenia w historii.
+    """
+    adapter = ZrodloZListaOfert()
+    auction_id, _ = await przygotuj(pusta_baza, adapter, do_konca_min=0)
+    adapter.bid_count = 2
+    adapter.zakonczona = True
+
+    await dispatcher(pusta_baza, adapter).jeden_obrot()
+
+    zapisana = await wczytaj(pusta_baza, auction_id)
+    assert zapisana.status is AuctionStatus.ENDED
+    assert zapisana.bid_count == 1
+
+
 async def test_przemiat_zapisuje_snapshot_gdy_zmieni_sie_licznik_ofert(
     pusta_baza: psycopg.AsyncConnection,
 ) -> None:
