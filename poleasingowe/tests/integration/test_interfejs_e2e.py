@@ -268,6 +268,52 @@ async def test_karta_pokazuje_historie_ceny_biezacej(
     assert "57" in odp.text and "52" in odp.text, "obie ceny w historii"
 
 
+async def test_dawro_pokazuje_minimum_ofert_z_wzrostow_ceny(
+    klient: httpx.AsyncClient, pusta_baza: psycopg.AsyncConnection
+) -> None:
+    """Osiem rosnących cen oznacza co najmniej siedem ofert, także w fragmencie."""
+    identyfikatory = await _dane(pusta_baza)
+    aukcja_id = identyfikatory["audi-za-godzine"]
+    async with pusta_baza.cursor() as cur:
+        await cur.execute("UPDATE app.source SET key = 'dawro' WHERE key = 'efl'")
+    uow = PgUnitOfWork(pusta_baza)
+    teraz = dt.datetime.now(dt.UTC)
+    for indeks, kwota in enumerate(
+        (44000, 45000, 45900, 46000, 46666, 47100, 49100, 50100)
+    ):
+        await uow.snapshot.zapisz_jesli_zmienil_sie(
+            PriceSnapshot(
+                auction_id=aukcja_id,
+                ts=teraz + dt.timedelta(seconds=indeks),
+                price=Money(Decimal(kwota), Currency.PLN),
+            )
+        )
+
+    odp = await klient.get(f"/aukcja/{aukcja_id}")
+    fragment = await klient.get(f"/aukcja/{aukcja_id}/karta")
+    assert odp.status_code == fragment.status_code == 200
+    assert "co najmniej 7 ofert" in odp.text
+    assert "co najmniej 7 ofert" in fragment.text
+    assert "Ofert co najmniej" in odp.text
+
+    # Korekta w dół i powrót do wcześniejszej kwoty nie są nowymi maksimami.
+    for indeks, kwota in enumerate((49000, 50100), start=8):
+        await uow.snapshot.zapisz_jesli_zmienil_sie(
+            PriceSnapshot(
+                auction_id=aukcja_id,
+                ts=teraz + dt.timedelta(seconds=indeks),
+                price=Money(Decimal(kwota), Currency.PLN),
+            )
+        )
+    po_korekcie = await klient.get(f"/aukcja/{aukcja_id}")
+    assert "co najmniej 7 ofert" in po_korekcie.text
+
+    async with pusta_baza.cursor() as cur:
+        await cur.execute("UPDATE app.source SET key = 'efl' WHERE key = 'dawro'")
+    inny_serwis = await klient.get(f"/aukcja/{aukcja_id}")
+    assert "co najmniej 7 ofert" not in inny_serwis.text
+
+
 async def test_przebieg_laczy_dokladne_oferty_ze_snapshotami(
     klient: httpx.AsyncClient, pusta_baza: psycopg.AsyncConnection
 ) -> None:

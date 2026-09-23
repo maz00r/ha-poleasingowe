@@ -69,6 +69,7 @@
 {% if przebieg or p.price_start or p.price_current %}
 <section class="karta">
   <h2>Przebieg licytacji</h2>
+  <p class="drobne">„Odczyt aplikacji” oznacza zaobserwowaną cenę, nie pojedynczą ofertę. {% if dane.bid_count_min is not none %}Każde nowe maksimum najwyższej oferty DAWRO potwierdza co najmniej jedną ofertę; rzeczywista liczba może być większa.{% else %}Tylko „oferta z serwisu” potwierdza konkretną ofertę. Jeśli serwis nie podaje licznika, liczba ofert pozostaje nieznana.{% endif %}</p>
   {% set cena_poczatkowa = p.price_start or (przebieg[-1].price if przebieg else none) %}
   {% set cena_biezaca = p.price_current or p.price_start %}
   <div class="podsumowanie-licytacji">
@@ -81,10 +82,10 @@
       <strong class="kwota">{{ cena_biezaca | kwota }}</strong>
       {% if p.status.value != 'ACTIVE' %}<small>{{ p.final_price_state.value }}</small>{% endif %}
     </div>
-    {% if p.bid_count is not none %}
+    {% if p.bid_count is not none or dane.bid_count_min is not none %}
       <div>
-        <span>{{ 'Ofert' if dane.semantyka_licznika.value == 'OFFERS' else 'Uczestników' if dane.semantyka_licznika.value == 'PARTICIPANTS' else 'Licznik serwisu' }}</span>
-        <strong>{{ p.bid_count }}</strong>
+        <span>{{ 'Ofert co najmniej' if dane.bid_count_min is not none else 'Ofert' if dane.semantyka_licznika.value == 'OFFERS' else 'Uczestników' if dane.semantyka_licznika.value == 'PARTICIPANTS' else 'Licznik serwisu' }}</span>
+        <strong>{{ p.bid_count if p.bid_count is not none else dane.bid_count_min }}</strong>
       </div>
     {% endif %}
   </div>
@@ -114,7 +115,7 @@
     </tbody>
   </table>
   {% endif %}
-  <p class="drobne">Oferty mają czas podany przez serwis, a odczyty pokazują chwile, w których aplikacja zauważyła zmianę.</p>
+  <p class="drobne">Oferty mają czas podany przez serwis, a odczyty pokazują chwile, w których aplikacja zauważyła zmianę ceny.</p>
 </section>
 {% endif %}
 

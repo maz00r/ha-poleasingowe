@@ -1,5 +1,12 @@
 # Historia zmian
 
+## 0.30.2 — w przygotowaniu
+
+**Dolna granica ofert w DAWRO.** Każde nowe maksimum najwyższej
+oferty oznacza co najmniej jedną nową ofertę. Karta pokazuje minimum wyliczone
+z całej historii cen, nawet gdy serwis nie podaje dokładnego licznika.
+Wyjaśnia też różnicę między odczytem ceny a ofertą z serwisu.
+
 ## 0.30.1 — w przygotowaniu
 
 **Spójny licznik ofert.** Odrzucamy zgłaszany po zakończeniu aukcji wzrost

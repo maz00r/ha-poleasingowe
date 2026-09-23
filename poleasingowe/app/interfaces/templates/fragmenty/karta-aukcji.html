@@ -41,7 +41,7 @@
       <span class="kwota">{{ cena_wyswietlana | kwota }}</span>
       <div class="drobne">
         {% if p.ends_at %}{{ p.ends_at | do_konca(teraz) }} · {% endif %}
-        {% if p.bid_count is not none %}{{ p.bid_count }} {{ etykieta_licznika | lower }}{% else %}liczba ofert nieznana{% endif %}
+        {% if p.bid_count is not none %}{{ p.bid_count }} {{ etykieta_licznika | lower }}{% elif dane.bid_count_min is not none %}co najmniej {{ dane.bid_count_min }} ofert{% else %}liczba ofert nieznana{% endif %}
       </div>
       {% include "fragmenty/obserwowanie-szczegoly.html" %}
     </div>
@@ -60,7 +60,7 @@
   <div class="siatka">
     <div><span>{{ 'Cena bieżąca' if p.price_current else 'Cena wywoławcza' }}</span><strong class="kwota">{{ cena_wyswietlana | kwota }}</strong></div>
     <div><span>Cena wywoławcza</span><strong>{{ p.price_start | kwota }}</strong></div>
-    <div><span>{{ etykieta_licznika }}</span><strong>{{ p.bid_count if p.bid_count is not none else '—' }}</strong></div>
+    <div><span>{{ 'Ofert co najmniej' if dane.bid_count_min is not none else etykieta_licznika }}</span><strong>{{ p.bid_count if p.bid_count is not none else dane.bid_count_min if dane.bid_count_min is not none else '—' }}</strong></div>
     <div><span>Postąpienie</span><strong>{{ dane.bid_increment_raw or '—' }}</strong></div>
     <div><span>Koniec</span><strong>{{ p.ends_at | czas_lokalny(z_sekundami=True) }}</strong></div>
     <div><span>Zostało</span><strong>{{ p.ends_at | do_konca(teraz) }}</strong></div>

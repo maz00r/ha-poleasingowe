@@ -109,7 +109,17 @@ SELECT
     a.vin, a.body, a.color, a.engine_ccm, a.engine_hp, a.seller,
     a.bid_increment_raw, a.last_seen_at, a.next_poll_at, a.poll_tier,
     a.last_price_lead_seconds, a.duplicate_of,
-    s.bid_count_semantics AS semantyka_licznika
+    s.bid_count_semantics AS semantyka_licznika,
+    CASE WHEN s.key = 'dawro' AND a.bid_count IS NULL THEN (
+        SELECT NULLIF(count(*) FILTER (WHERE price > poprzednie_maksimum), 0)
+        FROM (
+            SELECT price, max(price) OVER (
+                ORDER BY ts ROWS BETWEEN UNBOUNDED PRECEDING AND 1 PRECEDING
+            ) AS poprzednie_maksimum
+            FROM app.price_snapshot
+            WHERE auction_id = a.id
+        ) AS zmiany
+    ) END AS bid_count_min
 FROM app.auction AS a
 JOIN app.source AS s ON s.id = a.source_id
 LEFT JOIN app.watchlist AS w ON w.auction_id = a.id
@@ -598,6 +608,7 @@ class PgZapytania:
             last_price_lead_seconds=wiersz["last_price_lead_seconds"],
             duplicate_of=wiersz["duplicate_of"],
             semantyka_licznika=BidCountSemantics(wiersz["semantyka_licznika"]),
+            bid_count_min=wiersz["bid_count_min"],
         )
 
     async def porownania_rynkowe(

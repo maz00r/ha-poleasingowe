@@ -270,6 +270,8 @@ class Szczegoly:
     last_price_lead_seconds: int | None = None
     duplicate_of: int | None = None
     semantyka_licznika: BidCountSemantics = BidCountSemantics.UNKNOWN
+    bid_count_min: int | None = None
+    """Dolna granica ofert z nowych maksimów najwyższej oferty DAWRO."""
 
 
 @dataclass(slots=True, frozen=True)
