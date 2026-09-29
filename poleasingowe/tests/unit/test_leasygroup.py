@@ -35,16 +35,37 @@ def test_certyfikat_posredni_leasygroup_daje_sie_wczytac_do_tls() -> None:
     kontekst.load_verify_locations(cafile=certyfikat)
 
 
-def test_lista_wp_uszcza_tylko_licytacje_i_bierze_id_z_url() -> None:
+def test_lista_wp_uszcza_tylko_licytacje_i_bierze_numer_konkretnej_aukcji() -> None:
     pozycje = parser.sparsuj_liste(html("lista-widok-lista-01.html"))
 
-    assert [p.external_id for p in pozycje] == ["28163"]
+    assert [p.external_id for p in pozycje] == ["326196"]
     pozycja = pozycje[0]
     assert pozycja.url.endswith("/aukcja/28163/honda-nsx-3-5-hybrid-581-km-4x4-2017/")
     assert pozycja.pola["numer_aukcji"] == "326196"
     assert pozycja.pola["cena"] == "878 900"
     assert pozycja.pola["cena_podstawa"] == "brutto"
     assert parser.numery_stron(html("lista-widok-lista-01.html"))[-1] == 8
+
+
+def test_ponowne_wystawienie_tego_samego_przedmiotu_ma_nowy_klucz() -> None:
+    pierwsze_html = html("lista-widok-lista-01.html")
+    ponowne_html = pierwsze_html.replace('data-id="326196"', 'data-id="326197"')
+
+    pierwsze = parser.sparsuj_liste(pierwsze_html)[0]
+    ponowne = parser.sparsuj_liste(ponowne_html)[0]
+
+    assert pierwsze.url == ponowne.url
+    assert pierwsze.external_id == "326196"
+    assert ponowne.external_id == "326197"
+
+
+def test_brak_numeru_konkretnej_aukcji_przerywa_skan() -> None:
+    uszkodzony = html("lista-widok-lista-01.html").replace(
+        'data-id="326196"', 'data-id=""'
+    )
+
+    with pytest.raises(ParseFailed, match="bez numeru konkretnej aukcji"):
+        parser.sparsuj_liste(uszkodzony)
 
 
 def test_prawidlowa_pusta_lista_nie_udaje_waf() -> None:
@@ -158,7 +179,7 @@ async def test_lista_z_prawidlowym_html_mimo_http_404_jest_przetwarzana() -> Non
     async with source.LeasygroupSource(klient) as adapter:
         tresc = await adapter._pobierz_liste(parser.SCIEZKA_LISTY.format(1))
 
-    assert parser.sparsuj_liste(tresc.decode("utf-8"))[0].external_id == "28163"
+    assert parser.sparsuj_liste(tresc.decode("utf-8"))[0].external_id == "326196"
 
 
 async def test_pusta_strona_404_nie_udaje_listy_aukcji() -> None:

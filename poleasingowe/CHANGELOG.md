@@ -1,5 +1,13 @@
 # Historia zmian
 
+## 0.30.3 — w przygotowaniu
+
+**Leasygroup — osobna historia każdego wystawienia.** Kluczem jest teraz
+„Numer aukcji” nadawany przez serwis, a nie trwały adres strony pojazdu.
+Ponowne wystawienie tego samego auta tworzy nową kartę z własnym terminem,
+ceną wywoławczą i przebiegiem licytacji. Migracja rozdziela także dwa
+wystawienia BMW 750i błędnie połączone wcześniej pod adresem przedmiotu 28229.
+
 ## 0.30.2 — w przygotowaniu
 
 **Dolna granica ofert w DAWRO.** Każde nowe maksimum najwyższej

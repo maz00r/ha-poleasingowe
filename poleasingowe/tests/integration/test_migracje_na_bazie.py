@@ -5,6 +5,8 @@ Baza tymczasowa, tworzona i kasowana przez fixture. Nigdy produkcja.
 
 from __future__ import annotations
 
+import datetime as dt
+
 import psycopg
 import pytest
 
@@ -144,6 +146,98 @@ async def test_migracja_poprawia_historyczne_tytuly_autoprzetarg(
             "SELECT external_id, variant FROM app.auction ORDER BY external_id"
         )
         assert await cur.fetchall() == [("a", None), ("b", "Executive")]
+
+
+async def test_migracja_rozdziela_wystawienia_leasygroup(
+    pusta_baza: psycopg.AsyncConnection,
+) -> None:
+    async with pusta_baza.cursor() as cur:
+        await cur.execute(
+            "INSERT INTO app.source (key, name, last_sweep_attempt_at) "
+            "VALUES ('leasygroup', 'Leasygroup', now()) RETURNING id"
+        )
+        source_id = (await cur.fetchone())[0]  # type: ignore[index]
+        await cur.execute(
+            "INSERT INTO app.auction ("
+            "source_id, external_id, url, vin, price_start, price_current, "
+            "ends_at, first_seen_at, last_seen_at, final_price_state"
+            ") VALUES ("
+            "%s, '28229', 'https://aukcje.leasygroup.pl/aukcja/28229/bmw/', "
+            "'WBA7R81020CK75026', 204500, 173830, "
+            "'2099-10-01 09:59:55+00', '2026-09-10 20:01:57+00', "
+            "'2026-09-29 06:46:27+00', 'LAST_SEEN'"
+            ") RETURNING id",
+            (source_id,),
+        )
+        stare_id = (await cur.fetchone())[0]  # type: ignore[index]
+        await cur.executemany(
+            "INSERT INTO app.price_snapshot "
+            "(auction_id, ts, price, currency, ends_at) VALUES (%s, %s, %s, 'PLN', %s)",
+            [
+                (
+                    stare_id,
+                    "2026-09-10 20:01:57+00",
+                    204500,
+                    "2026-09-17 09:59:57+00",
+                ),
+                (
+                    stare_id,
+                    "2026-09-24 12:44:55+00",
+                    173830,
+                    "2099-10-01 09:59:55+00",
+                ),
+            ],
+        )
+        await cur.execute(
+            "INSERT INTO app.watchlist (auction_id, note) VALUES (%s, 'sprawdz BMW')",
+            (stare_id,),
+        )
+        await cur.execute(
+            "INSERT INTO app.ai_valuation ("
+            "auction_id, value_amount, min_amount, max_amount, confidence, "
+            "rationale, model, prompt_version, created_at"
+            ") VALUES (%s, 180000, 170000, 190000, 'niska', 'test', 'test', 1, "
+            "'2026-09-25 10:00:00+00')",
+            (stare_id,),
+        )
+
+        await cur.execute(
+            (MIGRACJE / "026_leasygroup_osobne_wystawienia.sql").read_text()
+        )
+        await cur.execute(
+            "SELECT id, external_id, price_start, price_current, status, "
+            "first_seen_at, ends_at FROM app.auction "
+            "WHERE source_id = %s ORDER BY external_id",
+            (source_id,),
+        )
+        aukcje = await cur.fetchall()
+
+        assert [(w[1], w[2], w[3], w[4]) for w in aukcje] == [
+            ("28229", 204500, 204500, "ENDED"),
+            ("326766", 173830, 173830, "ACTIVE"),
+        ]
+        nowe_id = aukcje[1][0]
+        assert aukcje[1][5].astimezone(dt.UTC) == dt.datetime(
+            2026, 9, 24, 12, 44, 55, tzinfo=dt.UTC
+        )
+        await cur.execute(
+            "SELECT auction_id, price FROM app.price_snapshot ORDER BY ts"
+        )
+        assert await cur.fetchall() == [(stare_id, 204500), (nowe_id, 173830)]
+        await cur.execute(
+            "SELECT auction_id, note FROM app.watchlist ORDER BY auction_id"
+        )
+        assert await cur.fetchall() == [
+            (stare_id, "sprawdz BMW"),
+            (nowe_id, "sprawdz BMW"),
+        ]
+        await cur.execute("SELECT auction_id FROM app.ai_valuation")
+        assert await cur.fetchall() == [(nowe_id,)]
+        await cur.execute(
+            "SELECT last_sweep_attempt_at FROM app.source WHERE id = %s",
+            (source_id,),
+        )
+        assert (await cur.fetchone())[0] is None  # type: ignore[index]
 
 
 async def test_migracje_nie_tworza_schematow(

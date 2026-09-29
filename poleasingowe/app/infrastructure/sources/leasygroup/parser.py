@@ -18,7 +18,7 @@ from app.domain.errors import ParseFailed
 BAZOWY_URL = "https://aukcje.leasygroup.pl"
 SCIEZKA_LISTY = "/aukcje/pojazdy-samochodowe-i-motocykle/widok-lista/strona-{}"
 
-_ID_Z_URL = re.compile(r"^/aukcja/(\d+)/[^/]+/?$")
+_ID_STRONY_Z_URL = re.compile(r"^/aukcja/(\d+)/[^/]+/?$")
 _NUMER_STRONY = re.compile(r"/strona-(\d+)/?$")
 _ODLICZANIE = re.compile(r"^\d+\s*:\s*\d{1,2}\s*:\s*\d{1,2}$")
 _ROK = re.compile(r"^(?:19|20)\d{2}$")
@@ -79,16 +79,24 @@ def numery_stron(html: str) -> list[int]:
 
 
 def identyfikatory_wierszy(html: str) -> list[str]:
-    """ID wszystkich wierszy, także „Kup teraz”, do wykrycia pętli stron."""
+    """ID wystawień wszystkich wierszy, także „Kup teraz”.
+
+    Liczba w adresie identyfikuje stronę przedmiotu i jest ponownie używana,
+    gdy niesprzedany pojazd wraca na aukcję. `data-id` jest właściwym numerem
+    konkretnego wystawienia, więc tylko on nadaje się do wykrywania pętli.
+    """
     drzewo = HTMLParser(html)
     kontener = drzewo.css_first("div.products_list_rows_container")
     if kontener is None:
         raise ParseFailed("Leasygroup: strona nie wygląda na listę aukcji")
     wynik: list[str] = []
     for link in kontener.css("a.single_row_offer.offer_link"):
-        dopasowanie = _ID_Z_URL.match(link.attributes.get("href") or "")
-        if dopasowanie is not None:
-            wynik.append(dopasowanie.group(1))
+        if _ID_STRONY_Z_URL.match(link.attributes.get("href") or "") is None:
+            continue
+        numer_aukcji = (link.attributes.get("data-id") or "").strip()
+        if not numer_aukcji.isdigit():
+            raise ParseFailed("Leasygroup: wiersz bez numeru konkretnej aukcji")
+        wynik.append(numer_aukcji)
     return wynik
 
 
@@ -105,7 +113,7 @@ def sparsuj_liste(html: str) -> list[SurowaOferta]:
         if link is None:
             continue
         href = link.attributes.get("href") or ""
-        dopasowanie = _ID_Z_URL.match(href)
+        dopasowanie = _ID_STRONY_Z_URL.match(href)
         if dopasowanie is None:
             continue
 
@@ -122,12 +130,17 @@ def sparsuj_liste(html: str) -> list[SurowaOferta]:
             pola["odliczanie"] = odliczanie
         _uzupelnij_skrot_pojazdu(kafelek, pola)
         _pole_ceny(kafelek, pola)
-        numer_wewnetrzny = link.attributes.get("data-id")
-        if numer_wewnetrzny:
-            pola["numer_aukcji"] = numer_wewnetrzny
+        numer_aukcji = (link.attributes.get("data-id") or "").strip()
+        if not numer_aukcji.isdigit():
+            raise ParseFailed("Leasygroup: licytacja bez numeru konkretnej aukcji")
+        pola["numer_aukcji"] = numer_aukcji
         wynik.append(
             SurowaOferta(
-                external_id=dopasowanie.group(1),
+                # ID z adresu oznacza stronę przedmiotu. Leasygroup zachowuje
+                # ją przy ponownym wystawieniu, ale nadaje nowy `data-id`.
+                # Kluczowanie po adresie sklejałoby kilka licytacji i ich
+                # ceny w jeden fałszywy „przebieg licytacji”.
+                external_id=numer_aukcji,
                 url=urljoin(BAZOWY_URL, href),
                 pola=pola,
             )
