@@ -75,6 +75,15 @@ def _koniec_z_odliczania(wartosc: str | None, teraz: dt.datetime) -> dt.datetime
 def na_aukcje(surowa: SurowaOferta, source_id: int, teraz: dt.datetime) -> Auction:
     """Buduje encję z danych listy lub strony szczegółów Leasygroup."""
     pola = surowa.pola
+    if pola.get("zniknela") == "1":
+        return Auction(
+            source_id=source_id,
+            external_id=surowa.external_id,
+            url=surowa.url,
+            status=AuctionStatus.DISAPPEARED,
+            first_seen_at=teraz,
+            last_seen_at=teraz,
+        )
     nazwa = pola.get("nazwa", "")
     marka = pola.get("Marka")
     model = pola.get("Model")

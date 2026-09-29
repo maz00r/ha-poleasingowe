@@ -148,7 +148,7 @@ async def test_migracja_poprawia_historyczne_tytuly_autoprzetarg(
         assert await cur.fetchall() == [("a", None), ("b", "Executive")]
 
 
-async def test_migracje_rozdzielaja_trzy_wystawienia_leasygroup(
+async def test_migracja_rozdziela_wystawienia_leasygroup(
     pusta_baza: psycopg.AsyncConnection,
 ) -> None:
     async with pusta_baza.cursor() as cur:
@@ -182,12 +182,6 @@ async def test_migracje_rozdzielaja_trzy_wystawienia_leasygroup(
                 ),
                 (
                     stare_id,
-                    "2026-09-14 14:05:59+00",
-                    204500,
-                    "2026-09-17 09:59:59+00",
-                ),
-                (
-                    stare_id,
                     "2026-09-24 12:44:55+00",
                     173830,
                     "2099-10-01 09:59:55+00",
@@ -211,9 +205,6 @@ async def test_migracje_rozdzielaja_trzy_wystawienia_leasygroup(
             (MIGRACJE / "026_leasygroup_osobne_wystawienia.sql").read_text()
         )
         await cur.execute(
-            (MIGRACJE / "027_leasygroup_trzy_wystawienia_bmw.sql").read_text()
-        )
-        await cur.execute(
             "SELECT id, external_id, price_start, price_current, status, "
             "first_seen_at, ends_at FROM app.auction "
             "WHERE source_id = %s ORDER BY external_id",
@@ -223,32 +214,22 @@ async def test_migracje_rozdzielaja_trzy_wystawienia_leasygroup(
 
         assert [(w[1], w[2], w[3], w[4]) for w in aukcje] == [
             ("28229", 204500, 204500, "ENDED"),
-            ("28229@2026-09-10", 204500, 204500, "ENDED"),
             ("326766", 173830, 173830, "ACTIVE"),
         ]
-        pierwsze_id = aukcje[1][0]
-        nowe_id = aukcje[2][0]
-        assert aukcje[0][5].astimezone(dt.UTC) == dt.datetime(
-            2026, 9, 14, 14, 5, 59, tzinfo=dt.UTC
-        )
-        assert aukcje[2][5].astimezone(dt.UTC) == dt.datetime(
+        nowe_id = aukcje[1][0]
+        assert aukcje[1][5].astimezone(dt.UTC) == dt.datetime(
             2026, 9, 24, 12, 44, 55, tzinfo=dt.UTC
         )
         await cur.execute(
             "SELECT auction_id, price FROM app.price_snapshot ORDER BY ts"
         )
-        assert await cur.fetchall() == [
-            (pierwsze_id, 204500),
-            (stare_id, 204500),
-            (nowe_id, 173830),
-        ]
+        assert await cur.fetchall() == [(stare_id, 204500), (nowe_id, 173830)]
         await cur.execute(
             "SELECT auction_id, note FROM app.watchlist ORDER BY auction_id"
         )
         assert await cur.fetchall() == [
             (stare_id, "sprawdz BMW"),
             (nowe_id, "sprawdz BMW"),
-            (pierwsze_id, "sprawdz BMW"),
         ]
         await cur.execute("SELECT auction_id FROM app.ai_valuation")
         assert await cur.fetchall() == [(nowe_id,)]

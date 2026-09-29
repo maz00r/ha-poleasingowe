@@ -1,10 +1,11 @@
 # Historia zmian
 
-## 0.30.4 — w przygotowaniu
+## 0.30.5 — w przygotowaniu
 
-**Leasygroup — trzy osobne wystawienia BMW 750i.** Rozdzielamy również dwa
-historyczne wystawienia z 10 i 14 września, które miały tę samą cenę, ale
-osobne terminy zakończenia. Razem z bieżącą aukcją auto ma teraz trzy karty.
+**Leasygroup — ochrona historii po ponownym wystawieniu.** Każdy odczyt
+szczegółów potwierdza numer konkretnej aukcji widoczny na stronie. Gdy stały
+adres pojazdu prowadzi już do nowego wystawienia, stara karta zostaje zamknięta
+i nie przejmuje ceny, terminu ani zdjęć następnej aukcji.
 
 ## 0.30.3 — w przygotowaniu
 

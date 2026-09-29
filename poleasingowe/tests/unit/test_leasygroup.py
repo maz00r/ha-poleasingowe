@@ -206,9 +206,9 @@ async def test_szczegoly_i_galeria_korzystaja_z_adresu_z_bazy() -> None:
     )
     adres = "https://aukcje.leasygroup.pl/aukcja/28163/honda-nsx-3-5-hybrid-581-km-4x4-2017/"
     async with source.LeasygroupSource(klient) as adapter:
-        szczegoly = await adapter.pobierz_szczegoly("28163", url=adres)
+        szczegoly = await adapter.pobierz_szczegoly("326196", url=adres)
         assert szczegoly is not None and szczegoly.url == adres
-        await adapter.zdjecia("28163", url=adres)
+        await adapter.zdjecia("326196", url=adres)
 
     assert zadania == [adres, adres]
 
@@ -225,10 +225,39 @@ async def test_obcy_adres_nie_steruje_pobraniem_szczegolow() -> None:
     )
     async with source.LeasygroupSource(klient) as adapter:
         await adapter.pobierz_szczegoly(
-            "28163", url="https://zly.example/aukcja/28163/"
+            "326196", url="https://zly.example/aukcja/28163/"
         )
 
-    assert zadania == ["https://aukcje.leasygroup.pl/aukcja/28163/"]
+    assert zadania == ["https://aukcje.leasygroup.pl/aukcja/326196/"]
+
+
+async def test_stary_rekord_nie_przejmuje_szczegolow_nowego_wystawienia() -> None:
+    tresc = html("szczegoly-28163-licytacja.html")
+
+    def obsluz(_: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, text=tresc)
+
+    klient = httpx.AsyncClient(
+        base_url=parser.BAZOWY_URL, transport=httpx.MockTransport(obsluz)
+    )
+    async with source.LeasygroupSource(klient) as adapter:
+        szczegoly = await adapter.pobierz_szczegoly(
+            "326195",
+            znany_hash=source.hash_tresci(tresc.encode()),
+            url="https://aukcje.leasygroup.pl/aukcja/28163/honda-nsx/",
+        )
+        zdjecia = await adapter.zdjecia(
+            "326195",
+            url="https://aukcje.leasygroup.pl/aukcja/28163/honda-nsx/",
+        )
+
+    assert szczegoly is not None
+    assert szczegoly.external_id == "326195"
+    assert szczegoly.pola == {"zniknela": "1"}
+    assert zdjecia == []
+    assert mapper.na_aukcje(szczegoly, source_id=1, teraz=TERAZ).status is (
+        AuctionStatus.DISAPPEARED
+    )
 
 
 def test_obserwowana_aukcja_bez_terminu_dostaje_floor_zamiast_doby() -> None:

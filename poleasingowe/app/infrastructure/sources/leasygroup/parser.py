@@ -166,6 +166,25 @@ def _pary_danych(drzewo: HTMLParser) -> dict[str, str]:
     return pola
 
 
+def numer_aukcji_szczegolow(html: str) -> str:
+    """Numer konkretnego wystawienia widoczny na stronie szczegółów.
+
+    Adres strony identyfikuje pojazd i po ponownym wystawieniu prowadzi już
+    do nowej aukcji. Dlatego przed użyciem szczegółów trzeba potwierdzić, że
+    ich numer nadal odpowiada rekordowi, który właśnie odpytujemy.
+    """
+    drzewo = HTMLParser(html)
+    if (
+        drzewo.css_first("h1.product_main_title") is None
+        or drzewo.css_first("div.data_container") is None
+    ):
+        raise ParseFailed("Leasygroup: strona nie wygląda na aukcję")
+    numer = _pary_danych(drzewo).get("numer_aukcji", "")
+    if not numer.isdigit():
+        raise ParseFailed("Leasygroup: szczegóły bez numeru konkretnej aukcji")
+    return numer
+
+
 def _ceny_szczegolow(drzewo: HTMLParser, pola: dict[str, str]) -> None:
     for box in drzewo.css("div.auction_price_container div.single_box"):
         etykieta = _tekst(box.css_first("p"))

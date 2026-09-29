@@ -148,13 +148,27 @@ class LeasygroupSource:
             zapasowa=f"/aukcja/{external_id}/",
         )
         tresc = await self._pobierz(sciezka)
+        html = tresc.decode("utf-8", "replace")
+        numer_na_stronie = parser.numer_aukcji_szczegolow(html)
+        if numer_na_stronie != external_id:
+            # Leasygroup zachowuje adres strony pojazdu po ponownym
+            # wystawieniu. Stary rekord nie może więc przyjąć ceny, terminu
+            # ani zdjęć nowej aukcji, która aktualnie zajmuje ten adres.
+            return SurowaOferta(
+                external_id=external_id,
+                url=(
+                    sciezka
+                    if sciezka.startswith("http")
+                    else f"{parser.BAZOWY_URL}{sciezka}"
+                ),
+                pola={"zniknela": "1"},
+            )
         biezacy = hash_tresci(tresc)
         if znany_hash is not None and znany_hash == biezacy:
             return None
         pelny_url = (
             sciezka if sciezka.startswith("http") else f"{parser.BAZOWY_URL}{sciezka}"
         )
-        html = tresc.decode("utf-8", "replace")
         return replace(
             parser.sparsuj_szczegoly(html, external_id, pelny_url),
             content_hash=biezacy,
@@ -167,7 +181,10 @@ class LeasygroupSource:
             bazowy=parser.BAZOWY_URL,
             zapasowa=f"/aukcja/{external_id}/",
         )
-        return parser.zdjecia((await self._pobierz(sciezka)).decode("utf-8", "replace"))
+        html = (await self._pobierz(sciezka)).decode("utf-8", "replace")
+        if parser.numer_aukcji_szczegolow(html) != external_id:
+            return []
+        return parser.zdjecia(html)
 
     def na_aukcje(
         self, surowa: SurowaOferta, source_id: int, teraz: dt.datetime
