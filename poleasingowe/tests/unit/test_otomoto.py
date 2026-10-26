@@ -83,9 +83,11 @@ async def test_jeden_przebieg_netto_bez_usa_i_skrajnych() -> None:
     usa["title"] = "Skoda Octavia z USA, Copart"
     sprowadzenie = _rekord(51)
     sprowadzenie["shortDescription"] = "auto do sprowadzenia"
+    tylko_w_opisie = _rekord(53)
+    tylko_w_opisie["fullDescription"] = "Samochód sprowadzony z USA, bezwypadkowy."
     skrajna = _rekord(52)
     skrajna["pricePLN"] = 1_000
-    rekordy += [usa, sprowadzenie, skrajna]
+    rekordy += [usa, sprowadzenie, tylko_w_opisie, skrajna]
 
     def obsluz(zadanie: httpx.Request) -> httpx.Response:
         assert zadanie.headers["authorization"] == "Bearer tajny"
@@ -100,7 +102,8 @@ async def test_jeden_przebieg_netto_bez_usa_i_skrajnych() -> None:
 
     assert len(zadania) == 1
     assert "/q-octavia/" in zadania[0]["startUrls"][0]
-    assert wynik.odrzucone_usa == 2
+    assert wynik.odrzucone_usa == 3
+    assert zadania[0]["includeDetails"] is True
     assert wynik.odrzucone_skrajne == 1
     assert wynik.liczba == 10
     # 80 000…89 000 brutto → netto ÷1,23; mediana z kwot netto po zaokrągleniu każdej
@@ -134,3 +137,33 @@ async def test_zly_token_to_czytelny_blad() -> None:
     )
     with pytest.raises(BladOtomoto, match="apify_token"):
         await usluga.porownaj(OCTAVIA)
+
+
+def test_adres_wyklucza_auta_uszkodzone() -> None:
+    assert "filter_enum_damaged%5D=0" in otomoto.adres_wyszukiwania(OCTAVIA)
+
+
+def _o(tytul: str, cena: int) -> otomoto.Ogloszenie:
+    return otomoto.Ogloszenie(
+        tytul, cena, 2023, 30_000, f"https://o.test/{tytul}{cena}"
+    )
+
+
+def test_zawezenie_do_wersji_gdy_sa_co_najmniej_trzy() -> None:
+    oferty = [_o("Tesla Model Y Performance", 100_000 + i) for i in range(3)]
+    oferty += [
+        _o("Tesla Model Y Long Range Dual Motor AWD", 70_000 + i) for i in range(6)
+    ]
+    zawezone, wersja = otomoto.zawez_do_wersji(oferty, "Performance AWD 534 KM")
+    assert wersja == "performance" and len(zawezone) == 3
+
+
+def test_bez_zawezenia_gdy_wersji_za_malo() -> None:
+    oferty = [_o("Tesla Model Y Long Range AWD", 70_000 + i) for i in range(6)]
+    oferty.append(_o("Tesla Model Y Performance", 100_000))
+    zawezone, wersja = otomoto.zawez_do_wersji(oferty, "Performance AWD")
+    assert wersja is None and len(zawezone) == 7
+
+
+def test_slowa_wspolne_nie_zawezaja() -> None:
+    assert otomoto.slowa_wersji("AWD Dual Motor 4x4 534 KM") == ()

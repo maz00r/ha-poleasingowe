@@ -1049,6 +1049,7 @@ async def wycena_otomoto(request: Request, auction_id: int) -> Response:
                 paliwo=p.fuel,
                 skrzynia=p.gearbox,
                 dostawczy=p.vehicle_kind is RodzajPojazdu.DOSTAWCZY,
+                wersja=p.variant,
             )
         )
     except BladOtomoto as exc:

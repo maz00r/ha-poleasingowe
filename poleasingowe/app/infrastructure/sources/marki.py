@@ -88,6 +88,11 @@ ALIASY = {
 # pojazd. Taki napis nie daje marki, modelu ani wersji.
 NIE_MARKA = frozenset({"aukcja", "licytacja", "oferta", "sprzedaz", "sprzedaż"})
 
+# Modele z dwóch słów, z których pierwsze samo nic nie znaczy: „Model Y",
+# „Seria 5", „Klasa C". Bez tego Tesla dostawała model „Model", a wyszukiwanie
+# porównań szło po wszystkich Teslach naraz.
+MODELE_DWUCZLONOWE = frozenset({"model", "seria", "klasa", "series", "class"})
+
 _NAWIAS = re.compile(r"\s*[\[(][^\])]*[\])]\s*")
 _LACZNIK = re.compile(r"\s*-\s*")
 
@@ -153,6 +158,8 @@ def podziel_marke_model(wartosc: str) -> tuple[str | None, str | None, str | Non
     else:
         marka = kanoniczna_marka(tokeny[0])
         reszta = tokeny[1:]
+    if len(reszta) >= 2 and reszta[0].lower() in MODELE_DWUCZLONOWE:
+        reszta = [f"{reszta[0].capitalize()} {reszta[1].upper()}", *reszta[2:]]
     model = reszta[0] if reszta else None
     wersja = " ".join(reszta[1:]) if len(reszta) > 1 else None
     return marka, model, wersja

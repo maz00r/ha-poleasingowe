@@ -182,6 +182,13 @@ class WycenaAI:
                 "podstawa": "netto (z brutto ÷1,23)",
                 "odrzucone_z_usa": otomoto.odrzucone_usa,
                 "odrzucone_skrajne": otomoto.odrzucone_skrajne,
+                "zawezono_do_wersji": otomoto.wersja,
+                "uwaga": (
+                    None
+                    if otomoto.wersja
+                    else "porównania mogą mieszać wersje wyposażenia/silnika "
+                    "tego modelu — skoryguj o różnicę wersji"
+                ),
                 "ogloszenia": [
                     {
                         "tytul": o.tytul,

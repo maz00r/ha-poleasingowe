@@ -175,3 +175,18 @@ def test_migracja_i_kod_maja_te_same_listy() -> None:
 
     nie_marki = {s.strip().strip("'") for s in tablice[0].split(",")}
     assert nie_marki == set(marki.NIE_MARKA), "lista słów-nie-marek rozjechała się"
+
+
+@pytest.mark.parametrize(
+    "wejscie,oczekiwane",
+    [
+        ("TESLA Model Y Performance AWD", ("Tesla", "Model Y", "Performance AWD")),
+        ("BMW Seria 5 530e", ("BMW", "Seria 5", "530e")),
+        ("Mercedes-Benz Klasa c 200", ("Mercedes-Benz", "Klasa C", "200")),
+    ],
+)
+def test_modele_dwuczlonowe(
+    wejscie: str, oczekiwane: tuple[str | None, str | None, str | None]
+) -> None:
+    """„Model Y" to model — nie „Model" z wersją „Y Performance"."""
+    assert marki.podziel_marke_model(wejscie) == oczekiwane

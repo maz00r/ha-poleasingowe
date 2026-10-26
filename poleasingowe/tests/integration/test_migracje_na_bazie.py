@@ -670,3 +670,32 @@ async def test_migracja_027_oznacza_dawro_brutto_i_wymusza_odczyt(
         ]
         with pytest.raises(psycopg.errors.CheckViolation):
             await cur.execute("UPDATE app.auction SET vat_info = 'cos'")
+
+
+async def test_migracja_029_skleja_modele_dwuczlonowe(
+    pusta_baza: psycopg.AsyncConnection,
+) -> None:
+    async with pusta_baza.cursor() as cur:
+        await cur.execute(
+            "INSERT INTO app.source (key, name) VALUES ('x', 'X') RETURNING id"
+        )
+        wiersz = await cur.fetchone()
+        assert wiersz is not None
+        await cur.executemany(
+            "INSERT INTO app.auction (source_id, external_id, url, make, model,"
+            " variant) VALUES (%s, %s, 'u', %s, %s, %s)",
+            [
+                (wiersz[0], "t", "Tesla", "Model", "Y Performance AWD"),
+                (wiersz[0], "b", "BMW", "Seria", "5"),
+                (wiersz[0], "s", "Škoda", "Octavia", "Style"),
+            ],
+        )
+        await cur.execute((MIGRACJE / "029_modele_dwuczlonowe.sql").read_text())
+        await cur.execute(
+            "SELECT external_id, model, variant FROM app.auction ORDER BY external_id"
+        )
+        assert await cur.fetchall() == [
+            ("b", "Seria 5", None),
+            ("s", "Octavia", "Style"),
+            ("t", "Model Y", "Performance AWD"),
+        ]

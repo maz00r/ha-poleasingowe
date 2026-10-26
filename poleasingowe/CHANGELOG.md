@@ -1,5 +1,19 @@
 # Historia zmian
 
+## 0.31.2 — w przygotowaniu
+
+**Wycena z Otomoto — trafniejsze porównania.** Wyszukiwanie pomija auta
+uszkodzone (Otomoto domyślnie je pokazuje, a ich ceny zaniżały medianę).
+Auta z USA są rozpoznawane także po pełnym opisie ogłoszenia
+(aktor pobiera stronę ogłoszenia — wycena trwa dłużej). Gdy co najmniej trzy ogłoszenia mają tę samą wersję co aukcja (np.
+„Performance"), statystyka liczy się tylko z nich; inaczej model AI dostaje
+uwagę, że porównania mieszają wersje.
+
+**Modele z dwóch słów.** „Tesla Model Y", „BMW Seria 5", „Mercedes Klasa C"
+mają teraz model „Model Y" / „Seria 5" / „Klasa C" zamiast samego „Model"
+— filtr modeli i wyszukiwanie porównań przestają mieszać wszystkie Tesle.
+Migracja `029` poprawia wiersze już zebrane.
+
 ## 0.31.1 — w przygotowaniu
 
 **Wycena z Otomoto w netto.** Jeden przebieg aktora Apify zamiast dwóch.

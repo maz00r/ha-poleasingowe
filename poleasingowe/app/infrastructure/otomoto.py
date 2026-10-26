@@ -73,8 +73,8 @@ _USA = re.compile(
     r"copart|iaai|do\s+sprowadzenia|w\s+drodze\s+do\s+polski|"
     r"sprowadzon\w*\s+z\s+(?:usa|ameryki|kanady))\b"
 )
-"""Auta z USA/Kanady — także „do sprowadzenia". Aktor oddaje tylko tytuł
-i krótki opis karty, więc to słowa kluczowe, nie pole „kraj pochodzenia"."""
+"""Auta z USA/Kanady — także „do sprowadzenia". Szukane w tytule, krótkim
+i pełnym opisie (`includeDetails`); aktor nie oddaje pola „kraj pochodzenia"."""
 
 
 class BladOtomoto(RuntimeError):
@@ -90,6 +90,9 @@ class PojazdDoPorownania:
     paliwo: str | None = None
     skrzynia: str | None = None
     dostawczy: bool = False
+    wersja: str | None = None
+    """Wersja/wyposażenie z aukcji (np. „Performance AWD") — do zawężenia
+    porównań, gdy Otomoto zwróci mieszankę wersji tego samego modelu."""
 
 
 @dataclass(slots=True, frozen=True)
@@ -111,6 +114,8 @@ class WynikOtomoto:
     p75: int | None
     odrzucone_usa: int = 0
     odrzucone_skrajne: int = 0
+    wersja: str | None = None
+    """Słowa wersji, po których zawężono porównania; `None` — nie zawężono."""
 
     @property
     def liczba(self) -> int:
@@ -150,6 +155,9 @@ def adres_wyszukiwania(
         parametry.append((f"search[filter_enum_fuel_type][{numer}]", wartosc))
     if (skrzynia := SKRZYNIE.get(pojazd.skrzynia or "")) is not None:
         parametry.append(("search[filter_enum_gearbox]", skrzynia))
+    # Otomoto domyślnie pokazuje też auta uszkodzone — ich ceny zaniżały
+    # medianę (Model Y 2023 za 59 tys. brutto, 2026-10-26). „0" = Nieuszkodzony.
+    parametry.append(("search[filter_enum_damaged]", "0"))
     zapytanie = urlencode(parametry, quote_via=quote)
     return f"https://www.otomoto.pl{sciezka}" + (f"?{zapytanie}" if zapytanie else "")
 
@@ -187,7 +195,8 @@ def pasuje(
 
 def z_usa(rekord: dict[str, Any]) -> bool:
     tekst = " ".join(
-        str(rekord.get(pole) or "") for pole in ("title", "shortDescription", "version")
+        str(rekord.get(pole) or "")
+        for pole in ("title", "shortDescription", "version", "fullDescription")
     )
     return _USA.search(tekst) is not None
 
@@ -210,6 +219,69 @@ def _ogloszenie(rekord: dict[str, Any]) -> Ogloszenie | None:
     )
 
 
+# Słowa, które nie odróżniają wersji — są i w „Long Range AWD", i w
+# „Performance AWD". Zawężanie po nich niczego by nie zawęziło.
+_SLOWA_WSPOLNE = frozenset(
+    {
+        "awd",
+        "fwd",
+        "rwd",
+        "4x4",
+        "4wd",
+        "dual",
+        "motor",
+        "automat",
+        "aut",
+        "automatic",
+        "manual",
+        "km",
+        "kw",
+        "hp",
+        "kombi",
+        "sedan",
+        "hatchback",
+        "suv",
+        "dsg",
+        "cvt",
+        "edition",
+        "plus",
+        "pakiet",
+        "salon",
+        "polska",
+    }
+)
+
+
+def slowa_wersji(wersja: str | None) -> tuple[str, ...]:
+    """Wyróżniające słowa wersji: „Performance AWD 534 KM" → („performance",)."""
+    if not wersja:
+        return ()
+    return tuple(
+        s
+        for s in slug(wersja).split("-")
+        if len(s) >= 3 and not s.isdigit() and s not in _SLOWA_WSPOLNE
+    )
+
+
+def zawez_do_wersji(
+    ogloszenia: list[Ogloszenie], wersja: str | None
+) -> tuple[list[Ogloszenie], str | None]:
+    """Zostawia ogłoszenia tej samej wersji, jeśli jest ich co najmniej 3.
+
+    Inaczej zwraca całość i `None` — model AI dostaje wtedy informację, że
+    porównania mieszają wersje, zamiast mediany z dwóch ogłoszeń.
+    """
+    slowa = slowa_wersji(wersja)
+    if not slowa:
+        return ogloszenia, None
+    pasujace = [
+        o for o in ogloszenia if any(s in slug(o.tytul).split("-") for s in slowa)
+    ]
+    if len(pasujace) < 3:
+        return ogloszenia, None
+    return pasujace, " ".join(slowa)
+
+
 def bez_skrajnych(ogloszenia: list[Ogloszenie]) -> list[Ogloszenie]:
     """Płoty Tukeya: poza [Q1 - 1,5·IQR, Q3 + 1,5·IQR] odpada.
 
@@ -230,14 +302,26 @@ def bez_skrajnych(ogloszenia: list[Ogloszenie]) -> list[Ogloszenie]:
 
 
 def statystyka(
-    adres: str, ogloszenia: list[Ogloszenie], *, odrzucone_usa: int = 0
+    adres: str,
+    ogloszenia: list[Ogloszenie],
+    *,
+    odrzucone_usa: int = 0,
+    wersja: str | None = None,
 ) -> WynikOtomoto:
+    ogloszenia, wersja_uzyta = zawez_do_wersji(ogloszenia, wersja)
     przefiltrowane = bez_skrajnych(ogloszenia)
     skrajne = len(ogloszenia) - len(przefiltrowane)
     ceny = sorted(o.cena for o in przefiltrowane)
     if len(ceny) < MIN_POROWNAN:
         return WynikOtomoto(
-            adres, tuple(przefiltrowane), None, None, None, odrzucone_usa, skrajne
+            adres,
+            tuple(przefiltrowane),
+            None,
+            None,
+            None,
+            odrzucone_usa,
+            skrajne,
+            wersja_uzyta,
         )
     kwartyle = statistics.quantiles(ceny, n=4, method="inclusive")
     return WynikOtomoto(
@@ -248,6 +332,7 @@ def statystyka(
         p75=round(kwartyle[2]),
         odrzucone_usa=odrzucone_usa,
         odrzucone_skrajne=skrajne,
+        wersja=wersja_uzyta,
     )
 
 
@@ -259,7 +344,7 @@ class Otomoto:
         token: str,
         *,
         klient: httpx.AsyncClient | None = None,
-        timeout: float = 180.0,
+        timeout: float = 300.0,
     ) -> None:
         self._token = token
         self._klient = klient
@@ -277,7 +362,14 @@ class Otomoto:
             odpowiedz = await self._klient.post(
                 ADRES_API,
                 headers={"Authorization": f"Bearer {self._token}"},
-                json={"startUrls": [adres], "maxResults": MAKS_OGLOSZEN},
+                # Pełny opis ze strony ogłoszenia: auta z USA często mówią
+                # o tym dopiero tam, nie w tytule (Model Y 2023, 2026-10-26).
+                json={
+                    "startUrls": [adres],
+                    "maxResults": MAKS_OGLOSZEN,
+                    "includeDetails": True,
+                    "detailConcurrency": 5,
+                },
             )
         except httpx.HTTPError as exc:
             raise BladOtomoto(f"Apify nie odpowiada: {exc}") from exc
@@ -308,7 +400,9 @@ class Otomoto:
                 continue
             if (ogloszenie := _ogloszenie(rekord)) is not None:
                 widziane.setdefault(ogloszenie.url, ogloszenie)
-        wynik = statystyka(adres, list(widziane.values()), odrzucone_usa=usa)
+        wynik = statystyka(
+            adres, list(widziane.values()), odrzucone_usa=usa, wersja=pojazd.wersja
+        )
         log.info(
             "Otomoto: %s porównań dla %s %s (odrzucone: %s z USA, %s skrajnych)",
             wynik.liczba,
