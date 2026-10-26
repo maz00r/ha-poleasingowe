@@ -24,9 +24,14 @@ from typing import Any
 
 import httpx
 
-from app.application.read_models import PorownanieRynkowe, Szczegoly
+from app.application.read_models import (
+    PewnoscPowiazania,
+    PorownanieRynkowe,
+    PowiazaneWystawienie,
+    Szczegoly,
+)
 from app.domain.entities import OgloszenieRynkowe, WycenaAukcji
-from app.domain.enums import Currency
+from app.domain.enums import AuctionStatus, Currency
 from app.domain.value_objects import Money
 from app.infrastructure.ai_klienci import BladModelu, BladOdpowiedzi, KlientModelu
 from app.infrastructure.ekspertyza import OcenionyDokument
@@ -34,7 +39,7 @@ from app.infrastructure.otomoto import Ogloszenie, PojazdDoPorownania, WynikOtom
 
 log = logging.getLogger(__name__)
 
-WERSJA_PROMPTU = 8
+WERSJA_PROMPTU = 9
 """Podbij, gdy zmienisz `INSTRUKCJE` albo `SCHEMAT`.
 
 Zapisana wycena niesie wersję, którą policzono — dzięki temu widać, że
@@ -48,7 +53,8 @@ powstała starym poleceniem, i można ją świadomie przeliczyć.
 6: własny odczyt Otomoto — netto wg odznak przy każdym ogłoszeniu; osobna
    instrukcja bazowa dla wyceny z danymi rynkowymi (bez sprzecznych zdań).
 7: netto wg odznak i opisu (kwota Otomoto zawsze brutto).
-8: wszystkie kwoty Otomoto ÷1,23; status faktury osobno przy ogłoszeniu."""
+8: wszystkie kwoty Otomoto ÷1,23; status faktury osobno przy ogłoszeniu.
+9: wcześniejsze, niesprzedane wystawienia tego auta jako górna granica."""
 
 MAKS_OGLOSZEN_NA_KARCIE = 15
 
@@ -112,6 +118,22 @@ INSTRUKCJE_OTOMOTO = (
     "Kwoty z ekspertyz bywają brutto albo netto — sprawdź, co mówi raport, "
     "i przelicz na netto.\n"
     "Jeśli któregoś bloku brak, napisz o tym w założeniach."
+)
+
+# Dopisek, gdy to samo auto stało już na aukcji i wróciło — czyli się nie
+# sprzedało. Bez niego model wyceniał powyżej kwoty, której nikt nie dał.
+INSTRUKCJE_WYSTAWIENIA = (
+    "\n\nDostajesz też `wczesniejsze_wystawienia_tego_auta`: TEN SAM "
+    "samochód był już wystawiony na aukcji i się NIE SPRZEDAŁ (wraca na "
+    "aukcję). `pewnosc` = `VIN` — na pewno ten egzemplarz; `podobne` — "
+    "prawdopodobnie (zgodne marka, model, rocznik, silnik, kolor i przebieg), "
+    "waż słabiej. Przy `liczba_ofert` = 0 nikt nie dał nawet ceny "
+    "wywoławczej; gdy oferty były, `cena_ostatnia` to najwyższa oferta, która "
+    "nie wystarczyła do sprzedaży. Traktuj najniższą cenę, za którą to auto "
+    "się nie sprzedało, jako GÓRNĄ granicę jego wartości: `wartosc` "
+    "i `maksimum` nie powinny jej przekraczać, chyba że od tamtej pory coś "
+    "istotnie podniosło wartość — wtedy napisz co. W uzasadnieniu odnieś się "
+    "do wcześniejszych wystawień."
 )
 
 SCHEMAT_MODELU = "model_otomoto"
@@ -201,6 +223,7 @@ class WycenaAI:
         teraz: dt.datetime,
         otomoto: WynikOtomoto | None = None,
         ekspertyzy: tuple[OcenionyDokument, ...] = (),
+        wystawienia: tuple[PowiazaneWystawienie, ...] = (),
     ) -> WycenaAukcji:
         """`otomoto` i `ekspertyzy` tylko z przycisku „Wycena z Otomoto".
 
@@ -242,9 +265,14 @@ class WycenaAI:
             wejscie["ekspertyza"] = [
                 {"dokument": d.nazwa, "tekst": d.tekst} for d in ekspertyzy
             ]
+        instrukcje = INSTRUKCJE_OTOMOTO if rozszerzona else INSTRUKCJE
+        wczesniejsze = self._wczesniejsze(wystawienia)
+        if wczesniejsze:
+            wejscie["wczesniejsze_wystawienia_tego_auta"] = wczesniejsze
+            instrukcje += INSTRUKCJE_WYSTAWIENIA
         try:
             tekst = await self._klient.json_wg_schematu(
-                instrukcje=INSTRUKCJE_OTOMOTO if rozszerzona else INSTRUKCJE,
+                instrukcje=instrukcje,
                 wejscie=json.dumps(wejscie, ensure_ascii=False),
                 nazwa_schematu=NAZWA_SCHEMATU,
                 schemat=SCHEMAT,
@@ -322,6 +350,30 @@ class WycenaAI:
             },
             "porownania_z_zakonczonych_aukcji": [asdict(x) for x in porownania],
         }
+
+    @staticmethod
+    def _wczesniejsze(
+        wystawienia: tuple[PowiazaneWystawienie, ...],
+    ) -> list[dict[str, Any]]:
+        """Zakończone WCZEŚNIEJSZE wystawienia — skoro auto wróciło, nie
+        sprzedało się. Bez serwisu i numeru aukcji: modelowi niepotrzebne."""
+
+        def kwota(m: Money | None) -> int | None:
+            return None if m is None else round(m.amount)
+
+        return [
+            {
+                "koniec": w.ends_at.date().isoformat() if w.ends_at else None,
+                "cena_wywolawcza": kwota(w.price_start),
+                "cena_ostatnia": kwota(w.price_current),
+                "liczba_ofert": w.bid_count,
+                "przebieg_km": w.mileage_km,
+                "pewnosc": "VIN" if w.pewnosc is PewnoscPowiazania.VIN else "podobne",
+            }
+            for w in wystawienia
+            if not w.pozniejsze
+            and w.status in (AuctionStatus.ENDED, AuctionStatus.DISAPPEARED)
+        ][:5]
 
     @staticmethod
     def _najblizsze(

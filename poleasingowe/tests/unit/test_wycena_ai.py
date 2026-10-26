@@ -5,6 +5,7 @@ from __future__ import annotations
 import datetime as dt
 import json
 import pathlib
+from decimal import Decimal
 
 import httpx
 import pytest
@@ -595,3 +596,68 @@ async def test_ai_bez_pewnego_modelu_to_none(tekst: str) -> None:
     modele = [("seria-7", "Seria 7")]
 
     assert await usluga.wybierz_model_otomoto(_bmw(), modele) is None
+
+
+async def test_wczesniejsze_niesprzedane_wystawienie_trafia_do_modelu() -> None:
+    from app.application.read_models import PewnoscPowiazania, PowiazaneWystawienie
+    from app.domain.enums import AuctionStatus, Currency
+    from app.domain.value_objects import Money
+
+    def wystawienie(
+        i: int, status: AuctionStatus, *, pozniejsze: bool = False
+    ) -> PowiazaneWystawienie:
+        return PowiazaneWystawienie(
+            id=i,
+            source_key="efl",
+            external_id=str(i),
+            url=f"https://x.test/{i}",
+            status=status,
+            pewnosc=PewnoscPowiazania.VIN,
+            pozniejsze=pozniejsze,
+            ends_at=dt.datetime(2026, 9, i, tzinfo=dt.UTC),
+            price_current=Money(Decimal("71000"), Currency.PLN),
+            mileage_km=118_000,
+            price_start=Money(Decimal("71000"), Currency.PLN),
+            bid_count=0,
+        )
+
+    zadania: list[dict[str, object]] = []
+    usluga = _usluga_z_odpowiedzia(
+        json.dumps(
+            {
+                "wartosc": 68000,
+                "minimum": 64000,
+                "maksimum": 70000,
+                "cena_portale": None,
+                "pewnosc": "średnia",
+                "uzasadnienie": "Nie sprzedał się za 71 000.",
+                "zalozenia": [],
+            }
+        ),
+        zadania,
+    )
+    await usluga.wycen(
+        _dane(),
+        (),
+        teraz=TERAZ,
+        wystawienia=(
+            wystawienie(1, AuctionStatus.ENDED),
+            wystawienie(2, AuctionStatus.ACTIVE),
+            wystawienie(3, AuctionStatus.ENDED, pozniejsze=True),
+        ),
+    )
+
+    wejscie = json.dumps(zadania[0], ensure_ascii=False)
+    assert "wczesniejsze_wystawienia_tego_auta" in wejscie
+    assert "GÓRNĄ granicę" in wejscie
+    assert wejscie.count("cena_wywolawcza") == 1  # aktywne i późniejsze odpadły
+    assert "efl" not in wejscie
+
+
+async def test_bez_wczesniejszych_wystawien_prompt_bez_dopisku() -> None:
+    zadania: list[dict[str, object]] = []
+    usluga = _usluga_z_odpowiedzia("{", zadania)
+    with pytest.raises(BladWyceny):
+        await usluga.wycen(_dane(), (), teraz=TERAZ)
+    wejscie = json.dumps(zadania[0], ensure_ascii=False)
+    assert "wczesniejsze_wystawienia" not in wejscie

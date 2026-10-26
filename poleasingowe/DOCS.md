@@ -236,6 +236,12 @@ uzyskiwanych na aukcjach; karta pokazuje liczbę ogłoszeń, przedział cen, lin
 do wyszukiwania i najbardziej podobne ogłoszenia. Wyceniona aukcja ma
 odznakę przy tytule karty i w nagłówku sekcji wyceny.
 
+Gdy to samo auto stało już na aukcji i wróciło (czyli się nie sprzedało),
+model AI dostaje cenę wywoławczą, ostatnią cenę i liczbę ofert z tamtych
+wystawień i traktuje kwotę, za którą auta nikt nie kupił, jako górną granicę
+wyceny. Dopasowanie po VIN-ie jest pewne; bez VIN-u — prawdopodobne i model
+waży je słabiej.
+
 Wycena liczy się **raz na aukcję i zostaje zapisana w bazie**; karta pokazuje
 datę i model, którym ją policzono. Zmienia ją tylko przycisk „Przelicz" —
 samo wejście na kartę nie generuje kolejnego płatnego żądania.

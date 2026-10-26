@@ -989,10 +989,16 @@ async def _wycena(
 
         dane = await kontekst.zapytania.szczegoly(auction_id)
         porownania = await kontekst.zapytania.porownania_rynkowe(auction_id)
+        wystawienia = await kontekst.zapytania.powiazane_wystawienia(auction_id)
         if dane is None:
             return HTMLResponse("", status_code=404)
         try:
-            nowa = await usluga.wycen(dane, porownania, teraz=dt.datetime.now(dt.UTC))
+            nowa = await usluga.wycen(
+                dane,
+                porownania,
+                teraz=dt.datetime.now(dt.UTC),
+                wystawienia=wystawienia,
+            )
         except BladWyceny as exc:
             kontekst_szablonu["blad"] = str(exc)
             # Nieudane przeliczenie nie ma kasować tego, co już mamy.
@@ -1053,6 +1059,7 @@ async def wycena_otomoto(request: Request, auction_id: int) -> Response:
         async with fabryka() as kontekst:
             dane = await kontekst.zapytania.szczegoly(auction_id)
             porownania = await kontekst.zapytania.porownania_rynkowe(auction_id)
+            wystawienia = await kontekst.zapytania.powiazane_wystawienia(auction_id)
         if dane is None:
             raise BladOtomoto("nie ma takiej aukcji")
         p = dane.pozycja
@@ -1095,6 +1102,7 @@ async def wycena_otomoto(request: Request, auction_id: int) -> Response:
             teraz=dt.datetime.now(dt.UTC),
             otomoto=rynek,
             ekspertyzy=wybrane,
+            wystawienia=wystawienia,
         )
         postep("Zapisywanie", 0.95)
         async with fabryka() as kontekst, kontekst.uow as uow:

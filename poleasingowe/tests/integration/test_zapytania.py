@@ -687,6 +687,16 @@ async def test_to_samo_auto_wystawione_ponownie_laczy_sie_po_vin(
     z_perspektywy_nowej = await zapytania.powiazane_wystawienia(nowe)
     assert [w.id for w in z_perspektywy_nowej] == [stare]
     assert z_perspektywy_nowej[0].pozniejsze is False
+    # Cena wywoławcza i liczba ofert idą do wyceny AI (górna granica).
+    async with pusta_baza.cursor() as cur:
+        await cur.execute(
+            "SELECT price_start, bid_count FROM app.auction WHERE id = %s", (stare,)
+        )
+        wiersz = await cur.fetchone()
+    assert wiersz is not None
+    poprzednie = z_perspektywy_nowej[0]
+    assert (poprzednie.price_start and poprzednie.price_start.amount) == wiersz[0]
+    assert poprzednie.bid_count == wiersz[1]
 
 
 async def test_flota_identycznych_aut_nie_jest_jednym_samochodem(

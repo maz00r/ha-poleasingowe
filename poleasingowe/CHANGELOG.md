@@ -1,5 +1,14 @@
 # Historia zmian
 
+## 0.32.4 — w przygotowaniu
+
+**Wycena AI pamięta wcześniejsze wystawienia.** Gdy to samo auto (po VIN-ie
+albo prawdopodobnie — po marce, roczniku, silniku, kolorze i przebiegu) było
+już na aukcji i wróciło, model AI dostaje cenę wywoławczą, ostatnią cenę
+i liczbę ofert tamtego wystawienia i traktuje kwotę, za którą auto się nie
+sprzedało, jako górną granicę wyceny. Dotyczy zwykłej wyceny, „Przelicz"
+i „Wyceny z Otomoto". Instrukcja modelu AI w wersji 9.
+
 ## 0.32.3 — w przygotowaniu
 
 **Wycena z Otomoto — każda cena ÷1,23.** Przeliczanie tylko części ogłoszeń

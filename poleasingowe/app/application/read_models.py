@@ -365,6 +365,8 @@ class PowiazaneWystawienie:
     price_current: Money | None = None
     final_price_state: FinalPriceState = FinalPriceState.UNKNOWN
     mileage_km: int | None = None
+    price_start: Money | None = None
+    bid_count: int | None = None
 
 
 @dataclass(slots=True, frozen=True)

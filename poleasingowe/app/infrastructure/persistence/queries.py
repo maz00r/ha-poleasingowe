@@ -255,6 +255,7 @@ WITH cel AS (
 SELECT
     a.id, s.key AS source_key, a.external_id, a.url, a.status, a.ends_at,
     a.price_current, a.currency, a.final_price_state, a.mileage_km,
+    a.price_start, a.bid_count,
     CASE WHEN cel.vin IS NOT NULL AND a.vin = cel.vin
          THEN 'VIN' ELSE 'PODOBNE' END AS pewnosc,
     (COALESCE(a.ends_at, a.first_seen_at)
@@ -768,6 +769,8 @@ class PgZapytania:
                 price_current=_money(w["price_current"], w["currency"]),
                 final_price_state=FinalPriceState(w["final_price_state"]),
                 mileage_km=w["mileage_km"],
+                price_start=_money(w["price_start"], w["currency"]),
+                bid_count=w["bid_count"],
             )
             for w in wiersze
         )
