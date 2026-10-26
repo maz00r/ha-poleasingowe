@@ -144,13 +144,9 @@ def adres_wyszukiwania(
     if pojazd.rok is not None:
         sciezka += f"/od-{pojazd.rok - rozrzut}"
         parametry.append(("search[filter_float_year:to]", str(pojazd.rok + rozrzut)))
-    if pojazd.przebieg_km is not None and not szeroko:
-        parametry.append(
-            ("search[filter_float_mileage:from]", str(int(pojazd.przebieg_km * 0.6)))
-        )
-        parametry.append(
-            ("search[filter_float_mileage:to]", str(int(pojazd.przebieg_km * 1.4)))
-        )
+    # Bez filtra przebiegu (decyzja właściciela repo, 2026-10-26): różnicę
+    # przebiegu koryguje model AI ogłoszenie po ogłoszeniu. Wąski zakres
+    # dawał za mało porównań (7 dla Tesli).
     for numer, wartosc in enumerate(PALIWA.get(pojazd.paliwo or "", ())):
         parametry.append((f"search[filter_enum_fuel_type][{numer}]", wartosc))
     if (skrzynia := SKRZYNIE.get(pojazd.skrzynia or "")) is not None:

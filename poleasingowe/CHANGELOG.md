@@ -1,5 +1,12 @@
 # Historia zmian
 
+## 0.31.3 — w przygotowaniu
+
+**Wycena z Otomoto bez filtra przebiegu.** Wyszukiwanie porównań nie zawęża
+już przebiegu — wąski zakres dawał za mało ogłoszeń. Model AI koryguje każde
+ogłoszenie o różnicę przebiegu (oraz rocznika i wersji) względem wycenianego
+auta i podaje w uzasadnieniu średnią korektę.
+
 ## 0.31.2 — w przygotowaniu
 
 **Wycena z Otomoto — trafniejsze porównania.** Wyszukiwanie pomija auta

@@ -20,7 +20,7 @@ def test_adres_z_filtrami_otomoto() -> None:
     adres = otomoto.adres_wyszukiwania(OCTAVIA)
     assert adres.startswith("https://www.otomoto.pl/osobowe/skoda/octavia/od-2021?")
     assert "filter_float_year%3Ato%5D=2023" in adres
-    assert "filter_float_mileage%3Afrom%5D=90000" in adres
+    assert "mileage" not in adres
     assert "filter_enum_fuel_type%5D%5B0%5D=hybrid" in adres
     assert "filter_enum_fuel_type%5D%5B1%5D=plugin-hybrid" in adres
     assert "filter_enum_gearbox%5D=automatic" in adres

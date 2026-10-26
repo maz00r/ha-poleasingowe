@@ -33,7 +33,7 @@ from app.infrastructure.otomoto import Ogloszenie, WynikOtomoto
 
 log = logging.getLogger(__name__)
 
-WERSJA_PROMPTU = 4
+WERSJA_PROMPTU = 5
 """Podbij, gdy zmienisz `INSTRUKCJE` albo `SCHEMAT`.
 
 Zapisana wycena niesie wersję, którą policzono — dzięki temu widać, że
@@ -42,7 +42,8 @@ powstała starym poleceniem, i można ją świadomie przeliczyć.
 2: doszedł szacunek poziomu cen ofertowych na polskich portalach.
 3: opcjonalne ogłoszenia z Otomoto (Apify) i treść ekspertyzy.
 4: wszystkie kwoty w PLN netto; ceny Otomoto przeliczone z brutto, bez aut
-   z USA i skrajnych ofert."""
+   z USA i skrajnych ofert.
+5: Otomoto bez filtra przebiegu, jawna korekta za przebieg przez model."""
 
 MAKS_OGLOSZEN_NA_KARCIE = 15
 
@@ -77,7 +78,11 @@ INSTRUKCJE_OTOMOTO = (
     "— ceny ofertowe przeliczone już z brutto na NETTO (÷1,23), bez aut z USA "
     "i bez skrajnych kwot; rocznik; przebieg; wraz z medianą i kwartylami. "
     "Ceny ofertowe są zwykle wyższe od uzyskiwanych na aukcji poleasingowej. "
-    "Skoryguj je o różnice rocznika, przebiegu i wyposażenia. Pole "
+    "Porównania NIE są filtrowane po przebiegu — KAŻDE ogłoszenie "
+    "skoryguj o różnicę przebiegu "
+    "względem wycenianego auta (oraz rocznika i wersji), zanim wyciągniesz "
+    "wniosek; nie opieraj się na samej medianie. W uzasadnieniu podaj, "
+    "o ile średnio korygowałeś za przebieg. Pole "
     "`cena_portale` wypełnij medianą z tych danych.\n"
     "- `ekspertyza`: tekst raportu rzeczoznawcy dla TEGO pojazdu (dane "
     "osobowe i identyfikatory zasłonięte). Uwzględnij opisany stan "
