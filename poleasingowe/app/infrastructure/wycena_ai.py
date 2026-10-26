@@ -31,7 +31,7 @@ from app.application.read_models import (
     Szczegoly,
 )
 from app.domain.entities import OgloszenieRynkowe, WycenaAukcji
-from app.domain.enums import AuctionStatus, Currency
+from app.domain.enums import Currency
 from app.domain.value_objects import Money
 from app.infrastructure.ai_klienci import BladModelu, BladOdpowiedzi, KlientModelu
 from app.infrastructure.ekspertyza import OcenionyDokument
@@ -39,7 +39,7 @@ from app.infrastructure.otomoto import Ogloszenie, PojazdDoPorownania, WynikOtom
 
 log = logging.getLogger(__name__)
 
-WERSJA_PROMPTU = 10
+WERSJA_PROMPTU = 11
 """Podbij, gdy zmienisz `INSTRUKCJE` albo `SCHEMAT`.
 
 Zapisana wycena niesie wersję, którą policzono — dzięki temu widać, że
@@ -55,7 +55,8 @@ powstała starym poleceniem, i można ją świadomie przeliczyć.
 7: netto wg odznak i opisu (kwota Otomoto zawsze brutto).
 8: wszystkie kwoty Otomoto ÷1,23; status faktury osobno przy ogłoszeniu.
 9: wcześniejsze, niesprzedane wystawienia tego auta jako górna granica.
-10: uzasadnienie w punktach „- Temat: treść" (czytelniejsze na karcie)."""
+10: uzasadnienie w punktach „- Temat: treść" (czytelniejsze na karcie).
+11: każde wcześniejsze wystawienie = niesprzedane, bez względu na status."""
 
 MAKS_OGLOSZEN_NA_KARCIE = 15
 
@@ -137,7 +138,9 @@ FORMAT_UZASADNIENIA = (
 INSTRUKCJE_WYSTAWIENIA = (
     "\n\nDostajesz też `wczesniejsze_wystawienia_tego_auta`: TEN SAM "
     "samochód był już wystawiony na aukcji i się NIE SPRZEDAŁ (wraca na "
-    "aukcję). `pewnosc` = `VIN` — na pewno ten egzemplarz; `podobne` — "
+    "aukcję) — zakładaj to ZAWSZE, także gdy tamta aukcja ma cenę "
+    "końcową albo wygląda na domkniętą. `pewnosc` = `VIN` — na pewno ten "
+    "egzemplarz; `podobne` — "
     "prawdopodobnie (zgodne marka, model, rocznik, silnik, kolor i przebieg), "
     "waż słabiej. Przy `liczba_ofert` = 0 nikt nie dał nawet ceny "
     "wywoławczej; gdy oferty były, `cena_ostatnia` to najwyższa oferta, która "
@@ -278,7 +281,7 @@ class WycenaAI:
                 {"dokument": d.nazwa, "tekst": d.tekst} for d in ekspertyzy
             ]
         instrukcje = INSTRUKCJE_OTOMOTO if rozszerzona else INSTRUKCJE
-        wczesniejsze = self._wczesniejsze(wystawienia)
+        wczesniejsze = self._wczesniejsze(wystawienia, teraz)
         if wczesniejsze:
             wejscie["wczesniejsze_wystawienia_tego_auta"] = wczesniejsze
             instrukcje += INSTRUKCJE_WYSTAWIENIA
@@ -366,10 +369,17 @@ class WycenaAI:
 
     @staticmethod
     def _wczesniejsze(
-        wystawienia: tuple[PowiazaneWystawienie, ...],
+        wystawienia: tuple[PowiazaneWystawienie, ...], teraz: dt.datetime
     ) -> list[dict[str, Any]]:
-        """Zakończone WCZEŚNIEJSZE wystawienia — skoro auto wróciło, nie
-        sprzedało się. Bez serwisu i numeru aukcji: modelowi niepotrzebne."""
+        """Historyczne wystawienia tego auta = niesprzedane.
+
+        Wycenia się trwające aukcje, więc każde inne wystawienie, którego
+        termin minął, jest historyczne — i skoro auto znów stoi na aukcji,
+        nie sprzedało się. Bez względu na status (domknięta, zniknęła,
+        niedomknięta) i cenę końcową. Równoległe, wciąż trwające wystawienie
+        w innym serwisie to nie porażka sprzedaży — pomijamy. Bez terminu
+        decyduje kolejność. Bez serwisu i numeru aukcji: modelowi
+        niepotrzebne."""
 
         def kwota(m: Money | None) -> int | None:
             return None if m is None else round(m.amount)
@@ -384,8 +394,7 @@ class WycenaAI:
                 "pewnosc": "VIN" if w.pewnosc is PewnoscPowiazania.VIN else "podobne",
             }
             for w in wystawienia
-            if not w.pozniejsze
-            and w.status in (AuctionStatus.ENDED, AuctionStatus.DISAPPEARED)
+            if (w.ends_at < teraz if w.ends_at is not None else not w.pozniejsze)
         ][:5]
 
     @staticmethod

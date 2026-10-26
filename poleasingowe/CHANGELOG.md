@@ -1,5 +1,14 @@
 # Historia zmian
 
+## 0.32.6 — w przygotowaniu
+
+**Każde historyczne wystawienie = niesprzedane.** Wycena AI (robiona na
+trwających aukcjach) bierze wszystkie inne wystawienia tego samego auta,
+których termin minął — także te, które w bazie wyglądają na niedomknięte
+albo mają cenę końcową: skoro auto znów stoi na aukcji, nie sprzedało się.
+Równoległe, wciąż trwające wystawienie w innym serwisie jest pomijane.
+Instrukcja modelu AI w wersji 11.
+
 ## 0.32.5 — w przygotowaniu
 
 **Czytelniejsze uzasadnienie wyceny AI.** Model pisze uzasadnienie w krótkich

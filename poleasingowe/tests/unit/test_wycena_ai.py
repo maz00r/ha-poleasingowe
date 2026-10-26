@@ -5,6 +5,7 @@ from __future__ import annotations
 import datetime as dt
 import json
 import pathlib
+from dataclasses import replace
 from decimal import Decimal
 
 import httpx
@@ -642,15 +643,21 @@ async def test_wczesniejsze_niesprzedane_wystawienie_trafia_do_modelu() -> None:
         teraz=TERAZ,
         wystawienia=(
             wystawienie(1, AuctionStatus.ENDED),
+            # Niedomknięta, termin minął — historyczna, więc niesprzedana.
             wystawienie(2, AuctionStatus.ACTIVE),
-            wystawienie(3, AuctionStatus.ENDED, pozniejsze=True),
+            # Równoległa, wciąż trwająca w innym serwisie — pomijana.
+            replace(
+                wystawienie(3, AuctionStatus.ACTIVE, pozniejsze=True),
+                ends_at=TERAZ + dt.timedelta(days=3),
+            ),
         ),
     )
 
     wejscie = json.dumps(zadania[0], ensure_ascii=False)
     assert "wczesniejsze_wystawienia_tego_auta" in wejscie
     assert "GÓRNĄ granicę" in wejscie
-    assert wejscie.count("cena_wywolawcza") == 1  # aktywne i późniejsze odpadły
+    # Historyczne liczą się bez względu na status; trwające odpada.
+    assert wejscie.count("cena_wywolawcza") == 2
     assert "efl" not in wejscie
 
 
