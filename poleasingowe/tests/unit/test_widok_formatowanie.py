@@ -20,6 +20,7 @@ from app.interfaces.web.filtry_szablonu import (
     kwota,
     kwota_w_polu,
     liczba,
+    punkty_uzasadnienia,
 )
 
 TERAZ = dt.datetime(2026, 9, 7, 10, 0, tzinfo=dt.UTC)
@@ -150,3 +151,27 @@ def test_puste_pola_zostaja_puste_a_nie_zerowe() -> None:
     linia = eksport.linia_pozycji(_pozycja(year=None, mileage_km=None, fuel=None))
     assert ";;" in linia
     assert "0" not in linia.split(";")[6]
+
+
+def test_uzasadnienie_w_punktach_z_tematem() -> None:
+    tekst = (
+        "- Rynek: mediana Otomoto 129 000 zł netto.\n"
+        "- **Przebieg:** 199 tys. km, korekta -8 000 zł.\n"
+        "\n"
+        "- Wniosek: 118 000 zł."
+    )
+    assert punkty_uzasadnienia(tekst) == [
+        ("Rynek", "mediana Otomoto 129 000 zł netto."),
+        ("Przebieg", "199 tys. km, korekta -8 000 zł."),
+        ("Wniosek", "118 000 zł."),
+    ]
+
+
+def test_stare_uzasadnienie_dzielone_na_zdania() -> None:
+    tekst = "Auto ma duży przebieg, np. 199 tys. km. Ceny ofert są wyższe. Wniosek ok."
+    assert punkty_uzasadnienia(tekst) == [
+        (None, "Auto ma duży przebieg, np. 199 tys. km."),
+        (None, "Ceny ofert są wyższe."),
+        (None, "Wniosek ok."),
+    ]
+    assert punkty_uzasadnienia(None) == []

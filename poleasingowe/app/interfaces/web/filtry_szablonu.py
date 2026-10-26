@@ -8,6 +8,7 @@ warszawskim.
 from __future__ import annotations
 
 import datetime as dt
+import re
 from collections.abc import Mapping, Sequence
 from urllib.parse import urlencode
 from zoneinfo import ZoneInfo
@@ -127,6 +128,33 @@ def pilnosc(ends_at: dt.datetime | None, teraz: dt.datetime) -> str:
     return ""
 
 
+_PUNKT = re.compile(r"^\s*(?:[-•*]|\d+[.)])\s+")
+_ZDANIE = re.compile(r"(?<=[.!?])\s+(?=[A-ZĄĆĘŁŃÓŚŹŻ])")
+_TEMAT = re.compile(r"^([^:.]{2,40}):\s+(\S.*)$", re.S)
+
+
+def punkty_uzasadnienia(tekst: str | None) -> list[tuple[str | None, str]]:
+    """Uzasadnienie wyceny AI jako lista (temat, treść) do wyświetlenia.
+
+    Od wersji 10 promptu model pisze punkty „- Temat: treść" w osobnych
+    liniach. Starsze wyceny to jeden akapit — dzielimy go na zdania, żeby
+    nie był ścianą tekstu.
+    """
+    if not tekst:
+        return []
+    linie = [
+        _PUNKT.sub("", linia).replace("**", "").strip() for linia in tekst.splitlines()
+    ]
+    linie = [linia for linia in linie if linia]
+    if len(linie) == 1:
+        linie = [z.strip() for z in _ZDANIE.split(linie[0]) if z.strip()]
+    punkty: list[tuple[str | None, str]] = []
+    for linia in linie:
+        temat = _TEMAT.match(linia)
+        punkty.append((temat[1].strip(), temat[2]) if temat else (None, linia))
+    return punkty
+
+
 def zarejestruj(srodowisko: object) -> None:
     """Podpina filtry pod środowisko Jinja2."""
     filtry = getattr(srodowisko, "filters")  # noqa: B009 — Jinja2 API
@@ -138,3 +166,4 @@ def zarejestruj(srodowisko: object) -> None:
     filtry["bajty"] = bajty
     filtry["do_konca"] = do_konca
     filtry["pilnosc"] = pilnosc
+    filtry["punkty_uzasadnienia"] = punkty_uzasadnienia

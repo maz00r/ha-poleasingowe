@@ -1,5 +1,12 @@
 # Historia zmian
 
+## 0.32.5 — w przygotowaniu
+
+**Czytelniejsze uzasadnienie wyceny AI.** Model pisze uzasadnienie w krótkich
+punktach z tematem („Rynek", „Przebieg", „Stan techniczny", „Wniosek"),
+a karta pokazuje je jako listę. Starsze wyceny są dzielone na zdania.
+Instrukcja modelu AI w wersji 10.
+
 ## 0.32.4 — w przygotowaniu
 
 **Wycena AI pamięta wcześniejsze wystawienia.** Gdy to samo auto (po VIN-ie

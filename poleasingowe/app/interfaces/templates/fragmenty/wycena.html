@@ -26,7 +26,11 @@
     {% endif %}
     <div><span>Pewność</span><strong>{{ wycena.pewnosc }}</strong></div>
   </div>
-  <p>{{ wycena.uzasadnienie }}</p>
+  <ul class="uzasadnienie">
+    {% for temat, tresc in wycena.uzasadnienie | punkty_uzasadnienia %}
+      <li>{% if temat %}<strong>{{ temat }}:</strong> {% endif %}{{ tresc }}</li>
+    {% endfor %}
+  </ul>
   {% if wycena.zrodlo == 'OTOMOTO' %}
     <p class="uwaga">
       {% if wycena.otomoto_liczba %}

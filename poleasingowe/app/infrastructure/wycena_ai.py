@@ -39,7 +39,7 @@ from app.infrastructure.otomoto import Ogloszenie, PojazdDoPorownania, WynikOtom
 
 log = logging.getLogger(__name__)
 
-WERSJA_PROMPTU = 9
+WERSJA_PROMPTU = 10
 """Podbij, gdy zmienisz `INSTRUKCJE` albo `SCHEMAT`.
 
 Zapisana wycena niesie wersję, którą policzono — dzięki temu widać, że
@@ -54,7 +54,8 @@ powstała starym poleceniem, i można ją świadomie przeliczyć.
    instrukcja bazowa dla wyceny z danymi rynkowymi (bez sprzecznych zdań).
 7: netto wg odznak i opisu (kwota Otomoto zawsze brutto).
 8: wszystkie kwoty Otomoto ÷1,23; status faktury osobno przy ogłoszeniu.
-9: wcześniejsze, niesprzedane wystawienia tego auta jako górna granica."""
+9: wcześniejsze, niesprzedane wystawienia tego auta jako górna granica.
+10: uzasadnienie w punktach „- Temat: treść" (czytelniejsze na karcie)."""
 
 MAKS_OGLOSZEN_NA_KARCIE = 15
 
@@ -118,6 +119,17 @@ INSTRUKCJE_OTOMOTO = (
     "Kwoty z ekspertyz bywają brutto albo netto — sprawdź, co mówi raport, "
     "i przelicz na netto.\n"
     "Jeśli któregoś bloku brak, napisz o tym w założeniach."
+)
+
+# Format uzasadnienia — dopisywany do każdej instrukcji wyceny. Karta
+# wyświetla punkty jako listę (`punkty_uzasadnienia`), więc jeden akapit
+# przestaje być ścianą tekstu.
+FORMAT_UZASADNIENIA = (
+    "\n\nFormat pola `uzasadnienie`: 3-7 krótkich punktów, każdy w osobnej "
+    "linii zaczynającej się od „- ”, na początku punktu temat z dwukropkiem, "
+    "np. „- Rynek: …”, „- Przebieg: …”, „- Stan techniczny: …”, "
+    "„- Wcześniejsze wystawienia: …”, „- Wniosek: …”. Jedno-dwa zdania na "
+    "punkt, z konkretnymi kwotami. Bez wstępu i bez innego formatowania."
 )
 
 # Dopisek, gdy to samo auto stało już na aukcji i wróciło — czyli się nie
@@ -270,6 +282,7 @@ class WycenaAI:
         if wczesniejsze:
             wejscie["wczesniejsze_wystawienia_tego_auta"] = wczesniejsze
             instrukcje += INSTRUKCJE_WYSTAWIENIA
+        instrukcje += FORMAT_UZASADNIENIA
         try:
             tekst = await self._klient.json_wg_schematu(
                 instrukcje=instrukcje,
