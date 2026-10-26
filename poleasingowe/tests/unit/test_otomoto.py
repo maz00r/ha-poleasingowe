@@ -75,32 +75,41 @@ def _rekord(i: int, model: str = "Octavia") -> dict[str, Any]:
     }
 
 
-async def test_dwie_proby_i_statystyka() -> None:
+async def test_jeden_przebieg_netto_bez_usa_i_skrajnych() -> None:
     zadania: list[dict[str, Any]] = []
+    rekordy = [_rekord(i) for i in range(10)]
+    rekordy += [_rekord(i, "Superb") for i in range(5)]  # model cofnięty do marki
+    usa = _rekord(50)
+    usa["title"] = "Skoda Octavia z USA, Copart"
+    sprowadzenie = _rekord(51)
+    sprowadzenie["shortDescription"] = "auto do sprowadzenia"
+    skrajna = _rekord(52)
+    skrajna["pricePLN"] = 1_000
+    rekordy += [usa, sprowadzenie, skrajna]
 
     def obsluz(zadanie: httpx.Request) -> httpx.Response:
         assert zadanie.headers["authorization"] == "Bearer tajny"
         assert "tajny" not in str(zadanie.url)
         zadania.append(json.loads(zadanie.content))
-        if len(zadania) == 1:
-            # Pierwsza próba: model cofnięty do marki — same Superby i 3 Octavie.
-            return httpx.Response(
-                200,
-                json=[_rekord(i, "Superb") for i in range(10)]
-                + [_rekord(i) for i in range(3)],
-            )
-        return httpx.Response(200, json=[_rekord(i) for i in range(12)])
+        return httpx.Response(200, json=rekordy)
 
     usluga = Otomoto(
         "tajny", klient=httpx.AsyncClient(transport=httpx.MockTransport(obsluz))
     )
     wynik = await usluga.porownaj(OCTAVIA)
 
-    assert len(zadania) == 2
-    assert "/q-octavia/" in zadania[1]["startUrls"][0]
-    assert wynik.liczba == 12
-    assert wynik.mediana == 85_500
-    assert wynik.p25 is not None and wynik.p75 is not None and wynik.p25 < wynik.p75
+    assert len(zadania) == 1
+    assert "/q-octavia/" in zadania[0]["startUrls"][0]
+    assert wynik.odrzucone_usa == 2
+    assert wynik.odrzucone_skrajne == 1
+    assert wynik.liczba == 10
+    # 80 000…89 000 brutto → netto ÷1,23; mediana z kwot netto po zaokrągleniu każdej
+    assert wynik.mediana == 68_700
+    assert all(o.cena < 80_000 for o in wynik.ogloszenia)
+
+
+def test_netto_z_brutto() -> None:
+    assert otomoto.netto(123_000) == 100_000
 
 
 async def test_za_malo_porownan_bez_mediany() -> None:

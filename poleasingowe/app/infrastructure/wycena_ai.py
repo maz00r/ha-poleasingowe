@@ -33,14 +33,16 @@ from app.infrastructure.otomoto import Ogloszenie, WynikOtomoto
 
 log = logging.getLogger(__name__)
 
-WERSJA_PROMPTU = 3
+WERSJA_PROMPTU = 4
 """Podbij, gdy zmienisz `INSTRUKCJE` albo `SCHEMAT`.
 
 Zapisana wycena niesie wersję, którą policzono — dzięki temu widać, że
 powstała starym poleceniem, i można ją świadomie przeliczyć.
 
 2: doszedł szacunek poziomu cen ofertowych na polskich portalach.
-3: opcjonalne ogłoszenia z Otomoto (Apify) i treść ekspertyzy."""
+3: opcjonalne ogłoszenia z Otomoto (Apify) i treść ekspertyzy.
+4: wszystkie kwoty w PLN netto; ceny Otomoto przeliczone z brutto, bez aut
+   z USA i skrajnych ofert."""
 
 MAKS_OGLOSZEN_NA_KARCIE = 15
 
@@ -49,6 +51,7 @@ NAZWA_SCHEMATU = "wycena_pojazdu"
 INSTRUKCJE = (
     "Jesteś analitykiem polskiego rynku samochodów używanych. "
     "Oszacuj uczciwą cenę detaliczną pojazdu w PLN na dziś. "
+    "WSZYSTKIE kwoty w danych i w wyniku są w PLN NETTO (bez VAT). "
     "Największą wagę nadaj porównaniom z zakończonych aukcji, "
     "ale uwzględnij różnice rocznika i przebiegu. Jeśli danych "
     "jest mało, poszerz przedział i obniż pewność. Nie zakładaj "
@@ -71,8 +74,9 @@ INSTRUKCJE_OTOMOTO = (
     "\n\nTym razem dostajesz PRAWDZIWE dane rynkowe — używaj ich zamiast "
     "własnych szacunków:\n"
     "- `ogloszenia_otomoto`: porównywalne ogłoszenia z Otomoto pobrane dziś "
-    "(cena ofertowa w PLN, zwykle brutto i zwykle wyższa od ceny uzyskiwanej "
-    "na aukcji poleasingowej; rocznik; przebieg) wraz z medianą i kwartylami. "
+    "— ceny ofertowe przeliczone już z brutto na NETTO (÷1,23), bez aut z USA "
+    "i bez skrajnych kwot; rocznik; przebieg; wraz z medianą i kwartylami. "
+    "Ceny ofertowe są zwykle wyższe od uzyskiwanych na aukcji poleasingowej. "
     "Skoryguj je o różnice rocznika, przebiegu i wyposażenia. Pole "
     "`cena_portale` wypełnij medianą z tych danych.\n"
     "- `ekspertyza`: tekst raportu rzeczoznawcy dla TEGO pojazdu (dane "
@@ -80,7 +84,7 @@ INSTRUKCJE_OTOMOTO = (
     "techniczny, uszkodzenia, braki, koszty napraw i wartość wskazaną przez "
     "rzeczoznawcę; w uzasadnieniu napisz, co z ekspertyzy wpłynęło na kwotę.\n"
     "Jeśli któregoś bloku brak, napisz o tym w założeniach. Kwoty z ekspertyz "
-    "bywają brutto albo netto — sprawdź, co mówi raport."
+    "bywają brutto albo netto — sprawdź, co mówi raport, i przelicz na netto."
 )
 
 SCHEMAT: dict[str, Any] = {
@@ -175,6 +179,9 @@ class WycenaAI:
                 "mediana": otomoto.mediana,
                 "kwartyl_dolny": otomoto.p25,
                 "kwartyl_gorny": otomoto.p75,
+                "podstawa": "netto (z brutto ÷1,23)",
+                "odrzucone_z_usa": otomoto.odrzucone_usa,
+                "odrzucone_skrajne": otomoto.odrzucone_skrajne,
                 "ogloszenia": [
                     {
                         "tytul": o.tytul,

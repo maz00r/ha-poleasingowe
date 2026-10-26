@@ -1,5 +1,12 @@
 # Historia zmian
 
+## 0.31.1 — w przygotowaniu
+
+**Wycena z Otomoto w netto.** Jeden przebieg aktora Apify zamiast dwóch.
+Wszystkie ceny z Otomoto są traktowane jako brutto i przeliczane na netto
+(÷1,23), tak jak ceny aukcji; wycena AI jest podawana w netto. Odrzucane są
+auta z USA (także „do sprowadzenia") i skrajne kwoty.
+
 ## 0.31.0 — w przygotowaniu
 
 **dawro — kwoty netto.** dawro publikuje kwoty brutto. Przy „Forma sprzedaży:
@@ -30,7 +37,9 @@ aukcji z serwisu.
 **Wycena z Otomoto.** Nowa opcja `apify_token` włącza przycisk „Wycena z
 Otomoto": add-on pobiera przez aktora Apify `automation-lab/otomoto-scraper`
 podobne ogłoszenia (marka, model, rocznik, przebieg, paliwo, skrzynia),
-odrzuca ogłoszenia innych modeli, liczy medianę i kwartyle, a model AI dostaje
+jednym przebiegiem, odrzuca ogłoszenia innych modeli, aut z USA (także „do
+sprowadzenia") i skrajne kwoty, przelicza ceny z brutto na netto (÷1,23),
+liczy medianę i kwartyle, a model AI dostaje
 te ogłoszenia razem z treścią ekspertyzy (wybieraną po treści, nie po nazwie
 pliku; VIN, numer rejestracyjny i dane osób zasłonięte). Koszt ok. 0,05 USD za
 wycenę. Automatyczna wycena przy wejściu na kartę działa bez zmian.

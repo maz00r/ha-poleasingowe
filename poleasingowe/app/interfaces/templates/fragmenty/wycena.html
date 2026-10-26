@@ -13,13 +13,13 @@
   {% endif %}
   {% if wycena %}
   <div class="wycena-wynik">
-    <div><span>Szacowana wartość</span>
+    <div><span>Szacowana wartość{% if wycena.wersja_promptu >= 4 %} (netto){% endif %}</span>
       <strong>{{ wycena.wartosc | kwota }}</strong></div>
     <div><span>Realistyczny przedział</span>
       <strong>{{ wycena.minimum | kwota }} – {{ wycena.maksimum | kwota }}</strong></div>
     {% if wycena.cena_portale %}
       {# Osobna kratka i osobna etykieta, bo to inny rodzaj liczby niż wycena. #}
-      <div><span>{{ 'Mediana ofert Otomoto' if wycena.zrodlo == 'OTOMOTO' and wycena.otomoto_liczba else 'Poziom ofert na portalach' }}</span>
+      <div><span>{{ 'Mediana ofert Otomoto (netto)' if wycena.zrodlo == 'OTOMOTO' and wycena.otomoto_liczba else 'Poziom ofert na portalach' }}</span>
         <strong>{% if wycena.zrodlo != 'OTOMOTO' %}~{% endif %}{{ wycena.cena_portale | kwota }}</strong></div>
     {% endif %}
     <div><span>Pewność</span><strong>{{ wycena.pewnosc }}</strong></div>
@@ -30,7 +30,8 @@
       {% if wycena.otomoto_liczba %}
         Porównano z <strong>{{ wycena.otomoto_liczba }}</strong> ogłoszeniami z Otomoto
         {% if wycena.otomoto_p25 and wycena.otomoto_p75 %}(połowa ofert między {{ wycena.otomoto_p25 | kwota }} a {{ wycena.otomoto_p75 | kwota }}){% endif %}.
-        Ceny ofertowe — zwykle wyższe od uzyskiwanych na aukcjach.
+        Ceny ofertowe przeliczone z brutto na netto (÷1,23), bez aut z USA
+        i skrajnych kwot — zwykle wyższe od uzyskiwanych na aukcjach.
       {% else %}
         Otomoto nie zwróciło porównywalnych ogłoszeń dla tego modelu.
       {% endif %}
@@ -45,7 +46,7 @@
       <details>
         <summary>Najbardziej podobne ogłoszenia</summary>
         <table class="zestawienie">
-          <thead><tr><th>Ogłoszenie</th><th>Rok</th><th>Przebieg</th><th>Cena</th></tr></thead>
+          <thead><tr><th>Ogłoszenie</th><th>Rok</th><th>Przebieg</th><th>Cena netto</th></tr></thead>
           <tbody>
             {% for o in wycena.otomoto_ogloszenia %}
               <tr>

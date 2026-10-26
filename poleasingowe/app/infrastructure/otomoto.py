@@ -16,6 +16,19 @@ DWIE PUŁAPKI ZMIERZONE NA ŻYWO (2026-10-26):
 - **Ceny są ofertowe**, wystawione przez sprzedających — zwykle wyższe od
   cen z aukcji poleasingowych. Model AI dostaje je z tą adnotacją.
 
+Decyzje właściciela repo (2026-10-26):
+
+- **Jeden przebieg aktora** na wycenę — wyszukiwanie frazą
+  (`/osobowe/<marka>/q-<model>`), które działa także dla modeli nieznanych
+  ścieżce, plus własny filtr `pasuje()`.
+- **Wszystkie kwoty Otomoto traktujemy jako brutto** (ceny wyświetlane na
+  Otomoto mają `isGross: true` — 32/32 w próbce; aktor nie oddaje tego pola)
+  i przeliczamy ÷1,23 na netto, tak jak ceny aukcji w bazie.
+- **Odrzucamy auta z USA** (dostępne na miejscu i „do sprowadzenia") —
+  inny rynek, inny stan, inne ceny — po słowach w tytule i krótkim opisie.
+- **Odrzucamy skrajne kwoty** płotami Tukeya (1,5 x IQR) — pojedyncza oferta
+  „za złotówkę" albo pomyłka o rząd wielkości nie ma ruszać mediany.
+
 Token Apify idzie w nagłówku `Authorization`, nie w adresie — adresy
 żądań lądują w logach.
 """
@@ -27,6 +40,7 @@ import re
 import statistics
 import unicodedata
 from dataclasses import dataclass
+from decimal import ROUND_HALF_UP, Decimal
 from typing import Any
 from urllib.parse import quote, urlencode
 
@@ -36,7 +50,7 @@ log = logging.getLogger(__name__)
 
 AKTOR = "automation-lab~otomoto-scraper"
 ADRES_API = f"https://api.apify.com/v2/acts/{AKTOR}/run-sync-get-dataset-items"
-MAKS_OGLOSZEN = 40
+MAKS_OGLOSZEN = 50
 MIN_POROWNAN = 8
 """Poniżej tego mediana z Otomoto jest szumem — wtedy jej nie podajemy."""
 
@@ -51,6 +65,16 @@ PALIWA: dict[str, tuple[str, ...]] = {
 """Kanoniczne paliwa aplikacji → identyfikatory filtra Otomoto (sic: `hidrogen`)."""
 
 SKRZYNIE = {"Automatyczna": "automatic", "Manualna": "manual"}
+
+VAT = Decimal("1.23")
+
+_USA = re.compile(
+    r"(?i)\b(?:usa|u\.s\.a|z\s+ameryki|ameryka[nń]sk\w*|kanad\w*|"
+    r"copart|iaai|do\s+sprowadzenia|w\s+drodze\s+do\s+polski|"
+    r"sprowadzon\w*\s+z\s+(?:usa|ameryki|kanady))\b"
+)
+"""Auta z USA/Kanady — także „do sprowadzenia". Aktor oddaje tylko tytuł
+i krótki opis karty, więc to słowa kluczowe, nie pole „kraj pochodzenia"."""
 
 
 class BladOtomoto(RuntimeError):
@@ -72,6 +96,7 @@ class PojazdDoPorownania:
 class Ogloszenie:
     tytul: str
     cena: int
+    """PLN NETTO — cena z Otomoto (brutto) ÷1,23."""
     rok: int | None
     przebieg_km: int | None
     url: str
@@ -84,6 +109,8 @@ class WynikOtomoto:
     mediana: int | None
     p25: int | None
     p75: int | None
+    odrzucone_usa: int = 0
+    odrzucone_skrajne: int = 0
 
     @property
     def liczba(self) -> int:
@@ -158,6 +185,17 @@ def pasuje(
     )
 
 
+def z_usa(rekord: dict[str, Any]) -> bool:
+    tekst = " ".join(
+        str(rekord.get(pole) or "") for pole in ("title", "shortDescription", "version")
+    )
+    return _USA.search(tekst) is not None
+
+
+def netto(brutto: int) -> int:
+    return int((Decimal(brutto) / VAT).quantize(Decimal(1), rounding=ROUND_HALF_UP))
+
+
 def _ogloszenie(rekord: dict[str, Any]) -> Ogloszenie | None:
     cena = _liczba(rekord.get("pricePLN"))
     url = rekord.get("url")
@@ -165,24 +203,51 @@ def _ogloszenie(rekord: dict[str, Any]) -> Ogloszenie | None:
         return None
     return Ogloszenie(
         tytul=str(rekord.get("title") or ""),
-        cena=cena,
+        cena=netto(cena),
         rok=_liczba(rekord.get("year")),
         przebieg_km=_liczba(rekord.get("mileageKm")),
         url=url,
     )
 
 
-def statystyka(adres: str, ogloszenia: list[Ogloszenie]) -> WynikOtomoto:
+def bez_skrajnych(ogloszenia: list[Ogloszenie]) -> list[Ogloszenie]:
+    """Płoty Tukeya: poza [Q1 - 1,5·IQR, Q3 + 1,5·IQR] odpada.
+
+    Przy kilku ogłoszeniach kwartyle są niestabilne — wtedy zostaje prostsza
+    reguła: poza 0,5-2x mediany.
+    """
+    if len(ogloszenia) < 3:
+        return ogloszenia
     ceny = sorted(o.cena for o in ogloszenia)
+    if len(ceny) >= MIN_POROWNAN:
+        q1, _, q3 = statistics.quantiles(ceny, n=4, method="inclusive")
+        rozstep = q3 - q1
+        dol, gora = q1 - 1.5 * rozstep, q3 + 1.5 * rozstep
+    else:
+        mediana = statistics.median(ceny)
+        dol, gora = mediana * 0.5, mediana * 2
+    return [o for o in ogloszenia if dol <= o.cena <= gora]
+
+
+def statystyka(
+    adres: str, ogloszenia: list[Ogloszenie], *, odrzucone_usa: int = 0
+) -> WynikOtomoto:
+    przefiltrowane = bez_skrajnych(ogloszenia)
+    skrajne = len(ogloszenia) - len(przefiltrowane)
+    ceny = sorted(o.cena for o in przefiltrowane)
     if len(ceny) < MIN_POROWNAN:
-        return WynikOtomoto(adres, tuple(ogloszenia), None, None, None)
+        return WynikOtomoto(
+            adres, tuple(przefiltrowane), None, None, None, odrzucone_usa, skrajne
+        )
     kwartyle = statistics.quantiles(ceny, n=4, method="inclusive")
     return WynikOtomoto(
         adres=adres,
-        ogloszenia=tuple(ogloszenia),
+        ogloszenia=tuple(przefiltrowane),
         mediana=round(statistics.median(ceny)),
         p25=round(kwartyle[0]),
         p75=round(kwartyle[2]),
+        odrzucone_usa=odrzucone_usa,
+        odrzucone_skrajne=skrajne,
     )
 
 
@@ -231,23 +296,25 @@ class Otomoto:
         return [r for r in dane if isinstance(r, dict)]
 
     async def porownaj(self, pojazd: PojazdDoPorownania) -> WynikOtomoto:
-        """Najwyżej dwa uruchomienia aktora: wąsko po ścieżce, potem frazą szeroko."""
+        """Jeden przebieg aktora: wyszukiwanie frazą, potem własne filtry."""
+        adres = adres_wyszukiwania(pojazd, fraza=True)
         widziane: dict[str, Ogloszenie] = {}
-        adres = adres_wyszukiwania(pojazd)
-        for proba, (fraza, szeroko) in enumerate(((False, False), (True, True))):
-            adres = adres_wyszukiwania(pojazd, fraza=fraza, szeroko=szeroko)
-            for rekord in await self._uruchom(adres):
-                if not pasuje(rekord, pojazd, szeroko=szeroko):
-                    continue
-                if (ogloszenie := _ogloszenie(rekord)) is not None:
-                    widziane.setdefault(ogloszenie.url, ogloszenie)
-            log.info(
-                "Otomoto (próba %s): %s pasujących ogłoszeń dla %s %s",
-                proba + 1,
-                len(widziane),
-                pojazd.marka,
-                pojazd.model,
-            )
-            if len(widziane) >= MIN_POROWNAN:
-                break
-        return statystyka(adres, list(widziane.values()))
+        usa = 0
+        for rekord in await self._uruchom(adres):
+            if not pasuje(rekord, pojazd, szeroko=False):
+                continue
+            if z_usa(rekord):
+                usa += 1
+                continue
+            if (ogloszenie := _ogloszenie(rekord)) is not None:
+                widziane.setdefault(ogloszenie.url, ogloszenie)
+        wynik = statystyka(adres, list(widziane.values()), odrzucone_usa=usa)
+        log.info(
+            "Otomoto: %s porównań dla %s %s (odrzucone: %s z USA, %s skrajnych)",
+            wynik.liczba,
+            pojazd.marka,
+            pojazd.model,
+            usa,
+            wynik.odrzucone_skrajne,
+        )
+        return wynik

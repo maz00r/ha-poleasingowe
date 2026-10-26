@@ -203,9 +203,12 @@ zostaje mniej niż 1 GiB.
 Opcja `apify_token` (token API z console.apify.com) dodaje przycisk
 **Wycena z Otomoto**. Add-on uruchamia wtedy aktora Apify
 `automation-lab/otomoto-scraper` z wyszukiwaniem Otomoto dla tej samej marki
-i modelu (rocznik ±1, przebieg ±40%, to samo paliwo i skrzynia; gdy wyników
-jest mało — szerzej, frazą), odrzuca ogłoszenia innych modeli (Otomoto po
-cichu pokazuje całą markę, gdy nie zna modelu), liczy medianę i kwartyle,
+i modelu (jeden przebieg: rocznik ±1, przebieg ±40%, to samo paliwo
+i skrzynia), odrzuca ogłoszenia innych modeli (Otomoto po cichu pokazuje
+całą markę, gdy nie zna modelu), auta z USA — także „do sprowadzenia" —
+i skrajne kwoty. Wszystkie ceny Otomoto traktuje jako brutto i przelicza na
+netto (÷1,23), tak jak ceny aukcji; wycena też jest w netto. Liczy medianę
+i kwartyle,
 a model AI dostaje te ogłoszenia razem z treścią ekspertyzy aukcji.
 Ekspertyzę add-on wybiera po treści, nie po nazwie pliku, i przed wysłaniem
 zasłania w niej VIN, numer rejestracyjny, nazwiska, telefony i adresy e-mail.
