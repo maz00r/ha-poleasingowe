@@ -1,5 +1,13 @@
 # Historia zmian
 
+## 0.32.9 — w przygotowaniu
+
+**Naprawa: wycena AI padała na niepoprawnym JSON-ie.** Od 0.32.5 model
+dostawał prośbę o punkty uzasadnienia w osobnych liniach i bywało, że
+wypisywał je poza cudzysłowem. Teraz uzasadnienie to tablica punktów
+w schemacie odpowiedzi (karta wyświetla je tak samo), a zepsuty JSON jest
+raz ponawiany przed pokazaniem błędu. Instrukcja modelu AI w wersji 12.
+
 ## 0.32.8 — w przygotowaniu
 
 **Ręczny deploy z GitHuba.** Deploy na Proxmoxa to osobny workflow

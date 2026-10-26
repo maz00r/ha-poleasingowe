@@ -39,7 +39,7 @@ from app.infrastructure.otomoto import Ogloszenie, PojazdDoPorownania, WynikOtom
 
 log = logging.getLogger(__name__)
 
-WERSJA_PROMPTU = 11
+WERSJA_PROMPTU = 12
 """Podbij, gdy zmienisz `INSTRUKCJE` albo `SCHEMAT`.
 
 Zapisana wycena niesie wersję, którą policzono — dzięki temu widać, że
@@ -56,7 +56,8 @@ powstała starym poleceniem, i można ją świadomie przeliczyć.
 8: wszystkie kwoty Otomoto ÷1,23; status faktury osobno przy ogłoszeniu.
 9: wcześniejsze, niesprzedane wystawienia tego auta jako górna granica.
 10: uzasadnienie w punktach „- Temat: treść" (czytelniejsze na karcie).
-11: każde wcześniejsze wystawienie = niesprzedane, bez względu na status."""
+11: każde wcześniejsze wystawienie = niesprzedane, bez względu na status.
+12: uzasadnienie jako tablica punktów (linie w napisie psuły JSON)."""
 
 MAKS_OGLOSZEN_NA_KARCIE = 15
 
@@ -125,12 +126,14 @@ INSTRUKCJE_OTOMOTO = (
 # Format uzasadnienia — dopisywany do każdej instrukcji wyceny. Karta
 # wyświetla punkty jako listę (`punkty_uzasadnienia`), więc jeden akapit
 # przestaje być ścianą tekstu.
+# Punkty jako ELEMENTY TABLICY, nie linie w jednym napisie: prośba o „nową
+# linię na punkt" kończyła się JSON-em z punktami poza cudzysłowem (0.32.5).
 FORMAT_UZASADNIENIA = (
-    "\n\nFormat pola `uzasadnienie`: 3-7 krótkich punktów, każdy w osobnej "
-    "linii zaczynającej się od „- ”, na początku punktu temat z dwukropkiem, "
-    "np. „- Rynek: …”, „- Przebieg: …”, „- Stan techniczny: …”, "
-    "„- Wcześniejsze wystawienia: …”, „- Wniosek: …”. Jedno-dwa zdania na "
-    "punkt, z konkretnymi kwotami. Bez wstępu i bez innego formatowania."
+    "\n\nPole `uzasadnienie` to lista 3-7 krótkich punktów — każdy punkt "
+    "to osobny element tablicy, zaczynający się od tematu z dwukropkiem, "
+    "np. „Rynek: …”, „Przebieg: …”, „Stan techniczny: …”, „Wcześniejsze "
+    "wystawienia: …”, „Wniosek: …”. Jedno-dwa zdania na punkt, z konkretnymi "
+    "kwotami, bez myślników i innego formatowania."
 )
 
 # Dopisek, gdy to samo auto stało już na aukcji i wróciło — czyli się nie
@@ -170,7 +173,12 @@ SCHEMAT: dict[str, Any] = {
         # dać się powiedzieć, inaczej model wypełni pole byle czym.
         "cena_portale": {"type": ["integer", "null"], "minimum": 0},
         "pewnosc": {"type": "string", "enum": ["niska", "średnia", "wysoka"]},
-        "uzasadnienie": {"type": "string"},
+        "uzasadnienie": {
+            "type": "array",
+            "items": {"type": "string"},
+            "minItems": 1,
+            "maxItems": 8,
+        },
         "zalozenia": {"type": "array", "items": {"type": "string"}, "maxItems": 5},
     },
     # Tryb `strict` u OpenAI wymaga, żeby KAŻDE pole było w `required` —
@@ -186,6 +194,14 @@ SCHEMAT: dict[str, Any] = {
     ],
     "additionalProperties": False,
 }
+
+
+def _uzasadnienie(wartosc: object) -> str:
+    """Tablica punktów (prompt v12+) → „- punkt" w liniach, jak czyta karta.
+    Napis (starsze odpowiedzi, dostawcy bez schematu) zostaje bez zmian."""
+    if isinstance(wartosc, list):
+        return "\n".join(f"- {str(p).strip()}" for p in wartosc if str(p).strip())
+    return str(wartosc)
 
 
 def _liczba_lub_none(wartosc: object) -> int | None:
@@ -287,13 +303,22 @@ class WycenaAI:
             instrukcje += INSTRUKCJE_WYSTAWIENIA
         instrukcje += FORMAT_UZASADNIENIA
         try:
-            tekst = await self._klient.json_wg_schematu(
-                instrukcje=instrukcje,
-                wejscie=json.dumps(wejscie, ensure_ascii=False),
-                nazwa_schematu=NAZWA_SCHEMATU,
-                schemat=SCHEMAT,
-            )
-            wynik = self._z_tekstu(tekst, dane.pozycja.id, teraz)
+            # Zepsuty JSON bywa jednorazowy (dostawca bez wymuszonego
+            # schematu) — jedno ponowienie, zanim pokażemy błąd.
+            for proba in (1, 2):
+                tekst = await self._klient.json_wg_schematu(
+                    instrukcje=instrukcje,
+                    wejscie=json.dumps(wejscie, ensure_ascii=False),
+                    nazwa_schematu=NAZWA_SCHEMATU,
+                    schemat=SCHEMAT,
+                )
+                try:
+                    wynik = self._z_tekstu(tekst, dane.pozycja.id, teraz)
+                    break
+                except json.JSONDecodeError as exc:
+                    if proba == 2:
+                        raise
+                    log.warning("model zwrócił niepoprawny JSON (%s) — ponawiam", exc)
             if not rozszerzona:
                 return wynik
             return self._z_danymi_rynku(wynik, dane, otomoto, ekspertyzy)
@@ -481,7 +506,7 @@ class WycenaAI:
                 None if portale is None else Money(Decimal(portale), Currency.PLN)
             ),
             pewnosc=str(dane["pewnosc"]),
-            uzasadnienie=str(dane["uzasadnienie"]),
+            uzasadnienie=_uzasadnienie(dane["uzasadnienie"]),
             zalozenia=tuple(str(x) for x in dane["zalozenia"]),
             model=self._model,
             wersja_promptu=WERSJA_PROMPTU,

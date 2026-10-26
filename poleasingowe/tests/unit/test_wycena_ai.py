@@ -668,3 +668,53 @@ async def test_bez_wczesniejszych_wystawien_prompt_bez_dopisku() -> None:
         await usluga.wycen(_dane(), (), teraz=TERAZ)
     wejscie = json.dumps(zadania[0], ensure_ascii=False)
     assert "wczesniejsze_wystawienia" not in wejscie
+
+
+async def test_uzasadnienie_jako_tablica_punktow_i_ponowienie_po_zlym_json() -> None:
+    odpowiedzi = iter(
+        [
+            '{"wartosc": 1, "uzasadnienie": "- Rynek: x", - Przebieg: y}',
+            json.dumps(
+                {
+                    "wartosc": 70000,
+                    "minimum": 65000,
+                    "maksimum": 76000,
+                    "cena_portale": None,
+                    "pewnosc": "średnia",
+                    "uzasadnienie": [
+                        "Rynek: mediana 80 000 zł.",
+                        "Wniosek: 70 000 zł.",
+                    ],
+                    "zalozenia": [],
+                }
+            ),
+        ]
+    )
+    zadania: list[dict[str, object]] = []
+
+    def odpowiedz(request: httpx.Request) -> httpx.Response:
+        zadania.append(json.loads(request.content))
+        return httpx.Response(
+            200,
+            json={
+                "output": [
+                    {
+                        "type": "message",
+                        "content": [{"type": "output_text", "text": next(odpowiedzi)}],
+                    }
+                ]
+            },
+        )
+
+    usluga = WycenaAI(
+        KlientOpenAI(
+            "k",
+            model="m",
+            base_url="https://api.openai.com/v1",
+            klient=httpx.AsyncClient(transport=httpx.MockTransport(odpowiedz)),
+        )
+    )
+    wynik = await usluga.wycen(_dane(), (), teraz=TERAZ)
+
+    assert len(zadania) == 2
+    assert wynik.uzasadnienie == "- Rynek: mediana 80 000 zł.\n- Wniosek: 70 000 zł."
