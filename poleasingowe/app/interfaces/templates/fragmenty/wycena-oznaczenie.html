@@ -1,0 +1,12 @@
+{# Oznaczenie wyceny w nagłówku karty i w nagłówku sekcji. Renderowane przy
+   karcie, a po nowej wycenie podmieniane out-of-band z fragmentu wyceny. #}
+{% macro odznaka(w, oob=False) -%}
+<span id="odznaka-wyceny"{% if oob %} hx-swap-oob="true"{% endif %}>
+  {%- if w %}<span class="odznaka-wyceny" title="Wycena AI z {{ w.utworzono | czas_lokalny }}">Wycena AI: {{ w.wartosc | kwota }}{% if w.wersja_promptu >= 4 %} netto{% endif %} · {{ 'z Otomoto' if w.zrodlo == 'OTOMOTO' else 'lokalna' }} · {{ w.utworzono | czas_lokalny }}</span>{% endif -%}
+</span>
+{%- endmacro %}
+{% macro naglowek(w, oob=False) -%}
+<span id="naglowek-wyceny"{% if oob %} hx-swap-oob="true"{% endif %}>
+  {%- if w %} — {{ 'z Otomoto' if w.zrodlo == 'OTOMOTO' else 'lokalna' }}, {{ w.utworzono | czas_lokalny }}{% endif -%}
+</span>
+{%- endmacro %}

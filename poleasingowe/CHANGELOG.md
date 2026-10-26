@@ -1,5 +1,27 @@
 # Historia zmian
 
+## 0.32.0 — w przygotowaniu
+
+**Wycena z Otomoto bez Apify.** Add-on czyta strony wyników Otomoto sam
+(dane JSON osadzone w stronie); opcja `apify_token` jest ignorowana
+i opisana jako przestarzała. Przycisk wymaga tylko klucza AI.
+
+**Netto wg odznak zamiast ÷1,23 dla wszystkich.** Kwota podana przez
+sprzedawcę jako netto zostaje; odznaka „zawiera VAT" → ÷1,23; bez faktury
+VAT → bez zmian. Model AI widzi podstawę przy każdym ogłoszeniu.
+
+**Model z taksonomii Otomoto.** „BMW 750" szuka „Serii 7": nazwa jest
+dopasowywana do listy modeli marki z Otomoto, a gdy nie pasuje wprost —
+model AI wybiera z tej listy. Tylko do wyszukiwania, bez zmian w bazie.
+Odrzucane są też cesje leasingu i auta z Kanady.
+
+**Pasek postępu i oznaczenie wyceny.** „Wycena z Otomoto" pokazuje etapy
+pracy; „Przelicz" — pasek nieokreślony. Wyceniona aukcja ma odznakę przy
+tytule karty i w nagłówku sekcji „Wycena AI".
+
+**Logi w Diagnostyce.** Log zapisuje się też do `/data/logi/aplikacja.log`
+(rotacja), a zakładka Diagnostyka pokazuje ostatnie wpisy z filtrem poziomu.
+
 ## 0.31.3 — w przygotowaniu
 
 **Wycena z Otomoto bez filtra przebiegu.** Wyszukiwanie porównań nie zawęża

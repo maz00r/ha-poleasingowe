@@ -419,6 +419,26 @@ async def test_panel_diagnostyczny_pokazuje_zrodla_i_pule(
     ), "brak kopii ma być widoczny jako brak, a nie przemilczany (§7.1)"
 
 
+async def test_diagnostyka_pokazuje_logi_z_filtrem_poziomu(
+    klient: httpx.AsyncClient,
+    pusta_baza: psycopg.AsyncConnection,
+    tmp_path: pathlib.Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from app.infrastructure import dziennik
+
+    (tmp_path / "aplikacja.log").write_text(
+        "2026-10-26 10:00:01,000 INFO a: zwykly wpis\n"
+        "2026-10-26 10:00:02,000 ERROR b: cos padlo\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(dziennik, "KATALOG", tmp_path)
+    assert "Wczytywanie logów" in (await klient.get("/diagnostyka")).text
+    odp = await klient.get("/diagnostyka/logi", params={"poziom": "ERROR"})
+    assert odp.status_code == 200
+    assert "cos padlo" in odp.text and "zwykly wpis" not in odp.text
+
+
 async def test_odblokowanie_zrodla_zeruje_licznik_i_nie_daje_od_razu_ok(
     klient: httpx.AsyncClient, pusta_baza: psycopg.AsyncConnection
 ) -> None:

@@ -1,3 +1,5 @@
+{% import 'fragmenty/wycena-oznaczenie.html' as oznaczenie %}
+{% if wycena %}{{ oznaczenie.odznaka(wycena, oob=True) }}{{ oznaczenie.naglowek(wycena, oob=True) }}{% endif %}
 {% if brak_konfiguracji and not wycena %}
   <p class="uwaga">Wycena jest wyłączona. Uzupełnij <code>ai_api_key</code>
     (i&nbsp;<code>ai_provider</code>, jeśli to nie OpenAI) w konfiguracji
@@ -30,8 +32,9 @@
       {% if wycena.otomoto_liczba %}
         Porównano z <strong>{{ wycena.otomoto_liczba }}</strong> ogłoszeniami z Otomoto
         {% if wycena.otomoto_p25 and wycena.otomoto_p75 %}(połowa ofert między {{ wycena.otomoto_p25 | kwota }} a {{ wycena.otomoto_p75 | kwota }}){% endif %}.
-        Ceny ofertowe przeliczone z brutto na netto (÷1,23), bez aut z USA
-        i skrajnych kwot — zwykle wyższe od uzyskiwanych na aukcjach.
+        Ceny ofertowe w netto wg oznaczeń Otomoto (z VAT ÷1,23, netto i bez
+        faktury bez zmian), bez aut z USA, cesji leasingu i skrajnych kwot —
+        zwykle wyższe od uzyskiwanych na aukcjach.
       {% else %}
         Otomoto nie zwróciło porównywalnych ogłoszeń dla tego modelu.
       {% endif %}
@@ -84,6 +87,7 @@
     <button type="button" class="przycisk-lekki"
             hx-post="{{ sciezka(request, 'przelicz_wycene', auction_id=auction_id) }}"
             hx-target="#wycena-ai > div" hx-swap="innerHTML"
+            hx-indicator="#wycena-ai .wskaznik-wyceny"
             hx-confirm="Przeliczyć wycenę od nowa? To kolejne płatne zapytanie do dostawcy.">
       Przelicz
     </button>
@@ -92,10 +96,11 @@
     <button type="button" class="przycisk-lekki"
             hx-post="{{ sciezka(request, 'wycena_otomoto', auction_id=auction_id) }}"
             hx-target="#wycena-ai > div" hx-swap="innerHTML"
-            hx-indicator="#wycena-ai"
-            hx-confirm="Pobrać ogłoszenia z Otomoto (Apify, ok. 0,05 USD) i przeliczyć wycenę z ekspertyzą? Potrwa do 2–3 minut.">
+            hx-confirm="Pobrać ogłoszenia z Otomoto i przeliczyć wycenę z ekspertyzą? To płatne zapytanie do modelu AI; potrwa do 2 minut.">
       Wycena z Otomoto
     </button>
   {% endif %}
   </p>
 {% endif %}
+{# Pasek nieokreślony dla „Przelicz" — jedno zapytanie do modelu, bez etapów. #}
+<p class="wskaznik-wyceny htmx-indicator"><progress></progress> Model AI liczy wycenę…</p>

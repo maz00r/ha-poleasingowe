@@ -17,6 +17,7 @@ from __future__ import annotations
 import datetime as dt
 import json
 import logging
+from collections.abc import Sequence
 from dataclasses import asdict, replace
 from decimal import Decimal
 from typing import Any
@@ -29,11 +30,11 @@ from app.domain.enums import Currency
 from app.domain.value_objects import Money
 from app.infrastructure.ai_klienci import BladModelu, BladOdpowiedzi, KlientModelu
 from app.infrastructure.ekspertyza import OcenionyDokument
-from app.infrastructure.otomoto import Ogloszenie, WynikOtomoto
+from app.infrastructure.otomoto import Ogloszenie, PojazdDoPorownania, WynikOtomoto
 
 log = logging.getLogger(__name__)
 
-WERSJA_PROMPTU = 5
+WERSJA_PROMPTU = 6
 """Podbij, gdy zmienisz `INSTRUKCJE` albo `SCHEMAT`.
 
 Zapisana wycena niesie wersję, którą policzono — dzięki temu widać, że
@@ -43,7 +44,9 @@ powstała starym poleceniem, i można ją świadomie przeliczyć.
 3: opcjonalne ogłoszenia z Otomoto (Apify) i treść ekspertyzy.
 4: wszystkie kwoty w PLN netto; ceny Otomoto przeliczone z brutto, bez aut
    z USA i skrajnych ofert.
-5: Otomoto bez filtra przebiegu, jawna korekta za przebieg przez model."""
+5: Otomoto bez filtra przebiegu, jawna korekta za przebieg przez model.
+6: własny odczyt Otomoto — netto wg odznak przy każdym ogłoszeniu; osobna
+   instrukcja bazowa dla wyceny z danymi rynkowymi (bez sprzecznych zdań)."""
 
 MAKS_OGLOSZEN_NA_KARCIE = 15
 
@@ -72,24 +75,45 @@ INSTRUKCJE = (
 )
 
 INSTRUKCJE_OTOMOTO = (
-    "\n\nTym razem dostajesz PRAWDZIWE dane rynkowe — używaj ich zamiast "
-    "własnych szacunków:\n"
+    # Osobna instrukcja, nie dopisek: bazowa mówi „nie masz internetu,
+    # `cena_portale` to szacunek" i „największą wagę aukcjom" — przy danych
+    # z Otomoto to były dwa sprzeczne polecenia naraz.
+    "Jesteś analitykiem polskiego rynku samochodów używanych. Oszacuj "
+    "uczciwą cenę detaliczną pojazdu w PLN na dziś. WSZYSTKIE kwoty w danych "
+    "i w wyniku są w PLN NETTO (bez VAT). Nie zakładaj idealnego stanu "
+    "technicznego; jasno wypisz założenia. Jeśli danych jest mało, poszerz "
+    "przedział i obniż pewność.\n\n"
+    "Dostajesz PRAWDZIWE dane rynkowe — opieraj się na nich:\n"
     "- `ogloszenia_otomoto`: porównywalne ogłoszenia z Otomoto pobrane dziś "
-    "— ceny ofertowe przeliczone już z brutto na NETTO (÷1,23), bez aut z USA "
-    "i bez skrajnych kwot; rocznik; przebieg; wraz z medianą i kwartylami. "
-    "Ceny ofertowe są zwykle wyższe od uzyskiwanych na aukcji poleasingowej. "
-    "Porównania NIE są filtrowane po przebiegu — KAŻDE ogłoszenie "
-    "skoryguj o różnicę przebiegu "
-    "względem wycenianego auta (oraz rocznika i wersji), zanim wyciągniesz "
-    "wniosek; nie opieraj się na samej medianie. W uzasadnieniu podaj, "
-    "o ile średnio korygowałeś za przebieg. Pole "
+    "(ten sam model wg taksonomii Otomoto, rocznik ±1, bez uszkodzonych, bez "
+    "aut z USA, bez cesji leasingu i skrajnych kwot). Cena każdego ogłoszenia "
+    "jest już NETTO, a pole `podstawa` mówi, skąd: `netto` — sprzedawca podał "
+    "netto; `z VAT ÷1,23` — cena z VAT na fakturze, przeliczona; `bez VAT` — "
+    "sprzedaż bez faktury VAT (zwykle prywatna), kwota bez zmian. To ceny "
+    "OFERTOWE — zwykle wyższe od uzyskiwanych na aukcji poleasingowej; "
+    "napisz, jak dużą różnicę przyjmujesz. Porównania NIE są filtrowane po "
+    "przebiegu — KAŻDE ogłoszenie skoryguj o różnicę przebiegu (oraz "
+    "rocznika i wersji) względem wycenianego auta; nie opieraj się na samej "
+    "medianie i podaj w uzasadnieniu średnią korektę za przebieg. Pole "
     "`cena_portale` wypełnij medianą z tych danych.\n"
+    "- `porownania_z_zakonczonych_aukcji`: wyniki aukcji poleasingowych "
+    "z naszej bazy — punkt odniesienia dla różnicy oferta/aukcja.\n"
     "- `ekspertyza`: tekst raportu rzeczoznawcy dla TEGO pojazdu (dane "
     "osobowe i identyfikatory zasłonięte). Uwzględnij opisany stan "
     "techniczny, uszkodzenia, braki, koszty napraw i wartość wskazaną przez "
-    "rzeczoznawcę; w uzasadnieniu napisz, co z ekspertyzy wpłynęło na kwotę.\n"
-    "Jeśli któregoś bloku brak, napisz o tym w założeniach. Kwoty z ekspertyz "
-    "bywają brutto albo netto — sprawdź, co mówi raport, i przelicz na netto."
+    "rzeczoznawcę; w uzasadnieniu napisz, co z ekspertyzy wpłynęło na kwotę. "
+    "Kwoty z ekspertyz bywają brutto albo netto — sprawdź, co mówi raport, "
+    "i przelicz na netto.\n"
+    "Jeśli któregoś bloku brak, napisz o tym w założeniach."
+)
+
+SCHEMAT_MODELU = "model_otomoto"
+INSTRUKCJE_MODELU = (
+    "Masz markę, model, wersję i tytuł aukcji samochodu oraz listę modeli tej "
+    "marki w taksonomii portalu Otomoto (id i nazwa). Wybierz id modelu, pod "
+    "którym Otomoto wystawia TEN samochód — np. „BMW 750Li” to „Seria 7”, "
+    "„Mercedes C200” to „Klasa C”. Wybieraj wyłącznie z listy. Gdy żaden "
+    "model nie pasuje, zwróć „brak”."
 )
 
 SCHEMAT: dict[str, Any] = {
@@ -184,8 +208,9 @@ class WycenaAI:
                 "mediana": otomoto.mediana,
                 "kwartyl_dolny": otomoto.p25,
                 "kwartyl_gorny": otomoto.p75,
-                "podstawa": "netto (z brutto ÷1,23)",
+                "model_otomoto": otomoto.model_otomoto,
                 "odrzucone_z_usa": otomoto.odrzucone_usa,
+                "odrzucone_cesje_leasingu": otomoto.odrzucone_cesje,
                 "odrzucone_skrajne": otomoto.odrzucone_skrajne,
                 "zawezono_do_wersji": otomoto.wersja,
                 "uwaga": (
@@ -200,6 +225,8 @@ class WycenaAI:
                         "cena": o.cena,
                         "rok": o.rok,
                         "przebieg_km": o.przebieg_km,
+                        "wersja": o.wersja,
+                        "podstawa": o.podstawa,
                     }
                     for o in self._najblizsze(dane, otomoto.ogloszenia, 25)
                 ],
@@ -210,7 +237,7 @@ class WycenaAI:
             ]
         try:
             tekst = await self._klient.json_wg_schematu(
-                instrukcje=INSTRUKCJE + (INSTRUKCJE_OTOMOTO if rozszerzona else ""),
+                instrukcje=INSTRUKCJE_OTOMOTO if rozszerzona else INSTRUKCJE,
                 wejscie=json.dumps(wejscie, ensure_ascii=False),
                 nazwa_schematu=NAZWA_SCHEMATU,
                 schemat=SCHEMAT,
@@ -230,6 +257,43 @@ class WycenaAI:
                 if powod
                 else "Nie udało się teraz wygenerować wyceny AI."
             ) from exc
+
+    async def wybierz_model_otomoto(
+        self, pojazd: PojazdDoPorownania, modele: Sequence[tuple[str, str]]
+    ) -> str | None:
+        """Id modelu z ZAMKNIĘTEJ listy taksonomii Otomoto (np. BMW 750 → seria-7).
+
+        Schemat z `enum` nie pozwala zmyślić id; „brak" znaczy „nie wiem".
+        Błąd modelu to `None` — wtedy wycena z Otomoto mówi, że nie
+        dopasowała modelu, zamiast szukać po całej marce.
+        """
+        ids = [i for i, _ in modele]
+        schemat = {
+            "type": "object",
+            "properties": {"model_id": {"type": "string", "enum": [*ids, "brak"]}},
+            "required": ["model_id"],
+            "additionalProperties": False,
+        }
+        wejscie = {
+            "marka": pojazd.marka,
+            "model": pojazd.model,
+            "wersja": pojazd.wersja,
+            "tytul": pojazd.tytul,
+            "modele_otomoto": [{"id": i, "nazwa": n} for i, n in modele],
+        }
+        try:
+            tekst = await self._klient.json_wg_schematu(
+                instrukcje=INSTRUKCJE_MODELU,
+                wejscie=json.dumps(wejscie, ensure_ascii=False),
+                nazwa_schematu=SCHEMAT_MODELU,
+                schemat=schemat,
+            )
+            wybrany = json.loads(tekst).get("model_id")
+        except (httpx.HTTPError, BladModelu, ValueError, AttributeError) as exc:
+            log.warning("AI nie ustaliło modelu Otomoto: %s", exc)
+            return None
+        log.info("AI: %s %s → model Otomoto %s", pojazd.marka, pojazd.model, wybrany)
+        return wybrany if wybrany in ids else None
 
     def _wejscie(
         self, dane: Szczegoly, porownania: tuple[PorownanieRynkowe, ...]

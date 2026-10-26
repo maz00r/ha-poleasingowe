@@ -1,6 +1,6 @@
 # Konfiguracja add-onu (SPEC.md §7.1).
 name: Aukcje poleasingowe
-version: "0.31.3"
+version: "0.32.0"
 slug: poleasingowe
 description: >-
   Zbiera oferty z polskich serwisow aukcji samochodow poleasingowych,
@@ -49,8 +49,8 @@ options:
   ai_base_url: ""
   ai_model: ""
   openai_api_key: ""
-  # Wycena z Otomoto (przycisk na karcie) przez aktora Apify. Pusty = brak
-  # przycisku. Koszt ok. 0,05 USD za wycene.
+  # Przestarzale od 0.32.0 (Otomoto czytane bezposrednio) — ignorowane,
+  # zostaje, zeby istniejace konfiguracje nadal startowaly.
   apify_token: ""
   credentials: []
   sources: []

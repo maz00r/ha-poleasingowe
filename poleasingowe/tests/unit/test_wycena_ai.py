@@ -18,6 +18,7 @@ from app.infrastructure.ai_klienci import (
     KlientZgodnyZOpenAI,
     utworz_klienta,
 )
+from app.infrastructure.otomoto import PojazdDoPorownania
 from app.infrastructure.wycena_ai import BladWyceny, WycenaAI
 
 TERAZ = dt.datetime(2026, 9, 9, 12, 0, tzinfo=dt.UTC)
@@ -535,3 +536,62 @@ async def test_wycena_z_otomoto_i_ekspertyza() -> None:
     assert wynik.otomoto_liczba == 20
     assert len(wynik.otomoto_ogloszenia) == 15
     assert wynik.ekspertyzy == ("RST1.pdf",)
+
+
+def _usluga_z_odpowiedzia(tekst: str, zadania: list[dict[str, object]]) -> WycenaAI:
+    def odpowiedz(request: httpx.Request) -> httpx.Response:
+        zadania.append(json.loads(request.content))
+        return httpx.Response(
+            200,
+            json={
+                "output": [
+                    {
+                        "type": "message",
+                        "content": [{"type": "output_text", "text": tekst}],
+                    }
+                ]
+            },
+        )
+
+    return WycenaAI(
+        KlientOpenAI(
+            "k",
+            model="m",
+            base_url="https://api.openai.com/v1",
+            klient=httpx.AsyncClient(transport=httpx.MockTransport(odpowiedz)),
+        )
+    )
+
+
+def _bmw() -> PojazdDoPorownania:
+    return PojazdDoPorownania(
+        "BMW",
+        "750",
+        2021,
+        90_000,
+        "Benzyna",
+        "Automatyczna",
+        False,
+        "Li xDrive",
+        "BMW 750 Li xDrive",
+    )
+
+
+async def test_ai_wybiera_model_otomoto_z_zamknietej_listy() -> None:
+    zadania: list[dict[str, object]] = []
+    usluga = _usluga_z_odpowiedzia(json.dumps({"model_id": "seria-7"}), zadania)
+    modele = [("seria-5", "Seria 5"), ("seria-7", "Seria 7")]
+
+    assert await usluga.wybierz_model_otomoto(_bmw(), modele) == "seria-7"
+    schemat = json.dumps(zadania[0])
+    assert '"seria-7"' in schemat and '"brak"' in schemat
+
+
+@pytest.mark.parametrize(
+    "tekst", [json.dumps({"model_id": "brak"}), json.dumps({"model_id": "x5"}), "{"]
+)
+async def test_ai_bez_pewnego_modelu_to_none(tekst: str) -> None:
+    usluga = _usluga_z_odpowiedzia(tekst, [])
+    modele = [("seria-7", "Seria 7")]
+
+    assert await usluga.wybierz_model_otomoto(_bmw(), modele) is None

@@ -1,4 +1,4 @@
-"""Porównanie z Otomoto przez Apify (0.31.0)."""
+"""Własny odczyt Otomoto (0.32.0): JSON strony, netto wg odznak, taksonomia."""
 
 from __future__ import annotations
 
@@ -11,136 +11,188 @@ import pytest
 from app.infrastructure import otomoto
 from app.infrastructure.otomoto import BladOtomoto, Otomoto, PojazdDoPorownania
 
-OCTAVIA = PojazdDoPorownania(
-    "Škoda", "Octavia", 2022, 150_000, "Hybryda", "Automatyczna"
+BMW = PojazdDoPorownania(
+    "BMW", "750", 2020, 90_000, "Diesel", "Automatyczna", wersja="Li xDrive"
 )
 
 
-def test_adres_z_filtrami_otomoto() -> None:
-    adres = otomoto.adres_wyszukiwania(OCTAVIA)
-    assert adres.startswith("https://www.otomoto.pl/osobowe/skoda/octavia/od-2021?")
-    assert "filter_float_year%3Ato%5D=2023" in adres
-    assert "mileage" not in adres
-    assert "filter_enum_fuel_type%5D%5B0%5D=hybrid" in adres
-    assert "filter_enum_fuel_type%5D%5B1%5D=plugin-hybrid" in adres
-    assert "filter_enum_gearbox%5D=automatic" in adres
-
-
-def test_szeroko_fraza_bez_przebiegu_i_dostawcze() -> None:
-    p = PojazdDoPorownania(
-        "Peugeot", "Boxer", 2016, 290_000, "Diesel", None, dostawczy=True
-    )
-    adres = otomoto.adres_wyszukiwania(p, fraza=True, szeroko=True)
-    assert adres.startswith("https://www.otomoto.pl/dostawcze/peugeot/q-boxer/od-2014?")
-    assert "mileage" not in adres
-
-
-def test_slug_marek() -> None:
-    assert otomoto.slug("Mercedes-Benz") == "mercedes-benz"
-    assert otomoto.slug("Citroën") == "citroen"
-    assert otomoto.slug("Land Rover") == "land-rover"
-
-
-def test_model_spoza_sciezki_odfiltrowany() -> None:
-    """Otomoto cofa nieznany model do całej marki — nie liczymy innych modeli."""
-    assert otomoto.pasuje(
-        {"make": "Skoda", "model": "Octavia", "year": 2021}, OCTAVIA, szeroko=False
-    )
-    assert not otomoto.pasuje(
-        {"make": "Skoda", "model": "Superb", "year": 2022}, OCTAVIA, szeroko=False
-    )
-    assert not otomoto.pasuje(
-        {"make": "Skoda", "model": "Octavia", "year": 2018}, OCTAVIA, szeroko=False
-    )
-    bmw = PojazdDoPorownania("BMW", "530e", 2021)
-    assert otomoto.pasuje(
-        {"make": "BMW", "model": "Seria 5", "title": "BMW Seria 5 530e"},
-        bmw,
-        szeroko=False,
-    )
-    assert not otomoto.pasuje(
-        {"make": "BMW", "model": "Seria 5", "title": "BMW 520d"}, bmw, szeroko=False
+def _strona(stany: list[dict[str, Any]]) -> str:
+    """Strona Otomoto w kształcie zmierzonym 2026-10-26: `__NEXT_DATA__`
+    → `props.pageProps.urqlState` → wpisy z polem `data` (JSON w napisie)."""
+    dane = {
+        "props": {
+            "pageProps": {
+                "urqlState": {
+                    str(i): {"data": json.dumps(s)} for i, s in enumerate(stany)
+                }
+            }
+        }
+    }
+    return (
+        '<html><script id="__NEXT_DATA__" type="application/json">'
+        + json.dumps(dane)
+        + "</script></html>"
     )
 
 
-def _rekord(i: int, model: str = "Octavia") -> dict[str, Any]:
+TAKSONOMIA = {
+    "filters": {
+        "states": [
+            {
+                "__typename": "OpenForInputFilterState",
+                "filterId": "filter_enum_model",
+                "conditions": [{"filterId": "filter_enum_make", "value": "bmw"}],
+                "values": [
+                    {
+                        "values": [
+                            {"id": "seria-5", "name": "Seria 5"},
+                            {"id": "seria-7", "name": "Seria 7"},
+                            {"id": "x5", "name": "X5"},
+                            {"id": "gen-g11", "name": "G11"},
+                            {"id": "other", "name": "Inny"},
+                        ]
+                    }
+                ],
+            }
+        ]
+    }
+}
+
+
+def _ogloszenie(
+    i: int,
+    cena: int,
+    *,
+    is_gross: bool = True,
+    odznaki: tuple[str, ...] = (),
+    kraj: str = "pl",
+    model: str = "seria-7",
+    rok: int = 2020,
+    tytul: str = "BMW Seria 7 750Li xDrive",
+    opis: str = "",
+) -> dict[str, Any]:
     return {
-        "make": "Skoda",
-        "model": model,
-        "year": 2022,
-        "mileageKm": 140_000 + i,
-        "pricePLN": 80_000 + 1_000 * i,
-        "title": f"Skoda {model} {i}",
-        "url": f"https://www.otomoto.pl/osobowe/oferta/x-{model}-{i}",
+        "node": {
+            "title": tytul,
+            "shortDescription": opis,
+            "url": f"https://www.otomoto.pl/osobowe/oferta/bmw-{i}.html",
+            "price": {
+                "amount": {"units": cena},
+                "isGross": is_gross,
+                "badges": list(odznaki),
+            },
+            "parameters": [
+                {"key": "model", "value": model, "displayValue": "Seria 7"},
+                {"key": "year", "value": str(rok), "displayValue": str(rok)},
+                {"key": "mileage", "value": str(80_000 + i), "displayValue": ""},
+                {"key": "country_origin", "value": kraj, "displayValue": kraj},
+                {"key": "version", "value": "ver-x", "displayValue": "750Li xDrive"},
+            ],
+        }
     }
 
 
-async def test_jeden_przebieg_netto_bez_usa_i_skrajnych() -> None:
-    zadania: list[dict[str, Any]] = []
-    rekordy = [_rekord(i) for i in range(10)]
-    rekordy += [_rekord(i, "Superb") for i in range(5)]  # model cofnięty do marki
-    usa = _rekord(50)
-    usa["title"] = "Skoda Octavia z USA, Copart"
-    sprowadzenie = _rekord(51)
-    sprowadzenie["shortDescription"] = "auto do sprowadzenia"
-    tylko_w_opisie = _rekord(53)
-    tylko_w_opisie["fullDescription"] = "Samochód sprowadzony z USA, bezwypadkowy."
-    skrajna = _rekord(52)
-    skrajna["pricePLN"] = 1_000
-    rekordy += [usa, sprowadzenie, tylko_w_opisie, skrajna]
+def _wyniki(krawedzie: list[dict[str, Any]], razem: int | None = None) -> str:
+    return _strona(
+        [{"advertSearch": {"totalCount": razem or len(krawedzie), "edges": krawedzie}}]
+    )
+
+
+def test_taksonomia_bez_generacji_i_innych() -> None:
+    mapa = otomoto.taksonomia(_strona([TAKSONOMIA]))
+    assert mapa["bmw"] == (("seria-5", "Seria 5"), ("seria-7", "Seria 7"), ("x5", "X5"))
+
+
+def test_dopasowanie_modelu_deterministyczne() -> None:
+    modele = otomoto.taksonomia(_strona([TAKSONOMIA]))["bmw"]
+    assert otomoto.dopasuj_model(BMW, modele) is None  # „750" — potrzebne AI
+    seria = PojazdDoPorownania("BMW", "Seria 7", 2020)
+    assert otomoto.dopasuj_model(seria, modele) == "seria-7"
+    x5 = PojazdDoPorownania("BMW", "X5", 2020)
+    assert otomoto.dopasuj_model(x5, modele) == "x5"
+
+
+@pytest.mark.parametrize(
+    ("is_gross", "odznaki", "oczekiwane"),
+    [
+        (False, (), (100_000, otomoto.PODSTAWA_NETTO)),
+        (True, ("INCLUDE_VAT", "INVOICE_ISSUED"), (81_301, otomoto.PODSTAWA_Z_VAT)),
+        (True, (), (100_000, otomoto.PODSTAWA_BEZ_VAT)),
+        (True, ("INVOICE_ISSUED",), (100_000, otomoto.PODSTAWA_BEZ_VAT)),
+    ],
+)
+def test_netto_wg_odznak(
+    is_gross: bool, odznaki: tuple[str, ...], oczekiwane: tuple[int, str]
+) -> None:
+    (rekord,), _ = otomoto.wyniki(
+        _wyniki([_ogloszenie(1, 100_000, is_gross=is_gross, odznaki=odznaki)])
+    )
+    assert otomoto.cena_netto(rekord) == oczekiwane
+
+
+def test_adres_z_modelem_taksonomii_bez_przebiegu() -> None:
+    adres = otomoto.adres_wyszukiwania(BMW, "seria-7", strona=2)
+    assert adres.startswith("https://www.otomoto.pl/osobowe/bmw/seria-7/od-2019?")
+    assert "filter_enum_damaged%5D=0" in adres
+    assert "filter_enum_fuel_type%5D%5B0%5D=diesel" in adres
+    assert "mileage" not in adres
+    assert adres.endswith("&page=2")
+
+
+def test_strona_bez_danych_to_blad() -> None:
+    with pytest.raises(BladOtomoto):
+        otomoto.wyniki("<html></html>")
+
+
+async def test_porownanie_ai_wybiera_model_i_odrzuca_usa_cesje_inne() -> None:
+    krawedzie = [_ogloszenie(i, 200_000 + 1_000 * i) for i in range(10)]
+    krawedzie += [
+        _ogloszenie(50, 90_000, kraj="usa"),
+        _ogloszenie(51, 4_324, opis="CESJA LEASINGU, odstępne"),
+        _ogloszenie(52, 150_000, model="seria-5"),
+        _ogloszenie(53, 150_000, rok=2015),
+        _ogloszenie(54, 205_500, is_gross=False),
+    ]
+    zadania: list[str] = []
 
     def obsluz(zadanie: httpx.Request) -> httpx.Response:
-        assert zadanie.headers["authorization"] == "Bearer tajny"
-        assert "tajny" not in str(zadanie.url)
-        zadania.append(json.loads(zadanie.content))
-        return httpx.Response(200, json=rekordy)
+        zadania.append(str(zadanie.url))
+        if zadanie.url.path == "/osobowe":
+            return httpx.Response(200, text=_strona([TAKSONOMIA]))
+        return httpx.Response(200, text=_wyniki(krawedzie))
 
-    usluga = Otomoto(
-        "tajny", klient=httpx.AsyncClient(transport=httpx.MockTransport(obsluz))
+    wybory: list[Any] = []
+
+    async def ai(pojazd: PojazdDoPorownania, modele: Any) -> str | None:
+        wybory.append([i for i, _ in modele])
+        return "seria-7"
+
+    etapy: list[str] = []
+    usluga = Otomoto(klient=httpx.AsyncClient(transport=httpx.MockTransport(obsluz)))
+    wynik = await usluga.porownaj(
+        BMW, wybieracz=ai, postep=lambda etap, _: etapy.append(etap)
     )
-    wynik = await usluga.porownaj(OCTAVIA)
 
-    assert len(zadania) == 1
-    assert "/q-octavia/" in zadania[0]["startUrls"][0]
-    assert wynik.odrzucone_usa == 3
-    assert zadania[0]["includeDetails"] is True
-    assert wynik.odrzucone_skrajne == 1
-    assert wynik.liczba == 10
-    # 80 000…89 000 brutto → netto ÷1,23; mediana z kwot netto po zaokrągleniu każdej
-    assert wynik.mediana == 68_700
-    assert all(o.cena < 80_000 for o in wynik.ogloszenia)
+    assert wybory == [["seria-5", "seria-7", "x5"]]
+    assert wynik.model_otomoto == "Seria 7"
+    assert wynik.odrzucone_usa == 1 and wynik.odrzucone_cesje == 1
+    assert wynik.liczba == 11  # 10 + jedno netto; seria-5 i rocznik 2015 odpadły
+    assert any(o.podstawa == otomoto.PODSTAWA_NETTO for o in wynik.ogloszenia)
+    assert len(zadania) == 2  # taksonomia + jedna strona (15 < 32)
+    assert any("Model AI" in e for e in etapy)
 
 
-def test_netto_z_brutto() -> None:
-    assert otomoto.netto(123_000) == 100_000
+async def test_bez_dopasowanego_modelu_nie_szuka_po_calej_marce() -> None:
+    def obsluz(zadanie: httpx.Request) -> httpx.Response:
+        assert zadanie.url.path == "/osobowe", "nie wolno szukać bez modelu"
+        return httpx.Response(200, text=_strona([TAKSONOMIA]))
 
+    async def ai(pojazd: PojazdDoPorownania, modele: Any) -> str | None:
+        return "zmyslony"
 
-async def test_za_malo_porownan_bez_mediany() -> None:
-    usluga = Otomoto(
-        "t",
-        klient=httpx.AsyncClient(
-            transport=httpx.MockTransport(
-                lambda _: httpx.Response(200, json=[_rekord(1)])
-            )
-        ),
-    )
-    wynik = await usluga.porownaj(OCTAVIA)
-    assert wynik.liczba == 1 and wynik.mediana is None
-
-
-async def test_zly_token_to_czytelny_blad() -> None:
-    usluga = Otomoto(
-        "t",
-        klient=httpx.AsyncClient(
-            transport=httpx.MockTransport(lambda _: httpx.Response(401))
-        ),
-    )
-    with pytest.raises(BladOtomoto, match="apify_token"):
-        await usluga.porownaj(OCTAVIA)
-
-
-def test_adres_wyklucza_auta_uszkodzone() -> None:
-    assert "filter_enum_damaged%5D=0" in otomoto.adres_wyszukiwania(OCTAVIA)
+    usluga = Otomoto(klient=httpx.AsyncClient(transport=httpx.MockTransport(obsluz)))
+    with pytest.raises(BladOtomoto, match="dopasować modelu"):
+        await usluga.porownaj(BMW, wybieracz=ai)
 
 
 def _o(tytul: str, cena: int) -> otomoto.Ogloszenie:
@@ -151,19 +203,12 @@ def _o(tytul: str, cena: int) -> otomoto.Ogloszenie:
 
 def test_zawezenie_do_wersji_gdy_sa_co_najmniej_trzy() -> None:
     oferty = [_o("Tesla Model Y Performance", 100_000 + i) for i in range(3)]
-    oferty += [
-        _o("Tesla Model Y Long Range Dual Motor AWD", 70_000 + i) for i in range(6)
-    ]
+    oferty += [_o("Tesla Model Y Long Range AWD", 70_000 + i) for i in range(6)]
     zawezone, wersja = otomoto.zawez_do_wersji(oferty, "Performance AWD 534 KM")
     assert wersja == "performance" and len(zawezone) == 3
 
 
-def test_bez_zawezenia_gdy_wersji_za_malo() -> None:
-    oferty = [_o("Tesla Model Y Long Range AWD", 70_000 + i) for i in range(6)]
-    oferty.append(_o("Tesla Model Y Performance", 100_000))
-    zawezone, wersja = otomoto.zawez_do_wersji(oferty, "Performance AWD")
-    assert wersja is None and len(zawezone) == 7
-
-
-def test_slowa_wspolne_nie_zawezaja() -> None:
-    assert otomoto.slowa_wersji("AWD Dual Motor 4x4 534 KM") == ()
+def test_statystyka_odrzuca_skrajne() -> None:
+    oferty = [_o("a", 100_000 + 1_000 * i) for i in range(10)] + [_o("b", 1_000)]
+    wynik = otomoto.statystyka("u", oferty)
+    assert wynik.odrzucone_skrajne == 1 and wynik.mediana is not None

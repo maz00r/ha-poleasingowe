@@ -16,7 +16,7 @@ import datetime as dt
 import logging
 import pathlib
 import posixpath
-from collections.abc import AsyncIterator, Mapping
+from collections.abc import AsyncIterator, Callable, Mapping
 from dataclasses import dataclass, replace
 from typing import Any
 from urllib.parse import quote, urlencode
@@ -48,6 +48,7 @@ from app.domain.logowanie import (
     StanLogowania,
     po_recznym_odblokowaniu,
 )
+from app.infrastructure import dziennik
 from app.infrastructure.dokumenty import BrakMiejscaArchiwum, nazwa_pliku
 from app.infrastructure.ekspertyza import (
     OcenionyDokument,
@@ -58,6 +59,7 @@ from app.infrastructure.ekspertyza import (
 from app.infrastructure.otomoto import BladOtomoto, PojazdDoPorownania
 from app.infrastructure.supervisor.proces import rss_bajty
 from app.infrastructure.wycena_ai import BladWyceny
+from app.infrastructure.zadania_wyceny import StanZadania, ZadaniaWyceny
 from app.interfaces.web import eksport, filtry_szablonu
 from app.interfaces.web.formularze import (
     PARAMETR_ZE_STATUSU,
@@ -694,6 +696,8 @@ async def szczegoly(request: Request, auction_id: int) -> Response:
         # Wejscie na karte = prosba o swiezy odczyt (§11.2). Prosba, nie
         # zadanie do serwisu: poleci dopiero z dyspozytora i tylko wtedy,
         # gdy pozwoli na to kubelek tokenow.
+        async with kontekst.uow as uow:
+            wycena_zapisana = await uow.wycena.dla_aukcji(auction_id)
         teraz = dt.datetime.now(dt.UTC)
         poproszono = await _popros_o_odswiezenie(kontekst, dane, teraz)
     if poproszono:
@@ -707,6 +711,7 @@ async def szczegoly(request: Request, auction_id: int) -> Response:
             "dane": dane,
             "wystawienia": wystawienia,
             "przebieg": przebieg,
+            "wycena_zapisana": wycena_zapisana,
             "odswiezanie": (
                 _stan_odswiezania(dane, dane.last_seen_at or teraz, 0)
                 if poproszono
@@ -914,7 +919,13 @@ async def dokument_archiwalny(
 
 @router.get("/aukcja/{auction_id}/wycena", response_class=HTMLResponse)
 async def wycena_aukcji(request: Request, auction_id: int) -> Response:
-    """Pokazuje zapisaną wycenę; liczy tylko wtedy, gdy jeszcze jej nie ma."""
+    """Pokazuje zapisaną wycenę; liczy tylko wtedy, gdy jeszcze jej nie ma.
+
+    Gdy wycena z Otomoto właśnie trwa (np. po powrocie na kartę) — pasek.
+    """
+    stan = _zadania_wyceny(request).stan(auction_id)
+    if stan is not None and not stan.gotowe:
+        return _postep_wyceny(request, auction_id, stan)
     return await _wycena(request, auction_id, przelicz=False)
 
 
@@ -929,13 +940,15 @@ async def przelicz_wycene(request: Request, auction_id: int) -> Response:
     return await _wycena(request, auction_id, przelicz=True)
 
 
-async def _wycena(request: Request, auction_id: int, *, przelicz: bool) -> Response:
+async def _wycena(
+    request: Request, auction_id: int, *, przelicz: bool, blad: str | None = None
+) -> Response:
     usluga = getattr(request.app.state, "wycena_ai", None)
     kontekst_szablonu: dict[str, Any] = {
         **_kontekst_bazowy(request),
         "auction_id": auction_id,
         "wycena": None,
-        "blad": None,
+        "blad": blad,
         "brak_konfiguracji": False,
         # Przeliczyć da się tylko z działającym dostawcą; POKAZAĆ zapisaną
         # wycenę można zawsze.
@@ -995,51 +1008,56 @@ async def _wycena(request: Request, auction_id: int, *, przelicz: bool) -> Respo
     )
 
 
+def _zadania_wyceny(request: Request) -> ZadaniaWyceny:
+    zadania = getattr(request.app.state, "zadania_wyceny", None)
+    if zadania is None:
+        zadania = ZadaniaWyceny()
+        request.app.state.zadania_wyceny = zadania
+    return zadania
+
+
+def _postep_wyceny(request: Request, auction_id: int, stan: StanZadania) -> Response:
+    return SZABLONY.TemplateResponse(
+        request=request,
+        name="fragmenty/wycena-postep.html",
+        context={
+            **_kontekst_bazowy(request),
+            "auction_id": auction_id,
+            "etap": stan.etap,
+            "procent": round(stan.udzial * 100),
+        },
+    )
+
+
 @router.post("/aukcja/{auction_id}/wycena-otomoto", response_class=HTMLResponse)
 async def wycena_otomoto(request: Request, auction_id: int) -> Response:
-    """Wycena z ogłoszeniami Otomoto i treścią ekspertyzy (0.31.0).
+    """Uruchamia wycenę z Otomoto w tle i oddaje pasek postępu (0.32.0).
 
-    Wyłącznie z przycisku: każde uruchomienie to płatny przebieg aktora Apify
-    i dłuższe zapytanie do modelu. Nieudana próba nie kasuje zapisanej wyceny.
+    Trwa do kilku minut: taksonomia Otomoto, dwie strony wyników, ekspertyza,
+    model AI. Karta odpytuje `wycena_otomoto_stan` co 1,5 s. Nieudana próba
+    nie kasuje zapisanej wyceny.
     """
     usluga = getattr(request.app.state, "wycena_ai", None)
     otomoto = getattr(request.app.state, "otomoto", None)
     dokumenty = getattr(request.app.state, "dokumenty", None)
-    kontekst_szablonu: dict[str, Any] = {
-        **_kontekst_bazowy(request),
-        "auction_id": auction_id,
-        "wycena": None,
-        "blad": None,
-        "brak_konfiguracji": usluga is None,
-        "mozna_przeliczyc": usluga is not None,
-        "mozna_otomoto": usluga is not None and otomoto is not None,
-    }
-
-    def odpowiedz() -> Response:
-        return SZABLONY.TemplateResponse(
-            request=request, name="fragmenty/wycena.html", context=kontekst_szablonu
+    fabryka = _fabryka(request)
+    if usluga is None or otomoto is None or fabryka is None:
+        return await _wycena(
+            request,
+            auction_id,
+            przelicz=False,
+            blad="Wycena z Otomoto wymaga klucza AI.",
         )
 
-    if usluga is None or otomoto is None or _fabryka(request) is None:
-        kontekst_szablonu["blad"] = (
-            "Wycena z Otomoto wymaga klucza AI i opcji apify_token."
-        )
-        return odpowiedz()
-
-    async with _fabryka(request)() as kontekst:
-        async with kontekst.uow as uow:
-            zapisana = await uow.wycena.dla_aukcji(auction_id)
-        kontekst_szablonu["wycena"] = zapisana
-        dane = await kontekst.zapytania.szczegoly(auction_id)
-        porownania = await kontekst.zapytania.porownania_rynkowe(auction_id)
-    if dane is None:
-        return HTMLResponse("", status_code=404)
-    p = dane.pozycja
-    if not p.make or not p.model:
-        kontekst_szablonu["blad"] = "Bez marki i modelu nie da się szukać na Otomoto."
-        return odpowiedz()
-
-    try:
+    async def praca(postep: Callable[[str, float], None]) -> None:
+        async with fabryka() as kontekst:
+            dane = await kontekst.zapytania.szczegoly(auction_id)
+            porownania = await kontekst.zapytania.porownania_rynkowe(auction_id)
+        if dane is None:
+            raise BladOtomoto("nie ma takiej aukcji")
+        p = dane.pozycja
+        if not p.make or not p.model:
+            raise BladOtomoto("bez marki i modelu nie da się szukać na Otomoto")
         rynek = await otomoto.porownaj(
             PojazdDoPorownania(
                 marka=p.make,
@@ -1050,27 +1068,27 @@ async def wycena_otomoto(request: Request, auction_id: int) -> Response:
                 skrzynia=p.gearbox,
                 dostawczy=p.vehicle_kind is RodzajPojazdu.DOSTAWCZY,
                 wersja=p.variant,
+                tytul=p.nazwa,
+            ),
+            wybieracz=usluga.wybierz_model_otomoto,
+            postep=postep,
+        )
+        wybrane: tuple[OcenionyDokument, ...] = ()
+        if dokumenty is not None:
+            postep("Pobieranie dokumentów aukcji", 0.55)
+            pliki = await dokumenty.pliki_do_analizy(
+                auction_id, p.source_key, p.external_id, p.url
             )
-        )
-    except BladOtomoto as exc:
-        kontekst_szablonu["blad"] = f"Otomoto: {exc}"
-        return odpowiedz()
-
-    wybrane: tuple[OcenionyDokument, ...] = ()
-    if dokumenty is not None:
-        pliki = await dokumenty.pliki_do_analizy(
-            auction_id, p.source_key, p.external_id, p.url
-        )
-        teksty = [
-            (plik.nazwa, await asyncio.to_thread(tekst_pdf, plik.dane))
-            for plik in pliki
-        ]
-        wybrane = tuple(
-            replace(d, tekst=zredaguj(d.tekst, dane.vin))
-            for d in wybierz(teksty, dane.vin)
-        )
-
-    try:
+            postep("Czytanie ekspertyzy", 0.65)
+            teksty = [
+                (plik.nazwa, await asyncio.to_thread(tekst_pdf, plik.dane))
+                for plik in pliki
+            ]
+            wybrane = tuple(
+                replace(d, tekst=zredaguj(d.tekst, dane.vin))
+                for d in wybierz(teksty, dane.vin)
+            )
+        postep(f"Model AI liczy wycenę ({rynek.liczba} ogłoszeń)", 0.75)
         nowa = await usluga.wycen(
             dane,
             porownania,
@@ -1078,12 +1096,24 @@ async def wycena_otomoto(request: Request, auction_id: int) -> Response:
             otomoto=rynek,
             ekspertyzy=wybrane,
         )
-    except BladWyceny as exc:
-        kontekst_szablonu["blad"] = str(exc)
-        return odpowiedz()
-    async with _fabryka(request)() as kontekst, kontekst.uow as uow:
-        kontekst_szablonu["wycena"] = await uow.wycena.zapisz(nowa)
-    return odpowiedz()
+        postep("Zapisywanie", 0.95)
+        async with fabryka() as kontekst, kontekst.uow as uow:
+            await uow.wycena.zapisz(nowa)
+
+    stan = _zadania_wyceny(request).uruchom(auction_id, praca)
+    return _postep_wyceny(request, auction_id, stan)
+
+
+@router.get("/aukcja/{auction_id}/wycena-otomoto/stan", response_class=HTMLResponse)
+async def wycena_otomoto_stan(request: Request, auction_id: int) -> Response:
+    """Pasek w trakcie; po końcu — zapisana wycena (albo błąd i stara wycena)."""
+    zadania = _zadania_wyceny(request)
+    stan = zadania.stan(auction_id)
+    if stan is not None and not stan.gotowe:
+        return _postep_wyceny(request, auction_id, stan)
+    zakonczone = zadania.zakoncz(auction_id)
+    blad = None if zakonczone is None else zakonczone.blad
+    return await _wycena(request, auction_id, przelicz=False, blad=blad)
 
 
 @router.get("/aukcja/{auction_id}/zdjecie/{indeks}")
@@ -1238,6 +1268,26 @@ async def usun_filtr(request: Request, filter_id: int) -> Response:
     async with _fabryka(request)() as kontekst, kontekst.uow as uow:
         await uow.saved_filter.usun(filter_id)
     return RedirectResponse(sciezka_przekierowania(request, "lista"), status_code=303)
+
+
+@router.get("/diagnostyka/logi", response_class=HTMLResponse)
+async def logi_aplikacji(
+    request: Request, poziom: str = "INFO", linie: int = 300
+) -> Response:
+    """Końcówka logu aplikacji z dysku, najnowsze na dole (0.32.0)."""
+    poziom = poziom if poziom in dziennik.POZIOMY else "INFO"
+    linie = min(max(linie, 10), 2000)
+    wpisy = await asyncio.to_thread(dziennik.ostatnie, minimalny=poziom, linie=linie)
+    return SZABLONY.TemplateResponse(
+        request=request,
+        name="fragmenty/logi.html",
+        context={
+            **_kontekst_bazowy(request),
+            "wpisy": wpisy,
+            "poziom": poziom,
+            "linie": linie,
+        },
+    )
 
 
 @router.get("/diagnostyka", response_class=HTMLResponse)

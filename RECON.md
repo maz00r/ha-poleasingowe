@@ -1645,3 +1645,31 @@ parametry dogrywki bez zmian. Usunięto z parsera podstawianie ceny wywoławczej
 Test regresyjny utrwala zaobserwowane
 `Expired` z ceną wywoławczą i bez ceny bieżącej; nie zastępuje jej ceną
 wywoławczą. Dalszy pomiar powinien objąć aukcję z niepustą historią ofert.
+
+## 9. Otomoto — kontrakt JSON wyników wyszukiwania (pomiar 2026-10-26, 0.32.0)
+
+Źródło porównań dla „Wyceny z Otomoto" (nie źródło aukcji). Odczyt
+`httpx` z UA przeglądarki, bez logowania i bez JS; robots.txt opisany jak
+dla pozostałych serwisów, decyzja o Disallow bez zmian.
+
+- Strona wyników: `https://www.otomoto.pl/osobowe|dostawcze/<marka>/<model-id>/od-<rok>?search[filter_float_year:to]=…&search[filter_enum_fuel_type]=…&search[filter_enum_gearbox]=…&search[filter_enum_damaged]=0&page=N`.
+  Nieznany `model-id` w ścieżce **po cichu** daje całą markę — dlatego
+  model zawsze pochodzi z taksonomii, a ogłoszenia są filtrowane po
+  parametrze `model`.
+- Dane: `<script id="__NEXT_DATA__">` → `props.pageProps.urqlState` → wpisy,
+  których `data` to **napis JSON**.
+  - `advertSearch`: `totalCount`, `pageInfo.pageSize` (32), `edges[].node`
+    z `title`, `shortDescription`, `url`, `price{amount.units, isGross,
+    badges[]}`, `parameters[{key, value, displayValue}]` (`model`, `version`,
+    `country_origin`, `mileage`, `year`).
+  - Odznaki ceny: `INVOICE_ISSUED` (faktura), `INCLUDE_VAT` (cena zawiera
+    VAT). `isGross=false` — kwota netto.
+  - Taksonomia: każda strona niesie stan filtrów; wpis `filterId =
+    filter_enum_model` z warunkiem `filter_enum_make = <marka>` ma `values`
+    (grupy → `values[{id, name}]`). Id z prefiksem `gen-` to generacje,
+    `other` — pomijane.
+- Paliwo: `petrol, diesel, hybrid, plugin-hybrid, electric, petrol-lpg,
+  petrol-cng, hidrogen`; skrzynia: `automatic, manual`.
+- Reguła netto (add-on): `isGross=false` → bez zmian; `INCLUDE_VAT` → ÷1,23;
+  brak odznak → bez zmian (brak VAT). Odrzucane: `country_origin` USA/Kanada,
+  cesje leasingu, inne modele, rocznik spoza ±1, skrajne kwoty (Tukey).

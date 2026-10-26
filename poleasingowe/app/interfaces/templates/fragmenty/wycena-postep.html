@@ -1,0 +1,10 @@
+{# Wycena z Otomoto w tle: pasek odpytuje stan co 1,5 s i podmienia się na
+   gotową wycenę (albo błąd), gdy zadanie się skończy. #}
+<div class="wycena-postep"
+     hx-get="{{ sciezka(request, 'wycena_otomoto_stan', auction_id=auction_id) }}"
+     hx-trigger="every 1.5s"
+     hx-target="#wycena-ai > div" hx-swap="innerHTML">
+  <p><strong>Wycena z Otomoto w toku…</strong> {{ etap }}</p>
+  <progress max="100" value="{{ procent }}">{{ procent }}%</progress>
+  <p class="drobne">Zwykle 30 s–2 min. Możesz zostawić kartę otwartą; wynik zapisze się sam.</p>
+</div>

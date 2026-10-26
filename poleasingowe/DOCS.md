@@ -200,23 +200,40 @@ zostaje mniej niż 1 GiB.
 
 ### Wycena z Otomoto
 
-Opcja `apify_token` (token API z console.apify.com) dodaje przycisk
-**Wycena z Otomoto**. Add-on uruchamia wtedy aktora Apify
-`automation-lab/otomoto-scraper` z wyszukiwaniem Otomoto dla tej samej marki
-i modelu (jeden przebieg: rocznik ±1, bez filtra przebiegu — model AI koryguje każde ogłoszenie o różnicę przebiegu, to samo paliwo
-i skrzynia), odrzuca ogłoszenia innych modeli (Otomoto po cichu pokazuje
-całą markę, gdy nie zna modelu), auta z USA — także „do sprowadzenia" —
-i skrajne kwoty. Wszystkie ceny Otomoto traktuje jako brutto i przelicza na
-netto (÷1,23), tak jak ceny aukcji; wycena też jest w netto. Liczy medianę
-i kwartyle,
-a model AI dostaje te ogłoszenia razem z treścią ekspertyzy aukcji.
-Ekspertyzę add-on wybiera po treści, nie po nazwie pliku, i przed wysłaniem
-zasłania w niej VIN, numer rejestracyjny, nazwiska, telefony i adresy e-mail.
+Przycisk **Wycena z Otomoto** (wymaga tylko klucza AI) pobiera podobne
+ogłoszenia prosto ze stron wyników Otomoto — bez Apify i bez dodatkowych
+opłat. Add-on czyta dane, które Otomoto osadza w stronie (JSON
+`__NEXT_DATA__`), nie tekst HTML.
 
-Każde kliknięcie to płatny przebieg aktora (ok. 0,05 USD) i dłuższe zapytanie
-do modelu — dlatego tylko z przycisku. Ceny z Otomoto są ofertowe, zwykle
-wyższe od uzyskiwanych na aukcjach; karta pokazuje liczbę ogłoszeń, przedział
-cen, link do wyszukiwania i najbardziej podobne ogłoszenia.
+**Model.** Nazwa z aukcji często nie pasuje do Otomoto („BMW 750" to na
+Otomoto „Seria 7"). Add-on pobiera listę modeli marki z Otomoto (pamięć
+24 h); gdy nazwa nie pasuje wprost, model AI wybiera model z tej zamkniętej
+listy. Wybór służy tylko wyszukiwaniu — w bazie nic się nie zmienia. Gdy nie
+da się dopasować modelu, wycena kończy się komunikatem zamiast porównywać
+całą markę.
+
+**Wyszukiwanie.** Ten sam model, rocznik ±1, to samo paliwo i skrzynia, bez
+aut uszkodzonych, bez filtra przebiegu (model AI koryguje każde ogłoszenie
+o różnicę przebiegu), do dwóch stron wyników. Odrzucane są ogłoszenia innych
+modeli, auta z USA i Kanady (kraj pochodzenia albo opis), cesje leasingu
+(cena to zwykle rata albo odstępne) i skrajne kwoty. Gdy co najmniej trzy
+ogłoszenia mają wersję aukcji (np. „Performance"), statystyka liczy się tylko
+z nich.
+
+**Netto wg odznak.** Otomoto oznacza cenę każdego ogłoszenia: kwota podana
+jako netto zostaje bez zmian; odznaka „Cena brutto / zawiera VAT" → ÷1,23;
+bez faktury VAT (zwykle sprzedawca prywatny) → bez zmian, bo VAT nie
+występuje. Model AI dostaje przy każdym ogłoszeniu tę podstawę, a wycena jest
+w netto.
+
+Ekspertyzę aukcji add-on wybiera po treści, nie po nazwie pliku, i przed
+wysłaniem zasłania w niej VIN, numer rejestracyjny, nazwiska, telefony
+i adresy e-mail. Po kliknięciu karta pokazuje pasek postępu z etapami
+(Otomoto, dokumenty, ekspertyza, model AI, zapis); ponowne kliknięcie w trakcie
+pokazuje ten sam pasek. Ceny z Otomoto są ofertowe, zwykle wyższe od
+uzyskiwanych na aukcjach; karta pokazuje liczbę ogłoszeń, przedział cen, link
+do wyszukiwania i najbardziej podobne ogłoszenia. Wyceniona aukcja ma
+odznakę przy tytule karty i w nagłówku sekcji wyceny.
 
 Wycena liczy się **raz na aukcję i zostaje zapisana w bazie**; karta pokazuje
 datę i model, którym ją policzono. Zmienia ją tylko przycisk „Przelicz" —
@@ -232,6 +249,14 @@ Zmiana danych auta, lokalnych porównań albo modelu automatycznie unieważnia
 cache. Do dostawcy nie są wysyłane VIN, identyfikator aukcji ani dane
 sprzedającego. Wycena jest orientacyjna i nie zastępuje oględzin ani opinii
 rzeczoznawcy.
+
+## Logi aplikacji
+
+Add-on loguje na standardowe wyjście (Docker / Supervisor) i równolegle do
+pliku `/data/logi/aplikacja.log` (rotacja 2 MB × 5), który przeżywa restart
+i deploy. Zakładka **Diagnostyka → Logi** pokazuje ostatnie wpisy z wyborem
+poziomu (INFO / WARNING / ERROR) i liczby linii. Sekrety (hasła, klucze API)
+są zasłaniane przy zapisie i jeszcze raz przy wyświetlaniu.
 
 ## Wykresy w Grafanie
 

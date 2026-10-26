@@ -151,4 +151,12 @@
     <p class="uwaga">Żadne źródło nie jest jeszcze zarejestrowane w bazie.</p>
   {% endif %}
 </section>
+
+<section class="karta" id="logi">
+  <h2>Logi aplikacji</h2>
+  <p class="drobne">Ostatnie wpisy z <code>/data/logi/aplikacja.log</code> — przeżywają restart i deploy. Sekrety są zasłonięte.</p>
+  <div hx-get="{{ sciezka(request, 'logi_aplikacji') }}?poziom=INFO" hx-trigger="load" hx-swap="innerHTML">
+    <p class="uwaga">Wczytywanie logów…</p>
+  </div>
+</section>
 {% endblock %}

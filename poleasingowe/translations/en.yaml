@@ -41,12 +41,10 @@ configuration:
       Required for `zgodny_z_openai`, e.g. https://api.deepseek.com/v1 or
       http://ollama:11434/v1. Leave empty for OpenAI and Anthropic.
   apify_token:
-    name: Apify token (Otomoto valuation)
+    name: Apify token (deprecated)
     description: >-
-      API token from console.apify.com. Enables the "Wycena z Otomoto" button
-      on the auction card — fetches similar listings via the
-      automation-lab/otomoto-scraper actor (about 0.05 USD per valuation).
-      Empty = no button.
+      Unused since 0.32.0 — the Otomoto valuation reads Otomoto directly.
+      Can be left empty.
   ai_model:
     name: AI valuation model
     description: >-

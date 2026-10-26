@@ -21,6 +21,7 @@ import sys
 import uvicorn
 
 from app.application.use_cases.rejestracja import zarejestruj_zrodla
+from app.infrastructure import dziennik
 from app.infrastructure.ai_klienci import utworz_klienta
 from app.infrastructure.dokumenty import Dokumenty
 from app.infrastructure.kopia import KopiaZapasowa
@@ -73,20 +74,27 @@ class _FiltrRedakcji(logging.Filter):
 
 
 def _skonfiguruj_logi(opcje: Opcje) -> None:
+    format_logu = "%(asctime)s %(levelname)-7s %(name)s: %(message)s"
     logging.basicConfig(
         level=getattr(logging, opcje.log_level),
-        format="%(asctime)s %(levelname)-7s %(name)s: %(message)s",
+        format=format_logu,
         stream=sys.stdout,
     )
     sekrety = [
         opcje.db_password,
         opcje.ai_api_key,
         opcje.openai_api_key,
+        opcje.apify_token,
         *(p.password for p in opcje.credentials),
     ]
     filtr = _FiltrRedakcji(sekrety)
     for nazwa in ("", "poleasingowe", "app", "uvicorn", "uvicorn.error"):
         logging.getLogger(nazwa).addFilter(filtr)
+    # Kopia logu na dysku — do podglądu w Diagnostyce (0.32.0). `docker logs`
+    # nie jest dostępny z wnętrza kontenera, a znika przy każdym deployu.
+    plik = dziennik.dodaj_plik(format_logu, filtr)
+    if plik is not None:
+        log.info("log zapisywany także do %s", plik)
 
 
 def _wycena(opcje: Opcje) -> WycenaAI | None:
@@ -205,8 +213,8 @@ def main() -> int:
     budzik = BudzikOdroczony()
     galeria = GaleriaZdjec(adaptery_ui, fabryka=fabryka)  # type: ignore[arg-type]
     dokumenty = Dokumenty(adaptery_ui)
-    # Wycena z Otomoto wyłącznie z przycisku i tylko z tokenem Apify.
-    otomoto = Otomoto(opcje.apify_token) if opcje.apify_token.strip() else None
+    # Wycena z Otomoto wyłącznie z przycisku; od 0.32 bez Apify.
+    otomoto = Otomoto()
     # Kopia zapasowa WYLACZNIE wlasnej bazy (SPEC.md §7.1) — snapshot HA
     # obejmuje tez TeslaMate, wiec nie da sie z niego odtworzyc samej naszej.
     kopia = KopiaZapasowa(opcje.dsn)

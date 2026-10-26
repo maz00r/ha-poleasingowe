@@ -67,7 +67,8 @@
 </section>
 
 <section class="karta" id="wycena-ai">
-  <h2>Wycena AI</h2>
+  {% import 'fragmenty/wycena-oznaczenie.html' as oznaczenie %}
+  <h2>Wycena AI{{ oznaczenie.naglowek(wycena_zapisana) }}</h2>
   <div hx-get="{{ sciezka(request, 'wycena_aukcji', auction_id=p.id) }}"
        hx-trigger="load" hx-swap="innerHTML">
     <p class="uwaga">Obliczanie wyceny…</p>

@@ -1,0 +1,21 @@
+<form class="filtr-logow" hx-get="{{ sciezka(request, 'logi_aplikacji') }}" hx-target="#logi > div" hx-swap="innerHTML" hx-trigger="change, submit">
+  <label>Poziom od
+    <select name="poziom">
+      {% for p in ['DEBUG', 'INFO', 'WARNING', 'ERROR'] %}
+        <option value="{{ p }}" {% if p == poziom %}selected{% endif %}>{{ p }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <label>Linii
+    <select name="linie">
+      {% for n in [100, 300, 1000] %}<option value="{{ n }}" {% if n == linie %}selected{% endif %}>{{ n }}</option>{% endfor %}
+    </select>
+  </label>
+  <button type="submit" class="przycisk-lekki">Odśwież</button>
+</form>
+{% if wpisy %}
+  <pre class="logi">{% for w in wpisy %}{{ w }}
+{% endfor %}</pre>
+{% else %}
+  <p class="uwaga">Brak wpisów od poziomu {{ poziom }} (albo plik logu jeszcze nie powstał).</p>
+{% endif %}
