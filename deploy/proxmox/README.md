@@ -159,11 +159,15 @@ Na swoim komputerze utwórz osobny klucz tylko dla CI:
 ssh-keygen -t ed25519 -N "" -C github-deploy -f ~/.ssh/poleasingowe-deploy
 ```
 
-W LXC dopisz do `/root/.ssh/authorized_keys` (jedna linia; klucz z pliku
-`.pub`):
+Skopiuj wynik `cat ~/.ssh/poleasingowe-deploy.pub` i w LXC dopisz go
+z wymuszoną komendą (`WKLEJ_KLUCZ` zamień na skopiowaną linię, zostaw
+pojedyncze cudzysłowy):
 
-```text
-command="/opt/poleasingowe/deploy/proxmox/scripts/deploy-wersji.sh",restrict ssh-ed25519 AAAA... github-deploy
+```bash
+install -d -m 700 /root/.ssh
+printf 'command="/opt/poleasingowe/deploy/proxmox/scripts/deploy-wersji.sh",restrict %s\n' \
+  'WKLEJ_KLUCZ' >> /root/.ssh/authorized_keys
+chmod 600 /root/.ssh/authorized_keys
 ```
 
 ### Cloudflare Zero Trust
