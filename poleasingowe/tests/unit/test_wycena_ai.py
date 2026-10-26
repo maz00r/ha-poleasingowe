@@ -718,3 +718,12 @@ async def test_uzasadnienie_jako_tablica_punktow_i_ponowienie_po_zlym_json() -> 
 
     assert len(zadania) == 2
     assert wynik.uzasadnienie == "- Rynek: mediana 80 000 zł.\n- Wniosek: 70 000 zł."
+
+
+async def test_instrukcja_ocenia_silnik_wg_rynku_wtornego() -> None:
+    zadania: list[dict[str, object]] = []
+    usluga = _usluga_z_odpowiedzia("{", zadania)
+    with pytest.raises(BladWyceny):
+        await usluga.wycen(_dane(), (), teraz=TERAZ)
+    wyslane = json.dumps(zadania[0], ensure_ascii=False)
+    assert "awaryjność" in wyslane and "Silnik:" in wyslane

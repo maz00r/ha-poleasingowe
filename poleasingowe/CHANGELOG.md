@@ -1,5 +1,13 @@
 # Historia zmian
 
+## 0.33.0 — w przygotowaniu
+
+**Wycena AI ocenia silnik tak jak rynek wtórny.** Model bierze pod uwagę
+renomę i awaryjność jednostki, koszty utrzymania i popyt, a nie cenę nowego
+auta czy moc — np. BMW z V8 50i jest używane zwykle tańsze od chętniej
+kupowanego 40i. Porównania z innym silnikiem są o to korygowane, a
+uzasadnienie ma punkt „Silnik”. Instrukcja modelu AI w wersji 13.
+
 ## 0.32.9 — w przygotowaniu
 
 **Naprawa: wycena AI padała na niepoprawnym JSON-ie.** Od 0.32.5 model

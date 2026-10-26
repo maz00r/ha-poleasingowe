@@ -39,7 +39,7 @@ from app.infrastructure.otomoto import Ogloszenie, PojazdDoPorownania, WynikOtom
 
 log = logging.getLogger(__name__)
 
-WERSJA_PROMPTU = 12
+WERSJA_PROMPTU = 13
 """Podbij, gdy zmienisz `INSTRUKCJE` albo `SCHEMAT`.
 
 Zapisana wycena niesie wersję, którą policzono — dzięki temu widać, że
@@ -57,7 +57,8 @@ powstała starym poleceniem, i można ją świadomie przeliczyć.
 9: wcześniejsze, niesprzedane wystawienia tego auta jako górna granica.
 10: uzasadnienie w punktach „- Temat: treść" (czytelniejsze na karcie).
 11: każde wcześniejsze wystawienie = niesprzedane, bez względu na status.
-12: uzasadnienie jako tablica punktów (linie w napisie psuły JSON)."""
+12: uzasadnienie jako tablica punktów (linie w napisie psuły JSON).
+13: silnik wg rynku wtórnego — renoma, awaryjność, koszty, popyt."""
 
 MAKS_OGLOSZEN_NA_KARCIE = 15
 
@@ -126,12 +127,30 @@ INSTRUKCJE_OTOMOTO = (
 # Format uzasadnienia — dopisywany do każdej instrukcji wyceny. Karta
 # wyświetla punkty jako listę (`punkty_uzasadnienia`), więc jeden akapit
 # przestaje być ścianą tekstu.
+# Silnik waży na rynku wtórnym inaczej niż w cenniku nowych aut: mocniejszy
+# i droższy jako nowy (np. BMW V8 50i) bywa używany TAŃSZY od chętniej
+# kupowanego słabszego (40i), bo straszy awaryjnością i kosztami. Bez tej
+# reguły model wyceniał wg mocy i ceny katalogowej.
+INSTRUKCJE_SILNIKA = (
+    "\n\nUwzględnij silnik tak, jak wycenia go rynek WTÓRNY, a nie cennik "
+    "nowych aut: renomę i awaryjność tej jednostki (znane usterki, koszty "
+    "napraw), koszty utrzymania (spalanie, podatki, ubezpieczenie) i popyt "
+    "— jak łatwo sprzedać auto z tym silnikiem. Mocniejszy i droższy jako "
+    "nowy silnik bywa na rynku wtórnym wart MNIEJ od popularniejszego, "
+    "słabszego (np. BMW V8 50i jest zwykle tańszy od chętniej kupowanego "
+    "40i). Silnik rozpoznaj po wariancie, pojemności, mocy i paliwie. "
+    "Porównania (ogłoszenia, aukcje) z innym silnikiem skoryguj o tę "
+    "różnicę, a w uzasadnieniu dodaj punkt „Silnik: …” z oceną jednostki "
+    "i jej wpływem na cenę."
+)
+
 # Punkty jako ELEMENTY TABLICY, nie linie w jednym napisie: prośba o „nową
 # linię na punkt" kończyła się JSON-em z punktami poza cudzysłowem (0.32.5).
 FORMAT_UZASADNIENIA = (
     "\n\nPole `uzasadnienie` to lista 3-7 krótkich punktów — każdy punkt "
     "to osobny element tablicy, zaczynający się od tematu z dwukropkiem, "
-    "np. „Rynek: …”, „Przebieg: …”, „Stan techniczny: …”, „Wcześniejsze "
+    "np. „Rynek: …”, „Silnik: …”, „Przebieg: …”, „Stan techniczny: …”, "
+    "„Wcześniejsze "
     "wystawienia: …”, „Wniosek: …”. Jedno-dwa zdania na punkt, z konkretnymi "
     "kwotami, bez myślników i innego formatowania."
 )
@@ -301,7 +320,7 @@ class WycenaAI:
         if wczesniejsze:
             wejscie["wczesniejsze_wystawienia_tego_auta"] = wczesniejsze
             instrukcje += INSTRUKCJE_WYSTAWIENIA
-        instrukcje += FORMAT_UZASADNIENIA
+        instrukcje += INSTRUKCJE_SILNIKA + FORMAT_UZASADNIENIA
         try:
             # Zepsuty JSON bywa jednorazowy (dostawca bez wymuszonego
             # schematu) — jedno ponowienie, zanim pokażemy błąd.
