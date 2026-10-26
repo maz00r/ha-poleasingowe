@@ -173,7 +173,12 @@ chmod 600 /root/.ssh/authorized_keys
 ### Cloudflare Zero Trust
 
 1. Trasa `ssh-poleasingowe.mazurowski.xyz` → `ssh://ADRES_LXC:22`.
-   Tunel zarządzany z panelu: Tunnel → Public hostname. Tunel zarządzany
+   Tunel z dodatku Cloudflared w Home Assistant: w opcjach dodatku dopisz
+   do `additional_hosts` pozycję `hostname: ssh-poleasingowe.mazurowski.xyz`,
+   `service: ssh://ADRES_LXC:22` i zrestartuj dodatek — DNS utworzy sam
+   (HA musi widzieć LXC na porcie 22; na firewallu Proxmoxa dopuść TCP/22
+   z adresu HA).
+   Tunel zarządzany z panelu: Tunnel → Public hostname. Inny tunel zarządzany
    lokalnie (panel mówi „locally managed”): w `config.yml` cloudflared dopisz
    w `ingress:` — **przed** końcowym `- service: http_status:404`:
 
