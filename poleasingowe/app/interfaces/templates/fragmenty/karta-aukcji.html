@@ -26,7 +26,8 @@
   <div class="naglowek-aukcji">
     <div>
       {% import 'fragmenty/wycena-oznaczenie.html' as oznaczenie %}
-      <h1>{{ p.nazwa }}{{ oznaczenie.odznaka(wycena_zapisana) }}</h1>
+      <h1>{{ p.nazwa }}</h1>
+      {{ oznaczenie.odznaka(wycena_zapisana) }}
       <p class="podtytul">
         {{ p.source_key }} · <code>{{ p.external_id }}</code>
         {% if p.final_price_state.value == 'CONFIRMED' %}

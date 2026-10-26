@@ -1908,11 +1908,14 @@ pre.logi {
 .wycena-postep progress, .wskaznik-wyceny progress { width: 100%; max-width: 32rem; height: 0.75rem; }
 .odznaka-wyceny {
   display: inline-block;
-  margin-left: 0.5rem;
+  margin: 6px 0 2px;
   padding: 0.15rem 0.6rem;
   border-radius: 999px;
-  font-size: 0.8rem;
+  font-size: 13px;
   font-weight: 600;
+  letter-spacing: normal;
+  line-height: 1.4;
+  text-transform: none;
   vertical-align: middle;
   background: rgba(46, 160, 67, 0.18);
   border: 1px solid rgba(46, 160, 67, 0.55);

@@ -1,5 +1,11 @@
 # Historia zmian
 
+## 0.32.1 — w przygotowaniu
+
+**Odznaka wyceny pod tytułem karty.** Odznaka siedziała w tytule i dziedziczyła
+jego ściśnięty krój — tekst zlewał się w jeden ciąg. Teraz stoi osobno pod
+tytułem, z własną typografią.
+
 ## 0.32.0 — w przygotowaniu
 
 **Wycena z Otomoto bez Apify.** Add-on czyta strony wyników Otomoto sam
