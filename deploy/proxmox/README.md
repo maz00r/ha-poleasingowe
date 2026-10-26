@@ -213,3 +213,8 @@ Settings → Environments → `proxmox` (można dodać wymóg zatwierdzenia).
 
 Job działa tylko na tagach z tego repozytorium — pull requesty (także
 z forków) nie dostają sekretów środowiska i nie uruchamiają deployu.
+
+### Ręczny deploy i powrót do starszej wersji
+
+GitHub → Actions → **Deploy Proxmox** → **Run workflow**, w polu wersji np.
+`0.32.7`. Obraz tej wersji musi już być w GHCR (każdy wydany tag ma swój).

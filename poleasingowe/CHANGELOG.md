@@ -1,5 +1,11 @@
 # Historia zmian
 
+## 0.32.8 — w przygotowaniu
+
+**Ręczny deploy z GitHuba.** Deploy na Proxmoxa to osobny workflow
+„Deploy Proxmox”: CI wywołuje go po tagu wydania, a z zakładki Actions można
+go uruchomić ręcznie z dowolną wersją — także, żeby wrócić do poprzedniej.
+
 ## 0.32.7 — w przygotowaniu
 
 **Automatyczny deploy na Proxmoxa.** Po wypchnięciu tagu wydania CI
