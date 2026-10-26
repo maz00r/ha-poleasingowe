@@ -112,20 +112,37 @@ def test_dopasowanie_modelu_deterministyczne() -> None:
     assert otomoto.dopasuj_model(x5, modele) == "x5"
 
 
+Z_VAT = (81_301, otomoto.PODSTAWA_Z_VAT)
+Z_OPISU = (81_301, otomoto.PODSTAWA_Z_VAT_OPIS)
+MARZA = (100_000, otomoto.PODSTAWA_MARZA)
+BEZ_VAT = (100_000, otomoto.PODSTAWA_BEZ_VAT)
+
+
 @pytest.mark.parametrize(
-    ("is_gross", "odznaki", "oczekiwane"),
+    ("is_gross", "odznaki", "opis", "oczekiwane"),
     [
-        (False, (), (100_000, otomoto.PODSTAWA_NETTO)),
-        (True, ("INCLUDE_VAT", "INVOICE_ISSUED"), (81_301, otomoto.PODSTAWA_Z_VAT)),
-        (True, (), (100_000, otomoto.PODSTAWA_BEZ_VAT)),
-        (True, ("INVOICE_ISSUED",), (100_000, otomoto.PODSTAWA_BEZ_VAT)),
+        # isGross=false nie znaczy „kwota netto" — kwota jest zawsze brutto.
+        (False, ("INCLUDE_VAT", "INVOICE_ISSUED"), "", Z_VAT),
+        (False, ("INCLUDE_VAT",), "", Z_VAT),
+        (True, ("INCLUDE_VAT", "INVOICE_ISSUED"), "", Z_VAT),
+        (True, ("INVOICE_ISSUED",), "Faktura Vat Marża", MARZA),
+        (True, ("INVOICE_ISSUED",), "", MARZA),
+        # Prywatni z firmą: odznak brak, VAT tylko w opisie.
+        (True, (), "Hak, Ceramika, opony zimowe, FAKTURA VAT 23% SALON PL", Z_OPISU),
+        (True, (), "Salon PL, FV 23%, Rozszerzony Autopilot", Z_OPISU),
+        (True, (), "Tesla Y Long Range AWD Gwarancja | FV23%", Z_OPISU),
+        (True, (), "105 000 + VAT", Z_OPISU),
+        (True, (), "VAT marża, bezwypadkowy", MARZA),
+        (True, (), "Salon PL, bezwypadkowy", BEZ_VAT),
     ],
 )
-def test_netto_wg_odznak(
-    is_gross: bool, odznaki: tuple[str, ...], oczekiwane: tuple[int, str]
+def test_netto_wg_odznak_i_opisu(
+    is_gross: bool, odznaki: tuple[str, ...], opis: str, oczekiwane: tuple[int, str]
 ) -> None:
     (rekord,), _ = otomoto.wyniki(
-        _wyniki([_ogloszenie(1, 100_000, is_gross=is_gross, odznaki=odznaki)])
+        _wyniki(
+            [_ogloszenie(1, 100_000, is_gross=is_gross, odznaki=odznaki, opis=opis)]
+        )
     )
     assert otomoto.cena_netto(rekord) == oczekiwane
 
@@ -151,7 +168,7 @@ async def test_porownanie_ai_wybiera_model_i_odrzuca_usa_cesje_inne() -> None:
         _ogloszenie(51, 4_324, opis="CESJA LEASINGU, odstępne"),
         _ogloszenie(52, 150_000, model="seria-5"),
         _ogloszenie(53, 150_000, rok=2015),
-        _ogloszenie(54, 205_500, is_gross=False),
+        _ogloszenie(54, 250_000, opis="FV 23%"),
     ]
     zadania: list[str] = []
 
@@ -176,8 +193,8 @@ async def test_porownanie_ai_wybiera_model_i_odrzuca_usa_cesje_inne() -> None:
     assert wybory == [["seria-5", "seria-7", "x5"]]
     assert wynik.model_otomoto == "Seria 7"
     assert wynik.odrzucone_usa == 1 and wynik.odrzucone_cesje == 1
-    assert wynik.liczba == 11  # 10 + jedno netto; seria-5 i rocznik 2015 odpadły
-    assert any(o.podstawa == otomoto.PODSTAWA_NETTO for o in wynik.ogloszenia)
+    assert wynik.liczba == 11  # 10 + jedno z FV; seria-5 i rocznik 2015 odpadły
+    assert any(o.podstawa == otomoto.PODSTAWA_Z_VAT_OPIS for o in wynik.ogloszenia)
     assert len(zadania) == 2  # taksonomia + jedna strona (15 < 32)
     assert any("Model AI" in e for e in etapy)
 

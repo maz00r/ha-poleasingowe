@@ -220,11 +220,12 @@ modeli, auta z USA i Kanady (kraj pochodzenia albo opis), cesje leasingu
 ogłoszenia mają wersję aukcji (np. „Performance"), statystyka liczy się tylko
 z nich.
 
-**Netto wg odznak.** Otomoto oznacza cenę każdego ogłoszenia: kwota podana
-jako netto zostaje bez zmian; odznaka „Cena brutto / zawiera VAT" → ÷1,23;
-bez faktury VAT (zwykle sprzedawca prywatny) → bez zmian, bo VAT nie
-występuje. Model AI dostaje przy każdym ogłoszeniu tę podstawę, a wycena jest
-w netto.
+**Netto wg odznak i opisu.** Kwota w ogłoszeniu Otomoto jest zawsze brutto.
+Odznaka „VAT do odliczenia" → ÷1,23. Bez niej, ale z „FV 23%", „faktura VAT
+23%" albo „+VAT" w tytule lub opisie (tak piszą prywatni sprzedawcy z firmą)
+→ też ÷1,23. Faktura VAT-marża i sprzedaż bez faktury → bez zmian, bo VAT nie
+jest do odliczenia. Model AI dostaje przy każdym ogłoszeniu tę podstawę,
+a wycena jest w netto.
 
 Ekspertyzę aukcji add-on wybiera po treści, nie po nazwie pliku, i przed
 wysłaniem zasłania w niej VIN, numer rejestracyjny, nazwiska, telefony

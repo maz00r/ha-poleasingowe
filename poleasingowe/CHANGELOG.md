@@ -1,5 +1,14 @@
 # Historia zmian
 
+## 0.32.2 — w przygotowaniu
+
+**Wycena z Otomoto — poprawka netto.** Kwota w wynikach Otomoto jest zawsze
+brutto; 0.32.0 brała ogłoszenia oznaczone „podane netto" za netto i nie
+dzieliła ich przez 1,23. Teraz ÷1,23 idzie przy odznace „VAT do odliczenia"
+oraz gdy tytuł lub opis mówi „FV 23%", „faktura VAT 23%" albo „+VAT" (prywatni
+sprzedawcy z firmą rzadko zaznaczają odznakę). VAT-marża i sprzedaż bez
+faktury zostają bez zmian. Instrukcja modelu AI w wersji 7.
+
 ## 0.32.1 — w przygotowaniu
 
 **Odznaka wyceny pod tytułem karty.** Odznaka siedziała w tytule i dziedziczyła

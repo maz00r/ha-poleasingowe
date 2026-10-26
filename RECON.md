@@ -1662,14 +1662,20 @@ dla pozostałych serwisów, decyzja o Disallow bez zmian.
     z `title`, `shortDescription`, `url`, `price{amount.units, isGross,
     badges[]}`, `parameters[{key, value, displayValue}]` (`model`, `version`,
     `country_origin`, `mileage`, `year`).
-  - Odznaki ceny: `INVOICE_ISSUED` (faktura), `INCLUDE_VAT` (cena zawiera
-    VAT). `isGross=false` — kwota netto.
+  - Odznaki ceny: `INVOICE_ISSUED` (faktura — sama oznacza VAT-marżę),
+    `INCLUDE_VAT` (VAT do odliczenia). `amount` jest ZAWSZE brutto;
+    `isGross=false` mówi tylko, że sprzedawca wpisał netto (strona
+    ogłoszenia: `advertPriceForPriceDrop.isNet`, `grossMinorAmount`,
+    `netMinorAmount`). Pomiar 2026-10-27: 164 700 przy `isGross=false` =
+    brutto, netto 133 903. Prywatni sprzedawcy z FV 23% często nie mają
+    odznak — VAT tylko w `shortDescription`.
   - Taksonomia: każda strona niesie stan filtrów; wpis `filterId =
     filter_enum_model` z warunkiem `filter_enum_make = <marka>` ma `values`
     (grupy → `values[{id, name}]`). Id z prefiksem `gen-` to generacje,
     `other` — pomijane.
 - Paliwo: `petrol, diesel, hybrid, plugin-hybrid, electric, petrol-lpg,
   petrol-cng, hidrogen`; skrzynia: `automatic, manual`.
-- Reguła netto (add-on): `isGross=false` → bez zmian; `INCLUDE_VAT` → ÷1,23;
-  brak odznak → bez zmian (brak VAT). Odrzucane: `country_origin` USA/Kanada,
+- Reguła netto (add-on, 0.32.2): `INCLUDE_VAT` → ÷1,23; `INVOICE_ISSUED`
+  albo „marża" w opisie → bez zmian; „FV 23%"/„faktura VAT"/„+VAT"
+  w tytule lub opisie → ÷1,23; reszta → bez zmian. Odrzucane: `country_origin` USA/Kanada,
   cesje leasingu, inne modele, rocznik spoza ±1, skrajne kwoty (Tukey).

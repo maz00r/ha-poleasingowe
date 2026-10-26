@@ -18,12 +18,17 @@ nazwa modelu Otomoto), a gdy się nie uda — model AI wybiera id z ZAMKNIĘTEJ
 listy modeli tej marki (`WybieraczModelu`). Nieznany model w ścieżce Otomoto
 po cichu cofa do całej marki, więc bez trafionego id nie szukamy wcale.
 
-**Netto wg odznak** (decyzja właściciela repo, 2026-10-26):
+**Netto wg odznak i opisu** (decyzja właściciela repo, 2026-10-26; poprawka
+po pomiarze 2026-10-27). Kwota w wynikach jest ZAWSZE brutto — `isGross =
+false` mówi tylko, że sprzedawca wpisał ją jako netto (strona ogłoszenia:
+164 700 brutto przy `isGross=false`, netto 133 903). Dlatego:
 
-- `isGross = false` → kwota już jest netto;
-- odznaka `INCLUDE_VAT` → cena z VAT na fakturze → ÷1,23;
-- brak odznaki (prywatny, bez faktury) → bez zmian: VAT nie do odliczenia,
-  więc to pełny koszt.
+- odznaka `INCLUDE_VAT` („VAT do odliczenia") → ÷1,23;
+- bez niej, ale tytuł/krótki opis mówi „FV 23%", „faktura VAT 23%", „+VAT"
+  (prywatni sprzedawcy z firmą często nie zaznaczają odznaki) → ÷1,23;
+- sama odznaka `INVOICE_ISSUED` albo „marża" w opisie → faktura VAT-marża,
+  VAT nie do odliczenia → bez zmian;
+- nic z tego (prywatny, bez faktury) → bez zmian: pełny koszt.
 
 **Odrzucamy:** auta z USA/Kanady (`country_origin` + słowa w tytule/opisie),
 „cesje leasingu" (cena to rata — 4 324 zł za BMW), uszkodzone (filtr
@@ -83,9 +88,18 @@ _USA = re.compile(
 )
 _CESJA = re.compile(r"(?i)\bcesj\w*|\bodst[eę]pne\b|\bprzej[eę]cie\s+leasingu\b")
 
-PODSTAWA_NETTO = "netto"
 PODSTAWA_Z_VAT = "z VAT ÷1,23"
+PODSTAWA_Z_VAT_OPIS = "FV 23% wg opisu ÷1,23"
+PODSTAWA_MARZA = "VAT-marża"
 PODSTAWA_BEZ_VAT = "bez VAT"
+# „FV 23%", „FV23", „Faktura VAT 23%", „Faktura VAT", „+ VAT", „VAT 23%".
+_FV23 = re.compile(
+    r"(?i)\bf(?:aktur\w*)?\.?\s*v(?:at)?\.?\s*-?\s*23"
+    r"|\bfaktur\w*\s+vat\b"
+    r"|\+\s*vat\b"
+    r"|\bvat\s*-?\s*23\s*%"
+)
+_MARZA = re.compile(r"(?i)\bmar[żz][aąy]\b")
 
 
 class BladOtomoto(RuntimeError):
@@ -289,11 +303,15 @@ def wyniki(html: str) -> tuple[list[Rekord], int]:
 
 
 def cena_netto(rekord: Rekord) -> tuple[int, str]:
-    """Reguła z docstringu modułu."""
-    if not rekord.is_gross:
-        return rekord.cena, PODSTAWA_NETTO
+    """Reguła z docstringu modułu. `is_gross` celowo pominięte — kwota jest
+    brutto niezależnie od niego."""
     if "INCLUDE_VAT" in rekord.odznaki:
         return netto(rekord.cena), PODSTAWA_Z_VAT
+    tekst = f"{rekord.tytul} {rekord.opis}"
+    if "INVOICE_ISSUED" in rekord.odznaki or _MARZA.search(tekst):
+        return rekord.cena, PODSTAWA_MARZA
+    if _FV23.search(tekst):
+        return netto(rekord.cena), PODSTAWA_Z_VAT_OPIS
     return rekord.cena, PODSTAWA_BEZ_VAT
 
 

@@ -34,7 +34,7 @@ from app.infrastructure.otomoto import Ogloszenie, PojazdDoPorownania, WynikOtom
 
 log = logging.getLogger(__name__)
 
-WERSJA_PROMPTU = 6
+WERSJA_PROMPTU = 7
 """Podbij, gdy zmienisz `INSTRUKCJE` albo `SCHEMAT`.
 
 Zapisana wycena niesie wersję, którą policzono — dzięki temu widać, że
@@ -87,9 +87,11 @@ INSTRUKCJE_OTOMOTO = (
     "- `ogloszenia_otomoto`: porównywalne ogłoszenia z Otomoto pobrane dziś "
     "(ten sam model wg taksonomii Otomoto, rocznik ±1, bez uszkodzonych, bez "
     "aut z USA, bez cesji leasingu i skrajnych kwot). Cena każdego ogłoszenia "
-    "jest już NETTO, a pole `podstawa` mówi, skąd: `netto` — sprzedawca podał "
-    "netto; `z VAT ÷1,23` — cena z VAT na fakturze, przeliczona; `bez VAT` — "
-    "sprzedaż bez faktury VAT (zwykle prywatna), kwota bez zmian. To ceny "
+    "jest już NETTO, a pole `podstawa` mówi, skąd: `z VAT ÷1,23` — VAT do "
+    "odliczenia wg Otomoto, przeliczona; `FV 23% wg opisu ÷1,23` — faktura "
+    "VAT 23% wynika z opisu, przeliczona; `VAT-marża` — faktura marża, VAT "
+    "nie do odliczenia, kwota bez zmian; `bez VAT` — sprzedaż bez faktury "
+    "(zwykle prywatna), kwota bez zmian. To ceny "
     "OFERTOWE — zwykle wyższe od uzyskiwanych na aukcji poleasingowej; "
     "napisz, jak dużą różnicę przyjmujesz. Porównania NIE są filtrowane po "
     "przebiegu — KAŻDE ogłoszenie skoryguj o różnicę przebiegu (oraz "
