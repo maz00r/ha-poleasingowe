@@ -1350,6 +1350,30 @@ Punkt (c) — historia ofert po zamknięciu na aukcji z realną licytacją —
 zostaje otwarty do siedmiodniowej obserwacji na HA, razem z Leasygroup
 i mLeasing (README.md „Stan prac").
 
+**Korekta 2026-10-26 (0.31.0) — dwie decyzje wyżej zmienione.**
+
+- **Podstawa VAT: kwoty są brutto** (potwierdził właściciel repo). Adapter
+  przelicza ÷1,23 tylko przy „Forma sprzedaży: faktura VAT"; „umowa k/s" —
+  bez VAT, bez zmian. Kolumna `auction.vat_info` mówi, co zastosowano.
+- **`PasekInformacyjny` jest wywoływany.** Kontrakt odczytany z kodu strony
+  (`/javascript.js`, `Licytacja.pasekInformacyjny`): `$.post` — formularz
+  `id=<id>`, odpowiedź JSON `{"kwota": "<tekst>", "twoja_oferta": …}`;
+  przy braku ofert `{"kwota":"brak ofert"}` (zmierzone). Skutek dawnej
+  decyzji był gorszy niż ryzyko: odczyt szczegółów zerował `price_current`
+  i historia cen dawro prawie nie powstawała. Do tego przemiat co 30 min.
+- **Ekspertyza:** `Dialog.pobierzWycene(<id>)` → moduł `PrzedmiotWycena` →
+  `/webservice/PrzedmiotWycenaPlik/id=<id>` (`application/pdf`, anonimowo).
+- **Zakończona aukcja po kilku godzinach: `302` na `/`** (zmierzone
+  2026-09-14 ~21:00; pomiar domknięcia sięgał tylko T+600 s).
+
+**mLeasing — endpointy odkryte 2026-10-26** (z paczek JS portalu, wszystkie
+anonimowe): `GET /api/offer-read/get-bids-with-hidden-logins?offerId=` —
+pełna lista ofert (`amountPln`, `bidDate` bez strefy = czas warszawski, bo
+`/api/administration/get-time` zwraca `+01:00`; `userLogin` zamaskowany
+„d...m"; `isBuyNow`); `GET /api/offer-read/get-attachments?offerId=` —
+załączniki (`Ekspertyza_<nr>.pdf` DEKRA, czasem pliki niezwiązane z autem).
+Dla ofert zakończonych przed tą datą lista ofert wraca pusta.
+
 ## 5. Które serwisy obsłuży sam `httpx` (§4 pkt 3)
 
 **Wszystkie cztery. Playwright nie jest potrzebny.**

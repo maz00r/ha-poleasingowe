@@ -10,6 +10,7 @@
   "ai_base_url": "",
   "ai_model": "",
   "openai_api_key": "",
+  "apify_token": "",
   "credentials": [],
   "sources": [],
   "log_level": "INFO",

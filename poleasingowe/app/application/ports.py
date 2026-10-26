@@ -477,6 +477,44 @@ class FabrykaKontekstu(Protocol):
         ...
 
 
+@dataclass(slots=True, frozen=True)
+class Dokument:
+    """Plik dołączony do aukcji przez serwis — zwykle ekspertyza (0.31.0).
+
+    `nazwa` i `opis_zrodla` są dokładnie takie, jak podał je serwis. Nie
+    klasyfikujemy po nich: nazwy bywają dowolne (dawro — numer
+    rejestracyjny, mLeasing — czasem plik niezwiązany z autem). Czy to
+    ekspertyza, rozstrzyga treść (`infrastructure/ekspertyza.py`).
+    """
+
+    nazwa: str
+    url: str
+    opis_zrodla: str = ""
+
+
+@runtime_checkable
+class ZrodloZDokumentami(Protocol):
+    """Źródło, które dołącza do aukcji pliki do pobrania (ekspertyzy).
+
+    Osobny protokół — §10.1 zabrania zmuszania adapterów do pustych
+    implementacji. Adres pliku zawsze pochodzi z odczytu add-onu i jest
+    ograniczony do hostów źródła; przeglądarka podaje wyłącznie indeks.
+    """
+
+    key: str
+
+    async def dokumenty(
+        self, external_id: str, url: str | None = None
+    ) -> Sequence[Dokument]:
+        """Lista plików aukcji. Pusta, gdy serwis żadnych nie podaje."""
+        ...
+
+    async def pobierz_dokument(self, dokument: Dokument) -> bytes:
+        """Bajty pliku. Rzuca `SourceUnavailable`/`ParseFailed`, gdy plik
+        nie jest PDF-em, przekracza limit albo leży poza hostami źródła."""
+        ...
+
+
 class ZrodloZeZdjeciami(AuctionSource, Protocol):
     """Źródło udostępniające galerię zdjęć pojazdu (SPEC.md §12).
 

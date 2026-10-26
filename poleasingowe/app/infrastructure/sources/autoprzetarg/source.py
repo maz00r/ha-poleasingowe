@@ -20,11 +20,12 @@ from types import TracebackType
 
 import httpx
 
-from app.application.ports import StronaPrzemiatu, SurowaOferta
+from app.application.ports import Dokument, StronaPrzemiatu, SurowaOferta
 from app.domain.entities import Auction
 from app.domain.errors import ParseFailed, SourceUnavailable
 from app.infrastructure.sources.adresy import strona_aukcji
 from app.infrastructure.sources.autoprzetarg import mapper, parser
+from app.infrastructure.sources.pliki import pobierz_pdf
 
 KLUCZ = "autoprzetarg"
 
@@ -181,6 +182,25 @@ class AutoprzetargSource:
             url, bazowy=parser.BAZOWY_URL, zapasowa=f"/aukcja/x,{external_id},x"
         )
         return parser.zdjecia((await self._pobierz(sciezka)).text)
+
+    async def dokumenty(
+        self, external_id: str, url: str | None = None
+    ) -> Sequence[Dokument]:
+        sciezka = strona_aukcji(
+            url, bazowy=parser.BAZOWY_URL, zapasowa=f"/aukcja/x,{external_id},x"
+        )
+        odpowiedz = await self._pobierz(sciezka)
+        if odpowiedz.status_code != 200:
+            return []
+        return parser.dokumenty(odpowiedz.text)
+
+    async def pobierz_dokument(self, dokument: Dokument) -> bytes:
+        return await pobierz_pdf(
+            self._klient,
+            dokument.url,
+            hosty={"autoprzetarg.pl", "www.autoprzetarg.pl"},
+            zrodlo=KLUCZ,
+        )
 
     def na_aukcje(
         self, surowa: SurowaOferta, source_id: int, teraz: dt.datetime

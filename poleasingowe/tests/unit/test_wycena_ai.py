@@ -465,3 +465,73 @@ async def test_brak_szacunku_nie_wywraca_wyceny(
     assert wynik.cena_portale is None
     assert wynik.wartosc.amount == 78_000
     await klient.aclose()
+
+
+async def test_wycena_z_otomoto_i_ekspertyza() -> None:
+    """Mediana Otomoto zastępuje szacunek modelu; ekspertyza idzie do modelu."""
+    from app.infrastructure.ekspertyza import OcenionyDokument
+    from app.infrastructure.otomoto import Ogloszenie, WynikOtomoto
+
+    zadania: list[dict[str, object]] = []
+
+    def odpowiedz(request: httpx.Request) -> httpx.Response:
+        zadania.append(json.loads(request.content))
+        return httpx.Response(
+            200,
+            json={
+                "output": [
+                    {
+                        "type": "message",
+                        "content": [
+                            {
+                                "type": "output_text",
+                                "text": json.dumps(
+                                    {
+                                        "wartosc": 70000,
+                                        "minimum": 65000,
+                                        "maksimum": 76000,
+                                        "cena_portale": 1,
+                                        "pewnosc": "wysoka",
+                                        "uzasadnienie": "Otomoto i ekspertyza.",
+                                        "zalozenia": [],
+                                    }
+                                ),
+                            }
+                        ],
+                    }
+                ]
+            },
+        )
+
+    usluga = WycenaAI(
+        KlientOpenAI(
+            "k",
+            model="m",
+            base_url="https://api.openai.com/v1",
+            klient=httpx.AsyncClient(transport=httpx.MockTransport(odpowiedz)),
+        )
+    )
+    ogloszenia = tuple(
+        Ogloszenie(
+            f"Skoda Octavia {i}", 80_000 + i, 2022, 120_000, f"https://o.test/{i}"
+        )
+        for i in range(20)
+    )
+    wynik = await usluga.wycen(
+        _dane(),
+        (),
+        teraz=TERAZ,
+        otomoto=WynikOtomoto(
+            "https://www.otomoto.pl/x", ogloszenia, 80_010, 80_005, 80_015
+        ),
+        ekspertyzy=(OcenionyDokument("RST1.pdf", "uszkodzony zderzak", 20, True),),
+    )
+
+    wejscie = json.dumps(zadania[0], ensure_ascii=False)
+    assert "uszkodzony zderzak" in wejscie and "ogloszenia_otomoto" in wejscie
+    assert "TMBTA7NE0N0123456" not in wejscie
+    assert wynik.zrodlo == "OTOMOTO"
+    assert wynik.cena_portale is not None and wynik.cena_portale.amount == 80_010
+    assert wynik.otomoto_liczba == 20
+    assert len(wynik.otomoto_ogloszenia) == 15
+    assert wynik.ekspertyzy == ("RST1.pdf",)

@@ -1,11 +1,16 @@
 """Warstwa antykorupcyjna dawro.pl (RECON.md §4.5).
 
-**Bez przeliczania VAT.** Etykieta ceny to zawsze „Cena wywoławcza", nigdy
-z dopiskiem „netto"/„brutto" (24/24 próbek) — w przeciwieństwie do Leasygroup
-i mLeasing, ten adapter nie ma żadnego sygnału podstawy, więc nie zgaduje
-jej. Kwota trafia do `Money` tak, jak podał ją serwis, tak samo jak
-w EFL, autoprzetarg.pl i poleasingowe.pl, które też nigdy nie ustalają
-podstawy VAT.
+**Kwoty dawro są brutto** (potwierdzone przez właściciela repo, 2026-10-26;
+etykieta „Cena wywoławcza" nie mówi tego wprost). Model porównuje źródła
+w PLN netto, więc przeliczamy — ale tylko tam, gdzie VAT rzeczywiście jest:
+
+- „Forma sprzedaży: faktura VAT" → ÷1,23 (`PRZELICZONO_Z_BRUTTO`);
+- „umowa k/s" → bez zmian: przy umowie kupna-sprzedaży VAT nie występuje,
+  więc brutto i netto to ta sama kwota (`BEZ_VAT`);
+- brak pola → jak faktura VAT: większość katalogu to sprzedaż firmowa,
+  a pole stoi i na liście, i w szczegółach, więc brak to wyjątek.
+
+Karta pokazuje `vat_info`, bo ta sama liczba znaczy co innego dla obu form.
 
 **Bez paliwa, skrzyni i nadwozia.** Serwis ich nie podaje w żadnym polu;
 `fuel`/`gearbox`/`body` zostają `None` — zgadywanie z nazwy modelu byłoby
@@ -18,10 +23,11 @@ import datetime as dt
 import re
 import zoneinfo
 from contextlib import suppress
+from decimal import ROUND_HALF_UP, Decimal
 
 from app.application.ports import SurowaOferta
 from app.domain.entities import Auction
-from app.domain.enums import AuctionStatus, Currency
+from app.domain.enums import AuctionStatus, Currency, InformacjaVat
 from app.domain.errors import ParseFailed
 from app.domain.value_objects import Mileage, Money, NieprawidlowaWartosc, Vin
 from app.infrastructure.sources.marki import kanoniczna_marka, podziel_marke_model
@@ -32,6 +38,8 @@ STREFA_SERWISU = zoneinfo.ZoneInfo("Europe/Warsaw")
 _KONIEC_LISTY = re.compile(r"^(\d{4})-(\d{2})-(\d{2})\s+(\d{2}):(\d{2})$")
 _LICZBA = re.compile(r"\d+")
 _MOC = re.compile(r"(\d+)\s*KM", re.I)
+_VAT = Decimal("1.23")
+_GROSZ = Decimal("0.01")
 
 
 def _int_lub_none(wartosc: str | None) -> int | None:
@@ -41,14 +49,25 @@ def _int_lub_none(wartosc: str | None) -> int | None:
     return int(dopasowanie.group()) if dopasowanie is not None else None
 
 
-def _cena(wartosc: str | None) -> Money | None:
-    """Kwota bez przeliczania VAT — zobacz docstring modułu."""
+def informacja_vat(forma_sprzedazy: str | None) -> InformacjaVat:
+    """Umowa kupna-sprzedaży jest bez VAT; wszystko inne to faktura."""
+    forma = (forma_sprzedazy or "").lower()
+    if "umowa" in forma or "k/s" in forma:
+        return InformacjaVat.BEZ_VAT
+    return InformacjaVat.PRZELICZONO_Z_BRUTTO
+
+
+def _cena(wartosc: str | None, vat: InformacjaVat) -> Money | None:
+    """Kwota w PLN netto — patrz docstring modułu."""
     if not wartosc:
         return None
     try:
-        return Money.z_tekstu(wartosc, Currency.PLN)
+        kwota = Money.z_tekstu(wartosc, Currency.PLN).amount
     except NieprawidlowaWartosc as exc:
         raise ParseFailed(f"dawro: nieprawidłowa kwota: {wartosc!r}") from exc
+    if vat is InformacjaVat.PRZELICZONO_Z_BRUTTO:
+        kwota = (kwota / _VAT).quantize(_GROSZ, rounding=ROUND_HALF_UP)
+    return Money(kwota, Currency.PLN)
 
 
 def _vin(wartosc: str | None) -> Vin | None:
@@ -119,6 +138,7 @@ def na_aukcje(surowa: SurowaOferta, source_id: int, teraz: dt.datetime) -> Aucti
     ends_at = _koniec_z_zegara(pola.get("koniec_ts")) or _koniec_z_listy(
         pola.get("koniec")
     )
+    vat = informacja_vat(pola.get("Forma sprzedaży"))
 
     return Auction(
         source_id=source_id,
@@ -143,15 +163,12 @@ def na_aukcje(surowa: SurowaOferta, source_id: int, teraz: dt.datetime) -> Aucti
         location=pola.get("Lokalizacja"),
         seller=pola.get("Sprzedawca") or pola.get("Sprzedający"),
         vehicle_kind=rozpoznaj(kategoria=pola.get("kategoria"), nazwa=nazwa),
-        price_start=_cena(pola.get("cena_wywolawcza")),
-        # Najwyższa oferta jest WYŁĄCZNIE polem listy (`najwyzsza_oferta`,
-        # atrybut `kwota` z kafelka) — szczegóły jej nigdy nie niosą, bo
-        # strona dociąga ją AJAX-em, którego adapter nie wywołuje
-        # (RECON.md §4.5). Odpyt pojedynczej aukcji w fazie ENDGAME/NEAR
-        # (kiedy jedynym źródłem jest `pobierz_szczegoly`) więc NIE
-        # odświeży bieżącej oferty — zrobi to następny przemiat listy.
-        # To ograniczenie jest jawne i opisane w DOCS.md, nie ukryte.
-        price_current=_cena(pola.get("najwyzsza_oferta")),
+        price_start=_cena(pola.get("cena_wywolawcza"), vat),
+        # Najwyższa oferta: z listy atrybut `kwota` kafelka, ze szczegółów
+        # odpowiedź `PasekInformacyjny` (source.py). Ten sam brutto co cena
+        # wywoławcza, więc ta sama reguła VAT.
+        price_current=_cena(pola.get("najwyzsza_oferta"), vat),
+        vat_info=vat,
         ends_at=ends_at,
         content_hash=surowa.content_hash or None,
     )

@@ -10,13 +10,18 @@ import httpx
 import pytest
 
 from app.domain.entities import Auction
-from app.domain.enums import AuctionStatus, Currency, RodzajPojazdu
-from app.domain.errors import ParseFailed
+from app.domain.enums import AuctionStatus, Currency, InformacjaVat, RodzajPojazdu
+from app.domain.errors import ParseFailed, SourceUnavailable
 from app.domain.value_objects import Money
 from app.infrastructure.sources.dawro import mapper, parser, source
 
 FIXTURES = pathlib.Path(__file__).resolve().parents[3] / "fixtures" / "dawro"
 TERAZ = dt.datetime(2026, 9, 14, 7, 45, 0, tzinfo=dt.UTC)
+
+
+def _pasek(kwota: str = "brak ofert") -> httpx.Response:
+    """Odpowiedź `PasekInformacyjny` — dawro woła go przy każdym odczycie."""
+    return httpx.Response(200, json={"kwota": kwota})
 
 
 def html(nazwa: str) -> str:
@@ -179,18 +184,38 @@ def test_odcisk_aukcji_stabilny_dla_tej_samej_strony() -> None:
 # --------------------------------------------------------------------------
 
 
-def test_mapper_nie_przelicza_vat_bo_podstawa_jest_nieznana() -> None:
-    """Etykieta to zawsze „Cena wywoławcza", bez „netto”/„brutto” (RECON.md §4.5).
-
-    W przeciwieństwie do Leasygroup/mLeasing adapter NIE zgaduje podstawy —
-    kwota trafia do `Money` taka, jaką podał serwis.
-    """
+def test_mapper_przelicza_brutto_na_netto_dla_faktury_vat() -> None:
+    """Kwoty dawro są brutto; faktura VAT → ÷1,23, zaokrąglenie do grosza."""
     surowa = parser.sparsuj_szczegoly(
         html("szczegoly-16761.html"), "16761", "https://x.test/aukcja/16761,hummer-h2"
     )
+    assert surowa.pola["Forma sprzedaży"] == "faktura VAT"
+
     aukcja = mapper.na_aukcje(surowa, source_id=1, teraz=TERAZ)
 
-    assert aukcja.price_start == Money(Decimal("85900.00"), Currency.PLN)
+    assert aukcja.price_start == Money(Decimal("69837.40"), Currency.PLN)
+    assert aukcja.vat_info is InformacjaVat.PRZELICZONO_Z_BRUTTO
+
+
+def test_mapper_nie_przelicza_umowy_kupna_sprzedazy() -> None:
+    """Przy „umowa k/s" VAT nie występuje — brutto i netto to ta sama kwota."""
+    audi = next(
+        p
+        for p in parser.sparsuj_liste(html("lista-01.html"))
+        if p.external_id == "16762"
+    )
+    assert audi.pola["Forma sprzedaży"] == "umowa k/s"
+
+    aukcja = mapper.na_aukcje(audi, source_id=1, teraz=TERAZ)
+
+    assert aukcja.price_start == Money(Decimal("119900.00"), Currency.PLN)
+    assert aukcja.price_current == Money(Decimal("75000.00"), Currency.PLN)
+    assert aukcja.vat_info is InformacjaVat.BEZ_VAT
+
+
+def test_brak_formy_sprzedazy_liczy_sie_jak_faktura() -> None:
+    assert mapper.informacja_vat(None) is InformacjaVat.PRZELICZONO_Z_BRUTTO
+    assert mapper.informacja_vat("Umowa K/S") is InformacjaVat.BEZ_VAT
 
 
 def test_mapper_nie_wymysla_paliwa_skrzyni_i_nadwozia() -> None:
@@ -346,7 +371,9 @@ async def test_klient_wysyla_user_agent_z_rekonesansu() -> None:
 
 
 async def test_pobierz_szczegoly_zwraca_none_gdy_hash_bez_zmian() -> None:
-    def obsluz(_: httpx.Request) -> httpx.Response:
+    def obsluz(zadanie: httpx.Request) -> httpx.Response:
+        if zadanie.url.path.startswith("/WebService/"):
+            return _pasek()
         return httpx.Response(200, content=html("szczegoly-16761.html").encode("utf-8"))
 
     klient = httpx.AsyncClient(
@@ -367,6 +394,8 @@ async def test_szczegoly_i_galeria_korzystaja_z_adresu_z_bazy() -> None:
     zadania: list[str] = []
 
     def obsluz(zadanie: httpx.Request) -> httpx.Response:
+        if zadanie.url.path.startswith("/WebService/"):
+            return _pasek()
         zadania.append(str(zadanie.url))
         return httpx.Response(200, content=html("szczegoly-16761.html").encode("utf-8"))
 
@@ -385,7 +414,9 @@ async def test_szczegoly_i_galeria_korzystaja_z_adresu_z_bazy() -> None:
 async def test_koduje_odpowiedz_jako_utf8_mimo_naglowka_iso88591() -> None:
     """RECON.md §4.5 — nagłówek `iso-8859-1`, treść UTF-8. `.text` by ją zepsuł."""
 
-    def obsluz(_: httpx.Request) -> httpx.Response:
+    def obsluz(zadanie: httpx.Request) -> httpx.Response:
+        if zadanie.url.path.startswith("/WebService/"):
+            return _pasek()
         return httpx.Response(
             200,
             content=html("szczegoly-16761.html").encode("utf-8"),
@@ -456,3 +487,102 @@ async def test_galeria_przekierowana_na_glowna_jest_pusta() -> None:
             await adapter.zdjecia("16761", url="https://www.dawro.pl/aukcja/16761,x")
             == []
         )
+
+
+# --------------------------------------------------------------------------
+# PasekInformacyjny — najwyższa oferta przy odczycie szczegółów (0.31.0)
+# --------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("odpowiedz", "oczekiwana"),
+    [
+        (b'{"kwota":"brak ofert"}', None),
+        (b'{"kwota":"75 000,00 z\\u0142"}', "75 000,00"),
+        (b'{"kwota":"<b>18 000,00 z\\u0142</b>","twoja_oferta":false}', "18 000,00"),
+    ],
+)
+def test_pasek_informacyjny(odpowiedz: bytes, oczekiwana: str | None) -> None:
+    assert parser.najwyzsza_z_paska(odpowiedz) == oczekiwana
+
+
+@pytest.mark.parametrize("odpowiedz", [b"<html>", b"{}", b'{"kwota":"pobieranie"}'])
+def test_niepewny_pasek_to_blad_a_nie_brak_oferty(odpowiedz: bytes) -> None:
+    """Odczyt bez ceny wyzerowałby `price_current` — niepewność to błąd."""
+    with pytest.raises(ParseFailed):
+        parser.najwyzsza_z_paska(odpowiedz)
+
+
+async def test_szczegoly_niosa_najwyzsza_oferte_i_zmieniaja_odcisk() -> None:
+    kwota = "brak ofert"
+    zadania: list[httpx.Request] = []
+
+    def obsluz(zadanie: httpx.Request) -> httpx.Response:
+        zadania.append(zadanie)
+        if zadanie.url.path == "/WebService/PasekInformacyjny/":
+            return _pasek(kwota)
+        return httpx.Response(200, content=html("szczegoly-16761.html").encode("utf-8"))
+
+    adres = "https://www.dawro.pl/aukcja/16761,hummer-h2"
+    klient = httpx.AsyncClient(
+        base_url=parser.BAZOWY_URL, transport=httpx.MockTransport(obsluz)
+    )
+    async with source.DawroSource(klient) as adapter:
+        bez = await adapter.pobierz_szczegoly("16761", url=adres)
+        kwota = "90 000,00 zł"
+        z_oferta = await adapter.pobierz_szczegoly(
+            "16761", znany_hash=bez.content_hash if bez else None, url=adres
+        )
+
+    assert bez is not None and "najwyzsza_oferta" not in bez.pola
+    # Nowa oferta MUSI zmienić odcisk — inaczej nigdy nie trafiłaby do historii.
+    assert z_oferta is not None
+    aukcja = mapper.na_aukcje(z_oferta, source_id=1, teraz=TERAZ)
+    assert aukcja.price_current == Money(Decimal("73170.73"), Currency.PLN)
+    zadanie = zadania[-1]
+    assert zadanie.method == "POST" and zadanie.content == b"id=16761"
+
+
+async def test_blad_paska_to_blad_odczytu() -> None:
+    def obsluz(zadanie: httpx.Request) -> httpx.Response:
+        if zadanie.url.path.startswith("/WebService/"):
+            return httpx.Response(500)
+        return httpx.Response(200, content=html("szczegoly-16761.html").encode("utf-8"))
+
+    klient = httpx.AsyncClient(
+        base_url=parser.BAZOWY_URL, transport=httpx.MockTransport(obsluz)
+    )
+    async with source.DawroSource(klient) as adapter:
+        with pytest.raises(SourceUnavailable):
+            await adapter.pobierz_szczegoly(
+                "16761", url="https://www.dawro.pl/aukcja/16761,hummer-h2"
+            )
+
+
+async def test_zakonczona_aukcja_nie_woła_paska() -> None:
+    zadania: list[str] = []
+
+    def obsluz(zadanie: httpx.Request) -> httpx.Response:
+        zadania.append(zadanie.url.path)
+        return httpx.Response(
+            200, content=html("domkniecie-post+0s.html").encode("utf-8")
+        )
+
+    klient = httpx.AsyncClient(
+        base_url=parser.BAZOWY_URL, transport=httpx.MockTransport(obsluz)
+    )
+    async with source.DawroSource(klient) as adapter:
+        await adapter.pobierz_szczegoly(
+            "16761", url="https://www.dawro.pl/aukcja/16761,hummer-h2"
+        )
+
+    assert not any(z.startswith("/WebService/") for z in zadania)
+
+
+def test_przemiat_dawro_co_pol_godziny() -> None:
+    from app.infrastructure.sources import parametry
+
+    zrodlo = parametry.zbuduj_source(
+        "dawro", enabled=True, rate_limit_per_minute=30, floor_seconds=60
+    )
+    assert zrodlo.sweep_interval_seconds == 1_800

@@ -1,5 +1,40 @@
 # Historia zmian
 
+## 0.31.0 — w przygotowaniu
+
+**dawro — kwoty netto.** dawro publikuje kwoty brutto. Przy „Forma sprzedaży:
+faktura VAT" add-on zapisuje je ÷1,23; przy „umowa k/s" zostawia bez zmian, bo
+VAT nie występuje. Karta aukcji mówi, którą regułę zastosowano. Aukcje zebrane
+wcześniej dostają oznaczenie „kwoty brutto, forma nieznana" (nie wiadomo, którą
+regułę przyłożyć), a aktywne zostaną od razu odczytane od nowa. Historia cen
+sprzed aktualizacji zostaje w kwotach brutto. Porównania dla wyceny AI pomijają
+wiersze brutto.
+
+**dawro — historia cen.** Najwyższa oferta jest pobierana przy każdym odczycie
+szczegółów (to samo żądanie, które wysyła strona aukcji), a lista dawro jest
+przemiatana co 30 minut zamiast co 6 godzin. Dotąd odczyt szczegółów zerował
+bieżącą cenę, a historia powstawała tylko z rzadkich przemiatów.
+
+**mLeasing — pełna historia ofert.** Add-on czyta publiczną listę ofert portalu
+(kwota, czas, zamaskowany login) i pokazuje ją na karcie jako „oferty z
+serwisu"; licznik ofert ma teraz znaczenie. Aktywne aukcje zostaną odczytane
+od razu. Dla aukcji zakończonych przed aktualizacją portal nie oddaje już
+ofert, więc tej historii nie da się uzupełnić.
+
+**Ekspertyzy.** Karta aukcji ma sekcję „Dokumenty" z plikami dołączonymi przez
+serwis (dawro, mLeasing, Leasygroup, poleasingowe.pl, autoprzetarg; EFL —
+jeśli się pojawią). Pliki idą przez add-on, a przycisk „Zapisz w archiwum"
+zachowuje kopię w `/data/archiwum-dokumentow`, dostępną także po zniknięciu
+aukcji z serwisu.
+
+**Wycena z Otomoto.** Nowa opcja `apify_token` włącza przycisk „Wycena z
+Otomoto": add-on pobiera przez aktora Apify `automation-lab/otomoto-scraper`
+podobne ogłoszenia (marka, model, rocznik, przebieg, paliwo, skrzynia),
+odrzuca ogłoszenia innych modeli, liczy medianę i kwartyle, a model AI dostaje
+te ogłoszenia razem z treścią ekspertyzy (wybieraną po treści, nie po nazwie
+pliku; VIN, numer rejestracyjny i dane osób zasłonięte). Koszt ok. 0,05 USD za
+wycenę. Automatyczna wycena przy wejściu na kartę działa bez zmian.
+
 ## 0.30.5 — w przygotowaniu
 
 **Leasygroup — ochrona historii po ponownym wystawieniu.** Każdy odczyt

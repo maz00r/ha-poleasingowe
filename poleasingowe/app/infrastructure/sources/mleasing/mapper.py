@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 import datetime as dt
+import zoneinfo
 from contextlib import suppress
 from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 
 from app.application.ports import SurowaOferta
-from app.domain.entities import Auction
+from app.domain.entities import Auction, OfertaUczestnika
 from app.domain.enums import AuctionStatus, Currency
 from app.domain.errors import ParseFailed
 from app.domain.value_objects import Mileage, Money, NieprawidlowaWartosc, Vin
@@ -18,6 +19,8 @@ from app.infrastructure.sources.skrzynie import kanoniczna_skrzynia
 
 _VAT = Decimal("1.23")
 _GROSZ = Decimal("0.01")
+STREFA_SERWISU = zoneinfo.ZoneInfo("Europe/Warsaw")
+"""`bidDate` ofert przychodzi bez strefy — portal liczy czas warszawski."""
 
 
 def _int(wartosc: str | None) -> int | None:
@@ -116,6 +119,56 @@ def na_aukcje(surowa: SurowaOferta, source_id: int, teraz: dt.datetime) -> Aucti
         price_start=_cena(pola, "cena_wywolawcza"),
         price_current=_cena(pola, "cena"),
         bid_increment_raw=pola.get("postapienie"),
+        # Tylko ze szczegółów (lista ofert z API). Lista wyszukiwania go
+        # nie podaje — wtedy `None`, nie zero.
+        bid_count=_int(pola.get("liczba_ofert")),
         ends_at=koniec,
         content_hash=surowa.content_hash or None,
     )
+
+
+def _czas_oferty(wartosc: str) -> dt.datetime:
+    try:
+        wynik = dt.datetime.fromisoformat(wartosc.replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise ParseFailed(f"mLeasing: nieprawidłowy czas oferty: {wartosc!r}") from exc
+    if wynik.tzinfo is None:
+        wynik = wynik.replace(tzinfo=STREFA_SERWISU)
+    return wynik.astimezone(dt.UTC)
+
+
+def na_oferty(
+    surowa: SurowaOferta, auction_id: int, teraz: dt.datetime
+) -> tuple[OfertaUczestnika, ...]:
+    """Oferty z API portalu na encje (SPEC.md §11.8).
+
+    Kwota ma tę samą podstawę VAT co bieżąca cena aukcji (`isGrossAmount`
+    dotyczy całej oferty sprzedaży), więc przeliczamy ją tak samo — inaczej
+    historia ofert i cena bieżąca różniłyby się o 23%.
+    """
+    podstawa = surowa.pola.get("cena_podstawa") or surowa.pola.get(
+        "cena_wywolawcza_podstawa"
+    )
+    wynik: list[OfertaUczestnika] = []
+    for pozycja in surowa.oferty:
+        try:
+            kwota = _cena(
+                {"kwota": pozycja.kwota, "kwota_podstawa": podstawa or ""}, "kwota"
+            )
+            zlozona = _czas_oferty(pozycja.zlozona)
+        except (ParseFailed, NieprawidlowaWartosc):
+            # Jeden nieczytelny wiersz nie może kosztować całego odpytu.
+            continue
+        if kwota is None:
+            continue
+        wynik.append(
+            OfertaUczestnika(
+                auction_id=auction_id,
+                uczestnik=pozycja.kod or "nieznany",
+                amount=kwota,
+                placed_at=zlozona,
+                first_seen_at=teraz,
+                external_offer_id=pozycja.identyfikator or None,
+            )
+        )
+    return tuple(wynik)

@@ -40,6 +40,7 @@ from app.domain.enums import (
     BidCountSemantics,
     Currency,
     FinalPriceState,
+    InformacjaVat,
     PollTier,
     RodzajPojazdu,
 )
@@ -108,7 +109,7 @@ SELECT
     w.note,
     a.vin, a.body, a.color, a.engine_ccm, a.engine_hp, a.seller,
     a.bid_increment_raw, a.last_seen_at, a.next_poll_at, a.poll_tier,
-    a.last_price_lead_seconds, a.duplicate_of,
+    a.last_price_lead_seconds, a.duplicate_of, a.vat_info,
     s.bid_count_semantics AS semantyka_licznika,
     CASE WHEN s.key = 'dawro' AND a.bid_count IS NULL THEN (
         SELECT NULLIF(count(*) FILTER (WHERE price > poprzednie_maksimum), 0)
@@ -148,6 +149,9 @@ WHERE a.id <> cel.id
   AND a.price_current IS NOT NULL
   AND a.final_price_state IN ('CONFIRMED', 'LAST_SEEN')
   AND a.duplicate_of IS NULL
+  -- Kwoty brutto nieznanej formy sprzedaży (dawro sprzed 0.31) zawyżałyby
+  -- medianę o VAT — porównujemy wyłącznie netto.
+  AND a.vat_info IS DISTINCT FROM 'BRUTTO'
   AND (cel.year IS NULL OR a.year BETWEEN cel.year - 2 AND cel.year + 2)
 GROUP BY a.year
 ORDER BY a.year DESC NULLS LAST
@@ -609,6 +613,11 @@ class PgZapytania:
             duplicate_of=wiersz["duplicate_of"],
             semantyka_licznika=BidCountSemantics(wiersz["semantyka_licznika"]),
             bid_count_min=wiersz["bid_count_min"],
+            vat_info=(
+                None
+                if wiersz["vat_info"] is None
+                else InformacjaVat(wiersz["vat_info"])
+            ),
         )
 
     async def porownania_rynkowe(

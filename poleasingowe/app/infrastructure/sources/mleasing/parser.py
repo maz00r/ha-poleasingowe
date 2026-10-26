@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from typing import Any
 from urllib.parse import urljoin, urlsplit
 
-from app.application.ports import SurowaOferta
+from app.application.ports import Dokument, SurowaOferta, SurowaOfertaUczestnika
 from app.domain.errors import ParseFailed
 
 BAZOWY_URL = "https://portalaukcyjny.mleasing.pl"
@@ -193,3 +193,64 @@ def zdjecia(bajty: bytes) -> tuple[str, ...]:
             wynik.append((rekord.get("isMain") is True, adres))
     wynik.sort(key=lambda x: not x[0])
     return tuple(adres for _, adres in wynik)
+
+
+def sparsuj_oferty(bajty: bytes) -> tuple[SurowaOfertaUczestnika, ...]:
+    """`/api/offer-read/get-bids-with-hidden-logins?offerId=` — pełna lista.
+
+    Endpoint jest publiczny (strona aukcji woła go anonimowo) i oddaje każdą
+    ofertę z kwotą, czasem i zamaskowanym loginem („d...m"). Oferty „kup
+    teraz" pomijamy: to nie jest krok licytacji, tylko jej przerwanie.
+    `bidDate` nie ma strefy — to czas warszawski (`get-time` portalu zwraca
+    `+01:00`/`+02:00`); interpretacja należy do mappera.
+    """
+    rekordy = _json(bajty, "oferty")
+    if not isinstance(rekordy, list):
+        raise ParseFailed("mLeasing: oferty nie są listą")
+    wynik: list[SurowaOfertaUczestnika] = []
+    for numer, wartosc in enumerate(rekordy, start=1):
+        dane = _slownik(wartosc, f"oferty, rekord {numer}")
+        if dane.get("isBuyNow") is True:
+            continue
+        kwota = _napis(dane.get("amountPln"))
+        zlozona = _napis(dane.get("bidDate"))
+        if kwota is None or zlozona is None:
+            raise ParseFailed(f"mLeasing: oferta {numer} bez kwoty albo czasu")
+        wynik.append(
+            SurowaOfertaUczestnika(
+                kod=_napis(dane.get("userLogin")) or "",
+                kwota=kwota,
+                zlozona=zlozona,
+                identyfikator=_napis(dane.get("id")) or "",
+            )
+        )
+    return tuple(wynik)
+
+
+HOSTY_PLIKOW = frozenset(
+    {"portalaukcyjny.mleasing.pl", "pliki-portalaukcyjny.mleasing.pl"}
+)
+
+
+def zalaczniki(bajty: bytes) -> list[Dokument]:
+    """`/api/offer-read/get-attachments?offerId=` → `[{url, name}]`.
+
+    Zwykle `Ekspertyza_<nr>.pdf` (DEKRA), ale portal dołącza też inne pliki
+    — czasem niezwiązane z autem — więc nazwy niczego nie przesądzają.
+    """
+    rekordy = _json(bajty, "załączniki")
+    if not isinstance(rekordy, list):
+        raise ParseFailed("mLeasing: załączniki nie są listą")
+    wynik: list[Dokument] = []
+    for rekord in rekordy:
+        if not isinstance(rekord, dict) or not isinstance(rekord.get("url"), str):
+            raise ParseFailed("mLeasing: nieprawidłowy załącznik")
+        adres = urljoin(f"{BAZOWY_URL}/", rekord["url"])
+        if (
+            urlsplit(adres).scheme != "https"
+            or urlsplit(adres).hostname not in HOSTY_PLIKOW
+        ):
+            continue
+        nazwa = _napis(rekord.get("name")) or adres.rsplit("/", 1)[-1]
+        wynik.append(Dokument(nazwa=nazwa, url=adres))
+    return wynik

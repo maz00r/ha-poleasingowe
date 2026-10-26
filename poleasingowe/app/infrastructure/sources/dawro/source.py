@@ -27,11 +27,12 @@ from types import TracebackType
 
 import httpx
 
-from app.application.ports import StronaPrzemiatu, SurowaOferta
+from app.application.ports import Dokument, StronaPrzemiatu, SurowaOferta
 from app.domain.entities import Auction
 from app.domain.errors import ParseFailed, SourceUnavailable
 from app.infrastructure.sources.adresy import strona_aukcji
 from app.infrastructure.sources.dawro import mapper, parser
+from app.infrastructure.sources.pliki import pobierz_pdf
 
 KLUCZ = "dawro"
 
@@ -49,7 +50,7 @@ detekcję WAF, więc autor liczył się z blokadą. Nie zgadujemy: wysyłamy to,
 co na pewno działało."""
 
 
-def hash_tresci(tekst: str) -> str:
+def hash_tresci(tekst: str, najwyzsza: str | None = None) -> str:
     """SPEC.md §11.3 krok 2 — odcisk pól aukcji, nie surowych bajtów.
 
     Strona ma widget rekomendacji na górze (przed blokiem aukcji), którego
@@ -57,8 +58,13 @@ def hash_tresci(tekst: str) -> str:
     całej odpowiedzi ryzykowałoby fałszywe „zmieniło się" przy każdym
     odpycie (ten sam problem, który autoprzetarg.pl rozwiązuje własnym
     `odcisk_aukcji`).
+
+    `najwyzsza` to kwota z `PasekInformacyjny` — HTML strony jej nie niesie,
+    więc bez niej nowa oferta dawałaby „bez zmian" i nigdy nie trafiła do
+    historii cen.
     """
-    return hashlib.sha256(parser.odcisk_aukcji(tekst).encode("utf-8")).hexdigest()
+    odcisk = f"{parser.odcisk_aukcji(tekst)}|{najwyzsza or ''}"
+    return hashlib.sha256(odcisk.encode("utf-8")).hexdigest()
 
 
 class DawroSource:
@@ -185,14 +191,42 @@ class DawroSource:
             return SurowaOferta(
                 external_id=external_id, url=pelny_url, pola={"zamknieta": "1"}
             )
-        biezacy = hash_tresci(tekst)
+        surowa = parser.sparsuj_szczegoly(tekst, external_id, pelny_url)
+        najwyzsza = None
+        if surowa.pola.get("zamknieta") != "1":
+            najwyzsza = await self._najwyzsza_oferta(external_id)
+        biezacy = hash_tresci(tekst, najwyzsza)
         if znany_hash is not None and znany_hash == biezacy:
             return None
+        pola = dict(surowa.pola)
+        if najwyzsza is not None:
+            pola["najwyzsza_oferta"] = najwyzsza
         return replace(
-            parser.sparsuj_szczegoly(tekst, external_id, pelny_url),
+            surowa,
+            pola=pola,
             content_hash=biezacy,
             zdjecia=tuple(parser.zdjecia(tekst)),
         )
+
+    async def _najwyzsza_oferta(self, external_id: str) -> str | None:
+        """Bieżąca najwyższa oferta z `PasekInformacyjny` (parser.py).
+
+        To samo żądanie, które strona wysyła co 2 s; my — raz na odczyt.
+        Błąd jest błędem CAŁEGO odczytu: odczyt bez ceny wyzerowałby
+        `price_current` w bazie, a dispatcher i tak ponowi odpyt.
+        """
+        if not external_id.isdigit():
+            raise ParseFailed("dawro: identyfikator aukcji nie jest liczbą")
+        try:
+            odpowiedz = await self._klient.post(
+                "/WebService/PasekInformacyjny/",
+                data={"id": external_id},
+                headers={"X-Requested-With": "XMLHttpRequest"},
+            )
+            odpowiedz.raise_for_status()
+        except httpx.HTTPError as exc:
+            raise SourceUnavailable(f"dawro: PasekInformacyjny: {exc}") from exc
+        return parser.najwyzsza_z_paska(odpowiedz.content)
 
     async def zdjecia(self, external_id: str, url: str | None = None) -> Sequence[str]:
         sciezka = strona_aukcji(
@@ -204,6 +238,22 @@ class DawroSource:
         if not sciezka_koncowa.startswith("/aukcja/"):
             return []
         return parser.zdjecia(tekst)
+
+    async def dokumenty(
+        self, external_id: str, url: str | None = None
+    ) -> Sequence[Dokument]:
+        sciezka = strona_aukcji(
+            url, bazowy=parser.BAZOWY_URL, zapasowa=f"/aukcja/{external_id}"
+        )
+        sciezka_koncowa, tekst = await self._pobierz(sciezka)
+        if not sciezka_koncowa.startswith("/aukcja/"):
+            return []
+        return parser.dokumenty(tekst, external_id)
+
+    async def pobierz_dokument(self, dokument: Dokument) -> bytes:
+        return await pobierz_pdf(
+            self._klient, dokument.url, hosty={"www.dawro.pl"}, zrodlo=KLUCZ
+        )
 
     def na_aukcje(
         self, surowa: SurowaOferta, source_id: int, teraz: dt.datetime

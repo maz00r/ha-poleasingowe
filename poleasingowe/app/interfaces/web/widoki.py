@@ -11,6 +11,7 @@ niestandardowy nagłówek.
 
 from __future__ import annotations
 
+import asyncio
 import datetime as dt
 import logging
 import pathlib
@@ -18,7 +19,7 @@ import posixpath
 from collections.abc import AsyncIterator, Mapping
 from dataclasses import dataclass, replace
 from typing import Any
-from urllib.parse import urlencode
+from urllib.parse import quote, urlencode
 
 from fastapi import APIRouter, Form, Request
 from fastapi.responses import (
@@ -42,11 +43,19 @@ from app.application.read_models import (
     Zakres,
 )
 from app.domain.entities import SavedFilter, WatchlistEntry
-from app.domain.enums import AuctionStatus, PollTier
+from app.domain.enums import AuctionStatus, PollTier, RodzajPojazdu
 from app.domain.logowanie import (
     StanLogowania,
     po_recznym_odblokowaniu,
 )
+from app.infrastructure.dokumenty import BrakMiejscaArchiwum, nazwa_pliku
+from app.infrastructure.ekspertyza import (
+    OcenionyDokument,
+    tekst_pdf,
+    wybierz,
+    zredaguj,
+)
+from app.infrastructure.otomoto import BladOtomoto, PojazdDoPorownania
 from app.infrastructure.supervisor.proces import rss_bajty
 from app.infrastructure.wycena_ai import BladWyceny
 from app.interfaces.web import eksport, filtry_szablonu
@@ -783,6 +792,126 @@ async def zdjecia_aukcji(request: Request, auction_id: int) -> Response:
     )
 
 
+# --------------------------------------------------------------------------
+# Dokumenty aukcji (ekspertyzy) — proxy i archiwum na żądanie (0.31.0)
+# --------------------------------------------------------------------------
+
+
+def _pdf(dane: bytes, nazwa: str) -> Response:
+    plik = nazwa_pliku(nazwa)
+    return Response(
+        content=dane,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": (f"attachment; filename*=UTF-8''{quote(plik)}"),
+            "Cache-Control": "private, no-store",
+            "X-Content-Type-Options": "nosniff",
+        },
+    )
+
+
+async def _dokumenty_kontekst(
+    request: Request, auction_id: int, *, blad: str | None = None
+) -> Response:
+    dokumenty = getattr(request.app.state, "dokumenty", None)
+    if dokumenty is None or _fabryka(request) is None:
+        return HTMLResponse("")
+    async with _fabryka(request)() as kontekst:
+        dane = await kontekst.zapytania.szczegoly(auction_id)
+    if dane is None:
+        return HTMLResponse("", status_code=404)
+    p = dane.pozycja
+    zrodlowe = await dokumenty.lista(p.source_key, p.external_id, p.url)
+    archiwalne = dokumenty.archiwalne(auction_id)
+    return SZABLONY.TemplateResponse(
+        request=request,
+        name="fragmenty/dokumenty.html",
+        context={
+            **_kontekst_bazowy(request),
+            "auction_id": auction_id,
+            "zrodlowe": zrodlowe,
+            "adresy_zrodlowe": {d.url for d in zrodlowe},
+            "archiwalne": archiwalne,
+            "zarchiwizowane": {a.source_url for a in archiwalne},
+            "aktywna": p.status is AuctionStatus.ACTIVE,
+            "blad": blad,
+        },
+    )
+
+
+@router.get("/aukcja/{auction_id}/dokumenty", response_class=HTMLResponse)
+async def dokumenty_aukcji(request: Request, auction_id: int) -> Response:
+    """Lista dokumentów doładowywana po karcie, jak galeria."""
+    return await _dokumenty_kontekst(request, auction_id)
+
+
+@router.get("/aukcja/{auction_id}/dokument/{indeks}")
+async def dokument_aukcji(request: Request, auction_id: int, indeks: int) -> Response:
+    """Plik przez add-on. Adres wybiera add-on z własnej listy — nie przeglądarka."""
+    dokumenty = getattr(request.app.state, "dokumenty", None)
+    if dokumenty is None or _fabryka(request) is None:
+        return Response(status_code=404)
+    async with _fabryka(request)() as kontekst:
+        dane = await kontekst.zapytania.szczegoly(auction_id)
+    if dane is None:
+        return Response(status_code=404)
+    p = dane.pozycja
+    wynik = await dokumenty.pobierz(p.source_key, p.external_id, p.url, indeks)
+    if wynik is None:
+        return HTMLResponse(
+            "Nie udało się pobrać dokumentu ze źródła.", status_code=502
+        )
+    dokument, bajty = wynik
+    return _pdf(bajty, dokument.nazwa)
+
+
+@router.post(
+    "/aukcja/{auction_id}/dokument/{indeks}/archiwum", response_class=HTMLResponse
+)
+async def archiwizuj_dokument(
+    request: Request, auction_id: int, indeks: int
+) -> Response:
+    dokumenty = getattr(request.app.state, "dokumenty", None)
+    if dokumenty is None or _fabryka(request) is None:
+        return HTMLResponse("")
+    async with _fabryka(request)() as kontekst:
+        dane = await kontekst.zapytania.szczegoly(auction_id)
+    if dane is None:
+        return HTMLResponse("", status_code=404)
+    p = dane.pozycja
+    blad = None
+    try:
+        zapisany = await dokumenty.archiwizuj(
+            auction_id,
+            p.source_key,
+            p.external_id,
+            p.url,
+            indeks,
+            teraz=dt.datetime.now(dt.UTC),
+        )
+        if zapisany is None:
+            blad = "Nie udało się pobrać dokumentu ze źródła."
+    except BrakMiejscaArchiwum as exc:
+        blad = str(exc)
+    return await _dokumenty_kontekst(request, auction_id, blad=blad)
+
+
+@router.get("/aukcja/{auction_id}/archiwum-dokumentu/{identyfikator}")
+async def dokument_archiwalny(
+    request: Request, auction_id: int, identyfikator: str
+) -> Response:
+    dokumenty = getattr(request.app.state, "dokumenty", None)
+    wynik = (
+        None
+        if dokumenty is None
+        else dokumenty.plik_archiwalny(auction_id, identyfikator)
+    )
+    if wynik is None:
+        return Response(status_code=404)
+    opis, bajty = wynik
+    return _pdf(bajty, opis.nazwa)
+
+
 @router.get("/aukcja/{auction_id}/wycena", response_class=HTMLResponse)
 async def wycena_aukcji(request: Request, auction_id: int) -> Response:
     """Pokazuje zapisaną wycenę; liczy tylko wtedy, gdy jeszcze jej nie ma."""
@@ -811,6 +940,8 @@ async def _wycena(request: Request, auction_id: int, *, przelicz: bool) -> Respo
         # Przeliczyć da się tylko z działającym dostawcą; POKAZAĆ zapisaną
         # wycenę można zawsze.
         "mozna_przeliczyc": usluga is not None,
+        "mozna_otomoto": usluga is not None
+        and getattr(request.app.state, "otomoto", None) is not None,
     }
     if _fabryka(request) is None:
         kontekst_szablonu["blad"] = "Baza danych jest teraz niedostępna."
@@ -862,6 +993,96 @@ async def _wycena(request: Request, auction_id: int, *, przelicz: bool) -> Respo
         name="fragmenty/wycena.html",
         context=kontekst_szablonu,
     )
+
+
+@router.post("/aukcja/{auction_id}/wycena-otomoto", response_class=HTMLResponse)
+async def wycena_otomoto(request: Request, auction_id: int) -> Response:
+    """Wycena z ogłoszeniami Otomoto i treścią ekspertyzy (0.31.0).
+
+    Wyłącznie z przycisku: każde uruchomienie to płatny przebieg aktora Apify
+    i dłuższe zapytanie do modelu. Nieudana próba nie kasuje zapisanej wyceny.
+    """
+    usluga = getattr(request.app.state, "wycena_ai", None)
+    otomoto = getattr(request.app.state, "otomoto", None)
+    dokumenty = getattr(request.app.state, "dokumenty", None)
+    kontekst_szablonu: dict[str, Any] = {
+        **_kontekst_bazowy(request),
+        "auction_id": auction_id,
+        "wycena": None,
+        "blad": None,
+        "brak_konfiguracji": usluga is None,
+        "mozna_przeliczyc": usluga is not None,
+        "mozna_otomoto": usluga is not None and otomoto is not None,
+    }
+
+    def odpowiedz() -> Response:
+        return SZABLONY.TemplateResponse(
+            request=request, name="fragmenty/wycena.html", context=kontekst_szablonu
+        )
+
+    if usluga is None or otomoto is None or _fabryka(request) is None:
+        kontekst_szablonu["blad"] = (
+            "Wycena z Otomoto wymaga klucza AI i opcji apify_token."
+        )
+        return odpowiedz()
+
+    async with _fabryka(request)() as kontekst:
+        async with kontekst.uow as uow:
+            zapisana = await uow.wycena.dla_aukcji(auction_id)
+        kontekst_szablonu["wycena"] = zapisana
+        dane = await kontekst.zapytania.szczegoly(auction_id)
+        porownania = await kontekst.zapytania.porownania_rynkowe(auction_id)
+    if dane is None:
+        return HTMLResponse("", status_code=404)
+    p = dane.pozycja
+    if not p.make or not p.model:
+        kontekst_szablonu["blad"] = "Bez marki i modelu nie da się szukać na Otomoto."
+        return odpowiedz()
+
+    try:
+        rynek = await otomoto.porownaj(
+            PojazdDoPorownania(
+                marka=p.make,
+                model=p.model,
+                rok=p.year,
+                przebieg_km=p.mileage_km,
+                paliwo=p.fuel,
+                skrzynia=p.gearbox,
+                dostawczy=p.vehicle_kind is RodzajPojazdu.DOSTAWCZY,
+            )
+        )
+    except BladOtomoto as exc:
+        kontekst_szablonu["blad"] = f"Otomoto: {exc}"
+        return odpowiedz()
+
+    wybrane: tuple[OcenionyDokument, ...] = ()
+    if dokumenty is not None:
+        pliki = await dokumenty.pliki_do_analizy(
+            auction_id, p.source_key, p.external_id, p.url
+        )
+        teksty = [
+            (plik.nazwa, await asyncio.to_thread(tekst_pdf, plik.dane))
+            for plik in pliki
+        ]
+        wybrane = tuple(
+            replace(d, tekst=zredaguj(d.tekst, dane.vin))
+            for d in wybierz(teksty, dane.vin)
+        )
+
+    try:
+        nowa = await usluga.wycen(
+            dane,
+            porownania,
+            teraz=dt.datetime.now(dt.UTC),
+            otomoto=rynek,
+            ekspertyzy=wybrane,
+        )
+    except BladWyceny as exc:
+        kontekst_szablonu["blad"] = str(exc)
+        return odpowiedz()
+    async with _fabryka(request)() as kontekst, kontekst.uow as uow:
+        kontekst_szablonu["wycena"] = await uow.wycena.zapisz(nowa)
+    return odpowiedz()
 
 
 @router.get("/aukcja/{auction_id}/zdjecie/{indeks}")

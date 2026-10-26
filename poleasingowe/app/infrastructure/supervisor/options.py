@@ -85,6 +85,8 @@ class Opcje(BaseModel):
     """Wymagany TYLKO dla `zgodny_z_openai`; dla pozostałych pozwala wskazać
     proxy albo bramkę firmową."""
     ai_model: str = ""
+    apify_token: str = ""
+    """Token Apify dla wyceny z Otomoto (0.31.0). Pusty — brak przycisku."""
     """Pusty znaczy „domyślny dla dostawcy" (`ai_klienci.MODELE`)."""
     openai_api_key: str = ""
     """Poprzednia nazwa `ai_api_key`. Zostaje, żeby aktualizacja add-onu nie

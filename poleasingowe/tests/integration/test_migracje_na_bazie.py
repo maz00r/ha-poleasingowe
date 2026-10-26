@@ -631,3 +631,42 @@ async def test_migracja_024_porzadkuje_marki_tak_samo_jak_python(
         assert wynik[str(i)][0] == marki.kanoniczna_marka(m), m
     assert wynik["aukcja"] == (None, None, None)
     assert wynik["mini"] == ("MINI", "Countryman", "Cooper S ALL4")
+
+
+async def test_migracja_027_oznacza_dawro_brutto_i_wymusza_odczyt(
+    pusta_baza: psycopg.AsyncConnection,
+) -> None:
+    async with pusta_baza.cursor() as cur:
+        await cur.execute(
+            "INSERT INTO app.source (key, name)"
+            " VALUES ('dawro', 'D'), ('mleasing', 'M'),"
+            " ('efl', 'E') RETURNING key, id"
+        )
+        zrodla: dict[str, int] = dict(await cur.fetchall())
+        await cur.executemany(
+            "INSERT INTO app.auction (source_id, external_id, url, status, ends_at,"
+            " content_hash, next_poll_at, vat_info)"
+            " VALUES (%s, %s, 'u', %s, now() + interval '1 day', 'h',"
+            " now() + interval '1 day', NULL)",
+            [
+                (zrodla["dawro"], "d-akt", "ACTIVE"),
+                (zrodla["dawro"], "d-kon", "ENDED"),
+                (zrodla["mleasing"], "m-akt", "ACTIVE"),
+                (zrodla["efl"], "e-akt", "ACTIVE"),
+            ],
+        )
+        await cur.execute(
+            (MIGRACJE / "027_dawro_vat_i_oferty_mleasing.sql").read_text()
+        )
+        await cur.execute(
+            "SELECT external_id, vat_info, content_hash, next_poll_at <= now()"
+            " FROM app.auction ORDER BY external_id"
+        )
+        assert await cur.fetchall() == [
+            ("d-akt", "BRUTTO", None, True),
+            ("d-kon", "BRUTTO", "h", False),
+            ("e-akt", None, "h", False),
+            ("m-akt", None, None, True),
+        ]
+        with pytest.raises(psycopg.errors.CheckViolation):
+            await cur.execute("UPDATE app.auction SET vat_info = 'cos'")

@@ -17,27 +17,32 @@ from __future__ import annotations
 import datetime as dt
 import json
 import logging
-from dataclasses import asdict
+from dataclasses import asdict, replace
 from decimal import Decimal
 from typing import Any
 
 import httpx
 
 from app.application.read_models import PorownanieRynkowe, Szczegoly
-from app.domain.entities import WycenaAukcji
+from app.domain.entities import OgloszenieRynkowe, WycenaAukcji
 from app.domain.enums import Currency
 from app.domain.value_objects import Money
 from app.infrastructure.ai_klienci import BladModelu, BladOdpowiedzi, KlientModelu
+from app.infrastructure.ekspertyza import OcenionyDokument
+from app.infrastructure.otomoto import Ogloszenie, WynikOtomoto
 
 log = logging.getLogger(__name__)
 
-WERSJA_PROMPTU = 2
+WERSJA_PROMPTU = 3
 """Podbij, gdy zmienisz `INSTRUKCJE` albo `SCHEMAT`.
 
 Zapisana wycena niesie wersję, którą policzono — dzięki temu widać, że
 powstała starym poleceniem, i można ją świadomie przeliczyć.
 
-2: doszedł szacunek poziomu cen ofertowych na polskich portalach."""
+2: doszedł szacunek poziomu cen ofertowych na polskich portalach.
+3: opcjonalne ogłoszenia z Otomoto (Apify) i treść ekspertyzy."""
+
+MAKS_OGLOSZEN_NA_KARCIE = 15
 
 NAZWA_SCHEMATU = "wycena_pojazdu"
 
@@ -60,6 +65,22 @@ INSTRUKCJE = (
     "Pamiętaj, że ceny ofertowe na portalach są zwykle wyższe od cen "
     "uzyskiwanych na aukcjach poleasingowych; w uzasadnieniu napisz krótko, "
     "jak duża jest ta różnica dla tego auta."
+)
+
+INSTRUKCJE_OTOMOTO = (
+    "\n\nTym razem dostajesz PRAWDZIWE dane rynkowe — używaj ich zamiast "
+    "własnych szacunków:\n"
+    "- `ogloszenia_otomoto`: porównywalne ogłoszenia z Otomoto pobrane dziś "
+    "(cena ofertowa w PLN, zwykle brutto i zwykle wyższa od ceny uzyskiwanej "
+    "na aukcji poleasingowej; rocznik; przebieg) wraz z medianą i kwartylami. "
+    "Skoryguj je o różnice rocznika, przebiegu i wyposażenia. Pole "
+    "`cena_portale` wypełnij medianą z tych danych.\n"
+    "- `ekspertyza`: tekst raportu rzeczoznawcy dla TEGO pojazdu (dane "
+    "osobowe i identyfikatory zasłonięte). Uwzględnij opisany stan "
+    "techniczny, uszkodzenia, braki, koszty napraw i wartość wskazaną przez "
+    "rzeczoznawcę; w uzasadnieniu napisz, co z ekspertyzy wpłynęło na kwotę.\n"
+    "Jeśli któregoś bloku brak, napisz o tym w założeniach. Kwoty z ekspertyz "
+    "bywają brutto albo netto — sprawdź, co mówi raport."
 )
 
 SCHEMAT: dict[str, Any] = {
@@ -138,16 +159,47 @@ class WycenaAI:
         porownania: tuple[PorownanieRynkowe, ...],
         *,
         teraz: dt.datetime,
+        otomoto: WynikOtomoto | None = None,
+        ekspertyzy: tuple[OcenionyDokument, ...] = (),
     ) -> WycenaAukcji:
+        """`otomoto` i `ekspertyzy` tylko z przycisku „Wycena z Otomoto".
+
+        Tekst ekspertyz musi być już zredagowany (`ekspertyza.zredaguj`) —
+        ta klasa nie wysyła VIN-u ani danych osób.
+        """
         wejscie = self._wejscie(dane, porownania)
+        rozszerzona = otomoto is not None or bool(ekspertyzy)
+        if otomoto is not None:
+            wejscie["ogloszenia_otomoto"] = {
+                "liczba": otomoto.liczba,
+                "mediana": otomoto.mediana,
+                "kwartyl_dolny": otomoto.p25,
+                "kwartyl_gorny": otomoto.p75,
+                "ogloszenia": [
+                    {
+                        "tytul": o.tytul,
+                        "cena": o.cena,
+                        "rok": o.rok,
+                        "przebieg_km": o.przebieg_km,
+                    }
+                    for o in self._najblizsze(dane, otomoto.ogloszenia, 25)
+                ],
+            }
+        if ekspertyzy:
+            wejscie["ekspertyza"] = [
+                {"dokument": d.nazwa, "tekst": d.tekst} for d in ekspertyzy
+            ]
         try:
             tekst = await self._klient.json_wg_schematu(
-                instrukcje=INSTRUKCJE,
+                instrukcje=INSTRUKCJE + (INSTRUKCJE_OTOMOTO if rozszerzona else ""),
                 wejscie=json.dumps(wejscie, ensure_ascii=False),
                 nazwa_schematu=NAZWA_SCHEMATU,
                 schemat=SCHEMAT,
             )
-            return self._z_tekstu(tekst, dane.pozycja.id, teraz)
+            wynik = self._z_tekstu(tekst, dane.pozycja.id, teraz)
+            if not rozszerzona:
+                return wynik
+            return self._z_danymi_rynku(wynik, dane, otomoto, ekspertyzy)
         except (httpx.HTTPError, BladModelu, ValueError, KeyError, TypeError) as exc:
             log.warning("wycena AI nie powiodła się: %s", exc)
             # Powód od dostawcy idzie NA KARTĘ, nie tylko do logu. „Nie udało
@@ -180,6 +232,64 @@ class WycenaAI:
             },
             "porownania_z_zakonczonych_aukcji": [asdict(x) for x in porownania],
         }
+
+    @staticmethod
+    def _najblizsze(
+        dane: Szczegoly, ogloszenia: tuple[Ogloszenie, ...], ile: int
+    ) -> list[Ogloszenie]:
+        """Najbardziej podobne pierwsze: rocznik, potem przebieg."""
+        p = dane.pozycja
+
+        def odleglosc(o: Ogloszenie) -> tuple[int, int]:
+            rok = abs((o.rok or p.year or 0) - (p.year or o.rok or 0))
+            km = abs((o.przebieg_km or 0) - (p.mileage_km or 0)) if p.mileage_km else 0
+            return rok, km
+
+        return sorted(ogloszenia, key=odleglosc)[:ile]
+
+    def _z_danymi_rynku(
+        self,
+        wynik: WycenaAukcji,
+        dane: Szczegoly,
+        otomoto: WynikOtomoto | None,
+        ekspertyzy: tuple[OcenionyDokument, ...],
+    ) -> WycenaAukcji:
+        """Zmierzone liczby z Otomoto mają pierwszeństwo przed pamięcią modelu."""
+        waluta = Currency.PLN
+
+        def pln(kwota: int | None) -> Money | None:
+            return None if kwota is None else Money(Decimal(kwota), waluta)
+
+        return replace(
+            wynik,
+            zrodlo="OTOMOTO",
+            cena_portale=(
+                pln(otomoto.mediana)
+                if otomoto is not None and otomoto.mediana is not None
+                else wynik.cena_portale
+            ),
+            otomoto_liczba=None if otomoto is None else otomoto.liczba,
+            otomoto_p25=None if otomoto is None else pln(otomoto.p25),
+            otomoto_p75=None if otomoto is None else pln(otomoto.p75),
+            otomoto_adres=None if otomoto is None else otomoto.adres,
+            otomoto_ogloszenia=(
+                ()
+                if otomoto is None
+                else tuple(
+                    OgloszenieRynkowe(
+                        tytul=o.tytul,
+                        cena=Money(Decimal(o.cena), waluta),
+                        rok=o.rok,
+                        przebieg_km=o.przebieg_km,
+                        url=o.url,
+                    )
+                    for o in self._najblizsze(
+                        dane, otomoto.ogloszenia, MAKS_OGLOSZEN_NA_KARCIE
+                    )
+                )
+            ),
+            ekspertyzy=tuple(d.nazwa for d in ekspertyzy),
+        )
 
     def _z_tekstu(
         self, tekst: str, auction_id: int, teraz: dt.datetime

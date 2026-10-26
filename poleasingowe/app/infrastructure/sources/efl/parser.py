@@ -7,10 +7,11 @@ z plików w `fixtures/efl/` (SPEC.md §4: „nic nie zmyślaj i nie zgaduj").
 from __future__ import annotations
 
 import re
+from urllib.parse import urljoin
 
 from selectolax.parser import HTMLParser, Node
 
-from app.application.ports import SurowaOferta
+from app.application.ports import Dokument, SurowaOferta
 from app.domain.errors import ParseFailed
 
 BAZOWY_URL = "https://aukcje.efl.com.pl"
@@ -28,6 +29,12 @@ _KONIEC = re.compile(
 )
 _OFERT = re.compile(r"Ofert:\s*(\d+)")
 _CENA = re.compile(r"Aktualna cena[^:]*:\s*([\d\s\xa0]+,\d{2})\s*zł")
+
+
+def _tekst(wezel: Node | None) -> str:
+    if wezel is None:
+        return ""
+    return " ".join(wezel.text(separator=" ", strip=True).split())
 
 
 def _pary_z_tabeli(korzen: Node) -> dict[str, str]:
@@ -207,3 +214,24 @@ def zdjecia(html: str) -> list[str]:
 
     znalezione = dict.fromkeys(_ZDJECIA.findall(html))
     return [urljoin(f"{BAZOWY_URL}/", u.lstrip("./")) for u in znalezione]
+
+
+def dokumenty(html: str) -> list[Dokument]:
+    """Zakładka `data-tabs="documents"`. W próbkach z 2026-10-26 pusta —
+    czytamy ją, żeby plik, jeśli się pojawi, nie przeszedł niezauważony."""
+    drzewo = HTMLParser(html)
+    zakladka = drzewo.css_first('div[data-tabs="documents"]')
+    if zakladka is None:
+        return []
+    wynik: list[Dokument] = []
+    for link in zakladka.css("a[href]"):
+        href = link.attributes.get("href") or ""
+        if not href or href.startswith(("#", "javascript:")):
+            continue
+        wynik.append(
+            Dokument(
+                nazwa=_tekst(link) or href.rsplit("/", 1)[-1],
+                url=urljoin(BAZOWY_URL, href),
+            )
+        )
+    return wynik

@@ -1,0 +1,28 @@
+{# Dokumenty aukcji (ekspertyzy). Pliki idą przez add-on — przeglądarka
+   nie łączy się z serwisem — a przycisk archiwum zapisuje kopię na dysku,
+   żeby została po zniknięciu aukcji ze źródła. #}
+{% if blad %}<p class="ostrzezenie-inline">{{ blad }}</p>{% endif %}
+{% if not zrodlowe and not archiwalne %}
+  <p class="uwaga">Serwis nie udostępnia dokumentów dla tej aukcji{% if not aktywna %} (albo już ich nie ma){% endif %}.</p>
+{% else %}
+  <ul class="dokumenty">
+    {% for d in zrodlowe %}
+      <li>
+        <a href="{{ sciezka(request, 'dokument_aukcji', auction_id=auction_id, indeks=loop.index0) }}">{{ d.nazwa }}</a>
+        {% if d.url in zarchiwizowane %}
+          <span class="etykieta pewna">w archiwum</span>
+        {% else %}
+          <button type="button" class="przycisk-lekki"
+                  hx-post="{{ sciezka(request, 'archiwizuj_dokument', auction_id=auction_id, indeks=loop.index0) }}"
+                  hx-target="#dokumenty > div" hx-swap="innerHTML">Zapisz w archiwum</button>
+        {% endif %}
+      </li>
+    {% endfor %}
+    {% for a in archiwalne if a.source_url not in adresy_zrodlowe %}
+      <li>
+        <a href="{{ sciezka(request, 'dokument_archiwalny', auction_id=auction_id, identyfikator=a.id) }}">{{ a.nazwa }}</a>
+        <span class="etykieta">archiwum · {{ a.zapisano | czas_lokalny }}</span>
+      </li>
+    {% endfor %}
+  </ul>
+{% endif %}

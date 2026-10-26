@@ -11,11 +11,12 @@ from types import TracebackType
 
 import httpx
 
-from app.application.ports import StronaPrzemiatu, SurowaOferta
+from app.application.ports import Dokument, StronaPrzemiatu, SurowaOferta
 from app.domain.entities import Auction
 from app.domain.errors import ParseFailed, SourceUnavailable
 from app.infrastructure.sources.adresy import strona_aukcji
 from app.infrastructure.sources.leasygroup import mapper, parser
+from app.infrastructure.sources.pliki import pobierz_pdf
 
 KLUCZ = "leasygroup"
 MAKS_STRON = 100
@@ -185,6 +186,22 @@ class LeasygroupSource:
         if parser.numer_aukcji_szczegolow(html) != external_id:
             return []
         return parser.zdjecia(html)
+
+    async def dokumenty(
+        self, external_id: str, url: str | None = None
+    ) -> Sequence[Dokument]:
+        sciezka = strona_aukcji(
+            url, bazowy=parser.BAZOWY_URL, zapasowa=f"/aukcja/{external_id}/"
+        )
+        html = (await self._pobierz(sciezka)).decode("utf-8", "replace")
+        if parser.numer_aukcji_szczegolow(html) != external_id:
+            return []
+        return parser.dokumenty(html)
+
+    async def pobierz_dokument(self, dokument: Dokument) -> bytes:
+        return await pobierz_pdf(
+            self._klient, dokument.url, hosty={"aukcje.leasygroup.pl"}, zrodlo=KLUCZ
+        )
 
     def na_aukcje(
         self, surowa: SurowaOferta, source_id: int, teraz: dt.datetime

@@ -18,15 +18,13 @@ Kilka rzeczy, których nie widać w EFL/autoprzetarg/leasygroup/mleasing:
   „Cena — brak podstawy brutto/netto").
 
 - **Najwyższa oferta na stronie szczegółów jest zawsze placeholderem JS**
-  (`id="najwyzsza-oferta"` → „pobieranie danych..."), dociąganym AJAX-em
-  przez `POST /WebService/PasekInformacyjny/`. Ten endpoint nigdy nie był
-  wywołany — ani przez rekonesans, ani przez ten adapter (RECON.md §4.5,
-  „Do ustalenia w planie adaptera"): jego kontrakt jest znany tylko z obserwacji
-  JS-u strony, nie ze zmierzonego wywołania, i zgadnięcie formatu żądania
-  byłoby ryzykiem wstrzyknięcia złych danych. Serwerowe źródło bieżącej
-  najwyższej oferty jest więc WYŁĄCZNIE kafelek listy (`div.najwyzsza-oferta`,
-  atrybut `kwota` na `div.w.najwyzsza-oferta-kwota`) — `sparsuj_szczegoly`
-  go nie zna.
+  (`id="najwyzsza-oferta"` → „pobieranie danych..."), dociąganym przez
+  `POST /WebService/PasekInformacyjny/`. Kontrakt odczytany z kodu strony
+  (`/javascript.js`, `Licytacja.pasekInformacyjny`): formularz `id=<id>`,
+  odpowiedź JSON `{"kwota": "<tekst>", "twoja_oferta": ...}`; przy braku
+  ofert `{"kwota": "brak ofert"}` (zmierzone 2026-10-26). `source.py` woła go
+  przy każdym odczycie szczegółów — `najwyzsza_z_paska` parsuje odpowiedź.
+  Na liście ta sama kwota stoi w atrybucie `kwota` kafelka.
 
 - **Zakończenie jest jawnym, serwerowym tekstem**, nie zgadywaniem: przycisk
   `a.przycisk-przystap` („PRZYSTĄP DO AUKCJI") zamienia się na
@@ -43,12 +41,13 @@ Kodowanie: nagłówek HTTP deklaruje `iso-8859-1`, treść jest UTF-8
 
 from __future__ import annotations
 
+import json
 import re
 from urllib.parse import urljoin, urlsplit
 
 from selectolax.parser import HTMLParser, Node
 
-from app.application.ports import SurowaOferta
+from app.application.ports import Dokument, SurowaOferta
 from app.domain.errors import ParseFailed
 
 BAZOWY_URL = "https://www.dawro.pl"
@@ -319,3 +318,51 @@ def zdjecia(html: str) -> list[str]:
         if href:
             znalezione[urljoin(BAZOWY_URL, href)] = None
     return list(znalezione)
+
+
+BRAK_OFERT = "brak ofert"
+
+
+def najwyzsza_z_paska(bajty: bytes) -> str | None:
+    """Kwota z odpowiedzi `PasekInformacyjny`; `None`, gdy ofert nie ma.
+
+    Każda inna odpowiedź to `ParseFailed`: odczyt bez ceny wyzerowałby
+    `price_current` w bazie, więc niepewny wynik musi być błędem, nie zerem.
+    """
+    try:
+        dane = json.loads(bajty)
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise ParseFailed("dawro: PasekInformacyjny nie zwrócił JSON-a") from exc
+    if not isinstance(dane, dict) or not isinstance(dane.get("kwota"), str):
+        raise ParseFailed("dawro: PasekInformacyjny bez pola `kwota`")
+    tekst = " ".join(HTMLParser(dane["kwota"]).text(separator=" ").split())
+    if tekst.lower() == BRAK_OFERT:
+        return None
+    kwota = _kwota_z_tekstu(tekst)
+    if kwota is None:
+        raise ParseFailed(f"dawro: nieznana kwota z PasekInformacyjny: {tekst!r}")
+    return kwota
+
+
+_WYCENA_PDF = re.compile(r"Dialog\.pobierzWycene\((\d+)\)")
+
+
+def dokumenty(html: str, external_id: str) -> list[Dokument]:
+    """„Pobierz wycenę pojazdu" — ekspertyza rzeczoznawcy jako PDF.
+
+    Strona otwiera okno (`Dialog.pobierzWycene(<id>)` → moduł
+    `PrzedmiotWycena`), a w nim jedyny link `/webservice/PrzedmiotWycenaPlik/
+    id=<id>` (zmierzone 2026-10-26: `application/pdf`, anonimowo). Okno
+    niczego poza tym linkiem nie wnosi, więc składamy adres wprost — ale
+    tylko gdy strona ten przycisk w ogóle pokazuje.
+    """
+    trafienie = _WYCENA_PDF.search(html)
+    if trafienie is None or trafienie.group(1) != external_id:
+        return []
+    return [
+        Dokument(
+            nazwa="Wycena pojazdu (PDF)",
+            url=f"{BAZOWY_URL}/webservice/PrzedmiotWycenaPlik/id={external_id}",
+            opis_zrodla="Pobierz wycenę pojazdu",
+        )
+    ]

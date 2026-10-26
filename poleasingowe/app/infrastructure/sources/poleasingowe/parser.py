@@ -19,12 +19,14 @@ u źródła, a nie licząc na filtr redakcji dalej w łańcuchu.
 
 from __future__ import annotations
 
+import contextlib
 import json
 import re
+from urllib.parse import urljoin
 
 from selectolax.parser import HTMLParser, Node
 
-from app.application.ports import SurowaOferta
+from app.application.ports import Dokument, SurowaOferta
 from app.domain.errors import ParseFailed
 
 BAZOWY_URL = "https://poleasingowe.pl"
@@ -269,3 +271,38 @@ def zdjecia(html: str) -> list[str]:
     kartę aukcji (SPEC.md §12: proxy z cache na dysku, nigdy hotlink).
     """
     return list(dict.fromkeys(_ZDJECIA.findall(html)))
+
+
+def dokumenty(html: str) -> list[Dokument]:
+    """Sekcja „PLIKI DO POBRANIA" (`div.download-files-box`).
+
+    Każdy link niesie `data-ecr-datalayer-download` — JSON z nazwą pliku
+    i typem nadanym przez serwis (`opinia_rzeczoznawcy`, `darmowy_raport`,
+    `inny`). Typ trafia do `opis_zrodla` jako informacja, nie klasyfikacja.
+    """
+    drzewo = HTMLParser(html)
+    wynik: list[Dokument] = []
+    for pudelko in drzewo.css("div.download-files-box"):
+        link = pudelko.css_first("a[href]")
+        if link is None:
+            continue
+        href = link.attributes.get("href") or ""
+        # Etykieta bywa poskładana z kilku znaczników („Pobierz <strong>DARMOWY
+        # </strong> raport") — `_tekst` skleiłby je bez spacji.
+        wezel = pudelko.css_first(".download-files-text")
+        etykieta = (
+            " ".join(wezel.text(separator=" ", strip=True).split()) if wezel else ""
+        )
+        nazwa_pliku = ""
+        with contextlib.suppress(json.JSONDecodeError, TypeError):
+            meta = json.loads(link.attributes.get("data-ecr-datalayer-download") or "")
+            if isinstance(meta, dict):
+                nazwa_pliku = str(meta.get("file_name") or "")
+        wynik.append(
+            Dokument(
+                nazwa=" — ".join(x for x in (etykieta, nazwa_pliku) if x) or href,
+                url=urljoin(BAZOWY_URL, href),
+                opis_zrodla=etykieta,
+            )
+        )
+    return wynik

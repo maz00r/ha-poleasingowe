@@ -22,8 +22,10 @@ import uvicorn
 
 from app.application.use_cases.rejestracja import zarejestruj_zrodla
 from app.infrastructure.ai_klienci import utworz_klienta
+from app.infrastructure.dokumenty import Dokumenty
 from app.infrastructure.kopia import KopiaZapasowa
 from app.infrastructure.migracja import EksporterMigracji
+from app.infrastructure.otomoto import Otomoto
 from app.infrastructure.persistence.migrations import Migracja
 from app.infrastructure.persistence.polaczenie import polacz_i_zmigruj
 from app.infrastructure.persistence.pula import PgFabrykaKontekstu
@@ -191,6 +193,8 @@ def main() -> int:
         # Galeria korzysta z tej samej blokady i kubełka, co listy oraz
         # szczegóły. Wejście na kartę nie może ominąć limitu źródła.
         galeria.ustaw_bramke(petla.bramka_sieci)
+        # Dokumenty (ekspertyzy) idą tą samą bramką co listy i zdjęcia.
+        dokumenty.ustaw_bramke(petla.bramka_sieci)
         # Od tej chwili karta aukcji moze poprosic o wczesniejszy obrot.
         budzik.podepnij(petla)
         await asyncio.gather(petla.uruchom(), galeria.uruchom_archiwum())
@@ -200,6 +204,9 @@ def main() -> int:
     adaptery_ui: dict[str, object] = {}
     budzik = BudzikOdroczony()
     galeria = GaleriaZdjec(adaptery_ui, fabryka=fabryka)  # type: ignore[arg-type]
+    dokumenty = Dokumenty(adaptery_ui)
+    # Wycena z Otomoto wyłącznie z przycisku i tylko z tokenem Apify.
+    otomoto = Otomoto(opcje.apify_token) if opcje.apify_token.strip() else None
     # Kopia zapasowa WYLACZNIE wlasnej bazy (SPEC.md §7.1) — snapshot HA
     # obejmuje tez TeslaMate, wiec nie da sie z niego odtworzyc samej naszej.
     kopia = KopiaZapasowa(opcje.dsn)
@@ -217,6 +224,8 @@ def main() -> int:
         budzik=budzik,
     )
     aplikacja.state.stan = stan_wstepny
+    aplikacja.state.dokumenty = dokumenty
+    aplikacja.state.otomoto = otomoto
 
     uvicorn.run(
         aplikacja,

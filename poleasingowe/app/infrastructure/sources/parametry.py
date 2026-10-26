@@ -35,6 +35,9 @@ class ParametryZrodla:
     bid_count_semantics: BidCountSemantics
     wymaga_logowania: bool
     dowod: str
+    sweep_interval_seconds: int = 21_600
+    """Co ile przemiatać listę. Sześć godzin to rozsądny koszt dla katalogów
+    na wiele stron; mały katalog (dawro: jedna strona) stać na częściej."""
 
 
 ZNANE: dict[str, ParametryZrodla] = {
@@ -129,6 +132,10 @@ ZNANE: dict[str, ParametryZrodla] = {
         bid_count_semantics=BidCountSemantics.UNKNOWN,
         wymaga_logowania=False,
         dowod="RECON.md §4.5 (rekonesans 2026-09-10, pomiar domknięcia 2026-09-14)",
+        # Cały katalog to jedna strona (≤100 pozycji), a najwyższa oferta
+        # nieobserwowanej aukcji widnieje WYŁĄCZNIE na kafelku listy — więc
+        # rzadki przemiat to rzadka historia cen. 48 żądań na dobę.
+        sweep_interval_seconds=1_800,
     ),
     "mleasing": ParametryZrodla(
         nazwa="portalaukcyjny.mleasing.pl",
@@ -141,9 +148,12 @@ ZNANE: dict[str, ParametryZrodla] = {
         # Zachowujemy zapas: brak ofert nie kalibruje przypadku sprzedaży.
         closing_ladder_seconds=(2, 5, 10, 20, 40),
         bid_history_ttl_seconds=None,
-        bid_count_semantics=BidCountSemantics.UNKNOWN,
+        # Od 0.31 licznik to długość listy z `get-bids-with-hidden-logins`
+        # — jeden wiersz na ofertę, więc `bid_gap` ma sens.
+        bid_count_semantics=BidCountSemantics.OFFERS,
         wymaga_logowania=False,
-        dowod="RECON.md §4.5 (rekonesans 2026-09-13, pomiar 2026-09-14)",
+        dowod="RECON.md §4.5 (rekonesans 2026-09-13, pomiar 2026-09-14, "
+        "API ofert 2026-10-26)",
     ),
 }
 
@@ -181,7 +191,7 @@ def zbuduj_source(
         key=key,
         name=znane.nazwa,
         enabled=enabled,
-        sweep_interval_seconds=21_600,
+        sweep_interval_seconds=znane.sweep_interval_seconds,
         rate_limit_per_minute=rate_limit_per_minute,
         floor_seconds=floor_seconds,
         # `EXPIRED` znaczy „trzeba się zalogować", `ANONYMOUS` — „to źródło

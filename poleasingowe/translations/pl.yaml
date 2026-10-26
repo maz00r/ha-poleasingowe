@@ -40,6 +40,13 @@ configuration:
     description: >-
       Wymagany dla `zgodny_z_openai`, np. https://api.deepseek.com/v1 albo
       http://ollama:11434/v1. Dla OpenAI i Anthropic zostaw puste.
+  apify_token:
+    name: Token Apify (wycena z Otomoto)
+    description: >-
+      Token API z console.apify.com. Wlacza przycisk "Wycena z Otomoto" na
+      karcie aukcji — pobiera podobne ogloszenia przez aktora
+      automation-lab/otomoto-scraper (ok. 0,05 USD za wycene). Puste = brak
+      przycisku.
   ai_model:
     name: Model wyceny AI
     description: >-

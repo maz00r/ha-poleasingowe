@@ -23,6 +23,7 @@ from app.domain.enums import (
     AuctionStatus,
     BidCountSemantics,
     FinalPriceState,
+    InformacjaVat,
     PollTier,
     RodzajPojazdu,
 )
@@ -272,6 +273,8 @@ class Szczegoly:
     semantyka_licznika: BidCountSemantics = BidCountSemantics.UNKNOWN
     bid_count_min: int | None = None
     """Dolna granica ofert z nowych maksimów najwyższej oferty DAWRO."""
+    vat_info: InformacjaVat | None = None
+    """Jak kwoty mają się do VAT-u — notka na karcie (0.31.0)."""
 
 
 @dataclass(slots=True, frozen=True)

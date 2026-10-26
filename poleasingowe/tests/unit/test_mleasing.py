@@ -10,6 +10,7 @@ from decimal import Decimal
 import httpx
 import pytest
 
+from app.application.ports import SurowaOferta
 from app.domain.enums import AuctionStatus, AuthState, Currency
 from app.domain.errors import ParseFailed, SourceUnavailable
 from app.domain.value_objects import Money
@@ -295,6 +296,8 @@ async def test_szczegoly_i_zdjecia_uzywaja_publicznych_endpointow() -> None:
             return httpx.Response(200, content=dane("szczegoly-182214.json"))
         if zadanie.url.path.endswith("/get-locations"):
             return httpx.Response(200, content=dane("lokalizacje-182214.json"))
+        if zadanie.url.path.endswith("/get-bids-with-hidden-logins"):
+            return httpx.Response(200, content=b"[]")
         return httpx.Response(200, content=dane("zdjecia-182214.json"))
 
     klient = httpx.AsyncClient(
@@ -327,3 +330,43 @@ def test_parametry_zrodla_sa_oparte_na_regulaminie() -> None:
         120,
     )
     assert wynik.closing_ladder_seconds == (2, 5, 10, 20, 40)
+
+
+def test_oferty_z_api_maja_czas_warszawski_i_pomijaja_kup_teraz() -> None:
+    oferty = parser.sparsuj_oferty(dane("oferty-187643.json"))
+    assert [o.identyfikator for o in oferty] == ["32315", "32314"]
+
+    surowa = SurowaOferta(
+        external_id="187643",
+        url="u",
+        pola={"cena": "40600.0", "cena_podstawa": "netto"},
+        oferty=oferty,
+    )
+    encje = mapper.na_oferty(surowa, auction_id=7, teraz=TERAZ)
+
+    assert [e.amount.amount for e in encje] == [
+        Decimal("40600.00"),
+        Decimal("40100.00"),
+    ]
+    assert encje[1].placed_at == dt.datetime(
+        2026, 10, 25, 20, 3, 0, 153000, tzinfo=dt.UTC
+    )
+    assert encje[1].uczestnik == "d...m"
+    assert encje[1].external_offer_id == "32314"
+
+
+def test_oferty_brutto_przeliczone_jak_cena() -> None:
+    surowa = SurowaOferta(
+        external_id="1",
+        url="u",
+        pola={"cena": "12300.0", "cena_podstawa": "brutto"},
+        oferty=parser.sparsuj_oferty(dane("oferty-187643.json")),
+    )
+    encje = mapper.na_oferty(surowa, auction_id=7, teraz=TERAZ)
+    assert encje[1].amount.amount == Decimal("32601.63")
+
+
+def test_licznik_ofert_tylko_ze_szczegolow() -> None:
+    from app.domain.enums import BidCountSemantics
+
+    assert parametry.ZNANE["mleasing"].bid_count_semantics is BidCountSemantics.OFFERS

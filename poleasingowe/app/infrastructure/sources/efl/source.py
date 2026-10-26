@@ -10,11 +10,17 @@ from types import TracebackType
 
 import httpx
 
-from app.application.ports import StronaPrzemiatu, SurowaOferta, SurowaOfertaUczestnika
+from app.application.ports import (
+    Dokument,
+    StronaPrzemiatu,
+    SurowaOferta,
+    SurowaOfertaUczestnika,
+)
 from app.domain.entities import Auction, OfertaUczestnika
 from app.domain.errors import ParseFailed, SourceUnavailable
 from app.infrastructure.sources.adresy import strona_aukcji
 from app.infrastructure.sources.efl import mapper, parser
+from app.infrastructure.sources.pliki import pobierz_pdf
 
 KLUCZ = "efl"
 
@@ -184,6 +190,21 @@ class EflSource:
             url, bazowy=parser.BAZOWY_URL, zapasowa=f"/Auction/x-id{external_id}"
         )
         return parser.zdjecia((await self._pobierz(sciezka)).decode("utf-8", "replace"))
+
+    async def dokumenty(
+        self, external_id: str, url: str | None = None
+    ) -> Sequence[Dokument]:
+        sciezka = strona_aukcji(
+            url, bazowy=parser.BAZOWY_URL, zapasowa=f"/Auction/x-id{external_id}"
+        )
+        return parser.dokumenty(
+            (await self._pobierz(sciezka)).decode("utf-8", "replace")
+        )
+
+    async def pobierz_dokument(self, dokument: Dokument) -> bytes:
+        return await pobierz_pdf(
+            self._klient, dokument.url, hosty={"aukcje.efl.com.pl"}, zrodlo=KLUCZ
+        )
 
     def na_aukcje(
         self, surowa: SurowaOferta, source_id: int, teraz: dt.datetime

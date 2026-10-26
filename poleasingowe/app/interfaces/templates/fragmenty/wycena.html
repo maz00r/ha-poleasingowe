@@ -1,32 +1,68 @@
-{% if brak_konfiguracji %}
+{% if brak_konfiguracji and not wycena %}
   <p class="uwaga">Wycena jest wyłączona. Uzupełnij <code>ai_api_key</code>
     (i&nbsp;<code>ai_provider</code>, jeśli to nie OpenAI) w konfiguracji
     dodatku i uruchom go ponownie.</p>
-{% elif blad %}
-  <p class="ostrzezenie-inline">{{ blad }}</p>
-  <button type="button"
-          hx-get="{{ sciezka(request, 'wycena_aukcji', auction_id=auction_id) }}"
-          hx-target="#wycena-ai > div" hx-swap="innerHTML">Spróbuj ponownie</button>
 {% else %}
+  {% if blad %}
+    <p class="ostrzezenie-inline">{{ blad }}</p>
+    {% if not wycena %}
+      <button type="button"
+              hx-get="{{ sciezka(request, 'wycena_aukcji', auction_id=auction_id) }}"
+              hx-target="#wycena-ai > div" hx-swap="innerHTML">Spróbuj ponownie</button>
+    {% endif %}
+  {% endif %}
+  {% if wycena %}
   <div class="wycena-wynik">
     <div><span>Szacowana wartość</span>
       <strong>{{ wycena.wartosc | kwota }}</strong></div>
     <div><span>Realistyczny przedział</span>
       <strong>{{ wycena.minimum | kwota }} – {{ wycena.maksimum | kwota }}</strong></div>
     {% if wycena.cena_portale %}
-      {# Osobna kratka i osobna etykieta, bo to inny rodzaj liczby: reszta
-         wyceny stoi na cenach zmierzonych w naszej bazie, a to jest pamiec
-         modelu o rynku. Zlanie ich w jedno kazaloby brac szacunek za pomiar. #}
-      <div><span>Poziom ofert na portalach</span>
-        <strong>~{{ wycena.cena_portale | kwota }}</strong></div>
+      {# Osobna kratka i osobna etykieta, bo to inny rodzaj liczby niż wycena. #}
+      <div><span>{{ 'Mediana ofert Otomoto' if wycena.zrodlo == 'OTOMOTO' and wycena.otomoto_liczba else 'Poziom ofert na portalach' }}</span>
+        <strong>{% if wycena.zrodlo != 'OTOMOTO' %}~{% endif %}{{ wycena.cena_portale | kwota }}</strong></div>
     {% endif %}
     <div><span>Pewność</span><strong>{{ wycena.pewnosc }}</strong></div>
   </div>
   <p>{{ wycena.uzasadnienie }}</p>
-  {% if wycena.cena_portale %}
+  {% if wycena.zrodlo == 'OTOMOTO' %}
+    <p class="uwaga">
+      {% if wycena.otomoto_liczba %}
+        Porównano z <strong>{{ wycena.otomoto_liczba }}</strong> ogłoszeniami z Otomoto
+        {% if wycena.otomoto_p25 and wycena.otomoto_p75 %}(połowa ofert między {{ wycena.otomoto_p25 | kwota }} a {{ wycena.otomoto_p75 | kwota }}){% endif %}.
+        Ceny ofertowe — zwykle wyższe od uzyskiwanych na aukcjach.
+      {% else %}
+        Otomoto nie zwróciło porównywalnych ogłoszeń dla tego modelu.
+      {% endif %}
+      {% if wycena.otomoto_adres %}<a href="{{ wycena.otomoto_adres }}" target="_blank" rel="noopener noreferrer">Zobacz wyszukiwanie</a>.{% endif %}
+      {% if wycena.ekspertyzy %}
+        Uwzględniono ekspertyzę: {{ wycena.ekspertyzy | join(', ') }}.
+      {% else %}
+        Nie znaleziono ekspertyzy w dokumentach aukcji.
+      {% endif %}
+    </p>
+    {% if wycena.otomoto_ogloszenia %}
+      <details>
+        <summary>Najbardziej podobne ogłoszenia</summary>
+        <table class="zestawienie">
+          <thead><tr><th>Ogłoszenie</th><th>Rok</th><th>Przebieg</th><th>Cena</th></tr></thead>
+          <tbody>
+            {% for o in wycena.otomoto_ogloszenia %}
+              <tr>
+                <td><a href="{{ o.url }}" target="_blank" rel="noopener noreferrer">{{ o.tytul or 'ogłoszenie' }}</a></td>
+                <td>{{ o.rok or '—' }}</td>
+                <td>{{ o.przebieg_km | liczba }}{% if o.przebieg_km %} km{% endif %}</td>
+                <td class="kwota">{{ o.cena | kwota }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </details>
+    {% endif %}
+  {% elif wycena.cena_portale %}
     <p class="uwaga">Poziom cen ofertowych z OtoMoto i OLX jest
-      <strong>szacunkiem modelu z jego wiedzy o rynku</strong> — add-on nie
-      odpytuje tych portali. Ceny ofertowe są zwykle wyższe od uzyskiwanych
+      <strong>szacunkiem modelu z jego wiedzy o rynku</strong> — ta wycena
+      nie odpytywała portali. Ceny ofertowe są zwykle wyższe od uzyskiwanych
       na aukcjach.</p>
   {% endif %}
   {% if wycena.zalozenia %}
@@ -35,15 +71,15 @@
       <ul>{% for zalozenie in wycena.zalozenia %}<li>{{ zalozenie }}</li>{% endfor %}</ul>
     </details>
   {% endif %}
-  {# Wycena jest ZAPISANA i sie nie zmienia sama — stad data i przycisk.
-     Bez nich nie dalo sie odroznic "policzone dzis" od "policzone miesiac
-     temu przy zupelnie innej cenie licytacji". #}
+  {# Wycena jest ZAPISANA i sie nie zmienia sama — stad data i przycisk. #}
   <p class="drobne">
     Wyceniono {{ wycena.utworzono | czas_lokalny }} modelem
     <code>{{ wycena.model }}</code>. Wycena orientacyjna — nie zastępuje
     oględzin ani opinii rzeczoznawcy.
   </p>
-  {% if mozna_przeliczyc %}
+  {% endif %}
+  <p>
+  {% if mozna_przeliczyc and wycena %}
     <button type="button" class="przycisk-lekki"
             hx-post="{{ sciezka(request, 'przelicz_wycene', auction_id=auction_id) }}"
             hx-target="#wycena-ai > div" hx-swap="innerHTML"
@@ -51,4 +87,14 @@
       Przelicz
     </button>
   {% endif %}
+  {% if mozna_otomoto %}
+    <button type="button" class="przycisk-lekki"
+            hx-post="{{ sciezka(request, 'wycena_otomoto', auction_id=auction_id) }}"
+            hx-target="#wycena-ai > div" hx-swap="innerHTML"
+            hx-indicator="#wycena-ai"
+            hx-confirm="Pobrać ogłoszenia z Otomoto (Apify, ok. 0,05 USD) i przeliczyć wycenę z ekspertyzą? Potrwa do 2–3 minut.">
+      Wycena z Otomoto
+    </button>
+  {% endif %}
+  </p>
 {% endif %}

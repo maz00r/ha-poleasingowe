@@ -12,7 +12,7 @@ from urllib.parse import urljoin
 
 from selectolax.parser import HTMLParser, Node
 
-from app.application.ports import SurowaOferta
+from app.application.ports import Dokument, SurowaOferta
 from app.domain.errors import ParseFailed
 
 BAZOWY_URL = "https://aukcje.leasygroup.pl"
@@ -254,3 +254,30 @@ def zdjecia(html: str) -> list[str]:
         if src:
             znalezione[urljoin(BAZOWY_URL, src)] = None
     return list(znalezione)
+
+
+def dokumenty(html: str) -> list[Dokument]:
+    """Załączniki aukcji: `div.download_container a[href^=/pobierz-zalacznik/]`.
+
+    Etykieta stoi obok, w `div.name_container p.name` (np. „OT" pod
+    nagłówkiem „Opinia rzeczoznawcy"). Zmierzone 2026-10-26.
+    """
+    drzewo = HTMLParser(html)
+    wynik: list[Dokument] = []
+    for link in drzewo.css("div.download_container a[href]"):
+        href = link.attributes.get("href") or ""
+        if not href.startswith("/pobierz-zalacznik/"):
+            continue
+        rodzic = link.parent.parent if link.parent is not None else None
+        etykieta = (
+            _tekst(rodzic.css_first("div.name_container .name")) if rodzic else ""
+        )
+        plik = href.rstrip("/").rsplit("/", 1)[-1]
+        wynik.append(
+            Dokument(
+                nazwa=f"{etykieta} — {plik}" if etykieta else plik,
+                url=urljoin(BAZOWY_URL, href),
+                opis_zrodla=etykieta,
+            )
+        )
+    return wynik

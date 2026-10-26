@@ -34,6 +34,9 @@ dependencies = [
   "python-multipart==0.0.32",
   # Lista dostaje prawdziwe, małe miniatury zamiast skalowania oryginału CSS-em.
   "pillow==12.3.0",
+  # Tekst ekspertyz PDF dla wyceny AI (0.31.0). Czysty Python — koło
+  # `py3-none-any`, więc `--only-binary=:all:` w obrazie niczego nie kompiluje.
+  "pypdf==6.21.2",
 ]
 
 [project.optional-dependencies]

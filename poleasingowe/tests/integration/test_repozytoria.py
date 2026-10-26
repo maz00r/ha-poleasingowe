@@ -969,3 +969,62 @@ async def test_podniesiona_oferta_tego_samego_licytanta_to_nowy_wiersz(
 
     kwoty = [str(o.amount.amount) for o in await uow.oferta.dla_aukcji(aid)]
     assert kwoty == ["48600.00", "51600.00"], "archiwum pamięta więcej niż serwis"
+
+
+async def test_wycena_otomoto_i_vat_aukcji_przechodza_przez_baze(
+    pusta_baza: psycopg.AsyncConnection,
+) -> None:
+    from dataclasses import replace
+
+    from app.domain.entities import OgloszenieRynkowe
+    from app.domain.enums import InformacjaVat
+
+    uow = PgUnitOfWork(pusta_baza)
+    zapisane_zrodlo = await uow.source.zapisz(zrodlo("dawro"))
+    assert zapisane_zrodlo.id is not None
+    zapisana = await uow.auction.zapisz(
+        replace(aukcja(zapisane_zrodlo.id), vat_info=InformacjaVat.BEZ_VAT)
+    )
+    assert zapisana.id is not None and zapisana.vat_info is InformacjaVat.BEZ_VAT
+    # Odczyt bez informacji (np. ze źródła, które jej nie podaje) jej nie kasuje.
+    ponownie = await uow.auction.zapisz(replace(zapisana, vat_info=None))
+    assert ponownie.vat_info is InformacjaVat.BEZ_VAT
+
+    pln = Currency.PLN
+    await uow.wycena.zapisz(
+        WycenaAukcji(
+            auction_id=zapisana.id,
+            wartosc=Money(Decimal("70000"), pln),
+            minimum=Money(Decimal("65000"), pln),
+            maksimum=Money(Decimal("76000"), pln),
+            cena_portale=Money(Decimal("80010"), pln),
+            pewnosc="wysoka",
+            uzasadnienie="Otomoto.",
+            zalozenia=(),
+            model="m",
+            wersja_promptu=3,
+            utworzono=TERAZ,
+            zrodlo="OTOMOTO",
+            otomoto_liczba=20,
+            otomoto_p25=Money(Decimal("78000"), pln),
+            otomoto_p75=Money(Decimal("83000"), pln),
+            otomoto_adres="https://www.otomoto.pl/osobowe/skoda/octavia",
+            otomoto_ogloszenia=(
+                OgloszenieRynkowe(
+                    "Skoda Octavia",
+                    Money(Decimal("80000"), pln),
+                    2022,
+                    120000,
+                    "https://o.test/1",
+                ),
+            ),
+            ekspertyzy=("RST1.pdf",),
+        )
+    )
+    odczytana = await uow.wycena.dla_aukcji(zapisana.id)
+    assert odczytana is not None
+    assert odczytana.zrodlo == "OTOMOTO"
+    assert odczytana.otomoto_liczba == 20
+    assert odczytana.otomoto_p75 == Money(Decimal("83000"), pln)
+    assert odczytana.otomoto_ogloszenia[0].cena == Money(Decimal("80000"), pln)
+    assert odczytana.ekspertyzy == ("RST1.pdf",)

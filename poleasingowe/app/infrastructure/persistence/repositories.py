@@ -30,6 +30,7 @@ from app.domain.entities import (
     ArchivedPhoto,
     Auction,
     OfertaUczestnika,
+    OgloszenieRynkowe,
     PhotoArchiveJob,
     PriceSnapshot,
     RunLog,
@@ -44,6 +45,7 @@ from app.domain.enums import (
     BidCountSemantics,
     Currency,
     FinalPriceState,
+    InformacjaVat,
     PhotoArchiveStatus,
     PhotoArchiveTarget,
     PollTier,
@@ -126,7 +128,7 @@ INSERT INTO app.auction (
     price_start, price_current, currency, bid_count, bid_increment_raw,
     ends_at, status, first_seen_at, last_seen_at, content_hash, raw_json,
     next_poll_at, poll_tier, consecutive_failures, final_price_state,
-    last_price_lead_seconds, duplicate_of
+    last_price_lead_seconds, duplicate_of, vat_info
 ) VALUES (
     %(source_id)s, %(external_id)s, %(url)s, %(make)s, %(model)s, %(variant)s,
     %(year)s, %(mileage_km)s, %(fuel)s, %(gearbox)s, %(engine_ccm)s,
@@ -136,7 +138,7 @@ INSERT INTO app.auction (
     %(bid_increment_raw)s, %(ends_at)s, %(status)s, %(first_seen_at)s,
     %(last_seen_at)s, %(content_hash)s, %(raw_json)s, %(next_poll_at)s,
     %(poll_tier)s, %(consecutive_failures)s, %(final_price_state)s,
-    %(last_price_lead_seconds)s, %(duplicate_of)s
+    %(last_price_lead_seconds)s, %(duplicate_of)s, %(vat_info)s
 )
 ON CONFLICT (source_id, external_id) DO UPDATE SET
     url = EXCLUDED.url,
@@ -165,14 +167,15 @@ ON CONFLICT (source_id, external_id) DO UPDATE SET
     consecutive_failures = EXCLUDED.consecutive_failures,
     final_price_state = EXCLUDED.final_price_state,
     last_price_lead_seconds = EXCLUDED.last_price_lead_seconds,
-    duplicate_of = EXCLUDED.duplicate_of
+    duplicate_of = EXCLUDED.duplicate_of,
+    vat_info = COALESCE(EXCLUDED.vat_info, app.auction.vat_info)
 RETURNING id, source_id, external_id, url, make, model, variant, year, mileage_km,
     fuel, gearbox, engine_ccm, engine_hp, vin, body, vehicle_kind, color,
     location, seller,
     price_start, price_current, currency, bid_count, bid_increment_raw,
     ends_at, status, first_seen_at, last_seen_at, content_hash, raw_json,
     next_poll_at, poll_tier, consecutive_failures, final_price_state,
-    last_price_lead_seconds, duplicate_of
+    last_price_lead_seconds, duplicate_of, vat_info
 """
 
 # Zapis z przemiatu listy (SPEC.md §11.2, §8.4). RÓŻNI SIĘ od upsertu po
@@ -209,7 +212,8 @@ INSERT INTO app.auction (
     fuel, gearbox, engine_ccm, engine_hp, vin, body, vehicle_kind, color,
     location, seller,
     price_start, price_current, currency, bid_count, bid_increment_raw,
-    ends_at, status, first_seen_at, last_seen_at, next_poll_at, poll_tier
+    ends_at, status, first_seen_at, last_seen_at, next_poll_at, poll_tier,
+    vat_info
 ) VALUES (
     %(source_id)s, %(external_id)s, %(url)s, %(make)s, %(model)s, %(variant)s,
     %(year)s, %(mileage_km)s, %(fuel)s, %(gearbox)s, %(engine_ccm)s,
@@ -217,7 +221,7 @@ INSERT INTO app.auction (
     %(seller)s,
     %(price_start)s, %(price_current)s, %(currency)s, %(bid_count)s,
     %(bid_increment_raw)s, %(ends_at)s, %(status)s, %(first_seen_at)s,
-    %(last_seen_at)s, %(next_poll_at)s, %(poll_tier)s
+    %(last_seen_at)s, %(next_poll_at)s, %(poll_tier)s, %(vat_info)s
 )
 ON CONFLICT (source_id, external_id) DO UPDATE SET
     url = EXCLUDED.url,
@@ -249,6 +253,7 @@ ON CONFLICT (source_id, external_id) DO UPDATE SET
         EXCLUDED.bid_increment_raw, app.auction.bid_increment_raw
     ),
     ends_at = COALESCE(EXCLUDED.ends_at, app.auction.ends_at),
+    vat_info = COALESCE(EXCLUDED.vat_info, app.auction.vat_info),
     last_seen_at = EXCLUDED.last_seen_at,
     -- POWROT Z `DISAPPEARED`. Aukcje oznaczamy jako znikniete po dwoch
     -- przemiatach bez niej, ale przemiat potrafi urwac sie w polowie
@@ -340,7 +345,8 @@ SELECT
     seller, price_start,
     price_current, currency, bid_count, bid_increment_raw, ends_at, status,
     first_seen_at, last_seen_at, content_hash, raw_json, next_poll_at, poll_tier,
-    consecutive_failures, final_price_state, last_price_lead_seconds, duplicate_of
+    consecutive_failures, final_price_state, last_price_lead_seconds, duplicate_of,
+    vat_info
 FROM app.auction WHERE source_id = %s AND external_id = %s
 """
 
@@ -378,7 +384,8 @@ SELECT
     seller, price_start,
     price_current, currency, bid_count, bid_increment_raw, ends_at, status,
     first_seen_at, last_seen_at, content_hash, raw_json, next_poll_at, poll_tier,
-    consecutive_failures, final_price_state, last_price_lead_seconds, duplicate_of
+    consecutive_failures, final_price_state, last_price_lead_seconds, duplicate_of,
+    vat_info
 FROM app.auction WHERE vin = %s ORDER BY id
 """
 
@@ -552,11 +559,15 @@ FROM app.watchlist WHERE auction_id = %s
 SQL_WYCENA_ZAPISZ = """
 INSERT INTO app.ai_valuation (
     auction_id, value_amount, min_amount, max_amount, currency, portal_amount,
-    confidence, rationale, assumptions, model, prompt_version, created_at
+    confidence, rationale, assumptions, model, prompt_version, created_at,
+    source_kind, otomoto_count, otomoto_p25, otomoto_p75, otomoto_search_url,
+    otomoto_listings, appraisal_documents
 ) VALUES (
     %(auction_id)s, %(value_amount)s, %(min_amount)s, %(max_amount)s,
     %(currency)s, %(portal_amount)s, %(confidence)s, %(rationale)s,
-    %(assumptions)s, %(model)s, %(prompt_version)s, %(created_at)s
+    %(assumptions)s, %(model)s, %(prompt_version)s, %(created_at)s,
+    %(source_kind)s, %(otomoto_count)s, %(otomoto_p25)s, %(otomoto_p75)s,
+    %(otomoto_search_url)s, %(otomoto_listings)s, %(appraisal_documents)s
 )
 ON CONFLICT (auction_id) DO UPDATE SET
     value_amount = EXCLUDED.value_amount,
@@ -569,16 +580,25 @@ ON CONFLICT (auction_id) DO UPDATE SET
     assumptions = EXCLUDED.assumptions,
     model = EXCLUDED.model,
     prompt_version = EXCLUDED.prompt_version,
-    created_at = EXCLUDED.created_at
+    created_at = EXCLUDED.created_at,
+    source_kind = EXCLUDED.source_kind,
+    otomoto_count = EXCLUDED.otomoto_count,
+    otomoto_p25 = EXCLUDED.otomoto_p25,
+    otomoto_p75 = EXCLUDED.otomoto_p75,
+    otomoto_search_url = EXCLUDED.otomoto_search_url,
+    otomoto_listings = EXCLUDED.otomoto_listings,
+    appraisal_documents = EXCLUDED.appraisal_documents
 RETURNING auction_id, value_amount, min_amount, max_amount, currency,
     portal_amount, confidence, rationale, assumptions, model, prompt_version,
-    created_at
+    created_at, source_kind, otomoto_count, otomoto_p25, otomoto_p75,
+    otomoto_search_url, otomoto_listings, appraisal_documents
 """
 
 SQL_WYCENA_DLA_AUKCJI = """
 SELECT auction_id, value_amount, min_amount, max_amount, currency,
        portal_amount, confidence, rationale, assumptions, model,
-       prompt_version, created_at
+       prompt_version, created_at, source_kind, otomoto_count, otomoto_p25,
+       otomoto_p75, otomoto_search_url, otomoto_listings, appraisal_documents
 FROM app.ai_valuation WHERE auction_id = %s
 """
 
@@ -835,6 +855,7 @@ def _na_auction(w: dict[str, Any]) -> Auction:
         final_price_state=FinalPriceState(w["final_price_state"]),
         last_price_lead_seconds=w["last_price_lead_seconds"],
         duplicate_of=w["duplicate_of"],
+        vat_info=(None if w.get("vat_info") is None else InformacjaVat(w["vat_info"])),
     )
 
 
@@ -971,6 +992,9 @@ class PgAuctionRepository:
                     "final_price_state": auction.final_price_state.value,
                     "last_price_lead_seconds": auction.last_price_lead_seconds,
                     "duplicate_of": auction.duplicate_of,
+                    "vat_info": None
+                    if auction.vat_info is None
+                    else auction.vat_info.value,
                 },
             )
             wiersz = await cur.fetchone()
@@ -1043,6 +1067,7 @@ class PgAuctionRepository:
             # nie rusza, więc aukcja już obecna w bazie zachowuje swój termin.
             "next_poll_at": auction.next_poll_at,
             "poll_tier": auction.poll_tier.value,
+            "vat_info": None if auction.vat_info is None else auction.vat_info.value,
         }
 
     async def po_kluczu_naturalnym(
@@ -1337,6 +1362,26 @@ def _na_wycene(w: dict[str, Any]) -> WycenaAukcji:
         model=w["model"],
         wersja_promptu=w["prompt_version"],
         utworzono=w["created_at"],
+        zrodlo=w["source_kind"],
+        otomoto_liczba=w["otomoto_count"],
+        otomoto_p25=(
+            None if w["otomoto_p25"] is None else Money(w["otomoto_p25"], waluta)
+        ),
+        otomoto_p75=(
+            None if w["otomoto_p75"] is None else Money(w["otomoto_p75"], waluta)
+        ),
+        otomoto_adres=w["otomoto_search_url"],
+        otomoto_ogloszenia=tuple(
+            OgloszenieRynkowe(
+                tytul=str(o["tytul"]),
+                cena=Money(Decimal(str(o["cena"])), waluta),
+                rok=o.get("rok"),
+                przebieg_km=o.get("przebieg_km"),
+                url=str(o["url"]),
+            )
+            for o in (w["otomoto_listings"] or [])
+        ),
+        ekspertyzy=tuple(w["appraisal_documents"] or ()),
     )
 
 
@@ -1367,6 +1412,33 @@ class PgWycenaRepository:
                     "model": wycena.model,
                     "prompt_version": wycena.wersja_promptu,
                     "created_at": wycena.utworzono,
+                    "source_kind": wycena.zrodlo,
+                    "otomoto_count": wycena.otomoto_liczba,
+                    "otomoto_p25": (
+                        None
+                        if wycena.otomoto_p25 is None
+                        else wycena.otomoto_p25.amount
+                    ),
+                    "otomoto_p75": (
+                        None
+                        if wycena.otomoto_p75 is None
+                        else wycena.otomoto_p75.amount
+                    ),
+                    "otomoto_search_url": wycena.otomoto_adres,
+                    "otomoto_listings": json.dumps(
+                        [
+                            {
+                                "tytul": o.tytul,
+                                "cena": str(o.cena.amount),
+                                "rok": o.rok,
+                                "przebieg_km": o.przebieg_km,
+                                "url": o.url,
+                            }
+                            for o in wycena.otomoto_ogloszenia
+                        ],
+                        ensure_ascii=False,
+                    ),
+                    "appraisal_documents": list(wycena.ekspertyzy),
                 },
             )
             w = await cur.fetchone()

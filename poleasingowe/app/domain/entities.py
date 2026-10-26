@@ -17,6 +17,7 @@ from app.domain.enums import (
     AuthState,
     BidCountSemantics,
     FinalPriceState,
+    InformacjaVat,
     PhotoArchiveStatus,
     PhotoArchiveTarget,
     PollTier,
@@ -169,6 +170,8 @@ class Auction:
     content_hash: str | None = None
     raw_json: dict[str, Any] | None = None
     duplicate_of: int | None = None
+    vat_info: InformacjaVat | None = None
+    """Relacja kwot do VAT-u. `None` — źródło podaje netto albo nie wiemy."""
     id: int | None = None
 
     def __post_init__(self) -> None:
@@ -302,6 +305,17 @@ class SavedFilter:
 
 
 @dataclass(slots=True, frozen=True)
+class OgloszenieRynkowe:
+    """Jedno porównywalne ogłoszenie z Otomoto (cena OFERTOWA, nie transakcyjna)."""
+
+    tytul: str
+    cena: Money
+    rok: int | None
+    przebieg_km: int | None
+    url: str
+
+
+@dataclass(slots=True, frozen=True)
 class WycenaAukcji:
     """Wycena z modelu językowego — **opinia**, nie zmierzony fakt.
 
@@ -327,7 +341,18 @@ class WycenaAukcji:
     wersja_promptu: int
     utworzono: dt.datetime
     cena_portale: Money | None = None
-    """Poziom cen ofertowych na portalach — szacunek modelu, nie odczyt."""
+    """Poziom cen ofertowych na portalach. Przy `zrodlo == "OTOMOTO"` to
+    mediana zmierzonych ogłoszeń; inaczej szacunek modelu z jego wiedzy."""
+    zrodlo: str = "LOKALNA"
+    """`LOKALNA` — porównania z naszej bazy; `OTOMOTO` — także ogłoszenia
+    pobrane przez Apify i treść ekspertyzy (przycisk na karcie, 0.31.0)."""
+    otomoto_liczba: int | None = None
+    otomoto_p25: Money | None = None
+    otomoto_p75: Money | None = None
+    otomoto_adres: str | None = None
+    otomoto_ogloszenia: tuple[OgloszenieRynkowe, ...] = ()
+    ekspertyzy: tuple[str, ...] = ()
+    """Nazwy dokumentów (jak w serwisie), których treść dostał model."""
 
     def __post_init__(self) -> None:
         _wymagaj_utc("utworzono", self.utworzono)

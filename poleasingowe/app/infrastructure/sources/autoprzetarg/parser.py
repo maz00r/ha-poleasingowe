@@ -25,10 +25,11 @@ a nie zerowe — zero znaczyłoby „nikt nie licytował".
 from __future__ import annotations
 
 import re
+from urllib.parse import urljoin
 
 from selectolax.parser import HTMLParser, Node
 
-from app.application.ports import SurowaOferta
+from app.application.ports import Dokument, SurowaOferta
 from app.domain.errors import ParseFailed
 
 BAZOWY_URL = "https://autoprzetarg.pl"
@@ -243,3 +244,24 @@ def zdjecia(html: str) -> list[str]:
     """Adresy zdjęć pojazdu. Względne, więc rozwijamy je do bezwzględnych."""
     znalezione = dict.fromkeys(_ZDJECIA.findall(html))
     return [f"{BAZOWY_URL}{u}" if u.startswith("/") else u for u in znalezione]
+
+
+def dokumenty(html: str) -> list[Dokument]:
+    """Sekcja „DOKUMENTY:" — pliki z `/uploads/attachements/<id>/`.
+
+    W tej samej sekcji stoi link do ogólnej instrukcji serwisu; to nie jest
+    plik aukcji, więc bierzemy wyłącznie załączniki.
+    """
+    drzewo = HTMLParser(html)
+    wynik: list[Dokument] = []
+    for link in drzewo.css("a.section-auction-column-left-info-download[href]"):
+        href = link.attributes.get("href") or ""
+        if "/uploads/attachements/" not in href:
+            continue
+        wynik.append(
+            Dokument(
+                nazwa=_tekst(link) or href.rsplit("/", 1)[-1],
+                url=urljoin(BAZOWY_URL, href),
+            )
+        )
+    return wynik

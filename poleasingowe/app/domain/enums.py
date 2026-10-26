@@ -154,3 +154,21 @@ class RodzajPojazdu(StrEnum):
     a filtr domyślny nie ma prawa ukrywać pojazdów tylko dlatego, że nie
     umieliśmy ich nazwać.
     """
+
+
+class InformacjaVat(StrEnum):
+    """Jak kwoty aukcji mają się do VAT-u (CHANGELOG 0.31.0).
+
+    Model porównuje ceny między źródłami w PLN netto. Gdy serwis publikuje
+    brutto, adapter przelicza je przy zapisie — a karta mówi o tym wprost,
+    bo „ta sama" liczba znaczy co innego dla faktury VAT i dla umowy
+    kupna-sprzedaży.
+    """
+
+    PRZELICZONO_Z_BRUTTO = "PRZELICZONO_Z_BRUTTO"
+    """Serwis podał brutto, faktura VAT — zapisane ÷1,23."""
+    BEZ_VAT = "BEZ_VAT"
+    """Umowa kupna-sprzedaży: VAT nie występuje, kwota bez zmian."""
+    BRUTTO = "BRUTTO"
+    """Kwota brutto jak w serwisie, nieprzeliczona — forma sprzedaży nieznana
+    (wiersze dawro zebrane przed 0.31)."""

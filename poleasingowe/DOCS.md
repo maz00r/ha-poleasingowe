@@ -76,24 +76,20 @@ sources:
 `mleasing` obejmuje publiczne licytacje samochodów osobowych i dostawczych.
 Ogłoszenia i samodzielne oferty „kup teraz” nie są zapisywane jako licytacje.
 
-`dawro` (dawro.pl) ma dwa ograniczenia wynikające z tego, co serwis w ogóle
+`dawro` (dawro.pl) — co warto wiedzieć, bo wynika z tego, co serwis w ogóle
 udostępnia, nie z braku w adapterze:
 
 - **Paliwo, skrzynia i typ nadwozia zostają puste.** Serwis nie podaje ich
   w żadnym polu — adapter nie zgaduje ich z nazwy modelu. Rodzaj pojazdu
   pochodzi z deklarowanej kategorii aukcji; osobowe i terenowe są widoczne
   w filtrze osobowych, a dostawcze w filtrze dostawczych.
-- **Bieżąca najwyższa oferta odświeża się tylko przy przemiacie listy**
-  (co 6 godzin), nie przy każdym odpycie obserwowanej aukcji: strona
-  szczegółów nigdy nie renderuje jej serwerowo (dociąga ją AJAX-em, którego
-  adapter nie wywołuje — kontrakt tego endpointu nie był zmierzony,
-  RECON.md §4.5). W praktyce między przemiatami karta obserwowanej aukcji
-  pokazuje cenę wywoławczą pod właściwą etykietą. Cena wywoławcza, termin
-  i VIN odświeżają się normalnie przy każdym odpycie, a zakończenie aukcji
-  jest wykrywane od razu.
-- **Cena podana jest bez ustalonej podstawy VAT** (serwis nigdy nie pisze
-  „netto"/„brutto") — adapter zapisuje kwotę tak, jak podał ją serwis, bez
-  przeliczania.
+- **Kwoty są brutto i add-on je przelicza** — ale tylko przy „Forma
+  sprzedaży: faktura VAT" (÷1,23). Przy „umowa k/s" VAT nie występuje, więc
+  kwota zostaje bez zmian. Karta aukcji pokazuje, którą regułę zastosowano;
+  aukcje zebrane przed 0.31 mają oznaczenie „kwoty brutto, forma nieznana".
+- **Bieżąca najwyższa oferta** jest pobierana przy każdym odczycie
+  szczegółów, a lista dawro jest przemiatana co 30 minut — dzięki temu
+  powstaje historia cen także dla aukcji nieobserwowanych.
 
 Ustawiasz tylko trzy rzeczy: czy źródło działa, ile żądań na minutę i jaki
 jest **floor**, czyli najmniejszy odstęp między odpytami w końcówce aukcji.
@@ -190,6 +186,34 @@ wysłać dane do OpenAI.
 
 Starsza opcja `openai_api_key` nadal działa jako `ai_api_key` — aktualizacja
 dodatku nie wyłącza wyceny osobom, które miały ją już ustawioną.
+
+### Dokumenty i ekspertyzy
+
+Karta aukcji ma sekcję **Dokumenty**: pliki, które serwis dołącza do aukcji
+— najczęściej ekspertyzę rzeczoznawcy (dawro, mLeasing, Leasygroup,
+poleasingowe.pl, autoprzetarg). Plik pobiera add-on, nie przeglądarka, w tym
+samym limicie zapytań co reszta odczytów. Serwisy usuwają dokumenty razem
+z aukcją (dawro kilka godzin po końcu), więc przycisk **Zapisz w archiwum**
+zachowuje kopię w `/data/archiwum-dokumentow` — zarchiwizowany plik zostaje
+dostępny na karcie także później. Archiwum przestaje zapisywać, gdy na dysku
+zostaje mniej niż 1 GiB.
+
+### Wycena z Otomoto
+
+Opcja `apify_token` (token API z console.apify.com) dodaje przycisk
+**Wycena z Otomoto**. Add-on uruchamia wtedy aktora Apify
+`automation-lab/otomoto-scraper` z wyszukiwaniem Otomoto dla tej samej marki
+i modelu (rocznik ±1, przebieg ±40%, to samo paliwo i skrzynia; gdy wyników
+jest mało — szerzej, frazą), odrzuca ogłoszenia innych modeli (Otomoto po
+cichu pokazuje całą markę, gdy nie zna modelu), liczy medianę i kwartyle,
+a model AI dostaje te ogłoszenia razem z treścią ekspertyzy aukcji.
+Ekspertyzę add-on wybiera po treści, nie po nazwie pliku, i przed wysłaniem
+zasłania w niej VIN, numer rejestracyjny, nazwiska, telefony i adresy e-mail.
+
+Każde kliknięcie to płatny przebieg aktora (ok. 0,05 USD) i dłuższe zapytanie
+do modelu — dlatego tylko z przycisku. Ceny z Otomoto są ofertowe, zwykle
+wyższe od uzyskiwanych na aukcjach; karta pokazuje liczbę ogłoszeń, przedział
+cen, link do wyszukiwania i najbardziej podobne ogłoszenia.
 
 Wycena liczy się **raz na aukcję i zostaje zapisana w bazie**; karta pokazuje
 datę i model, którym ją policzono. Zmienia ją tylko przycisk „Przelicz" —

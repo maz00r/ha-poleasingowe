@@ -13,11 +13,12 @@ from urllib.parse import unquote, urlsplit
 
 import httpx
 
-from app.application.ports import StronaPrzemiatu, SurowaOferta
-from app.domain.entities import Auction
+from app.application.ports import Dokument, StronaPrzemiatu, SurowaOferta
+from app.domain.entities import Auction, OfertaUczestnika
 from app.domain.errors import ParseFailed, SourceUnavailable
 from app.infrastructure.sources.adresy import strona_aukcji
 from app.infrastructure.sources.mleasing import mapper, parser
+from app.infrastructure.sources.pliki import pobierz_pdf
 
 KLUCZ = "mleasing"
 NA_STRONE = 15
@@ -291,18 +292,36 @@ class MleasingSource:
         lokalizacje = await self._get(
             "/api/offer-read/get-locations", params={"id": external_id}
         )
-        biezacy = hashlib.sha256(szczegoly + b"\0" + lokalizacje).hexdigest()
+        # Pełna lista ofert — bez niej historia ceny mLeasing powstawała
+        # wyłącznie z różnic między przemiatami listy (co 6 h).
+        oferty = await self._get(
+            "/api/offer-read/get-bids-with-hidden-logins",
+            params={"offerId": external_id},
+        )
+        biezacy = hashlib.sha256(
+            szczegoly + b"\0" + lokalizacje + b"\0" + oferty
+        ).hexdigest()
         if znany_hash is not None and znany_hash == biezacy:
             return None
+        surowa = parser.sparsuj_szczegoly(
+            szczegoly,
+            lokalizacje,
+            external_id=external_id,
+            url=pelny_url,
+        )
+        lista = parser.sparsuj_oferty(oferty)
         return replace(
-            parser.sparsuj_szczegoly(
-                szczegoly,
-                lokalizacje,
-                external_id=external_id,
-                url=pelny_url,
-            ),
+            surowa,
+            pola={**surowa.pola, "liczba_ofert": str(len(lista))},
+            oferty=lista,
             content_hash=biezacy,
         )
+
+    def na_oferty(
+        self, surowa: SurowaOferta, auction_id: int, teraz: dt.datetime
+    ) -> tuple[OfertaUczestnika, ...]:
+        """SPEC.md §11.8 — pełna lista ofert z API portalu."""
+        return mapper.na_oferty(surowa, auction_id, teraz)
 
     async def zdjecia(self, external_id: str, url: str | None = None) -> Sequence[str]:
         if not external_id.isdigit():
@@ -318,6 +337,22 @@ class MleasingSource:
             await self._get(
                 "/api/offer-read/get-images", params={"offerId": external_id}
             )
+        )
+
+    async def dokumenty(
+        self, external_id: str, url: str | None = None
+    ) -> Sequence[Dokument]:
+        if not external_id.isdigit():
+            raise ParseFailed("mLeasing: identyfikator aukcji nie jest liczbą")
+        return parser.zalaczniki(
+            await self._get(
+                "/api/offer-read/get-attachments", params={"offerId": external_id}
+            )
+        )
+
+    async def pobierz_dokument(self, dokument: Dokument) -> bytes:
+        return await pobierz_pdf(
+            self._klient, dokument.url, hosty=parser.HOSTY_PLIKOW, zrodlo=KLUCZ
         )
 
     def na_aukcje(
