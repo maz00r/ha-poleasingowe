@@ -332,3 +332,74 @@ jobs:
           cache-to: type=gha,mode=max
           provenance: true
           sbom: true
+
+  # Automatyczny deploy na Proxmoxa (deploy/proxmox/README.md §6) — tylko
+  # z tagu wydania, po opublikowaniu obrazu. SSH idzie przez Cloudflare
+  # Tunnel z tokenem usługi Access; klucz po stronie LXC ma wymuszoną
+  # komendę `deploy-wersji.sh`, więc CI może wyłącznie wdrożyć wersję.
+  # Bez skonfigurowanych sekretów job się pomija, zamiast padać.
+  deploy-proxmox:
+    name: deploy Proxmox
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [publikacja-obrazu]
+    runs-on: ubuntu-latest
+    environment: proxmox
+    concurrency:
+      group: deploy-proxmox
+      cancel-in-progress: false
+    env:
+      CLOUDFLARED_VERSION: "2026.10.0"
+      CLOUDFLARED_SHA256: d33ff2d14475178d2012c2c56beba87389ac5ded27649519f198a7d3134a99db
+      DEPLOY_SSH_HOST: ${{ vars.DEPLOY_SSH_HOST }}
+      DEPLOY_SSH_USER: ${{ vars.DEPLOY_SSH_USER }}
+      DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+      DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+      CF_ACCESS_CLIENT_ID: ${{ secrets.CF_ACCESS_CLIENT_ID }}
+      CF_ACCESS_CLIENT_SECRET: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
+    steps:
+      - name: Konfiguracja obecna?
+        id: konfiguracja
+        run: |
+          for zmienna in DEPLOY_SSH_HOST DEPLOY_SSH_USER DEPLOY_SSH_KEY \
+            DEPLOY_KNOWN_HOSTS CF_ACCESS_CLIENT_ID CF_ACCESS_CLIENT_SECRET; do
+            if [ -z "$(printenv "$zmienna")" ]; then
+              echo "::notice::Brak $zmienna — automatyczny deploy pominięty."
+              echo "gotowe=false" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+          done
+          echo "gotowe=true" >> "$GITHUB_OUTPUT"
+
+      - name: cloudflared
+        if: steps.konfiguracja.outputs.gotowe == 'true'
+        run: |
+          curl --fail --silent --show-error --location \
+            --output /tmp/cloudflared \
+            "https://github.com/cloudflare/cloudflared/releases/download/${CLOUDFLARED_VERSION}/cloudflared-linux-amd64"
+          echo "${CLOUDFLARED_SHA256}  /tmp/cloudflared" | sha256sum --check
+          sudo install -m 755 /tmp/cloudflared /usr/local/bin/cloudflared
+
+      - name: Klucz i znane hosty
+        if: steps.konfiguracja.outputs.gotowe == 'true'
+        run: |
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy
+          chmod 600 ~/.ssh/deploy
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          cat > ~/.ssh/config <<KONFIG
+          Host deploy
+            HostName ${DEPLOY_SSH_HOST}
+            User ${DEPLOY_SSH_USER}
+            IdentityFile ~/.ssh/deploy
+            IdentitiesOnly yes
+            StrictHostKeyChecking yes
+            ProxyCommand cloudflared access ssh --hostname %h --service-token-id ${CF_ACCESS_CLIENT_ID} --service-token-secret ${CF_ACCESS_CLIENT_SECRET}
+          KONFIG
+
+      - name: Deploy wersji
+        if: steps.konfiguracja.outputs.gotowe == 'true'
+        run: ssh deploy "${GITHUB_REF_NAME#v}"
+
+      - name: Sprzątanie klucza
+        if: always()
+        run: rm -f ~/.ssh/deploy ~/.ssh/config

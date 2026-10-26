@@ -13,3 +13,4 @@ fixtures/**/.pomiar-*-wykonany
 .pytest_cache/
 deploy/proxmox/local/
 deploy/proxmox/secrets/
+.deploy.lock

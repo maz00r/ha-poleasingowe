@@ -114,7 +114,8 @@ Dockera potrafią omijać prostą konfigurację UFW wewnątrz gościa.
   retencję siedmiu kopii.
 - Backup VM/PBS musi objąć katalogi `postgres`, `data` i `share`.
 - Co najmniej raz po wdrożeniu odtwórz pakiet na środowisku testowym.
-- Aktualizacja jest ręczna i zawsze używa konkretnego tagu:
+- Aktualizacja idzie automatycznie z CI (§6). Ręcznie — zawsze z konkretnym
+  tagiem:
 
   ```bash
   # Zmień POLEASINGOWE_VERSION w .env, potem:
@@ -130,3 +131,65 @@ Dockera potrafią omijać prostą konfigurację UFW wewnątrz gościa.
   tokenu do pobierania publicznego obrazu.
 - Po wdrożeniu zmierz RSS/CPU aplikacji i pamięć całej VM. Limity aplikacji
   pozostają takie jak dla HA: 170 MB w spoczynku i 250 MB w szczycie.
+
+## 6. Automatyczny deploy z GitHub Actions
+
+Po wypchnięciu tagu `vX.Y.Z` CI publikuje obraz, a job `deploy-proxmox`
+łączy się po SSH przez Cloudflare Tunnel z LXC i uruchamia
+`scripts/deploy-wersji.sh X.Y.Z`. Skrypt podmienia `POLEASINGOWE_VERSION`
+w `.env`, pobiera obraz, odtwarza kontener aplikacji i czeka, aż `/zdrowie`
+zgłosi dostępną bazę. Gdy się nie doczeka, wraca do poprzedniej wersji, a job
+w CI kończy się błędem. Bez skonfigurowanych sekretów job się pomija.
+
+Klucz CI ma w `authorized_keys` **wymuszoną komendę**: nie da się nim
+otworzyć powłoki, przekierować portu ani uruchomić niczego poza deployem
+wersji w formacie `X.Y.Z`.
+
+### W LXC (jednorazowo)
+
+```bash
+apt install -y openssh-server curl util-linux
+git -C /opt/poleasingowe pull --ff-only   # skrypt deploy-wersji.sh
+SSH_ORIGINAL_COMMAND=0.32.6 /opt/poleasingowe/deploy/proxmox/scripts/deploy-wersji.sh
+```
+
+Na swoim komputerze utwórz osobny klucz tylko dla CI:
+
+```bash
+ssh-keygen -t ed25519 -N "" -C github-deploy -f ~/.ssh/poleasingowe-deploy
+```
+
+W LXC dopisz do `/root/.ssh/authorized_keys` (jedna linia; klucz z pliku
+`.pub`):
+
+```text
+command="/opt/poleasingowe/deploy/proxmox/scripts/deploy-wersji.sh",restrict ssh-ed25519 AAAA... github-deploy
+```
+
+### Cloudflare Zero Trust
+
+1. Tunnel → Public hostname: `ssh-poleasingowe.mazurowski.xyz`, usługa
+   `ssh://ADRES_LXC:22`.
+2. Access → Service Auth → utwórz token usługi (Client ID i Client Secret).
+3. Access → Applications → Self-hosted dla tego hostname'u, polityka
+   z akcją **Service Auth** obejmująca tylko ten token.
+
+Linia `known_hosts` dla CI (w LXC):
+
+```bash
+awk '{print "ssh-poleasingowe.mazurowski.xyz", $1, $2}' \
+  /etc/ssh/ssh_host_ed25519_key.pub
+```
+
+### GitHub
+
+Settings → Environments → `proxmox` (można dodać wymóg zatwierdzenia).
+
+- Variables: `DEPLOY_SSH_HOST` = `ssh-poleasingowe.mazurowski.xyz`,
+  `DEPLOY_SSH_USER` = `root`.
+- Secrets: `DEPLOY_SSH_KEY` (zawartość `~/.ssh/poleasingowe-deploy`),
+  `DEPLOY_KNOWN_HOSTS` (linia z `awk` wyżej), `CF_ACCESS_CLIENT_ID`,
+  `CF_ACCESS_CLIENT_SECRET`.
+
+Job działa tylko na tagach z tego repozytorium — pull requesty (także
+z forków) nie dostają sekretów środowiska i nie uruchamiają deployu.

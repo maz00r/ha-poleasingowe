@@ -1,5 +1,14 @@
 # Historia zmian
 
+## 0.32.7 — w przygotowaniu
+
+**Automatyczny deploy na Proxmoxa.** Po wypchnięciu tagu wydania CI
+publikuje obraz i wdraża go po SSH przez Cloudflare Tunnel
+(`deploy/proxmox/scripts/deploy-wersji.sh`): podmiana wersji, start,
+sprawdzenie `/zdrowie`, a przy porażce powrót do poprzedniej wersji. Klucz CI
+ma wymuszoną komendę — wyłącznie deploy wersji. Konfiguracja jednorazowa
+w `deploy/proxmox/README.md` §6; bez niej job się pomija.
+
 ## 0.32.6 — w przygotowaniu
 
 **Każde historyczne wystawienie = niesprzedane.** Wycena AI (robiona na
