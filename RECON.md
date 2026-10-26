@@ -1675,7 +1675,8 @@ dla pozostałych serwisów, decyzja o Disallow bez zmian.
     `other` — pomijane.
 - Paliwo: `petrol, diesel, hybrid, plugin-hybrid, electric, petrol-lpg,
   petrol-cng, hidrogen`; skrzynia: `automatic, manual`.
-- Reguła netto (add-on, 0.32.2): `INCLUDE_VAT` → ÷1,23; `INVOICE_ISSUED`
-  albo „marża" w opisie → bez zmian; „FV 23%"/„faktura VAT"/„+VAT"
-  w tytule lub opisie → ÷1,23; reszta → bez zmian. Odrzucane: `country_origin` USA/Kanada,
+- Reguła netto (add-on, 0.32.3): każda kwota ÷1,23. Status faktury tylko
+  dla modelu AI: `INCLUDE_VAT` → VAT 23%; `INVOICE_ISSUED` albo „marża"
+  w opisie → VAT-marża; „FV 23%"/„faktura VAT"/„+VAT" w tytule lub opisie
+  → VAT 23% (wg opisu); reszta → brak informacji. Odrzucane: `country_origin` USA/Kanada,
   cesje leasingu, inne modele, rocznik spoza ±1, skrajne kwoty (Tukey).

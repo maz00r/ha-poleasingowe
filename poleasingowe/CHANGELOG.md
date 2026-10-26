@@ -1,5 +1,13 @@
 # Historia zmian
 
+## 0.32.3 — w przygotowaniu
+
+**Wycena z Otomoto — każda cena ÷1,23.** Przeliczanie tylko części ogłoszeń
+(wg odznak i opisu, 0.32.2) dawało niejednorodne porównania. Teraz każda
+kwota z Otomoto idzie ÷1,23, a status faktury (VAT 23%, VAT-marża, brak
+informacji) model AI dostaje przy każdym ogłoszeniu i uwzględnia w ocenie.
+Instrukcja modelu AI w wersji 8.
+
 ## 0.32.2 — w przygotowaniu
 
 **Wycena z Otomoto — poprawka netto.** Kwota w wynikach Otomoto jest zawsze

@@ -34,7 +34,7 @@ from app.infrastructure.otomoto import Ogloszenie, PojazdDoPorownania, WynikOtom
 
 log = logging.getLogger(__name__)
 
-WERSJA_PROMPTU = 7
+WERSJA_PROMPTU = 8
 """Podbij, gdy zmienisz `INSTRUKCJE` albo `SCHEMAT`.
 
 Zapisana wycena niesie wersję, którą policzono — dzięki temu widać, że
@@ -46,7 +46,9 @@ powstała starym poleceniem, i można ją świadomie przeliczyć.
    z USA i skrajnych ofert.
 5: Otomoto bez filtra przebiegu, jawna korekta za przebieg przez model.
 6: własny odczyt Otomoto — netto wg odznak przy każdym ogłoszeniu; osobna
-   instrukcja bazowa dla wyceny z danymi rynkowymi (bez sprzecznych zdań)."""
+   instrukcja bazowa dla wyceny z danymi rynkowymi (bez sprzecznych zdań).
+7: netto wg odznak i opisu (kwota Otomoto zawsze brutto).
+8: wszystkie kwoty Otomoto ÷1,23; status faktury osobno przy ogłoszeniu."""
 
 MAKS_OGLOSZEN_NA_KARCIE = 15
 
@@ -87,11 +89,14 @@ INSTRUKCJE_OTOMOTO = (
     "- `ogloszenia_otomoto`: porównywalne ogłoszenia z Otomoto pobrane dziś "
     "(ten sam model wg taksonomii Otomoto, rocznik ±1, bez uszkodzonych, bez "
     "aut z USA, bez cesji leasingu i skrajnych kwot). Cena każdego ogłoszenia "
-    "jest już NETTO, a pole `podstawa` mówi, skąd: `z VAT ÷1,23` — VAT do "
-    "odliczenia wg Otomoto, przeliczona; `FV 23% wg opisu ÷1,23` — faktura "
-    "VAT 23% wynika z opisu, przeliczona; `VAT-marża` — faktura marża, VAT "
-    "nie do odliczenia, kwota bez zmian; `bez VAT` — sprzedaż bez faktury "
-    "(zwykle prywatna), kwota bez zmian. To ceny "
+    "jest już NETTO: KAŻDĄ kwotę z ogłoszenia podzielono przez 1,23, "
+    "niezależnie od faktury. Pole `faktura` mówi, jak sprzedaje sprzedawca: "
+    "`faktura VAT 23%` (odznaka Otomoto), `faktura VAT 23% (wg opisu)`, "
+    "`VAT-marża` albo `brak informacji` (zwykle prywatny, bez faktury). "
+    "Uwzględnij to w ocenie ceny: przy VAT-marży i bez faktury kupujący "
+    "firmowy nie odliczy VAT, więc takie oferty po ÷1,23 wyglądają taniej, "
+    "niż kosztują firmę — nie przeliczaj kwot drugi raz, tylko to oceń "
+    "i opisz w uzasadnieniu. To ceny "
     "OFERTOWE — zwykle wyższe od uzyskiwanych na aukcji poleasingowej; "
     "napisz, jak dużą różnicę przyjmujesz. Porównania NIE są filtrowane po "
     "przebiegu — KAŻDE ogłoszenie skoryguj o różnicę przebiegu (oraz "
@@ -228,7 +233,7 @@ class WycenaAI:
                         "rok": o.rok,
                         "przebieg_km": o.przebieg_km,
                         "wersja": o.wersja,
-                        "podstawa": o.podstawa,
+                        "faktura": o.faktura,
                     }
                     for o in self._najblizsze(dane, otomoto.ogloszenia, 25)
                 ],
