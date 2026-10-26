@@ -172,8 +172,19 @@ chmod 600 /root/.ssh/authorized_keys
 
 ### Cloudflare Zero Trust
 
-1. Tunnel → Public hostname: `ssh-poleasingowe.mazurowski.xyz`, usługa
-   `ssh://ADRES_LXC:22`.
+1. Trasa `ssh-poleasingowe.mazurowski.xyz` → `ssh://ADRES_LXC:22`.
+   Tunel zarządzany z panelu: Tunnel → Public hostname. Tunel zarządzany
+   lokalnie (panel mówi „locally managed”): w `config.yml` cloudflared dopisz
+   w `ingress:` — **przed** końcowym `- service: http_status:404`:
+
+   ```yaml
+     - hostname: ssh-poleasingowe.mazurowski.xyz
+       service: ssh://ADRES_LXC:22
+   ```
+
+   potem `cloudflared tunnel ingress validate`,
+   `cloudflared tunnel route dns NAZWA_TUNELU ssh-poleasingowe.mazurowski.xyz`
+   i `systemctl restart cloudflared`.
 2. Access → Service Auth → utwórz token usługi (Client ID i Client Secret).
 3. Access → Applications → Self-hosted dla tego hostname'u, polityka
    z akcją **Service Auth** obejmująca tylko ten token.
