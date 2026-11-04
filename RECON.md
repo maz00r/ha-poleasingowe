@@ -1142,6 +1142,11 @@ licznika, właścicieli, rodzaj badania, kradzieże i szkody. W kolejnej próbce
 w wypadku", 1 „taksówka" i 1 „Odczyt wymienionego licznika". Podsumowanie na końcu
 raportu o nich nie wspomina.
 
+**Koniec listy na innych źródłach (ten sam dzień).** EFL za ostatnią stroną
+pokazuje „Brak aukcji spełniających zadane kryteria". poleasingowe.pl pokazuje
+filtry i pasek `div.listing-top`, ale ani kafelka, ani komunikatu. Stary parser
+brał obie strony za błąd, więc te przemiaty nie kończyły się jako pełne.
+
 **Otomoto, dostawcze (ten sam dzień).** `/dostawcze` ma filtr marek (306), ale nie
 ma filtra modelu, a parametr `model` ogłoszenia to wolny tekst. Adres
 `/dostawcze/ford/transit` zwraca wszystkie Fordy. Działa fraza

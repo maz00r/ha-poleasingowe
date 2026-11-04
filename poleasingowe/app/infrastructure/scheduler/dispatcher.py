@@ -388,6 +388,10 @@ class Dispatcher:
                     status = SweepStatus.PARTIAL
                 await self._obsluz_zalegle(po_id)
             bezpiecznik.zglos_sukces()
+            if not liczba_pozycji:
+                # Pusta lista jest poprawną stroną, ale nie dowodem: dwa takie
+                # przemiaty oznaczyłyby jako zniknione wszystkie aukcje źródła.
+                status = SweepStatus.PARTIAL
         except (DomainError, OSError) as exc:
             bledy.append(f"przemiat: {type(exc).__name__}: {exc}")
             status = SweepStatus.PARTIAL if liczba_stron else SweepStatus.FAILED

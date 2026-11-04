@@ -18,7 +18,12 @@ from app.application.ports import FabrykaKontekstu
 from app.domain.enums import RodzajPojazdu
 from app.infrastructure.dokumenty import Dokumenty
 from app.infrastructure.ekspertyza import OcenionyDokument, tekst_pdf, wybierz
-from app.infrastructure.otomoto import BladOtomoto, Otomoto, PojazdDoPorownania
+from app.infrastructure.otomoto import (
+    BladOtomoto,
+    Otomoto,
+    PojazdDoPorownania,
+    marka_bazowa,
+)
 from app.infrastructure.wycena_ai import WycenaAI
 from app.infrastructure.zadania_wyceny import Postep
 
@@ -43,7 +48,7 @@ async def wycen_z_otomoto(
         raise BladOtomoto("bez marki i modelu nie da się szukać na Otomoto")
     rynek = await otomoto.porownaj(
         PojazdDoPorownania(
-            marka=p.make,
+            marka=marka_bazowa(p.make),
             model=p.model,
             rok=p.year,
             przebieg_km=p.mileage_km,

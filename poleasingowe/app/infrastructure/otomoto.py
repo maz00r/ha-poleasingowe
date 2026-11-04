@@ -389,6 +389,11 @@ def dopasuj_model(
     return None
 
 
+def marka_bazowa(marka: str) -> str:
+    """`Fiat/Mrauto` → `Fiat`. Po ukośniku serwisy dopisują firmę zabudowy."""
+    return marka.partition("/")[0].strip()
+
+
 def model_dostawczego(pojazd: PojazdDoPorownania) -> str:
     """Fraza wyszukiwania: `Transit` z wersją `Custom L2` → `transit-custom`."""
     model = slug(pojazd.model)

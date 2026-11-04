@@ -88,6 +88,12 @@ def test_strona_waf_nie_jest_pusta_lista() -> None:
         parser.sparsuj_liste("<html><body>Just a moment…</body></html>")
 
 
+def test_strona_za_ostatnia_jest_pusta_lista_a_nie_bledem() -> None:
+    """Ma pasek sortowania, ale nie ma kafelków ani żadnego komunikatu."""
+    strona = '<html><body><div class="row listing-top tsearchform"></div></body></html>'
+    assert parser.sparsuj_liste(strona) == []
+
+
 # --------------------------------------------------------------------------
 # Szczegóły — blok Alpine
 # --------------------------------------------------------------------------

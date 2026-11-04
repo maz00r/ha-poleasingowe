@@ -1,5 +1,21 @@
 # Historia zmian
 
+## 0.35.3 — w przygotowaniu
+
+**Pełne przemiaty EFL i poleasingowe.** Strona za ostatnią stroną listy wyglądała
+dla parsera jak błąd, więc przemiat kończył się jako częściowy, także przy
+kompletnej liście. Teraz kończy się poprawnie i aukcje, których nie ma w dwóch
+kolejnych przemiatach, trafiają do zniknionych. Przemiat bez ani jednej pozycji
+nie liczy się jako pełny.
+
+**Rzadziej ponawiana wycena przez zepsuty JSON.** Model dostaje zakaz prostego
+cudzysłowu w tekstach, a odpowiedź z takim cudzysłowem aplikacja naprawia sama,
+bez drugiego płatnego żądania. Jeśli naprawa nie wystarczy, fragment odpowiedzi
+trafia do logu. Instrukcja modelu AI w wersji 17.
+
+**Marka z zabudową.** `Fiat/Mrauto` czy `Iveco/Digicross` wycenia się na Otomoto
+jako Fiat i Iveco.
+
 ## 0.35.2 — w przygotowaniu
 
 **Wycena AI czyta rządowy raport Historia pojazdu.** Autoprzetarg dołącza go do

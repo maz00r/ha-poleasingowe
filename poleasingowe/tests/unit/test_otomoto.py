@@ -188,6 +188,14 @@ def test_adres_dostawczego_bez_rocznika() -> None:
     assert adres.startswith("https://www.otomoto.pl/dostawcze/fiat/q-ducato?")
 
 
+@pytest.mark.parametrize(
+    ("marka", "bazowa"),
+    [("Fiat/Mrauto", "Fiat"), ("Iveco/Digicross", "Iveco"), ("Ford", "Ford")],
+)
+def test_marka_bez_firmy_zabudowy(marka: str, bazowa: str) -> None:
+    assert otomoto.marka_bazowa(marka) == bazowa
+
+
 def test_marki_z_filtra_kategorii() -> None:
     assert otomoto.marki(_strona([MARKI])) == {"ford", "fiat"}
 

@@ -117,6 +117,12 @@ def test_strona_bez_kontenera_listy_nie_udaje_pustej_paginacji() -> None:
         parser.sparsuj_liste("<html><body>sprawdź przeglądarkę</body></html>")
 
 
+def test_strona_za_ostatnia_jest_pusta_lista_a_nie_bledem() -> None:
+    """Zmierzone 2026-11-04: inaczej żaden przemiat nie kończył się jako pełny."""
+    strona = "<html><body>Brak aukcji spełniających zadane kryteria</body></html>"
+    assert parser.sparsuj_liste(strona) == []
+
+
 async def test_zapetlona_paginacja_przerywa_przemiat() -> None:
     def obsluz(_: httpx.Request) -> httpx.Response:
         return httpx.Response(200, content=wczytaj("lista-01.html").encode())

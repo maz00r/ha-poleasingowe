@@ -7,6 +7,7 @@ import json
 import pathlib
 from dataclasses import replace
 from decimal import Decimal
+from typing import Any
 
 import httpx
 import pytest
@@ -919,3 +920,51 @@ def test_instrukcja_opisuje_oba_raporty_historii() -> None:
     assert "wymienionego licznika" in INSTRUKCJE_OTOMOTO
     # Dokumenty idą bez redakcji od 0.35.0, więc model nie może tak myśleć.
     assert "zasłonięte" not in INSTRUKCJE_OTOMOTO
+
+
+@pytest.mark.parametrize(
+    ("zepsuty", "oczekiwane"),
+    [
+        (
+            '{"a": "wg "raportu" auto", "b": ["c"], "d": 1}',
+            {"a": 'wg "raportu" auto', "b": ["c"], "d": 1},
+        ),
+        (
+            '{"u": ["Historia: badanie "taksówka", bez szkód", "Wniosek: x"]}',
+            {"u": ['Historia: badanie "taksówka", bez szkód', "Wniosek: x"]},
+        ),
+        (
+            '{"a": "bez \\"zmian\\" i "z" nimi", "b": null}',
+            {"a": 'bez "zmian" i "z" nimi', "b": None},
+        ),
+    ],
+)
+def test_cudzyslow_w_tekscie_nie_psuje_odpowiedzi(
+    zepsuty: str, oczekiwane: dict[str, Any]
+) -> None:
+    from app.infrastructure.wycena_ai import _wczytaj_json
+
+    assert _wczytaj_json(zepsuty) == oczekiwane
+
+
+def test_poprawny_json_nie_jest_zmieniany() -> None:
+    from app.infrastructure.wycena_ai import _napraw_cudzyslowy
+
+    tekst = '{"a": "x, y", "b": ["c", "d"], "e": {"f": -1, "g": true}}'
+    assert _napraw_cudzyslowy(tekst) == tekst
+
+
+def test_nienaprawialny_json_trafia_do_logu_i_jest_bledem(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    from app.infrastructure.wycena_ai import _wczytaj_json
+
+    with pytest.raises(json.JSONDecodeError):
+        _wczytaj_json('{"a": "ucięta odpowi')
+    assert "ucięta odpowi" in caplog.text
+
+
+def test_instrukcja_zakazuje_prostego_cudzyslowu() -> None:
+    from app.infrastructure.wycena_ai import FORMAT_UZASADNIENIA
+
+    assert 'prostego cudzysłowu (")' in FORMAT_UZASADNIENIA

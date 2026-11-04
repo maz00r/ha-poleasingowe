@@ -1223,6 +1223,34 @@ async def test_czesciowy_przemiat_nie_jest_dowodem_znikniecia(
     assert (await wczytaj(pusta_baza, auction_id)).status is AuctionStatus.ACTIVE
 
 
+async def test_pusty_przemiat_nie_jest_dowodem_znikniecia(
+    pusta_baza: psycopg.AsyncConnection,
+) -> None:
+    """Pusta lista to poprawna strona, ale dwa takie przemiaty wyczyściłyby źródło."""
+    adapter = ZrodloAtrapa()
+    auction_id, _ = await przygotuj(pusta_baza, adapter, do_konca_min=600)
+    adapter.strony_listy = []
+
+    async with pusta_baza.cursor() as cur:
+        await cur.execute(
+            "UPDATE app.auction SET last_seen_at = now() - interval '12 hours' "
+            "WHERE id = %s",
+            (auction_id,),
+        )
+        await cur.execute(
+            "UPDATE app.source SET last_sweep_at = now() - interval '9 hours', "
+            "last_sweep_attempt_at = now() - interval '9 hours', "
+            "last_sweep_status = 'COMPLETE'"
+        )
+
+    await dispatcher(pusta_baza, adapter).jeden_obrot()
+
+    assert (await wczytaj(pusta_baza, auction_id)).status is AuctionStatus.ACTIVE
+    async with pusta_baza.cursor() as cur:
+        await cur.execute("SELECT last_sweep_status FROM app.source")
+        assert await cur.fetchone() == (SweepStatus.PARTIAL.value,)
+
+
 async def test_jawnie_niepelna_strona_nie_jest_dowodem_znikniecia(
     pusta_baza: psycopg.AsyncConnection,
 ) -> None:

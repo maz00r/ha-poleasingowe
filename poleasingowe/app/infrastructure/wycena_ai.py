@@ -18,6 +18,7 @@ from __future__ import annotations
 import datetime as dt
 import json
 import logging
+import re
 from collections.abc import Sequence
 from dataclasses import asdict, replace
 from decimal import Decimal
@@ -40,7 +41,7 @@ from app.infrastructure.otomoto import Ogloszenie, PojazdDoPorownania, WynikOtom
 
 log = logging.getLogger(__name__)
 
-WERSJA_PROMPTU = 16
+WERSJA_PROMPTU = 17
 """Podbij, gdy zmienisz `INSTRUKCJE` albo `SCHEMAT`.
 
 Zapisana wycena niesie wersję, którą policzono — dzięki temu widać, że
@@ -62,7 +63,8 @@ powstała starym poleceniem, i można ją świadomie przeliczyć.
 13: silnik wg rynku wtórnego — renoma, awaryjność, koszty, popyt.
 14: nowa cena auta wystawionego ponownie (`aktualne_wystawienie`).
 15: raport autoDNA (`raport_historii`) i VIN w danych pojazdu.
-16: rządowy raport Historia pojazdu obok autoDNA."""
+16: rządowy raport Historia pojazdu obok autoDNA.
+17: zakaz prostego cudzysłowu w tekstach (psuł JSON)."""
 
 MAKS_OGLOSZEN_NA_KARCIE = 15
 
@@ -180,7 +182,8 @@ FORMAT_UZASADNIENIA = (
     "np. „Rynek: …”, „Silnik: …”, „Przebieg: …”, „Stan techniczny: …”, "
     "„Wcześniejsze "
     "wystawienia: …”, „Wniosek: …”. Jedno-dwa zdania na punkt, z konkretnymi "
-    "kwotami, bez myślników i innego formatowania."
+    "kwotami, bez myślników i innego formatowania. W tekstach nie używaj "
+    'prostego cudzysłowu ("), bo psuje JSON. Cytaty oznaczaj znakami „ ”.'
 )
 
 # Dopisek, gdy to samo auto stało już na aukcji i wróciło — czyli się nie
@@ -278,6 +281,58 @@ def _liczba_lub_none(wartosc: object) -> int | None:
     except (TypeError, ValueError):
         return None
     return liczba if liczba > 0 else None
+
+
+# Cudzysłów naprawdę zamyka napis tylko przed `:`, `}`, `]`, końcem tekstu albo
+# przecinkiem z kolejną wartością JSON. Każdy inny stoi w środku zdania.
+_KONIEC_NAPISU = re.compile(r'\s*(?:[:}\]]|$|,\s*(?:["{\[\-\d]|true\b|false\b|null\b))')
+
+
+def _napraw_cudzyslowy(tekst: str) -> str:
+    """Escapuje cudzysłowy, które model zostawił w środku napisów JSON.
+
+    DeepSeek ma tylko tryb `json_object`, bez wymuszonego schematu, i cytując
+    dokument potrafi wstawić `"` do uzasadnienia. Poprawka jest zachowawcza:
+    gdy nie wystarczy, parser i tak odrzuci wynik, a wycena powtórzy żądanie.
+    """
+    wynik: list[str] = []
+    w_napisie = False
+    i = 0
+    while i < len(tekst):
+        znak = tekst[i]
+        if w_napisie and znak == "\\":
+            wynik.append(tekst[i : i + 2])
+            i += 2
+            continue
+        if znak == '"':
+            if not w_napisie:
+                w_napisie = True
+            elif _KONIEC_NAPISU.match(tekst, i + 1):
+                w_napisie = False
+            else:
+                wynik.append("\\")
+        wynik.append(znak)
+        i += 1
+    return "".join(wynik)
+
+
+def _wczytaj_json(tekst: str) -> Any:
+    """JSON modelu, w razie potrzeby po naprawie cudzysłowów.
+
+    Fragment wokół błędu trafia do logu, bo bez niego nie widać, co dokładnie
+    zepsuło odpowiedź, a kolejne żądanie kosztuje tyle samo co pierwsze.
+    """
+    try:
+        return json.loads(tekst)
+    except json.JSONDecodeError as exc:
+        try:
+            dane = json.loads(_napraw_cudzyslowy(tekst))
+        except json.JSONDecodeError:
+            fragment = tekst[max(0, exc.pos - 80) : exc.pos + 80]
+            log.warning("niepoprawny JSON modelu przy: %r", fragment)
+            raise exc from None
+        log.info("naprawiono cudzysłowy w JSON-ie modelu")
+        return dane
 
 
 class BladWyceny(RuntimeError):
@@ -577,7 +632,7 @@ class WycenaAI:
         w JSON Schema. Niespójny przedział jest gorszy niż brak wyceny —
         wygląda wiarygodnie.
         """
-        dane = json.loads(tekst)
+        dane = _wczytaj_json(tekst)
         minimum = int(dane["minimum"])
         wartosc = int(dane["wartosc"])
         maksimum = int(dane["maksimum"])

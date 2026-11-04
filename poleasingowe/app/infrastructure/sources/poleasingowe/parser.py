@@ -64,6 +64,9 @@ _TRWA = re.compile(r"auction_pending:\s*(true|false)")
 _KONIEC = re.compile(r"\bendDate:\s*moment\('([^']+)'\)")
 
 _KAFELEK = "div.auction-element"
+# Pasek sortowania nad kafelkami. Strona za ostatnią ma go, ale nie ma kafelków
+# ani żadnego komunikatu, a strona WAF-u czy błędu w ogóle go nie ma.
+_PASEK_LISTY = "div.listing-top"
 
 # Blok `auction: { ... }` z inicjalizacji Alpine — od nazwy pola po ostatnie
 # pole obiektu. To jedyna część strony, która opisuje AUKCJĘ; reszta zmienia
@@ -110,7 +113,7 @@ def sparsuj_liste(html: str) -> list[SurowaOferta]:
     Dokładny `endDate` przychodzi dopiero ze strony szczegółów.
     """
     drzewo = HTMLParser(html)
-    if not drzewo.css(_KAFELEK) and not any(
+    if not drzewo.css(f"{_KAFELEK}, {_PASEK_LISTY}") and not any(
         tekst in drzewo.text().lower()
         for tekst in ("brak ofert", "nie znaleziono", "brak wyników")
     ):
