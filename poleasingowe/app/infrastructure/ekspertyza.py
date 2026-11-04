@@ -11,12 +11,18 @@ Najmocniejszy sygnał to VIN tej aukcji w tekście — wtedy wiemy, że raport
 dotyczy tego auta. Inny VIN to dyskwalifikacja: ekspertyza cudzego pojazdu
 jest gorsza niż żadna, bo wygląda jak dowód.
 
-**Raport autoDNA to osobny rodzaj dokumentu** (0.35.0). Mówi o historii auta,
-nie o jego stanie, więc nie konkuruje z ekspertyzą o miejsce ani o limit
+**Raporty historii to osobny rodzaj dokumentu** (0.35.0). Mówią o przeszłości
+auta, nie o jego stanie, więc nie konkurują z ekspertyzą o miejsce ani o limit
 tekstu: wcześniej ekspertyza zjadała cały limit i raport nie docierał do
-modelu. Przebiegi i szkody leżą w nim daleko od początku, stąd duży limit.
-Zmierzone 2026-11-04 na trzech raportach z poleasingowe.pl: 9-18 tys. znaków,
-VIN na każdej stronie, nazwa pliku `raport-autodna-<vin>-<skrót>.pdf`.
+modelu. Przebiegi i szkody leżą w nich daleko od początku, stąd duży limit.
+Zmierzone 2026-11-04:
+
+- autoDNA, trzy raporty z poleasingowe.pl: 9-18 tys. znaków, VIN na każdej
+  stronie, nazwa pliku `raport-autodna-<vin>-<skrót>.pdf`;
+- rządowa usługa Historia pojazdu, 29 raportów z autoprzetargu (0.35.2):
+  2,6-8,5 tys. znaków, zawsze z VIN-em aukcji, a nazwa pliku bywa różna.
+
+Oba źródła się uzupełniają, więc aukcja z dwoma raportami przekazuje oba.
 """
 
 from __future__ import annotations
@@ -56,7 +62,10 @@ MAKS_STRON = 40
 MAKS_ZNAKOW = 12_000
 MAKS_ZNAKOW_HISTORII = 30_000
 
-_TYTUL_HISTORII = re.compile(r"(?i)raport\s+historii\s+pojazdu\s+autodna")
+_TYTUL_HISTORII = re.compile(
+    r"(?i)raport\s+historii\s+pojazdu\s+autodna"
+    r"|raport\s+z\s+usługi\s+historia\s+pojazdu"
+)
 _VIN_PRZY_ETYKIECIE = re.compile(
     r"\bVIN\b[\s:.]{0,8}((?:[A-HJ-NPR-Z0-9][ \t]?){17})(?![A-Z0-9])"
 )
@@ -112,21 +121,23 @@ def ocen_dokument(nazwa: str, tekst: str, vin: str | None) -> OcenionyDokument:
 
 
 def _jest_raportem_historii(nazwa: str, tekst: str) -> bool:
-    """Po nazwie albo tytule: samo słowo „autoDNA" bywa i w ekspertyzie."""
+    """Po nazwie albo tytule: samo słowo „autoDNA" bywa i w ekspertyzie,
+    a raport rządowy wymienia je w przypisie o danych zagranicznych."""
     return "autodna" in nazwa.lower() or _TYTUL_HISTORII.search(tekst) is not None
 
 
 def wybierz(
     pliki: list[tuple[str, str]], vin: str | None
 ) -> tuple[OcenionyDokument, ...]:
-    """Ekspertyza i raport autoDNA tego auta, każde z własnym limitem tekstu.
+    """Ekspertyza i raporty historii tego auta, każde z własnym limitem tekstu.
 
     Ekspertyza to najlepiej oceniony dokument powyżej progu plus drugi o tym
     samym VIN-ie, razem do `MAKS_ZNAKOW` — model ma dostać raport, nie
     trzydzieści stron tabel wyposażenia.
 
-    Raport autoDNA drukuje VIN na każdej stronie, więc przy znanym VIN-ie
-    aukcji musi go zawierać: historia cudzego auta wyglądałaby jak dowód.
+    Raport historii zawsze podaje VIN, więc przy znanym VIN-ie aukcji musi go
+    zawierać: historia cudzego auta wyglądałaby jak dowód. Raporty dzielą jeden
+    limit, a rządowy mieści się w nim obok najdłuższego autoDNA.
     """
     ocenione = sorted(
         (ocen_dokument(nazwa, tekst, vin) for nazwa, tekst in pliki if tekst),
@@ -134,10 +145,16 @@ def wybierz(
         reverse=True,
     )
     wynik = _ekspertyzy([d for d in ocenione if not d.raport_historii])
+    zostalo = MAKS_ZNAKOW_HISTORII
     for dokument in ocenione:
-        if dokument.raport_historii and (dokument.vin_zgodny or not vin):
-            wynik.append(replace(dokument, tekst=dokument.tekst[:MAKS_ZNAKOW_HISTORII]))
-            break
+        if (
+            zostalo > 0
+            and dokument.raport_historii
+            and (dokument.vin_zgodny or not vin)
+        ):
+            tekst = dokument.tekst[:zostalo]
+            zostalo -= len(tekst)
+            wynik.append(replace(dokument, tekst=tekst))
     return tuple(wynik)
 
 

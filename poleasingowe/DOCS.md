@@ -228,12 +228,15 @@ ogłoszeniu status faktury: faktura VAT 23% (odznaka Otomoto albo „FV 23%"
 w opisie), VAT-marża albo brak informacji (zwykle prywatny, bez faktury)
 i uwzględnia go w ocenie ceny. Wycena jest w netto.
 
-Ekspertyzę aukcji add-on wybiera po treści, nie po nazwie pliku. Jeśli aukcja
-ma raport autoDNA (dziś poleasingowe.pl), model dostaje go osobno: odczyty
-drogomierza, szkody, rejestracje i dawne ogłoszenia. Odczyty porównuje
-z przebiegiem z aukcji, a uzasadnienie zyskuje punkt „Historia”. Raport musi
-zawierać VIN aukcji, jeśli go znamy. Ekspertyza i raport idą do dostawcy modelu
-w całości, razem z VIN-em, numerem rejestracyjnym i danymi osób. Po kliknięciu
+Ekspertyzę aukcji add-on wybiera po treści, nie po nazwie pliku. Raporty
+historii model dostaje osobno: autoDNA (dziś poleasingowe.pl) i rządowy raport
+Historia pojazdu (dziś autoprzetarg), a gdy aukcja ma oba, to oba. Są w nich
+odczyty drogomierza, właściciele i zdarzenia, np. szkoda, badanie po wypadku
+albo jako taksówka i kradzież. autoDNA dodaje dawne ogłoszenia. Odczyty model
+porównuje z przebiegiem z aukcji, a uzasadnienie zyskuje punkt „Historia”.
+Raport musi zawierać VIN aukcji, jeśli go znamy. Ekspertyza i raporty idą do
+dostawcy modelu w całości, razem z VIN-em, numerem rejestracyjnym i danymi osób.
+Po kliknięciu
 karta pokazuje pasek postępu z etapami
 (Otomoto, dokumenty, ekspertyza, model AI, zapis); ponowne kliknięcie w trakcie
 pokazuje ten sam pasek. Ceny z Otomoto są ofertowe, zwykle wyższe od

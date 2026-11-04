@@ -1,8 +1,8 @@
 """Wycena pojazdu przez model językowy, z lokalnym cache'em.
 
 Model dostaje dane pojazdu z VIN-em, ceny z naszej bazy, a przy aucie
-wystawionym ponownie także jego nową cenę. Ekspertyza i raport autoDNA idą bez
-zasłaniania (decyzja właściciela repo, 2026-11-04).
+wystawionym ponownie także jego nową cenę. Ekspertyza i raporty historii idą
+bez zasłaniania (decyzja właściciela repo, 2026-11-04).
 Wynik jest pomocą przy analizie, nie opinią rzeczoznawcy.
 
 **Dostawca jest wyborem użytkownika** (`ai_provider`): OpenAI, Anthropic albo
@@ -40,7 +40,7 @@ from app.infrastructure.otomoto import Ogloszenie, PojazdDoPorownania, WynikOtom
 
 log = logging.getLogger(__name__)
 
-WERSJA_PROMPTU = 15
+WERSJA_PROMPTU = 16
 """Podbij, gdy zmienisz `INSTRUKCJE` albo `SCHEMAT`.
 
 Zapisana wycena niesie wersję, którą policzono — dzięki temu widać, że
@@ -61,7 +61,8 @@ powstała starym poleceniem, i można ją świadomie przeliczyć.
 12: uzasadnienie jako tablica punktów (linie w napisie psuły JSON).
 13: silnik wg rynku wtórnego — renoma, awaryjność, koszty, popyt.
 14: nowa cena auta wystawionego ponownie (`aktualne_wystawienie`).
-15: raport autoDNA (`raport_historii`) i VIN w danych pojazdu."""
+15: raport autoDNA (`raport_historii`) i VIN w danych pojazdu.
+16: rządowy raport Historia pojazdu obok autoDNA."""
 
 MAKS_OGLOSZEN_NA_KARCIE = 15
 
@@ -118,22 +119,36 @@ INSTRUKCJE_OTOMOTO = (
     "`cena_portale` wypełnij medianą z tych danych.\n"
     "- `porownania_z_zakonczonych_aukcji`: wyniki aukcji poleasingowych "
     "z naszej bazy — punkt odniesienia dla różnicy oferta/aukcja.\n"
-    "- `ekspertyza`: tekst raportu rzeczoznawcy dla TEGO pojazdu (dane "
-    "osobowe i identyfikatory zasłonięte). Uwzględnij opisany stan "
-    "techniczny, uszkodzenia, braki, koszty napraw i wartość wskazaną przez "
-    "rzeczoznawcę; w uzasadnieniu napisz, co z ekspertyzy wpłynęło na kwotę. "
+    "- `ekspertyza`: tekst raportu rzeczoznawcy dla TEGO pojazdu. Uwzględnij "
+    "opisany stan techniczny, uszkodzenia, braki, koszty napraw i wartość "
+    "wskazaną przez rzeczoznawcę; w uzasadnieniu napisz, co z ekspertyzy "
+    "wpłynęło na kwotę. "
     "Kwoty z ekspertyz bywają brutto albo netto — sprawdź, co mówi raport, "
     "i przelicz na netto.\n"
     # Zmierzone na prawdziwym raporcie: pierwsza liczba kilometrów jest tam
     # szacunkiem autoDNA, a nie odczytem — model brałby ją za przebieg.
-    "- `raport_historii`: raport autoDNA TEGO auta: odczyty drogomierza, "
-    "badania techniczne, szkody, rejestracje i dawne ogłoszenia z cenami. "
+    "- `raport_historii`: raporty historii TEGO auta, z autoDNA albo z "
+    "rządowej usługi Historia pojazdu: odczyty drogomierza, badania "
+    "techniczne, rejestracje i właściciele. "
     "Porównaj odczyty z przebiegiem z aukcji i sprawdź, czy przebieg nie "
-    "maleje (cofnięty licznik). Uwzględnij szkody, kraj pochodzenia i liczbę "
-    "zmian właściciela. Dawne ceny to ceny ofertowe sprzed lat, często brutto: "
+    "maleje (cofnięty licznik). Raport bywa starszy niż aukcja, więc wyższy "
+    "przebieg na aukcji jest normalny, a niższy od ostatniego odczytu już "
+    "nie. Uwzględnij szkody, kraj pochodzenia i liczbę zmian właściciela.\n"
+    "  W autoDNA dawne ceny to ceny ofertowe sprzed lat, często brutto: "
     "nie opieraj na nich wyceny. Przebieg oznaczony jako obliczony średni "
     "to szacunek autoDNA, a nie odczyt. Duplikaty wpisów traktuj jak jeden "
-    "wpis. W uzasadnieniu dodaj punkt „Historia: …” z wpływem na cenę.\n"
+    "wpis.\n"
+    # Zmierzone na 23 raportach z autoprzetargu: te wpisy stoją tylko w osi
+    # czasu, a podsumowanie na końcu raportu o nich milczy.
+    "  W Historii pojazdu przejrzyj całą oś czasu. „Powstanie szkody "
+    "istotnej” to poważna szkoda zgłoszona przez ubezpieczyciela, a badanie "
+    "„po uczestniczeniu w wypadku” potwierdza wypadek. Brak takich wpisów "
+    "nie dowodzi, że auto jest bezwypadkowe. „Odczyt wymienionego licznika” "
+    "znaczy, że wymieniono drogomierz, więc wcześniejsze odczyty nie muszą "
+    "się zgadzać. Rodzaj badania taksówka, nauka jazdy albo wypożyczalnia to "
+    "intensywna eksploatacja, która obniża wartość. Uwzględnij też zgłoszenie "
+    "kradzieży, rejestrację za granicą i brak ważnego badania.\n"
+    "  W uzasadnieniu dodaj punkt „Historia: …” z wpływem na cenę.\n"
     "Jeśli któregoś bloku brak, napisz o tym w założeniach."
 )
 

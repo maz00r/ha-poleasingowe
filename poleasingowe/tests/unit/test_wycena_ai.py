@@ -907,3 +907,15 @@ async def test_sam_raport_autodna_tez_trafia_do_modelu() -> None:
     wejscie = _wejscie_modelu(zadania[0])
     assert "ekspertyza" not in wejscie
     assert wejscie["raport_historii"] == [{"dokument": "r.pdf", "tekst": "wpisy"}]
+
+
+def test_instrukcja_opisuje_oba_raporty_historii() -> None:
+    from app.infrastructure.wycena_ai import INSTRUKCJE_OTOMOTO
+
+    assert "autoDNA" in INSTRUKCJE_OTOMOTO
+    assert "Historia pojazdu" in INSTRUKCJE_OTOMOTO
+    assert "taksówka" in INSTRUKCJE_OTOMOTO
+    assert "szkody istotnej" in INSTRUKCJE_OTOMOTO
+    assert "wymienionego licznika" in INSTRUKCJE_OTOMOTO
+    # Dokumenty idą bez redakcji od 0.35.0, więc model nie może tak myśleć.
+    assert "zasłonięte" not in INSTRUKCJE_OTOMOTO

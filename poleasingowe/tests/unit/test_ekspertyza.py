@@ -1,4 +1,4 @@
-"""Wybór ekspertyzy i raportu autoDNA po treści (0.31.0, 0.35.0).
+"""Wybór ekspertyzy i raportów historii po treści (0.31.0, 0.35.0, 0.35.2).
 
 Teksty odtwarzają układ warstwy tekstowej trzech zmierzonych raportów
 (dawro/Stellantis, Leasygroup, mLeasing/DEKRA) — z wymyślonymi danymi.
@@ -118,6 +118,74 @@ def test_raport_autodna_cudzego_auta_odpada() -> None:
 def test_raport_bez_vin_aukcji_i_tak_trafia_do_modelu() -> None:
     (d,) = ekspertyza.wybierz([("raport-autodna.pdf", _raport_autodna())], None)
     assert d.raport_historii and not d.vin_zgodny
+
+
+def _raport_rzadowy(vin: str = VIN) -> str:
+    """Układ warstwy tekstowej raportu z gov.pl, z wymyślonymi danymi."""
+    return f"""Raport z usługi Historia pojazdu
+Status rejestracji: zarejestrowany
+Numer VIN, nadwozia, podwozia lub ramy {vin}
+Ostatni stan licznika 142 525 km
+Oś czasu
+07.12.2022 Dodatkowe badanie techniczne
+Wynik badania: pozytywny
+Rodzaj badania: taksówka
+Odczytany stan licznika: 53 305 km
+14.02.2025 Zgłoszenie kradzieży pojazdu!
+AutoDNA pozyskuje dane m.in. z Niemiec, Francji, Belgii.
+"""
+
+
+def test_raport_rzadowy_jest_osobno_i_nie_wypiera_ekspertyzy() -> None:
+    karta = RAPORT + "wyposażenie " * 2000
+
+    wybrane = ekspertyza.wybierz(
+        [
+            ("KARTA.INFORMACYJNA.pdf", karta),
+            ("HISTORIA.POJAZDU.pdf", _raport_rzadowy()),
+        ],
+        VIN,
+    )
+
+    assert [d.nazwa for d in wybrane] == [
+        "KARTA.INFORMACYJNA.pdf",
+        "HISTORIA.POJAZDU.pdf",
+    ]
+    assert [d.raport_historii for d in wybrane] == [False, True]
+    assert wybrane[1].tekst == _raport_rzadowy()
+
+
+def test_oba_raporty_historii_ida_razem() -> None:
+    wybrane = ekspertyza.wybierz(
+        [("h.pdf", _raport_rzadowy()), ("raport-autodna.pdf", _raport_autodna())], VIN
+    )
+    assert {d.nazwa for d in wybrane} == {"h.pdf", "raport-autodna.pdf"}
+    assert all(d.raport_historii for d in wybrane)
+
+
+def test_raporty_historii_dziela_jeden_limit() -> None:
+    wybrane = ekspertyza.wybierz(
+        [
+            ("h.pdf", _raport_rzadowy() + "x" * 40_000),
+            ("raport-autodna.pdf", _raport_autodna() + "x" * 40_000),
+        ],
+        VIN,
+    )
+    assert sum(len(d.tekst) for d in wybrane) == ekspertyza.MAKS_ZNAKOW_HISTORII
+
+
+def test_raport_rzadowy_cudzego_auta_odpada() -> None:
+    wybrane = ekspertyza.wybierz(
+        [("HISTORIA.POJAZDU.pdf", _raport_rzadowy("WVWZZZ1KZAW000001"))], VIN
+    )
+    assert wybrane == ()
+
+
+def test_wzmianka_o_usludze_nie_robi_z_ekspertyzy_raportu() -> None:
+    (d,) = ekspertyza.wybierz(
+        [("Opinia.pdf", RAPORT + "Sprawdzono usługę Historia pojazdu.")], VIN
+    )
+    assert not d.raport_historii
 
 
 def test_raport_jest_przycinany_do_wlasnego_limitu() -> None:

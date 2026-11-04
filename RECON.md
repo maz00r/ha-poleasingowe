@@ -1133,6 +1133,15 @@ drugi odczyt tej samej aukcji daje ten sam hash.
 `/aukcja/x,<id>,x` działa. Liczby ofert nadal nie ma bez logowania, za to skrypt
 strony podaje `startPrice`, którego na razie nie czytamy.
 
+**Raport Historia pojazdu.** Większość aut ma plik z gov.pl o nazwie zależnej od
+sprzedającego (`HISTORIA.POJAZDU.*`, `historia_pojazdu.*`, `Raport historia
+pojazdu *`). Na próbce 29 raportów: 2,6-8,5 tys. znaków, zawsze VIN aukcji,
+tekst zaczyna się od „Raport z usługi Historia pojazdu". Oś czasu podaje odczyty
+licznika, właścicieli, rodzaj badania, kradzieże i szkody. W kolejnej próbce
+23 raportów były 2 wpisy „Powstanie szkody istotnej", 3 badania „po uczestniczeniu
+w wypadku", 1 „taksówka" i 1 „Odczyt wymienionego licznika". Podsumowanie na końcu
+raportu o nich nie wspomina.
+
 **Otomoto, dostawcze (ten sam dzień).** `/dostawcze` ma filtr marek (306), ale nie
 ma filtra modelu, a parametr `model` ogłoszenia to wolny tekst. Adres
 `/dostawcze/ford/transit` zwraca wszystkie Fordy. Działa fraza

@@ -1,5 +1,15 @@
 # Historia zmian
 
+## 0.35.2 — w przygotowaniu
+
+**Wycena AI czyta rządowy raport Historia pojazdu.** Autoprzetarg dołącza go do
+większości aut. Wcześniej konkurował z kartą informacyjną o limit tekstu
+ekspertyzy i mógł w ogóle nie dotrzeć do modelu. Teraz idzie osobno, obok
+ekspertyzy i obok autoDNA. Model sprawdza w nim odczyty licznika i zdarzenia:
+szkodę istotną, badanie po wypadku lub jako taksówka, wymianę licznika
+i zgłoszenie kradzieży. Raport z innym VIN-em odpada. Instrukcja modelu AI
+w wersji 16. Zapisane wyceny się nie zmieniają.
+
 ## 0.35.1 — w przygotowaniu
 
 **Autoprzetarg znowu działa.** Serwis zmienił układ stron i parser przestał
