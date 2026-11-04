@@ -10,6 +10,7 @@ from __future__ import annotations
 import datetime as dt
 import re
 from collections.abc import Mapping, Sequence
+from decimal import Decimal
 from urllib.parse import urlencode
 from zoneinfo import ZoneInfo
 
@@ -39,6 +40,11 @@ def kwota(wartosc: Money | None) -> str:
     # to serwisy (RECON.md §4.1), i tak, żeby kwota nie łamała się w pół.
     calosc = f"{wartosc.amount:,.2f}".replace(",", NBSP).replace(".", ",")
     return f"{calosc}{NBSP}{wartosc.currency.value}"
+
+
+def procent(wartosc: Decimal) -> str:
+    """`29,5%` — jedno miejsce po przecinku, jak kwoty: z przecinkiem."""
+    return f"{wartosc:.1f}".replace(".", ",") + "%"
 
 
 def kwota_w_polu(wartosc: Money | None) -> str:
@@ -161,6 +167,7 @@ def zarejestruj(srodowisko: object) -> None:
     filtry["czas_lokalny"] = czas_lokalny
     filtry["kwota"] = kwota
     filtry["kwota_w_polu"] = kwota_w_polu
+    filtry["procent"] = procent
     filtry["parametry_url"] = parametry_url
     filtry["liczba"] = liczba
     filtry["bajty"] = bajty

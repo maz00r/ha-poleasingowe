@@ -20,9 +20,11 @@ import sys
 
 import uvicorn
 
+from app.application.ports import FabrykaKontekstu
 from app.application.use_cases.rejestracja import zarejestruj_zrodla
 from app.infrastructure import dziennik
-from app.infrastructure.ai_klienci import utworz_klienta
+from app.infrastructure.ai_klienci import Szczyt, szczyt_dostawcy, utworz_klienta
+from app.infrastructure.auto_wycena import AutoWycena
 from app.infrastructure.dokumenty import Dokumenty
 from app.infrastructure.kopia import KopiaZapasowa
 from app.infrastructure.migracja import EksporterMigracji
@@ -42,6 +44,8 @@ from app.infrastructure.supervisor.options import (
     wczytaj_opcje,
 )
 from app.infrastructure.wycena_ai import WycenaAI
+from app.infrastructure.wycena_otomoto import wycen_z_otomoto
+from app.infrastructure.zadania_wyceny import Postep, ZadaniaWyceny
 from app.infrastructure.zdjecia import GaleriaZdjec
 from app.interfaces.app import StanAplikacji, utworz_aplikacje
 
@@ -118,6 +122,31 @@ def _wycena(opcje: Opcje) -> WycenaAI | None:
         return None
     log.info("wycena AI: dostawca %s, model %s", opcje.ai_provider, klient.model)
     return WycenaAI(klient)
+
+
+def _auto_wycena(
+    opcje: Opcje,
+    fabryka: FabrykaKontekstu,
+    zadania: ZadaniaWyceny,
+    usluga: WycenaAI | None,
+    otomoto: Otomoto,
+    dokumenty: Dokumenty,
+    szczyt: Szczyt | None = None,
+) -> AutoWycena | None:
+    """Pracownik wyceny w tle albo `None`, gdy nie ma czym albo nie wolno."""
+    if usluga is None or not opcje.wycena_auto:
+        return None
+
+    async def praca(auction_id: int, postep: Postep) -> None:
+        await wycen_z_otomoto(fabryka, usluga, otomoto, dokumenty, auction_id, postep)
+
+    return AutoWycena(
+        fabryka,
+        zadania,
+        praca,
+        limit_dzienny=opcje.wycena_auto_limit_dzienny,
+        szczyt=szczyt,
+    )
 
 
 def main() -> int:
@@ -205,7 +234,10 @@ def main() -> int:
         dokumenty.ustaw_bramke(petla.bramka_sieci)
         # Od tej chwili karta aukcji moze poprosic o wczesniejszy obrot.
         budzik.podepnij(petla)
-        await asyncio.gather(petla.uruchom(), galeria.uruchom_archiwum())
+        prace = [petla.uruchom(), galeria.uruchom_archiwum()]
+        if auto_wycena is not None:
+            prace.append(auto_wycena.uruchom())
+        await asyncio.gather(*prace)
 
     # Galeria dzieli adaptery z dispatcherem — jeden `AsyncClient` per
     # zrodlo, tworzony raz (SPEC.md §11.3).
@@ -213,13 +245,19 @@ def main() -> int:
     budzik = BudzikOdroczony()
     galeria = GaleriaZdjec(adaptery_ui, fabryka=fabryka)  # type: ignore[arg-type]
     dokumenty = Dokumenty(adaptery_ui)
-    # Wycena z Otomoto wyłącznie z przycisku; od 0.32 bez Apify.
+    # Wycena z Otomoto z przycisku na karcie i z automatu; od 0.32 bez Apify.
     otomoto = Otomoto()
     # Kopia zapasowa WYLACZNIE wlasnej bazy (SPEC.md §7.1) — snapshot HA
     # obejmuje tez TeslaMate, wiec nie da sie z niego odtworzyc samej naszej.
     kopia = KopiaZapasowa(opcje.dsn)
     eksporter_migracji = EksporterMigracji(kopia)
     wycena_ai = _wycena(opcje)
+    # Jedno na proces: karta aukcji i automat mają widzieć te same zadania.
+    zadania_wyceny = ZadaniaWyceny()
+    szczyt = szczyt_dostawcy(opcje.ai_base_url)
+    auto_wycena = _auto_wycena(
+        opcje, fabryka, zadania_wyceny, wycena_ai, otomoto, dokumenty, szczyt
+    )
 
     aplikacja = utworz_aplikacje(
         opcje,
@@ -234,6 +272,9 @@ def main() -> int:
     aplikacja.state.stan = stan_wstepny
     aplikacja.state.dokumenty = dokumenty
     aplikacja.state.otomoto = otomoto
+    aplikacja.state.zadania_wyceny = zadania_wyceny
+    aplikacja.state.auto_wycena = auto_wycena
+    aplikacja.state.szczyt_dostawcy = szczyt
 
     uvicorn.run(
         aplikacja,

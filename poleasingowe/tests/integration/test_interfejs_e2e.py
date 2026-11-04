@@ -20,6 +20,7 @@ import io
 import pathlib
 from collections.abc import AsyncIterator
 from decimal import Decimal
+from types import SimpleNamespace
 
 import httpx
 import psycopg
@@ -29,15 +30,17 @@ from PIL import Image
 from app.domain.entities import ArchivedPhoto, OfertaUczestnika, PriceSnapshot
 from app.domain.enums import Currency, PhotoArchiveTarget
 from app.domain.value_objects import Money
+from app.infrastructure.auto_wycena import StanAutoWyceny
 from app.infrastructure.persistence.pula import KontekstPg
 from app.infrastructure.persistence.queries import PgZapytania
 from app.infrastructure.persistence.repositories import PgUnitOfWork
 from app.infrastructure.supervisor.options import Opcje
+from app.infrastructure.wycena_ai import BladWyceny
 from app.infrastructure.zdjecia import GaleriaZdjec
 from app.interfaces.app import utworz_aplikacje
 from app.interfaces.web.widoki import CIASTECZKO_WIZYTY
 from tests.conftest import wymaga_postgresa
-from tests.integration.test_zapytania import _dane
+from tests.integration.test_zapytania import _dane, _wycen
 
 pytestmark = wymaga_postgresa
 
@@ -66,6 +69,20 @@ class FabrykaNaPolaczeniu:
 
     def stan_puli(self) -> dict[str, int]:
         return {"pool_size": 1, "pool_available": 1}
+
+
+class _WycenaAtrapa:
+    """Usługa AI bez sieci; liczy żądania, które by poszły do dostawcy."""
+
+    def __init__(self) -> None:
+        self.zadania = 0
+
+    async def zamknij(self) -> None:
+        return None
+
+    async def wycen(self, *argumenty: object, **nazwane: object) -> None:
+        self.zadania += 1
+        raise BladWyceny("dostawca niedostępny w teście")
 
 
 class GaleriaAtrapa:
@@ -587,6 +604,7 @@ async def test_biezaca_zakladka_jest_wyrozniona(
         == "Obserwowane"
     )
     assert aktywna((await klient.get("/diagnostyka")).text) == "Diagnostyka"
+    assert aktywna((await klient.get("/okazje")).text) == "Okazje"
 
 
 async def test_eksport_csv_bierze_te_same_filtry_co_widok(
@@ -772,3 +790,126 @@ async def test_pasek_odswiezania_sam_sie_konczy(
     )
     assert "odswiezanie" not in koniec.text
     assert "Pobieram świeże dane" not in koniec.text
+
+
+async def test_okazje_przelacznik_uklada_ranking(
+    klient: httpx.AsyncClient, pusta_baza: psycopg.AsyncConnection
+) -> None:
+    ids = await _dane(pusta_baza)
+    await _wycen(pusta_baza, ids["audi-za-godzine"], "150000")
+    await _wycen(pusta_baza, ids["vw-za-dwie-godziny"], "72900")
+
+    def pierwsza(html: str) -> int:
+        return html.index("Audi A6") < html.index("Volkswagen Passat")
+
+    domyslnie = await klient.get("/okazje")
+    kwotowo = await klient.get("/okazje", params={"wg": "kwota"})
+    procentowo = await klient.get("/okazje", params={"wg": "procent"})
+    bledny = await klient.get("/okazje", params={"wg": "cokolwiek"})
+
+    assert domyslnie.status_code == 200
+    assert pierwsza(domyslnie.text) and pierwsza(kwotowo.text) and pierwsza(bledny.text)
+    assert not pierwsza(procentowo.text)
+    assert "taniej o 30\u00a0000,00\u00a0PLN" in domyslnie.text
+    assert "33,3%" in procentowo.text
+    assert "20,0%" in procentowo.text
+    assert 'aria-current="page">Procentowo</a>' in procentowo.text
+    assert "Wycenione z Otomoto: 2 z 6 aktywnych aut" in domyslnie.text
+    # Kafelek ma zachować obserwację i przejście na kartę.
+    assert f"aukcja/{ids['audi-za-godzine']}/przelacz" in domyslnie.text
+    assert f"aukcja/{ids['audi-za-godzine']}\"" in domyslnie.text
+
+
+async def test_lista_nie_pokazuje_bloku_okazji(
+    klient: httpx.AsyncClient, pusta_baza: psycopg.AsyncConnection
+) -> None:
+    ids = await _dane(pusta_baza)
+    await _wycen(pusta_baza, ids["audi-za-godzine"], "150000")
+
+    odp = await klient.get("/")
+
+    assert 'class="okazja"' not in odp.text
+
+
+async def test_okazje_mowia_dlaczego_lista_jest_pusta(
+    klient: httpx.AsyncClient, pusta_baza: psycopg.AsyncConnection
+) -> None:
+    await _dane(pusta_baza)
+
+    odp = await klient.get("/okazje")
+
+    assert "Wycena jest wyłączona" in odp.text
+    assert "Nie ma jeszcze aukcji tańszych od wyceny" in odp.text
+
+
+@pytest.mark.parametrize(
+    ("automat", "oczekiwane"),
+    [
+        (None, "Automatyczna wycena jest wyłączona"),
+        (
+            SimpleNamespace(
+                stan=StanAutoWyceny(
+                    pauza_do=dt.datetime(2026, 11, 4, 12, 0, tzinfo=dt.UTC),
+                    powod_pauzy="Otomoto nie odpowiada",
+                ),
+                limit_dzienny=300,
+            ),
+            "wstrzymana do 2026-11-04 13:00: Otomoto nie odpowiada",
+        ),
+        (
+            SimpleNamespace(
+                stan=StanAutoWyceny(limit_wyczerpany=True), limit_dzienny=300
+            ),
+            "Wykorzystano dobowy limit 300 wycen",
+        ),
+        (
+            SimpleNamespace(
+                stan=StanAutoWyceny(
+                    szczyt_do=dt.datetime(2026, 11, 4, 9, 0, tzinfo=dt.UTC)
+                ),
+                limit_dzienny=300,
+            ),
+            "Automat wznowi pracę o 2026-11-04 10:00",
+        ),
+    ],
+)
+async def test_okazje_pokazuja_stan_automatu(
+    pusta_baza: psycopg.AsyncConnection, automat: object, oczekiwane: str
+) -> None:
+    aplikacja = utworz_aplikacje(
+        OPCJE, fabryka=FabrykaNaPolaczeniu(pusta_baza), wycena_ai=_WycenaAtrapa()
+    )
+    aplikacja.state.auto_wycena = automat
+    transport = httpx.ASGITransport(app=aplikacja)
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as http:
+        odp = await http.get("/okazje")
+
+    assert oczekiwane in " ".join(odp.text.split())
+
+
+async def test_wejscie_na_karte_w_szczycie_nie_placi_stawki_szczytowej(
+    pusta_baza: psycopg.AsyncConnection,
+) -> None:
+    ids = await _dane(pusta_baza)
+    wycena = _WycenaAtrapa()
+    aplikacja = utworz_aplikacje(
+        OPCJE, fabryka=FabrykaNaPolaczeniu(pusta_baza), wycena_ai=wycena
+    )
+    aplikacja.state.szczyt_dostawcy = lambda _: dt.datetime(
+        2026, 11, 4, 9, 0, tzinfo=dt.UTC
+    )
+    aplikacja.state.otomoto = object()  # przycisk ma zostać dostępny
+    adres = f"/aukcja/{ids['audi-za-godzine']}/wycena"
+    transport = httpx.ASGITransport(app=aplikacja)
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as http:
+        wejscie = await http.get(adres)
+        assert wycena.zadania == 0
+        assert "Trwają droższe godziny" in wejscie.text
+        assert "Wycena z Otomoto" in wejscie.text
+
+        await http.post(adres)  # „Przelicz" to świadome kliknięcie
+        assert wycena.zadania == 1
+
+        aplikacja.state.szczyt_dostawcy = lambda _: None
+        await http.get(adres)
+        assert wycena.zadania == 2, "poza szczytem karta wycenia jak dotąd"

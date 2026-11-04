@@ -9,7 +9,12 @@ import httpx
 import pytest
 
 from app.infrastructure import otomoto
-from app.infrastructure.otomoto import BladOtomoto, Otomoto, PojazdDoPorownania
+from app.infrastructure.otomoto import (
+    BladDostepuOtomoto,
+    BladOtomoto,
+    Otomoto,
+    PojazdDoPorownania,
+)
 
 BMW = PojazdDoPorownania(
     "BMW", "750", 2020, 90_000, "Diesel", "Automatyczna", wersja="Li xDrive"
@@ -212,6 +217,39 @@ async def test_bez_dopasowanego_modelu_nie_szuka_po_calej_marce() -> None:
     usluga = Otomoto(klient=httpx.AsyncClient(transport=httpx.MockTransport(obsluz)))
     with pytest.raises(BladOtomoto, match="dopasować modelu"):
         await usluga.porownaj(BMW, wybieracz=ai)
+
+
+def _usluga_odpowiadajaca(kod: int) -> Otomoto:
+    def obsluz(_: httpx.Request) -> httpx.Response:
+        return httpx.Response(kod)
+
+    return Otomoto(klient=httpx.AsyncClient(transport=httpx.MockTransport(obsluz)))
+
+
+@pytest.mark.parametrize("kod", [403, 429, 500, 503])
+async def test_blokada_i_awaria_dotycza_calego_otomoto(kod: int) -> None:
+    with pytest.raises(BladDostepuOtomoto):
+        await _usluga_odpowiadajaca(kod).modele(BMW)
+
+
+async def test_blad_transportu_dotyczy_calego_otomoto() -> None:
+    def obsluz(request: httpx.Request) -> httpx.Response:
+        raise httpx.ConnectError("brak trasy", request=request)
+
+    usluga = Otomoto(klient=httpx.AsyncClient(transport=httpx.MockTransport(obsluz)))
+    with pytest.raises(BladDostepuOtomoto):
+        await usluga.modele(BMW)
+
+
+async def test_404_dotyczy_tylko_tej_aukcji() -> None:
+    with pytest.raises(BladOtomoto) as blad:
+        await _usluga_odpowiadajaca(404).modele(BMW)
+    assert not isinstance(blad.value, BladDostepuOtomoto)
+
+
+def test_strona_w_innym_ksztalcie_dotyczy_calego_otomoto() -> None:
+    with pytest.raises(BladDostepuOtomoto):
+        otomoto.wyniki("<html>strona bez danych</html>")
 
 
 def _o(tytul: str, cena: int) -> otomoto.Ogloszenie:

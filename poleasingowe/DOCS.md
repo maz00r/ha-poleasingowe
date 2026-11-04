@@ -200,10 +200,11 @@ zostaje mniej niż 1 GiB.
 
 ### Wycena z Otomoto
 
-Przycisk **Wycena z Otomoto** (wymaga tylko klucza AI) pobiera podobne
-ogłoszenia prosto ze stron wyników Otomoto — bez Apify i bez dodatkowych
-opłat. Add-on czyta dane, które Otomoto osadza w stronie (JSON
-`__NEXT_DATA__`), nie tekst HTML.
+Wycena z Otomoto (wymaga tylko klucza AI) pobiera podobne ogłoszenia prosto
+ze stron wyników Otomoto — bez Apify i bez dodatkowych opłat. Add-on czyta
+dane, które Otomoto osadza w stronie (JSON `__NEXT_DATA__`), nie tekst HTML.
+Liczy się sama w tle (patrz „Automatyczna wycena i okazje”), a na karcie aukcji
+można ją uruchomić przyciskiem **Wycena z Otomoto**.
 
 **Model.** Nazwa z aukcji często nie pasuje do Otomoto („BMW 750" to na
 Otomoto „Seria 7"). Add-on pobiera listę modeli marki z Otomoto (pamięć
@@ -243,8 +244,9 @@ wyceny. Dopasowanie po VIN-ie jest pewne; bez VIN-u — prawdopodobne i model
 waży je słabiej.
 
 Wycena liczy się **raz na aukcję i zostaje zapisana w bazie**; karta pokazuje
-datę i model, którym ją policzono. Zmienia ją tylko przycisk „Przelicz" —
-samo wejście na kartę nie generuje kolejnego płatnego żądania.
+datę i model, którym ją policzono. Zmieniają ją tylko przyciski na karcie
+i jednorazowo automat, który zastępuje wycenę lokalną wyceną z Otomoto.
+Ponowne wejście na kartę nie generuje kolejnego płatnego żądania.
 
 Po ponownym uruchomieniu szczegóły pojazdu pokażą szacowaną wartość w PLN,
 przedział, pewność i założenia, a obok **orientacyjny poziom cen ofertowych
@@ -256,6 +258,43 @@ Zmiana danych auta, lokalnych porównań albo modelu automatycznie unieważnia
 cache. Do dostawcy nie są wysyłane VIN, identyfikator aukcji ani dane
 sprzedającego. Wycena jest orientacyjna i nie zastępuje oględzin ani opinii
 rzeczoznawcy.
+
+### Automatyczna wycena i okazje
+
+Automat wycenia z Otomoto każdą aktywną aukcję, także tę z wyceną lokalną.
+Pomija duplikaty, aukcje bez marki albo modelu oraz pojazdy inne niż osobowe,
+dostawcze i nierozpoznane. Wyceny idą pojedynczo, z 45-sekundową przerwą:
+najpierw obserwowane, potem najbliższe końca.
+
+| Opcja | Domyślnie | Znaczenie |
+|---|---|---|
+| `wycena_auto` | `true` | Włącza automat. Bez klucza AI nic nie robi. |
+| `wycena_auto_limit_dzienny` | `300` | Sufit prób w ciągu 24 godzin, od 1 do 5000. |
+
+**Koszt.** Każda próba to zwykle jedno lub dwa płatne żądania do dostawcy
+modelu, więc limit jest górną granicą wydatków. Wyceny z przycisku się do niego
+nie liczą.
+
+**Droższe godziny.** Gdy `ai_base_url` wskazuje na `api.deepseek.com`, automat
+czeka w godzinach szczytu DeepSeeka, w których stawki są dwukrotnie wyższe:
+od poniedziałku do piątku 01:00-04:00 i 06:00-10:00 UTC, czyli zimą 02:00-05:00
+i 07:00-11:00, a latem 03:00-06:00 i 08:00-12:00 w Polsce. Nowa wycena nie
+startuje też w ostatnich 5 minutach przed szczytem. Samo otwarcie karty aukcji
+bez wyceny również nie zleca jej w tych godzinach. Przyciski na karcie działają
+nadal, po wyższej stawce. W chińskie święta cennik nie ma szczytu, ale automat
+o nich nie wie i czeka tak samo.
+
+**Gdy się nie uda.** Aukcja wraca do kolejki po 6 godzinach, najwyżej trzy
+razy. Blokada Otomoto albo awaria dostawcy AI wstrzymuje automat na godzinę,
+a powód widać na stronie okazji.
+
+Zakładka **Okazje** pokazuje 100 aktywnych aukcji tańszych od wyceny z Otomoto.
+Przełącznik układa je według różnicy w złotych albo procentowo, czyli
+`(wycena − cena) / wycena`. Cena to aktualna oferta, a bez ofert cena
+wywoławcza; obie kwoty są netto. Gdy to samo auto (po VIN-ie) ma kilka aktywnych
+wystawień, liczy się najnowsze, ze swoją ceną. Różnica nie uwzględnia opłat
+aukcyjnych ani transportu. Cena na początku aukcji zwykle jeszcze rośnie, więc sprawdzaj czas
+do końca widoczny na kafelku.
 
 ## Logi aplikacji
 

@@ -41,6 +41,7 @@ async def test_blad_pracy_trafia_do_stanu_i_postep_nie_cofa_sie() -> None:
     assert stan.zadanie is not None
     await stan.zadanie
     assert stan.gotowe and stan.blad == "nie udało się dopasować modelu"
+    assert isinstance(stan.wyjatek, RuntimeError)
 
     async def druga(postep: Postep) -> None:
         return None

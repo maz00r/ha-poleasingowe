@@ -243,6 +243,26 @@ class BladWyceny(RuntimeError):
     """API nie zwróciło wiarygodnego wyniku w oczekiwanym formacie."""
 
 
+class BladDostawcyAI(BladWyceny):
+    """Dostawca modelu nie obsłużył żądania: sieć, klucz, limit, awaria.
+
+    Dotyczy wszystkich aukcji, a nie tej jednej — automat wstrzymuje się
+    zamiast oznaczać kolejne auta jako nie do wyceny.
+    """
+
+
+def _komunikat_bledu(exc: Exception) -> str:
+    # Powód od dostawcy idzie NA KARTĘ, nie tylko do logu. „Nie udało się"
+    # nie mówi, czy poprawić nazwę modelu, adres czy klucz — a to jedyne
+    # trzy rzeczy, które użytkownik może tu zrobić.
+    powod = exc.powod if isinstance(exc, BladOdpowiedzi) else None
+    return (
+        f"Wycena AI nie powiodła się: {powod}"
+        if powod
+        else "Nie udało się teraz wygenerować wyceny AI."
+    )
+
+
 class WycenaAI:
     """Liczy wycenę. **Nie przechowuje jej** — od tego jest baza.
 
@@ -343,15 +363,12 @@ class WycenaAI:
             return self._z_danymi_rynku(wynik, dane, otomoto, ekspertyzy)
         except (httpx.HTTPError, BladModelu, ValueError, KeyError, TypeError) as exc:
             log.warning("wycena AI nie powiodła się: %s", exc)
-            # Powód od dostawcy idzie NA KARTĘ, nie tylko do logu. „Nie udało
-            # się" nie mówi, czy poprawić nazwę modelu, adres czy klucz —
-            # a to jedyne trzy rzeczy, które użytkownik może tu zrobić.
-            powod = exc.powod if isinstance(exc, BladOdpowiedzi) else None
-            raise BladWyceny(
-                f"Wycena AI nie powiodła się: {powod}"
-                if powod
-                else "Nie udało się teraz wygenerować wyceny AI."
-            ) from exc
+            klasa = (
+                BladDostawcyAI
+                if isinstance(exc, httpx.HTTPError | BladOdpowiedzi)
+                else BladWyceny
+            )
+            raise klasa(_komunikat_bledu(exc)) from exc
 
     async def wybierz_model_otomoto(
         self, pojazd: PojazdDoPorownania, modele: Sequence[tuple[str, str]]
@@ -359,8 +376,10 @@ class WycenaAI:
         """Id modelu z ZAMKNIĘTEJ listy taksonomii Otomoto (np. BMW 750 → seria-7).
 
         Schemat z `enum` nie pozwala zmyślić id; „brak" znaczy „nie wiem".
-        Błąd modelu to `None` — wtedy wycena z Otomoto mówi, że nie
-        dopasowała modelu, zamiast szukać po całej marce.
+        Odpowiedź bez sensu to `None` — wtedy wycena z Otomoto mówi, że nie
+        dopasowała modelu, zamiast szukać po całej marce. Awaria dostawcy
+        to `BladDostawcyAI`: „nie dopasowano" byłoby tu nieprawdą, a automat
+        zużywałby przez nią próby kolejnych aukcji.
         """
         ids = [i for i, _ in modele]
         schemat = {
@@ -384,7 +403,10 @@ class WycenaAI:
                 schemat=schemat,
             )
             wybrany = json.loads(tekst).get("model_id")
-        except (httpx.HTTPError, BladModelu, ValueError, AttributeError) as exc:
+        except (httpx.HTTPError, BladOdpowiedzi) as exc:
+            log.warning("AI nie ustaliło modelu Otomoto: %s", exc)
+            raise BladDostawcyAI(_komunikat_bledu(exc)) from exc
+        except (BladModelu, ValueError, AttributeError) as exc:
             log.warning("AI nie ustaliło modelu Otomoto: %s", exc)
             return None
         log.info("AI: %s %s → model Otomoto %s", pojazd.marka, pojazd.model, wybrany)

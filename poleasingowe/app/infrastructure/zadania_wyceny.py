@@ -27,6 +27,9 @@ class StanZadania:
     udzial: float = 0.0
     gotowe: bool = False
     blad: str | None = None
+    wyjatek: Exception | None = field(default=None, repr=False)
+    """Oryginał `blad`: automat rozpoznaje po nim awarię Otomoto albo dostawcy
+    AI, która dotyczy wszystkich aukcji, a nie tej jednej."""
     zadanie: asyncio.Task[None] | None = field(default=None, repr=False)
 
 
@@ -64,6 +67,7 @@ class ZadaniaWyceny:
             except Exception as exc:
                 log.exception("wycena z Otomoto aukcji %s nie powiodła się", auction_id)
                 stan.blad = str(exc) or type(exc).__name__
+                stan.wyjatek = exc
             finally:
                 stan.udzial = 1.0
                 stan.gotowe = True

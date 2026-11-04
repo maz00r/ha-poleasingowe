@@ -21,7 +21,7 @@ from app.infrastructure.ai_klienci import (
     utworz_klienta,
 )
 from app.infrastructure.otomoto import PojazdDoPorownania
-from app.infrastructure.wycena_ai import BladWyceny, WycenaAI
+from app.infrastructure.wycena_ai import BladDostawcyAI, BladWyceny, WycenaAI
 
 TERAZ = dt.datetime(2026, 9, 9, 12, 0, tzinfo=dt.UTC)
 
@@ -597,6 +597,40 @@ async def test_ai_bez_pewnego_modelu_to_none(tekst: str) -> None:
     modele = [("seria-7", "Seria 7")]
 
     assert await usluga.wybierz_model_otomoto(_bmw(), modele) is None
+
+
+def _usluga_z_kodem(kod: int) -> WycenaAI:
+    def odpowiedz(_: httpx.Request) -> httpx.Response:
+        return httpx.Response(kod, json={"error": {"message": "limit wyczerpany"}})
+
+    return WycenaAI(
+        KlientOpenAI(
+            "k",
+            model="m",
+            base_url="https://api.openai.com/v1",
+            klient=httpx.AsyncClient(transport=httpx.MockTransport(odpowiedz)),
+        )
+    )
+
+
+async def test_awaria_dostawcy_to_nie_brak_modelu_otomoto() -> None:
+    """Inaczej padnięcie dostawcy zużywałoby próby kolejnych aukcji."""
+    with pytest.raises(BladDostawcyAI, match="limit wyczerpany"):
+        await _usluga_z_kodem(429).wybierz_model_otomoto(
+            _bmw(), [("seria-7", "Seria 7")]
+        )
+
+
+async def test_awaria_dostawcy_przy_wycenie_jest_rozpoznawalna() -> None:
+    with pytest.raises(BladDostawcyAI, match="limit wyczerpany"):
+        await _usluga_z_kodem(429).wycen(_dane(), (), teraz=TERAZ)
+
+
+async def test_zla_odpowiedz_modelu_dotyczy_tylko_tej_aukcji() -> None:
+    usluga = _usluga_z_odpowiedzia("{", [])
+    with pytest.raises(BladWyceny) as blad:
+        await usluga.wycen(_dane(), (), teraz=TERAZ)
+    assert not isinstance(blad.value, BladDostawcyAI)
 
 
 async def test_wczesniejsze_niesprzedane_wystawienie_trafia_do_modelu() -> None:

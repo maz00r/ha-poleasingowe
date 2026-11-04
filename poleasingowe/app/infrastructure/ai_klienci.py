@@ -31,8 +31,11 @@ adres musi podać sam.
 
 from __future__ import annotations
 
+import datetime as dt
 import json
+from collections.abc import Callable
 from typing import Any, Literal, Protocol
+from urllib.parse import urlsplit
 
 import httpx
 
@@ -56,6 +59,45 @@ MODELE: dict[Dostawca, str] = {
 WERSJA_ANTHROPIC = "2023-06-01"
 MAKS_TOKENOW = 2048
 """Sufit odpowiedzi. Wycena to kilka zdań i sześć pól — z zapasem."""
+
+
+OKNA_SZCZYTU_DEEPSEEK_UTC = ((1, 4), (6, 10))
+"""Godziny droższych stawek DeepSeeka: pon.-pt., stawki dwukrotnie wyższe
+(api-docs.deepseek.com/quick_start/pricing, sprawdzone 2026-11-04). Cennik
+wyłącza też chińskie święta; ich kalendarza nie trzymamy, więc wtedy czekamy
+niepotrzebnie, ale nigdy nie płacimy więcej."""
+
+ZAPAS_PRZED_SZCZYTEM = dt.timedelta(minutes=5)
+"""Wycena trwa do kilku minut, a żądanie do modelu idzie na jej końcu. Bez
+zapasu wycena rozpoczęta tuż przed szczytem płaciłaby już wyższą stawkę."""
+
+Szczyt = Callable[[dt.datetime], dt.datetime | None]
+"""Chwila → koniec droższych godzin, a `None`, gdy można wysyłać żądania."""
+
+
+def koniec_szczytu_deepseek(teraz: dt.datetime) -> dt.datetime | None:
+    """Kiedy kończy się szczyt, jeśli trwa albo zaraz się zacznie."""
+    utc = teraz.astimezone(dt.UTC)
+    if utc.weekday() >= 5:
+        return None
+    for poczatek_h, koniec_h in OKNA_SZCZYTU_DEEPSEEK_UTC:
+        poczatek = utc.replace(hour=poczatek_h, minute=0, second=0, microsecond=0)
+        koniec = utc.replace(hour=koniec_h, minute=0, second=0, microsecond=0)
+        if poczatek - ZAPAS_PRZED_SZCZYTEM <= utc < koniec:
+            return koniec
+    return None
+
+
+def szczyt_dostawcy(base_url: str) -> Szczyt | None:
+    """Reguła droższych godzin dla tego adresu API, jeśli jakąś znamy.
+
+    Po adresie, nie po nazwie modelu: ten sam DeepSeek przez OpenRouter ma
+    cennik pośrednika.
+    """
+    host = urlsplit(base_url.strip()).hostname or ""
+    if host == "deepseek.com" or host.endswith(".deepseek.com"):
+        return koniec_szczytu_deepseek
+    return None
 
 
 class BladModelu(RuntimeError):

@@ -81,6 +81,9 @@ SKRZYNIE = {"Automatyczna": "automatic", "Manualna": "manual"}
 
 VAT = Decimal("1.23")
 
+KODY_BLOKADY = frozenset({403, 429})
+"""Poza 5xx: Otomoto nas odcięło albo każe zwolnić."""
+
 KRAJE_ODRZUCANE = frozenset({"usa", "us", "ca", "stany zjednoczone", "kanada"})
 
 _USA = re.compile(
@@ -106,6 +109,16 @@ _MARZA = re.compile(r"(?i)\bmar[żz][aąy]\b")
 
 class BladOtomoto(RuntimeError):
     """Otomoto nie oddało strony, z której da się coś policzyć."""
+
+
+class BladDostepuOtomoto(BladOtomoto):
+    """Awaria dotyczy całego Otomoto, nie jednej aukcji.
+
+    Blokada, limit żądań, niedziałający serwis albo strona w innym kształcie.
+    Automat musi to odróżnić od „nie ma takiego modelu": dalsze pytanie tylko
+    utrwala blokadę, a każda kolejna aukcja zostałaby niesłusznie oznaczona
+    jako nie do wyceny.
+    """
 
 
 @dataclass(slots=True, frozen=True)
@@ -196,13 +209,13 @@ def _stany(html: str) -> list[Any]:
     """Zdekodowane wpisy stanu urql strony."""
     trafienie = _NEXT_DATA.search(html)
     if trafienie is None:
-        raise BladOtomoto("strona Otomoto bez __NEXT_DATA__")
+        raise BladDostepuOtomoto("strona Otomoto bez __NEXT_DATA__")
     try:
         dane = json.loads(trafienie.group(1))
         stan = dane["props"]["pageProps"]["urqlState"]
         return [json.loads(wpis["data"]) for wpis in stan.values() if "data" in wpis]
     except (ValueError, KeyError, TypeError) as exc:
-        raise BladOtomoto("nieoczekiwany kształt danych Otomoto") from exc
+        raise BladDostepuOtomoto("nieoczekiwany kształt danych Otomoto") from exc
 
 
 def _przejdz(obiekt: Any) -> Any:
@@ -301,7 +314,7 @@ def wyniki(html: str) -> tuple[list[Rekord], int]:
                 )
             )
         return rekordy, int(wyszukiwanie.get("totalCount") or 0)
-    raise BladOtomoto("strona Otomoto bez wyników wyszukiwania")
+    raise BladDostepuOtomoto("strona Otomoto bez wyników wyszukiwania")
 
 
 def faktura(rekord: Rekord) -> str:
@@ -499,8 +512,13 @@ class Otomoto:
         try:
             odpowiedz = await self._klient.get(adres)
             odpowiedz.raise_for_status()
-        except httpx.HTTPError as exc:
+        except httpx.HTTPStatusError as exc:
+            kod = exc.response.status_code
+            if kod in KODY_BLOKADY or kod >= 500:
+                raise BladDostepuOtomoto(f"Otomoto nie odpowiada: {exc}") from exc
             raise BladOtomoto(f"Otomoto nie odpowiada: {exc}") from exc
+        except httpx.HTTPError as exc:
+            raise BladDostepuOtomoto(f"Otomoto nie odpowiada: {exc}") from exc
         return odpowiedz.text
 
     async def modele(self, pojazd: PojazdDoPorownania) -> tuple[tuple[str, str], ...]:

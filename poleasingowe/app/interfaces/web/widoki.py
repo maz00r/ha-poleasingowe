@@ -16,7 +16,7 @@ import datetime as dt
 import logging
 import pathlib
 import posixpath
-from collections.abc import AsyncIterator, Callable, Mapping
+from collections.abc import AsyncIterator, Mapping
 from dataclasses import dataclass, replace
 from typing import Any
 from urllib.parse import quote, urlencode
@@ -33,33 +33,29 @@ from fastapi.templating import Jinja2Templates
 from app.application.read_models import (
     ETYKIETY_RODZAJU,
     ETYKIETY_SORTOWANIA,
+    LIMIT_OKAZJI,
     LIMIT_STRONY,
     SORTOWANIE_KOLUMN,
     Diagnostyka,
     Kryteria,
     Kursor,
     Sortowanie,
+    SortowanieOkazji,
     Strona,
     Zakres,
 )
 from app.domain.entities import SavedFilter, WatchlistEntry
-from app.domain.enums import AuctionStatus, PollTier, RodzajPojazdu
+from app.domain.enums import AuctionStatus, PollTier
 from app.domain.logowanie import (
     StanLogowania,
     po_recznym_odblokowaniu,
 )
 from app.infrastructure import dziennik
 from app.infrastructure.dokumenty import BrakMiejscaArchiwum, nazwa_pliku
-from app.infrastructure.ekspertyza import (
-    OcenionyDokument,
-    tekst_pdf,
-    wybierz,
-    zredaguj,
-)
-from app.infrastructure.otomoto import BladOtomoto, PojazdDoPorownania
 from app.infrastructure.supervisor.proces import rss_bajty
 from app.infrastructure.wycena_ai import BladWyceny
-from app.infrastructure.zadania_wyceny import StanZadania, ZadaniaWyceny
+from app.infrastructure.wycena_otomoto import wycen_z_otomoto
+from app.infrastructure.zadania_wyceny import Postep, StanZadania, ZadaniaWyceny
 from app.interfaces.web import eksport, filtry_szablonu
 from app.interfaces.web.formularze import (
     PARAMETR_ZE_STATUSU,
@@ -300,6 +296,8 @@ def _rozpoznaj_zakladke(request: Request) -> str | None:
     sciezka = request.url.path.rstrip("/")
     if sciezka.endswith("/diagnostyka"):
         return "diagnostyka"
+    if sciezka.endswith("/okazje"):
+        return "okazje"
     # Szczegóły aukcji nie są widokiem żadnej zakładki listy. Bez tego
     # puste parametry szczegółów wyglądają jak domyślne kryteria „Aktywne”,
     # więc pasek sugeruje miejsce, którego użytkownik już nie przegląda.
@@ -324,21 +322,30 @@ def _rozpoznaj_zakladke(request: Request) -> str | None:
 
 
 def _zakladki(request: Request) -> list[dict[str, Any]]:
+    """Zakładki listy mają parametry, a osobne strony — własną trasę."""
     aktywna = _rozpoznaj_zakladke(request)
-    return [
+
+    def strona(trasa: str, etykieta: str) -> dict[str, Any]:
+        return {
+            "etykieta": etykieta,
+            "trasa": trasa,
+            "parametry": None,
+            "aktywna": aktywna == trasa,
+        }
+
+    zakladki = [
         {
             "etykieta": etykieta,
+            "trasa": None,
             "parametry": list(parametry.items()),
             "aktywna": nazwa == aktywna,
         }
         for nazwa, etykieta, parametry in ZAKLADKI
-    ] + [
-        {
-            "etykieta": "Diagnostyka",
-            "parametry": None,
-            "aktywna": aktywna == "diagnostyka",
-        }
     ]
+    # Okazje tuż za „Aktywnymi": to te same aukcje, ułożone inaczej.
+    zakladki.insert(1, strona("okazje", "Okazje"))
+    zakladki.append(strona("diagnostyka", "Diagnostyka"))
+    return zakladki
 
 
 @dataclass(slots=True, frozen=True)
@@ -490,6 +497,49 @@ async def lista(request: Request) -> Response:
     )
     _zapamietaj_wizyte(odpowiedz, request, teraz)
     return odpowiedz
+
+
+PRZELACZNIK_OKAZJI = (
+    (SortowanieOkazji.KWOTA, "Kwotowo"),
+    (SortowanieOkazji.PROCENT, "Procentowo"),
+)
+
+
+@router.get("/okazje", response_class=HTMLResponse)
+async def okazje(request: Request) -> Response:
+    """Największe okazje: wycena z Otomoto kontra bieżąca cena (0.34.0)."""
+    if _fabryka(request) is None:
+        return _brak_bazy(request)
+
+    try:
+        sortowanie = SortowanieOkazji(request.query_params.get("wg", ""))
+    except ValueError:
+        sortowanie = SortowanieOkazji.KWOTA
+
+    async with _fabryka(request)() as kontekst:
+        lista_okazji = await kontekst.zapytania.okazje(sortowanie, LIMIT_OKAZJI)
+        pokrycie = await kontekst.zapytania.pokrycie_wycen()
+
+    return SZABLONY.TemplateResponse(
+        request=request,
+        name="okazje.html",
+        context={
+            **_kontekst_bazowy(request),
+            "okazje": lista_okazji,
+            "pokrycie": pokrycie,
+            "sortowanie": sortowanie,
+            "przelacznik": [
+                {
+                    "wartosc": wartosc.value,
+                    "etykieta": etykieta,
+                    "aktywny": wartosc is sortowanie,
+                }
+                for wartosc, etykieta in PRZELACZNIK_OKAZJI
+            ],
+            "wycena_ai": getattr(request.app.state, "wycena_ai", None),
+            "auto_wycena": getattr(request.app.state, "auto_wycena", None),
+        },
+    )
 
 
 MAKS_EKSPORTU = 20_000
@@ -987,6 +1037,18 @@ async def _wycena(
                 context=kontekst_szablonu,
             )
 
+        # Samo wejście na kartę nie płaci stawki szczytowej. „Przelicz" tak:
+        # to świadome kliknięcie, z pytaniem o koszt.
+        szczyt = getattr(request.app.state, "szczyt_dostawcy", None)
+        koniec_szczytu = None if szczyt is None else szczyt(dt.datetime.now(dt.UTC))
+        if koniec_szczytu is not None and not przelicz:
+            kontekst_szablonu["szczyt_do"] = koniec_szczytu
+            return SZABLONY.TemplateResponse(
+                request=request,
+                name="fragmenty/wycena.html",
+                context=kontekst_szablonu,
+            )
+
         dane = await kontekst.zapytania.szczegoly(auction_id)
         porownania = await kontekst.zapytania.porownania_rynkowe(auction_id)
         wystawienia = await kontekst.zapytania.powiazane_wystawienia(auction_id)
@@ -1055,58 +1117,8 @@ async def wycena_otomoto(request: Request, auction_id: int) -> Response:
             blad="Wycena z Otomoto wymaga klucza AI.",
         )
 
-    async def praca(postep: Callable[[str, float], None]) -> None:
-        async with fabryka() as kontekst:
-            dane = await kontekst.zapytania.szczegoly(auction_id)
-            porownania = await kontekst.zapytania.porownania_rynkowe(auction_id)
-            wystawienia = await kontekst.zapytania.powiazane_wystawienia(auction_id)
-        if dane is None:
-            raise BladOtomoto("nie ma takiej aukcji")
-        p = dane.pozycja
-        if not p.make or not p.model:
-            raise BladOtomoto("bez marki i modelu nie da się szukać na Otomoto")
-        rynek = await otomoto.porownaj(
-            PojazdDoPorownania(
-                marka=p.make,
-                model=p.model,
-                rok=p.year,
-                przebieg_km=p.mileage_km,
-                paliwo=p.fuel,
-                skrzynia=p.gearbox,
-                dostawczy=p.vehicle_kind is RodzajPojazdu.DOSTAWCZY,
-                wersja=p.variant,
-                tytul=p.nazwa,
-            ),
-            wybieracz=usluga.wybierz_model_otomoto,
-            postep=postep,
-        )
-        wybrane: tuple[OcenionyDokument, ...] = ()
-        if dokumenty is not None:
-            postep("Pobieranie dokumentów aukcji", 0.55)
-            pliki = await dokumenty.pliki_do_analizy(
-                auction_id, p.source_key, p.external_id, p.url
-            )
-            postep("Czytanie ekspertyzy", 0.65)
-            teksty = [
-                (plik.nazwa, await asyncio.to_thread(tekst_pdf, plik.dane))
-                for plik in pliki
-            ]
-            wybrane = tuple(
-                replace(d, tekst=zredaguj(d.tekst, dane.vin))
-                for d in wybierz(teksty, dane.vin)
-            )
-        postep(f"Model AI liczy wycenę ({rynek.liczba} ogłoszeń)", 0.75)
-        nowa = await usluga.wycen(
-            dane,
-            porownania,
-            teraz=dt.datetime.now(dt.UTC),
-            otomoto=rynek,
-            ekspertyzy=wybrane,
-            wystawienia=wystawienia,
-        )
-        postep("Zapisywanie", 0.95)
-        async with fabryka() as kontekst, kontekst.uow as uow:
-            await uow.wycena.zapisz(nowa)
+    async def praca(postep: Postep) -> None:
+        await wycen_z_otomoto(fabryka, usluga, otomoto, dokumenty, auction_id, postep)
 
     stan = _zadania_wyceny(request).uruchom(auction_id, praca)
     return _postep_wyceny(request, auction_id, stan)

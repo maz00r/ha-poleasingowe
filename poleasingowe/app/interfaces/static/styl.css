@@ -1024,6 +1024,36 @@ code {
 }
 
 
+/* Ranking okazji: wycena i różnica nad stopką kafelka. Wyróżniona jest miara,
+   po której ułożono listę — obie mają być widoczne naraz. */
+.okazje-naglowek {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+}
+.okazje-naglowek h1 { margin: 0 0 18px; }
+.okazja {
+  display: grid;
+  gap: 4px;
+  padding-top: 10px;
+  font-size: 13px;
+}
+.okazja-wiersz {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 2px 10px;
+}
+.okazja-roznica { color: var(--sukces); }
+.okazja-wyroznik {
+  font-size: 16px;
+  font-weight: 700;
+}
+
+
 /* Pasek odswiezania na karcie aukcji (SPEC.md §12). Celowo skromny:
    informuje, ze dane sa w drodze, i nie przesuwa reszty karty, bo znika
    sam po kilkunastu sekundach. */

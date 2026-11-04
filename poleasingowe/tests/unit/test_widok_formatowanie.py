@@ -20,6 +20,7 @@ from app.interfaces.web.filtry_szablonu import (
     kwota,
     kwota_w_polu,
     liczba,
+    procent,
     punkty_uzasadnienia,
 )
 
@@ -175,3 +176,15 @@ def test_stare_uzasadnienie_dzielone_na_zdania() -> None:
         (None, "Wniosek ok."),
     ]
     assert punkty_uzasadnienia(None) == []
+
+
+@pytest.mark.parametrize(
+    ("wartosc", "oczekiwane"),
+    [
+        (Decimal("29.54"), "29,5%"),
+        (Decimal("33.3333333333"), "33,3%"),
+        (Decimal("100"), "100,0%"),
+    ],
+)
+def test_procent_z_przecinkiem(wartosc: Decimal, oczekiwane: str) -> None:
+    assert procent(wartosc) == oczekiwane

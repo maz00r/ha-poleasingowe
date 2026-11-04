@@ -36,6 +36,19 @@ def test_domyslne_wartosci_zgodne_z_sekcja_0_spec(tmp_path: pathlib.Path) -> Non
     assert opcje.notify_on_critical is False
 
 
+def test_automatyczna_wycena_domyslnie_z_limitem(tmp_path: pathlib.Path) -> None:
+    opcje = wczytaj_opcje(zapisz(tmp_path, MINIMALNE))
+    assert opcje.wycena_auto is True
+    assert opcje.wycena_auto_limit_dzienny == 300
+
+
+@pytest.mark.parametrize("limit", [0, 5001])
+def test_limit_wycen_ma_granice(tmp_path: pathlib.Path, limit: int) -> None:
+    dane = {**MINIMALNE, "wycena_auto_limit_dzienny": limit}
+    with pytest.raises(BladKonfiguracji):
+        wczytaj_opcje(zapisz(tmp_path, dane))
+
+
 def test_brak_pliku_konczy_sie_czytelnym_komunikatem(tmp_path: pathlib.Path) -> None:
     with pytest.raises(BladKonfiguracji, match="Brak pliku opcji"):
         wczytaj_opcje(tmp_path / "nie-ma.json")

@@ -59,6 +59,7 @@ async def test_powstaly_wszystkie_tabele_i_indeksy(
         tabele = [w[0] for w in await cur.fetchall()]
     assert tabele == [
         "ai_valuation",
+        "ai_valuation_attempt",
         "auction",
         "auction_photo",
         "offer",

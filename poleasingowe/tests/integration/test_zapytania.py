@@ -14,8 +14,13 @@ from decimal import Decimal
 import psycopg
 import pytest
 
-from app.application.read_models import Kryteria, Kursor, Sortowanie
-from app.domain.entities import Auction, PriceSnapshot, WatchlistEntry
+from app.application.read_models import (
+    Kryteria,
+    Kursor,
+    Sortowanie,
+    SortowanieOkazji,
+)
+from app.domain.entities import Auction, PriceSnapshot, WatchlistEntry, WycenaAukcji
 from app.domain.enums import AuctionStatus, Currency, FinalPriceState, RodzajPojazdu
 from app.domain.value_objects import Mileage, Money, Vin
 from app.infrastructure.persistence.queries import PgZapytania
@@ -856,3 +861,305 @@ async def test_archiwum_nie_pokazuje_aukcji_ktora_wciaz_trwa(
 
     archiwum = await zapytania.lista(Kryteria(status=AuctionStatus.ENDED), None, 50)
     assert identyfikatory["audi-za-godzine"] not in {p.id for p in archiwum.pozycje}
+
+
+async def _wycen(
+    baza: psycopg.AsyncConnection, auction_id: int, kwota: str, zrodlo: str = "OTOMOTO"
+) -> None:
+    await PgUnitOfWork(baza).wycena.zapisz(
+        WycenaAukcji(
+            auction_id=auction_id,
+            wartosc=_pln(kwota),
+            minimum=_pln(kwota),
+            maksimum=_pln(kwota),
+            cena_portale=None,
+            pewnosc="średnia",
+            uzasadnienie="- Rynek: test",
+            zalozenia=(),
+            model="model-testowy",
+            wersja_promptu=13,
+            utworzono=TERAZ,
+            zrodlo=zrodlo,
+        )
+    )
+
+
+async def test_ranking_okazji_zalezy_od_miary(
+    pusta_baza: psycopg.AsyncConnection,
+) -> None:
+    ids = await _dane(pusta_baza)
+    # 30 000 zł taniej, ale tylko 20%; drugie: 24 300 zł, ale 33,3%.
+    await _wycen(pusta_baza, ids["audi-za-godzine"], "150000")
+    await _wycen(pusta_baza, ids["vw-za-dwie-godziny"], "72900")
+    zapytania = PgZapytania(pusta_baza)
+
+    kwotowo = await zapytania.okazje(SortowanieOkazji.KWOTA, 10)
+    procentowo = await zapytania.okazje(SortowanieOkazji.PROCENT, 10)
+
+    assert [o.pozycja.id for o in kwotowo] == [
+        ids["audi-za-godzine"],
+        ids["vw-za-dwie-godziny"],
+    ]
+    assert [o.pozycja.id for o in procentowo] == [
+        ids["vw-za-dwie-godziny"],
+        ids["audi-za-godzine"],
+    ]
+    pierwsza = kwotowo[0]
+    assert pierwsza.cena == _pln("120000")
+    assert pierwsza.wycena == _pln("150000")
+    assert pierwsza.roznica_kwota == _pln("30000")
+    assert pierwsza.roznica_procent == Decimal("20")
+    assert pierwsza.pewnosc == "średnia"
+
+
+async def test_okazje_tylko_aktywne_z_otomoto_i_tansze_od_wyceny(
+    pusta_baza: psycopg.AsyncConnection,
+) -> None:
+    ids = await _dane(pusta_baza)
+    await _wycen(pusta_baza, ids["audi-za-godzine"], "150000")
+    await _wycen(pusta_baza, ids["audi-za-tydzien"], "150000", zrodlo="LOKALNA")
+    await _wycen(pusta_baza, ids["vw-za-dwie-godziny"], "48600")  # równo z ceną
+    await _wycen(pusta_baza, ids["bez-terminu-a"], "40000")  # drożej od wyceny
+    await _wycen(pusta_baza, ids["archiwalna"], "150000")
+    await _wycen(pusta_baza, ids["duplikat"], "150000")
+
+    okazje = await PgZapytania(pusta_baza).okazje(SortowanieOkazji.KWOTA, 10)
+
+    assert [o.pozycja.id for o in okazje] == [ids["audi-za-godzine"]]
+
+
+async def test_okazja_bez_ofert_liczy_sie_od_ceny_wywolawczej(
+    pusta_baza: psycopg.AsyncConnection,
+) -> None:
+    uow = PgUnitOfWork(pusta_baza)
+    zrodlowe = await uow.source.zapisz(zrodlo("efl"))
+    assert zrodlowe.id is not None
+    zapisana = await uow.auction.zapisz(
+        Auction(
+            source_id=zrodlowe.id,
+            external_id="bez-ofert",
+            url="https://przyklad.test/bez-ofert",
+            status=AuctionStatus.ACTIVE,
+            first_seen_at=TERAZ,
+            last_seen_at=TERAZ,
+            make="Kia",
+            model="Ceed",
+            vehicle_kind=RodzajPojazdu.DOSTAWCZY,
+            price_start=_pln("30000"),
+            ends_at=dt.datetime.now(dt.UTC) + dt.timedelta(days=1),
+        )
+    )
+    assert zapisana.id is not None
+    await _wycen(pusta_baza, zapisana.id, "40000")
+
+    okazje = await PgZapytania(pusta_baza).okazje(SortowanieOkazji.PROCENT, 10)
+
+    assert [o.cena for o in okazje] == [_pln("30000")]
+    assert okazje[0].roznica_procent == Decimal("25")
+
+
+async def test_limit_okazji(pusta_baza: psycopg.AsyncConnection) -> None:
+    ids = await _dane(pusta_baza)
+    await _wycen(pusta_baza, ids["audi-za-godzine"], "150000")
+    await _wycen(pusta_baza, ids["vw-za-dwie-godziny"], "72900")
+
+    okazje = await PgZapytania(pusta_baza).okazje(SortowanieOkazji.KWOTA, 1)
+
+    assert [o.pozycja.id for o in okazje] == [ids["audi-za-godzine"]]
+
+
+async def test_kolejka_wycen_obserwowane_potem_najblizsze_konca(
+    pusta_baza: psycopg.AsyncConnection,
+) -> None:
+    ids = await _dane(pusta_baza)
+
+    kolejka = await PgZapytania(pusta_baza).kolejka_wycen(4)
+
+    # `vw-za-dwie-godziny` jest obserwowany, więc wyprzedza `audi-za-godzine`.
+    assert kolejka[:2] == (ids["vw-za-dwie-godziny"], ids["audi-za-godzine"])
+    wszystkie = await PgZapytania(pusta_baza).kolejka_wycen(100)
+    assert wszystkie[-2:] == (ids["bez-terminu-a"], ids["bez-terminu-b"])
+    for odpada in ("archiwalna", "zniknieta-obserwowana", "duplikat"):
+        assert ids[odpada] not in wszystkie
+
+
+async def test_kolejka_pomija_niepasujace_rodzaje_i_aukcje_bez_modelu(
+    pusta_baza: psycopg.AsyncConnection,
+) -> None:
+    uow = PgUnitOfWork(pusta_baza)
+    zrodlowe = await uow.source.zapisz(zrodlo("efl"))
+    assert zrodlowe.id is not None
+
+    async def dodaj(external_id: str, **pola: object) -> int:
+        dane: dict[str, object] = {
+            "source_id": zrodlowe.id,
+            "external_id": external_id,
+            "url": f"https://przyklad.test/{external_id}",
+            "status": AuctionStatus.ACTIVE,
+            "first_seen_at": TERAZ,
+            "last_seen_at": TERAZ,
+            "make": "Kia",
+            "model": "Ceed",
+            **pola,
+        }
+        zapisana = await uow.auction.zapisz(Auction(**dane))  # type: ignore[arg-type]
+        assert zapisana.id is not None
+        return zapisana.id
+
+    osobowy = await dodaj("osobowy", vehicle_kind=RodzajPojazdu.OSOBOWY)
+    dostawczy = await dodaj("dostawczy", vehicle_kind=RodzajPojazdu.DOSTAWCZY)
+    nieznany = await dodaj("nieznany", vehicle_kind=RodzajPojazdu.NIEZNANY)
+    await dodaj("ciezarowy", vehicle_kind=RodzajPojazdu.CIEZAROWY)
+    await dodaj("motocykl", vehicle_kind=RodzajPojazdu.MOTOCYKL)
+    await dodaj("bez-modelu", vehicle_kind=RodzajPojazdu.OSOBOWY, model=None)
+    await dodaj("pusty-model", vehicle_kind=RodzajPojazdu.OSOBOWY, model="")
+
+    zapytania = PgZapytania(pusta_baza)
+
+    assert sorted(await zapytania.kolejka_wycen(100)) == [osobowy, dostawczy, nieznany]
+    assert (await zapytania.pokrycie_wycen()).do_wyceny == 3
+
+
+async def test_lokalna_wycena_zostaje_w_kolejce_a_z_otomoto_wypada(
+    pusta_baza: psycopg.AsyncConnection,
+) -> None:
+    ids = await _dane(pusta_baza)
+    await _wycen(pusta_baza, ids["audi-za-godzine"], "150000", zrodlo="LOKALNA")
+    await _wycen(pusta_baza, ids["audi-za-tydzien"], "150000")
+
+    kolejka = await PgZapytania(pusta_baza).kolejka_wycen(100)
+
+    assert ids["audi-za-godzine"] in kolejka
+    assert ids["audi-za-tydzien"] not in kolejka
+
+
+async def test_nieudana_proba_wraca_po_odstepie_i_najwyzej_trzy_razy(
+    pusta_baza: psycopg.AsyncConnection,
+) -> None:
+    ids = await _dane(pusta_baza)
+    aukcja = ids["audi-za-godzine"]
+    zapytania = PgZapytania(pusta_baza)
+    uow = PgUnitOfWork(pusta_baza)
+    teraz = dt.datetime.now(dt.UTC)
+
+    await uow.wycena.zapisz_probe(aukcja, teraz, "nie dopasowano modelu")
+    assert aukcja not in await zapytania.kolejka_wycen(100), "za wcześnie"
+
+    await uow.wycena.zapisz_probe(aukcja, teraz - dt.timedelta(hours=7), "znowu")
+    assert aukcja in await zapytania.kolejka_wycen(100), "minął odstęp"
+    pokrycie = await zapytania.pokrycie_wycen()
+    assert pokrycie.nieudane == 0
+
+    await uow.wycena.zapisz_probe(aukcja, teraz - dt.timedelta(hours=7), "trzeci raz")
+    assert aukcja not in await zapytania.kolejka_wycen(100), "wyczerpane próby"
+    pokrycie = await zapytania.pokrycie_wycen()
+    assert pokrycie.nieudane == 1
+
+    async with pusta_baza.cursor() as cur:
+        await cur.execute(
+            "SELECT attempts, last_error FROM app.ai_valuation_attempt"
+            " WHERE auction_id = %s",
+            (aukcja,),
+        )
+        assert await cur.fetchone() == (3, "trzeci raz")
+
+
+async def test_proby_z_ostatniej_doby(pusta_baza: psycopg.AsyncConnection) -> None:
+    ids = await _dane(pusta_baza)
+    uow = PgUnitOfWork(pusta_baza)
+    teraz = dt.datetime.now(dt.UTC)
+
+    await uow.wycena.zapisz_probe(ids["audi-za-godzine"], teraz, None)
+    await uow.wycena.zapisz_probe(ids["audi-za-tydzien"], teraz, "błąd")
+    await uow.wycena.zapisz_probe(
+        ids["bez-terminu-a"], teraz - dt.timedelta(hours=25), None
+    )
+
+    assert await PgZapytania(pusta_baza).proby_wycen_24h() == 2
+
+
+async def test_pokrycie_wycen(pusta_baza: psycopg.AsyncConnection) -> None:
+    ids = await _dane(pusta_baza)
+    await _wycen(pusta_baza, ids["audi-za-godzine"], "150000")
+    await _wycen(pusta_baza, ids["audi-za-tydzien"], "150000", zrodlo="LOKALNA")
+    await _wycen(pusta_baza, ids["archiwalna"], "150000")
+
+    pokrycie = await PgZapytania(pusta_baza).pokrycie_wycen()
+
+    # Dwa Audi, VW, dwie Skody, BMW — bez archiwum i duplikatu.
+    assert pokrycie.do_wyceny == 6
+    assert pokrycie.wycenione == 1
+    assert pokrycie.nieudane == 0
+    assert pokrycie.w_kolejce == 5
+
+
+async def _dwa_wystawienia(baza: psycopg.AsyncConnection) -> tuple[int, int]:
+    """To samo auto: stare wystawienie wciąż aktywne, nowe tańsze."""
+    uow = PgUnitOfWork(baza)
+    zrodlowe = await uow.source.zapisz(zrodlo("efl"))
+    source_id = zrodlowe.id
+    assert source_id is not None
+    teraz = dt.datetime.now(dt.UTC)
+
+    async def dodaj(external_id: str, cena: str, widziana: dt.datetime) -> int:
+        zapisana = await uow.auction.zapisz(
+            Auction(
+                source_id=source_id,
+                external_id=external_id,
+                url=f"https://przyklad.test/{external_id}",
+                status=AuctionStatus.ACTIVE,
+                first_seen_at=widziana,
+                last_seen_at=teraz,
+                make="BMW",
+                model="X5",
+                vehicle_kind=RodzajPojazdu.OSOBOWY,
+                vin=Vin("WBA7R81020CK75026"),
+                price_current=_pln(cena),
+                ends_at=teraz + dt.timedelta(days=2),
+            )
+        )
+        assert zapisana.id is not None
+        return zapisana.id
+
+    stare = await dodaj("stare", "100000", teraz - dt.timedelta(days=5))
+    nowe = await dodaj("nowe", "80000", teraz - dt.timedelta(hours=1))
+    return stare, nowe
+
+
+async def test_auto_wystawione_ponownie_liczy_sie_po_nowej_cenie(
+    pusta_baza: psycopg.AsyncConnection,
+) -> None:
+    stare, nowe = await _dwa_wystawienia(pusta_baza)
+    await _wycen(pusta_baza, stare, "150000")
+    await _wycen(pusta_baza, nowe, "150000")
+
+    okazje = await PgZapytania(pusta_baza).okazje(SortowanieOkazji.KWOTA, 10)
+
+    assert [o.pozycja.id for o in okazje] == [nowe]
+    assert okazje[0].cena == _pln("80000")
+
+
+async def test_stare_wystawienie_nie_zuzywa_wyceny(
+    pusta_baza: psycopg.AsyncConnection,
+) -> None:
+    stare, nowe = await _dwa_wystawienia(pusta_baza)
+    zapytania = PgZapytania(pusta_baza)
+
+    assert await zapytania.kolejka_wycen(10) == (nowe,)
+    assert (await zapytania.pokrycie_wycen()).do_wyceny == 1
+    assert stare != nowe
+
+
+async def test_zakonczone_nowsze_wystawienie_nie_chowa_aktywnego(
+    pusta_baza: psycopg.AsyncConnection,
+) -> None:
+    stare, nowe = await _dwa_wystawienia(pusta_baza)
+    await _wycen(pusta_baza, stare, "150000")
+    async with pusta_baza.cursor() as cur:
+        await cur.execute(
+            "UPDATE app.auction SET status = 'ENDED' WHERE id = %s", (nowe,)
+        )
+
+    okazje = await PgZapytania(pusta_baza).okazje(SortowanieOkazji.KWOTA, 10)
+
+    assert [o.pozycja.id for o in okazje] == [stare]

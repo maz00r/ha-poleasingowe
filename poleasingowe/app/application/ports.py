@@ -16,8 +16,11 @@ from typing import Protocol, runtime_checkable
 from app.application.read_models import (
     Kryteria,
     Kursor,
+    Okazja,
+    PokrycieWycen,
     PorownanieRynkowe,
     PowiazaneWystawienie,
+    SortowanieOkazji,
     StanZrodla,
     Strona,
     Szczegoly,
@@ -152,6 +155,11 @@ class WycenaRepository(Protocol):
 
     async def zapisz(self, wycena: WycenaAukcji) -> WycenaAukcji: ...
     async def dla_aukcji(self, auction_id: int) -> WycenaAukcji | None: ...
+    async def zapisz_probe(
+        self, auction_id: int, teraz: dt.datetime, blad: str | None
+    ) -> None:
+        """Automatyczna próba wyceny; `blad = None` znaczy, że się udała."""
+        ...
 
 
 class RunLogRepository(Protocol):
@@ -424,6 +432,27 @@ class Zapytania(Protocol):
         Liczone przy odczycie, nie zapisywane: powiązanie zapisane w kolumnie
         starzałoby się cicho, gdy przemiat dopisze pasującą aukcję później.
         """
+        ...
+
+    async def kolejka_wycen(self, limit: int) -> tuple[int, ...]:
+        """Następne aukcje do automatycznej wyceny z Otomoto.
+
+        Obserwowane pierwsze, potem najbliższe końca. Bez aukcji, które
+        wyczerpały próby albo niedawno się nie udały.
+        """
+        ...
+
+    async def proby_wycen_24h(self) -> int:
+        """Aukcje, które automat próbował wycenić w ostatniej dobie."""
+        ...
+
+    async def pokrycie_wycen(self) -> PokrycieWycen: ...
+
+    async def okazje(
+        self, sortowanie: SortowanieOkazji, limit: int
+    ) -> tuple[Okazja, ...]:
+        """Aktywne aukcje tańsze od wyceny z Otomoto, największa różnica
+        pierwsza. Cena jest bieżąca, wycena — zapisana."""
         ...
 
     async def zakresy_filtrow(self) -> dict[str, Zakres]:

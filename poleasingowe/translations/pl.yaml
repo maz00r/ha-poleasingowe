@@ -56,6 +56,15 @@ configuration:
       Poprzednia nazwa opcji `ai_api_key`. Dziala nadal, zeby aktualizacja
       dodatku nie wylaczyla wyceny. W nowych konfiguracjach uzywaj
       `ai_api_key`.
+  wycena_auto:
+    name: Automatyczna wycena z Otomoto
+    description: >-
+      Wycenia w tle kazda aktywna aukcje (zakladka Okazje). Dziala tylko
+      z kluczem AI. Kazda wycena to platne zadanie do dostawcy modelu.
+  wycena_auto_limit_dzienny:
+    name: Limit automatycznych wycen na dobe
+    description: >-
+      Sufit prob wyceny w ciagu 24 godzin. Po jego osiagnieciu automat czeka.
   credentials:
     name: Poswiadczenia do serwisow
     description: >-

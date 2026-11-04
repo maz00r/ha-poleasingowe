@@ -17,6 +17,7 @@ import binascii
 import datetime as dt
 import json
 from dataclasses import dataclass, field
+from decimal import Decimal
 from enum import StrEnum
 
 from app.domain.enums import (
@@ -31,6 +32,9 @@ from app.domain.value_objects import Money
 
 LIMIT_STRONY = 50
 """SPEC.md §12 — 50 wierszy na stronę."""
+
+LIMIT_OKAZJI = 100
+"""Ranking, nie katalog: liczy się góra listy, więc bez paginacji."""
 
 
 class Sortowanie(StrEnum):
@@ -367,6 +371,47 @@ class PowiazaneWystawienie:
     mileage_km: int | None = None
     price_start: Money | None = None
     bid_count: int | None = None
+
+
+class SortowanieOkazji(StrEnum):
+    """Po czym układać ranking okazji."""
+
+    KWOTA = "kwota"
+    PROCENT = "procent"
+
+
+@dataclass(slots=True, frozen=True)
+class Okazja:
+    """Aukcja tańsza od wyceny z Otomoto."""
+
+    pozycja: PozycjaListy
+    cena: Money
+    """Aktualna oferta, a bez ofert cena wywoławcza — jak na liście."""
+    wycena: Money
+    roznica_kwota: Money
+    roznica_procent: Decimal
+    """`(wycena - cena) / wycena`, czyli o ile procent taniej od wyceny.
+    Zawsze 0-100: przy dzieleniu przez cenę wywoławcza 1 zł zjadłaby ranking."""
+    pewnosc: str
+    wyceniono: dt.datetime
+
+
+@dataclass(slots=True, frozen=True)
+class PokrycieWycen:
+    """Ile z tego, co da się wycenić, jest już wycenione z Otomoto.
+
+    Ranking pokazuje tylko wycenione aukcje, więc bez tej liczby nie wiadomo,
+    czy lista jest kompletna, czy automat dopiero zaczął.
+    """
+
+    do_wyceny: int
+    wycenione: int
+    nieudane: int
+    """Aukcje, które wyczerpały próby i wypadły z kolejki."""
+
+    @property
+    def w_kolejce(self) -> int:
+        return self.do_wyceny - self.wycenione - self.nieudane
 
 
 @dataclass(slots=True, frozen=True)

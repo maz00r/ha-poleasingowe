@@ -1,6 +1,6 @@
 # Konfiguracja add-onu (SPEC.md §7.1).
 name: Aukcje poleasingowe
-version: "0.33.0"
+version: "0.34.0"
 slug: poleasingowe
 description: >-
   Zbiera oferty z polskich serwisow aukcji samochodow poleasingowych,
@@ -52,6 +52,10 @@ options:
   # Przestarzale od 0.32.0 (Otomoto czytane bezposrednio) — ignorowane,
   # zostaje, zeby istniejace konfiguracje nadal startowaly.
   apify_token: ""
+  # Wycena z Otomoto kazdej aktywnej aukcji w tle (zakladka Okazje). Limit
+  # to sufit prob na dobe: kazda to platne zadanie do modelu AI.
+  wycena_auto: true
+  wycena_auto_limit_dzienny: 300
   credentials: []
   sources: []
   log_level: INFO
@@ -73,6 +77,8 @@ schema:
   # wyceny osobom, ktore maja ja juz ustawiona.
   openai_api_key: password?
   apify_token: password?
+  wycena_auto: bool?
+  wycena_auto_limit_dzienny: int(1,5000)?
   credentials:
     - source: str
       username: str

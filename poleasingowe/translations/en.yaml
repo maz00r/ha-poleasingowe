@@ -55,6 +55,15 @@ configuration:
     description: >-
       Previous name of `ai_api_key`. Still works so that updating the add-on
       does not switch valuation off. Use `ai_api_key` in new setups.
+  wycena_auto:
+    name: Automatic Otomoto valuation
+    description: >-
+      Values every active auction in the background (Okazje tab). Works only
+      with an AI key. Each valuation is a paid request to the model provider.
+  wycena_auto_limit_dzienny:
+    name: Daily limit of automatic valuations
+    description: >-
+      Maximum valuation attempts within 24 hours. Once reached, the worker waits.
   credentials:
     name: Site credentials
     description: >-

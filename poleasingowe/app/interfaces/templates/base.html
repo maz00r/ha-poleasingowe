@@ -39,7 +39,7 @@
       {% for zakladka in zakladki %}
         <a class="{% if zakladka.aktywna %}aktywna{% endif %}"
            {% if zakladka.aktywna %}aria-current="page"{% endif %}
-           href="{% if zakladka.parametry is none %}{{ sciezka(request, 'diagnostyka') }}{% else %}{{ sciezka(request, 'lista') }}?{{ zakladka.parametry | parametry_url }}{% endif %}">{{ zakladka.etykieta }}</a>
+           href="{% if zakladka.trasa %}{{ sciezka(request, zakladka.trasa) }}{% else %}{{ sciezka(request, 'lista') }}?{{ zakladka.parametry | parametry_url }}{% endif %}">{{ zakladka.etykieta }}</a>
       {% endfor %}
     </nav>
   </header>

@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block tytul %}Okazje{% endblock %}
+{% block tresc %}
+
+<div class="okazje-naglowek">
+  <h1>Największe okazje</h1>
+  <nav class="przelacznik" aria-label="Sposób liczenia okazji">
+    {% for pozycja in przelacznik %}
+      <a class="{% if pozycja.aktywny %}aktywny{% endif %}"
+         href="{{ sciezka(request, 'okazje') }}?wg={{ pozycja.wartosc }}"
+         {% if pozycja.aktywny %}aria-current="page"{% endif %}>{{ pozycja.etykieta }}</a>
+    {% endfor %}
+  </nav>
+</div>
+
+<p class="drobne">
+  {% if sortowanie.value == 'kwota' %}Różnica w złotych między wyceną a bieżącą ceną, netto.
+  {% else %}O ile procent bieżąca cena jest niższa od wyceny, netto.{% endif %}
+  Wycenione z Otomoto: {{ pokrycie.wycenione }} z {{ pokrycie.do_wyceny }} aktywnych aut
+  · w kolejce {{ pokrycie.w_kolejce }} · nieudane {{ pokrycie.nieudane }}
+</p>
+
+{# Bez tych komunikatów krótka lista wygląda jak pełna odpowiedź, a może
+   znaczyć tylko, że automat stoi. #}
+{% if not wycena_ai %}
+  <p class="uwaga">Wycena jest wyłączona. Uzupełnij <code>ai_api_key</code>
+    w konfiguracji dodatku i uruchom go ponownie.</p>
+{% elif not auto_wycena %}
+  <p class="uwaga">Automatyczna wycena jest wyłączona (opcja <code>wycena_auto</code>),
+    więc lista obejmuje tylko aukcje wycenione ręcznie na karcie.</p>
+{% elif auto_wycena.stan.pauza_do %}
+  <p class="ostrzezenie-inline">Automatyczna wycena wstrzymana do
+    {{ auto_wycena.stan.pauza_do | czas_lokalny }}: {{ auto_wycena.stan.powod_pauzy }}</p>
+{% elif auto_wycena.stan.szczyt_do %}
+  <p class="uwaga">Trwają droższe godziny dostawcy AI. Automat wznowi pracę
+    o {{ auto_wycena.stan.szczyt_do | czas_lokalny }}.</p>
+{% elif auto_wycena.stan.limit_wyczerpany %}
+  <p class="uwaga">Wykorzystano dobowy limit {{ auto_wycena.limit_dzienny }} wycen.
+    Automat wznowi pracę, gdy starsze próby wyjdą poza 24 godziny.</p>
+{% endif %}
+
+{% if okazje %}
+<div class="lista" id="wiersze">
+  {% for okazja in okazje %}
+    {% set p = okazja.pozycja %}
+    {% include "fragmenty/oferta.html" %}
+  {% endfor %}
+</div>
+{% else %}
+<p class="pusto">Nie ma jeszcze aukcji tańszych od wyceny z Otomoto.</p>
+{% endif %}
+
+{% endblock %}

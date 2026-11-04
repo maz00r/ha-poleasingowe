@@ -952,6 +952,10 @@ Add-on obsługuje **operacje**. Analityka jest w Grafanie.
   **nie obejmuje** `ENDED`: poleasingowe trzyma zakończone aukcje na liście
   długo po końcu, więc wskrzeszanie ich byłoby gorszym błędem.
 - Link do dashboardu rynkowego z `?var-make=&var-model=`.
+- **Okazje** (`/okazje`, od 0.34.0): aktywne aukcje tańsze od wyceny z Otomoto,
+  ranking kwotowy albo procentowy `(wycena − cena) / wycena`, góra 100 pozycji.
+  Wyceny dostarcza pracownik w tle (`infrastructure/auto_wycena.py`) z dobowym
+  limitem prób; strona pokazuje pokrycie i powód wstrzymania.
 - **Panel diagnostyczny**: stan każdego źródła, ostatni `run_log`, licznik
   `AUTH_LOCKED` z przyciskiem resetu, stan puli połączeń, rozmiar bazy,
   RSS procesu, dryf zegara, data ostatniego `pg_dump`.

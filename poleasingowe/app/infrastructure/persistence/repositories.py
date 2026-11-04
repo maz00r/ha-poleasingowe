@@ -594,6 +594,15 @@ RETURNING auction_id, value_amount, min_amount, max_amount, currency,
     otomoto_search_url, otomoto_listings, appraisal_documents
 """
 
+SQL_WYCENA_ZAPISZ_PROBE = """
+INSERT INTO app.ai_valuation_attempt (auction_id, last_attempt_at, last_error)
+VALUES (%(auction_id)s, %(teraz)s, %(blad)s)
+ON CONFLICT (auction_id) DO UPDATE SET
+    attempts = app.ai_valuation_attempt.attempts + 1,
+    last_attempt_at = EXCLUDED.last_attempt_at,
+    last_error = EXCLUDED.last_error
+"""
+
 SQL_WYCENA_DLA_AUKCJI = """
 SELECT auction_id, value_amount, min_amount, max_amount, currency,
        portal_amount, confidence, rationale, assumptions, model,
@@ -1450,6 +1459,15 @@ class PgWycenaRepository:
             await cur.execute(SQL_WYCENA_DLA_AUKCJI, (auction_id,))
             w = await cur.fetchone()
         return None if w is None else _na_wycene(w)
+
+    async def zapisz_probe(
+        self, auction_id: int, teraz: dt.datetime, blad: str | None
+    ) -> None:
+        async with self._conn.cursor() as cur:
+            await cur.execute(
+                SQL_WYCENA_ZAPISZ_PROBE,
+                {"auction_id": auction_id, "teraz": teraz, "blad": blad},
+            )
 
 
 class PgSavedFilterRepository:

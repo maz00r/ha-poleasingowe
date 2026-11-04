@@ -23,12 +23,15 @@ from app.application.read_models import (
     Kryteria,
     Kursor,
     OfertaNaKarcie,
+    Okazja,
     PewnoscPowiazania,
+    PokrycieWycen,
     PorownanieRynkowe,
     PowiazaneWystawienie,
     PozycjaListy,
     PunktHistorii,
     Sortowanie,
+    SortowanieOkazji,
     StanZrodla,
     Strona,
     Szczegoly,
@@ -316,6 +319,107 @@ SELECT
 FROM app.auction
 WHERE duplicate_of IS NULL
 """)
+
+MAKS_PROB_WYCENY: Final = 3
+ODSTEP_PROB_WYCENY_H: Final = 6
+"""Nieudana aukcja wraca do kolejki po 6 h, najwyżej trzy razy. Odstęp sprawia,
+że chwilowa awaria nie zużyje prób, a limit — że auto nieznane Otomoto nie
+będzie kosztować w nieskończoność."""
+
+# Auto wystawione ponownie liczy się po NOWYM wystawieniu: to jego cena jest
+# bieżąca. Stare bywa jeszcze aktywne, bo status się spóźnia, a termin nie
+# zawsze minął — w rankingu pokazałoby starą cenę i zużyło płatną wycenę.
+# Wyłącznie po VIN-ie, jak `przenies_na_ponowne_wystawienia`: flota miewa
+# kilkadziesiąt bliźniaczych aut.
+NAJNOWSZE_WYSTAWIENIE = sql.SQL("""
+    NOT EXISTS (
+        SELECT 1 FROM app.auction AS nowsze
+        WHERE nowsze.vin = a.vin
+          AND nowsze.duplicate_of IS NULL
+          AND nowsze.status NOT IN ('ENDED', 'DISAPPEARED')
+          AND (nowsze.ends_at IS NULL OR nowsze.ends_at > now())
+          AND (nowsze.first_seen_at, nowsze.id) > (a.first_seen_at, a.id)
+    )
+""")
+
+# Ta sama reguła aktywności co lista („Aktywne" w `_warunki`). Zostają rodzaje,
+# które Otomoto obsługuje, i aukcje, po których da się cokolwiek wyszukać.
+DO_WYCENY = sql.SQL("""
+    a.duplicate_of IS NULL
+    AND a.status NOT IN ('ENDED', 'DISAPPEARED')
+    AND (a.ends_at IS NULL OR a.ends_at > now())
+    AND NULLIF(a.make, '') IS NOT NULL
+    AND NULLIF(a.model, '') IS NOT NULL
+    AND a.vehicle_kind IN ('OSOBOWY', 'DOSTAWCZY', 'NIEZNANY')
+    AND {najnowsze}
+""").format(najnowsze=NAJNOWSZE_WYSTAWIENIE)
+
+ZRODLO_WYCEN = sql.SQL("""
+FROM app.auction AS a
+LEFT JOIN app.ai_valuation AS v ON v.auction_id = a.id
+LEFT JOIN app.ai_valuation_attempt AS p ON p.auction_id = a.id
+""")
+
+SQL_KOLEJKA_WYCEN = sql.SQL("""
+SELECT a.id
+{zrodlo}
+LEFT JOIN app.watchlist AS w ON w.auction_id = a.id
+WHERE {do_wyceny}
+  AND (v.auction_id IS NULL OR v.source_kind <> 'OTOMOTO')
+  AND (
+    p.auction_id IS NULL
+    OR (
+      p.attempts < %(maks_prob)s
+      AND p.last_attempt_at < now() - make_interval(hours => %(odstep_h)s)
+    )
+  )
+ORDER BY (w.auction_id IS NOT NULL) DESC, a.ends_at ASC NULLS LAST, a.id ASC
+LIMIT %(limit)s
+""").format(zrodlo=ZRODLO_WYCEN, do_wyceny=DO_WYCENY)
+
+SQL_POKRYCIE_WYCEN = sql.SQL("""
+SELECT
+    count(*) AS do_wyceny,
+    count(*) FILTER (WHERE v.source_kind = 'OTOMOTO') AS wycenione,
+    count(*) FILTER (
+        WHERE (v.auction_id IS NULL OR v.source_kind <> 'OTOMOTO')
+          AND p.attempts >= %(maks_prob)s
+    ) AS nieudane
+{zrodlo}
+WHERE {do_wyceny}
+""").format(zrodlo=ZRODLO_WYCEN, do_wyceny=DO_WYCENY)
+
+SQL_PROBY_WYCEN_24H = sql.SQL("""
+SELECT count(*)
+FROM app.ai_valuation_attempt
+WHERE last_attempt_at > now() - interval '24 hours'
+""")
+
+# Tylko wyceny z Otomoto i ta sama waluta: kwoty lokalne i zamiana EUR na PLN
+# zrobiłyby z rankingu porównanie różnych rzeczy.
+SQL_OKAZJE = sql.SQL("""
+SELECT
+    {kolumny},
+    v.value_amount, v.confidence, v.created_at AS wyceniono, c.cena,
+    v.value_amount - c.cena AS roznica_kwota,
+    (v.value_amount - c.cena) / v.value_amount * 100 AS roznica_procent
+{zrodlo}
+JOIN app.ai_valuation AS v
+    ON v.auction_id = a.id
+    AND v.source_kind = 'OTOMOTO'
+    AND v.currency = a.currency
+CROSS JOIN LATERAL (
+    SELECT COALESCE(a.price_current, a.price_start) AS cena
+) AS c
+WHERE {warunki} AND {najnowsze} AND c.cena > 0 AND v.value_amount > c.cena
+ORDER BY {klucz} DESC, a.id ASC
+LIMIT %(limit)s
+""")
+
+KLUCZE_OKAZJI: Final[dict[SortowanieOkazji, sql.SQL]] = {
+    SortowanieOkazji.KWOTA: sql.SQL("roznica_kwota"),
+    SortowanieOkazji.PROCENT: sql.SQL("roznica_procent"),
+}
 
 SQL_DIAGNOSTYKA = sql.SQL("""
 SELECT source_key, source_name, enabled, auth_state,
@@ -774,6 +878,64 @@ class PgZapytania:
             )
             for w in wiersze
         )
+
+    async def kolejka_wycen(self, limit: int) -> tuple[int, ...]:
+        async with self._conn.cursor() as cur:
+            await cur.execute(
+                SQL_KOLEJKA_WYCEN,
+                {
+                    "maks_prob": MAKS_PROB_WYCENY,
+                    "odstep_h": ODSTEP_PROB_WYCENY_H,
+                    "limit": limit,
+                },
+            )
+            return tuple(w[0] for w in await cur.fetchall())
+
+    async def proby_wycen_24h(self) -> int:
+        async with self._conn.cursor() as cur:
+            await cur.execute(SQL_PROBY_WYCEN_24H)
+            wiersz = await cur.fetchone()
+        return 0 if wiersz is None else int(wiersz[0])
+
+    async def pokrycie_wycen(self) -> PokrycieWycen:
+        async with self._conn.cursor(row_factory=dict_row) as cur:
+            await cur.execute(SQL_POKRYCIE_WYCEN, {"maks_prob": MAKS_PROB_WYCENY})
+            w = await cur.fetchone()
+        assert w is not None  # agregat bez GROUP BY zawsze daje wiersz
+        return PokrycieWycen(
+            do_wyceny=w["do_wyceny"], wycenione=w["wycenione"], nieudane=w["nieudane"]
+        )
+
+    async def okazje(
+        self, sortowanie: SortowanieOkazji, limit: int
+    ) -> tuple[Okazja, ...]:
+        # `rodzaje=()`: domyślne kryteria listy zawężają do osobowych.
+        warunki, parametry = _warunki(Kryteria(status=AuctionStatus.ACTIVE, rodzaje=()))
+        parametry["limit"] = limit
+        zapytanie = SQL_OKAZJE.format(
+            kolumny=KOLUMNY_LISTY,
+            zrodlo=ZRODLO_LISTY,
+            warunki=sql.SQL(" AND ").join(warunki),
+            najnowsze=NAJNOWSZE_WYSTAWIENIE,
+            klucz=KLUCZE_OKAZJI[sortowanie],
+        )
+        async with self._conn.cursor(row_factory=dict_row) as cur:
+            await cur.execute(zapytanie, parametry)
+            wiersze = await cur.fetchall()
+
+        def okazja(w: dict[str, Any]) -> Okazja:
+            waluta = Currency(w["currency"])
+            return Okazja(
+                pozycja=_na_pozycje(w),
+                cena=Money(w["cena"], waluta),
+                wycena=Money(w["value_amount"], waluta),
+                roznica_kwota=Money(w["roznica_kwota"], waluta),
+                roznica_procent=w["roznica_procent"],
+                pewnosc=w["confidence"],
+                wyceniono=w["wyceniono"],
+            )
+
+        return tuple(okazja(w) for w in wiersze)
 
     async def zakresy_filtrow(self) -> dict[str, Zakres]:
         """Granice suwaków rocznika i mocy (SPEC.md §12)."""

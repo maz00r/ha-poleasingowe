@@ -93,6 +93,11 @@ class Opcje(BaseModel):
     """Poprzednia nazwa `ai_api_key`. Zostaje, żeby aktualizacja add-onu nie
     wyłączyła wyceny osobom, które mają ją już ustawioną — Supervisor nie
     przepisuje opcji sam, a `extra="forbid"` odrzuciłby nieznane pole."""
+    wycena_auto: bool = True
+    """Wyceniaj z Otomoto każdą aktywną aukcję w tle. Bez klucza AI nic to
+    nie robi."""
+    wycena_auto_limit_dzienny: Annotated[int, Field(ge=1, le=5_000)] = 300
+    """Sufit prób na dobę — każda to płatne żądanie do modelu."""
     credentials: list[Poswiadczenia] = Field(default_factory=list)
     sources: list[OpcjeZrodla] = Field(default_factory=list)
 

@@ -13,6 +13,11 @@
               hx-target="#wycena-ai > div" hx-swap="innerHTML">Spróbuj ponownie</button>
     {% endif %}
   {% endif %}
+  {% if szczyt_do and not wycena %}
+    <p class="uwaga">Trwają droższe godziny dostawcy AI, więc wycena nie rusza
+      sama. Niższe stawki wracają o {{ szczyt_do | czas_lokalny }}. Przycisk
+      poniżej wyceni od razu, po wyższej stawce.</p>
+  {% endif %}
   {% if wycena %}
   <div class="wycena-wynik">
     <div><span>Szacowana wartość{% if wycena.wersja_promptu >= 4 %} (netto){% endif %}</span>

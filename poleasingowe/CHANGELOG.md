@@ -1,5 +1,31 @@
 # Historia zmian
 
+## 0.34.0 — w przygotowaniu
+
+**Automatyczna wycena z Otomoto i zakładka „Okazje”.** Add-on wycenia w tle
+każdą aktywną aukcję osobową i dostawczą, po jednej, z przerwą między
+wycenami: najpierw obserwowane, potem najbliższe końca. Istniejąca wycena
+lokalna aktywnej aukcji jest zastępowana wyceną z Otomoto. Nowe opcje:
+`wycena_auto` (domyślnie włączona) i `wycena_auto_limit_dzienny` (domyślnie
+300 prób na dobę). Każda próba to płatne żądanie do modelu AI.
+
+Aukcję, której nie da się wycenić, automat próbuje najwyżej trzy razy,
+co 6 godzin. Blokada Otomoto albo awaria dostawcy AI wstrzymuje go na godzinę.
+
+Przy DeepSeeku automat nie wysyła nic w droższych godzinach: pon.-pt. 01:00-04:00
+i 06:00-10:00 UTC (zimą 02:00-05:00 i 07:00-11:00 w Polsce), z 5-minutowym
+zapasem przed szczytem. Samo otwarcie karty też wtedy nie zleca wyceny; przyciski
+na karcie działają nadal.
+
+Zakładka **Okazje** pokazuje 100 aktywnych aukcji najbardziej tańszych od
+wyceny, z przełącznikiem kwotowo/procentowo. Procent to `(wycena − cena) /
+wycena`. Kwoty są netto, a bez ofert liczy się cena wywoławcza. Auto wystawione
+ponownie liczy się po nowym wystawieniu i jego cenie. Strona pokazuje też, ile
+aukcji jest wycenionych, czeka w kolejce albo się nie udało.
+
+Karta aukcji po awarii dostawcy AI przy dopasowaniu modelu pokazuje teraz
+powód od dostawcy zamiast „nie udało się dopasować modelu”.
+
 ## 0.33.0 — w przygotowaniu
 
 **Wycena AI ocenia silnik tak jak rynek wtórny.** Model bierze pod uwagę
