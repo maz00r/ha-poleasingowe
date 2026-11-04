@@ -1,5 +1,13 @@
 # Historia zmian
 
+## 0.34.1 — w przygotowaniu
+
+**Wycena auta wystawionego ponownie uwzględnia nową cenę.** Obok wcześniejszych
+wystawień model AI dostaje cenę wywoławczą, ostatnią cenę i liczbę ofert
+z trwającej aukcji. Ma porównać je z poprzednimi, ale nie przepisywać nowej ceny
+do wyceny. Pozostałe auta model nadal ocenia bez ceny aukcji. Instrukcja modelu
+AI w wersji 14. Zapisane wyceny się nie zmieniają.
+
 ## 0.34.0 — w przygotowaniu
 
 **Automatyczna wycena z Otomoto i zakładka „Okazje”.** Add-on wycenia w tle

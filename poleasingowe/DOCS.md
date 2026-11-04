@@ -240,8 +240,10 @@ odznakę przy tytule karty i w nagłówku sekcji wyceny.
 Gdy to samo auto stało już na aukcji i wróciło (czyli się nie sprzedało),
 model AI dostaje cenę wywoławczą, ostatnią cenę i liczbę ofert z tamtych
 wystawień i traktuje kwotę, za którą auta nikt nie kupił, jako górną granicę
-wyceny. Dopasowanie po VIN-ie jest pewne; bez VIN-u — prawdopodobne i model
-waży je słabiej.
+wyceny. Dostaje też nową cenę z trwającej aukcji i porównuje ją z poprzednimi,
+ale nie traktuje jej jako wyceny ani górnej granicy, bo licytacja jeszcze trwa.
+Dopasowanie po VIN-ie jest pewne; bez VIN-u — prawdopodobne i model waży je
+słabiej.
 
 Wycena liczy się **raz na aukcję i zostaje zapisana w bazie**; karta pokazuje
 datę i model, którym ją policzono. Zmieniają ją tylko przyciski na karcie

@@ -1,7 +1,8 @@
 """Wycena pojazdu przez model językowy, z lokalnym cache'em.
 
 Model dostaje wyłącznie techniczne dane pojazdu i zagregowane ceny z naszej
-bazy. Nie wysyłamy VIN-u, identyfikatora aukcji ani danych sprzedającego.
+bazy, a przy aucie wystawionym ponownie także jego nową cenę. Nie wysyłamy
+VIN-u, identyfikatora aukcji ani danych sprzedającego.
 Wynik jest pomocą przy analizie, nie opinią rzeczoznawcy.
 
 **Dostawca jest wyborem użytkownika** (`ai_provider`): OpenAI, Anthropic albo
@@ -39,7 +40,7 @@ from app.infrastructure.otomoto import Ogloszenie, PojazdDoPorownania, WynikOtom
 
 log = logging.getLogger(__name__)
 
-WERSJA_PROMPTU = 13
+WERSJA_PROMPTU = 14
 """Podbij, gdy zmienisz `INSTRUKCJE` albo `SCHEMAT`.
 
 Zapisana wycena niesie wersję, którą policzono — dzięki temu widać, że
@@ -58,7 +59,8 @@ powstała starym poleceniem, i można ją świadomie przeliczyć.
 10: uzasadnienie w punktach „- Temat: treść" (czytelniejsze na karcie).
 11: każde wcześniejsze wystawienie = niesprzedane, bez względu na status.
 12: uzasadnienie jako tablica punktów (linie w napisie psuły JSON).
-13: silnik wg rynku wtórnego — renoma, awaryjność, koszty, popyt."""
+13: silnik wg rynku wtórnego — renoma, awaryjność, koszty, popyt.
+14: nowa cena auta wystawionego ponownie (`aktualne_wystawienie`)."""
 
 MAKS_OGLOSZEN_NA_KARCIE = 15
 
@@ -170,7 +172,16 @@ INSTRUKCJE_WYSTAWIENIA = (
     "się nie sprzedało, jako GÓRNĄ granicę jego wartości: `wartosc` "
     "i `maksimum` nie powinny jej przekraczać, chyba że od tamtej pory coś "
     "istotnie podniosło wartość — wtedy napisz co. W uzasadnieniu odnieś się "
-    "do wcześniejszych wystawień."
+    "do wcześniejszych wystawień.\n\n"
+    # Nowa cena jest kotwicą: bez ostatniego zdania model przepisywałby ją do
+    # `wartosc`, a ranking okazji pokazywałby różnicę bliską zeru.
+    "`aktualne_wystawienie` to NOWA cena tego auta na trwającej aukcji, w tych "
+    "samych polach co wcześniejsze wystawienia. Porównaj ją z nimi: obniżka "
+    "po nieudanej sprzedaży mówi, że sprzedający zszedł z ceny, a podwyżka, "
+    "że liczy na więcej, niż ktokolwiek dał. Napisz w uzasadnieniu, jak to "
+    "wpłynęło na kwotę. Nowa cena to punkt odniesienia, nie wycena: licytacja "
+    "wciąż trwa, więc nie przepisuj jej do `wartosc` i nie traktuj jej jako "
+    "górnej granicy."
 )
 
 SCHEMAT_MODELU = "model_otomoto"
@@ -221,6 +232,10 @@ def _uzasadnienie(wartosc: object) -> str:
     if isinstance(wartosc, list):
         return "\n".join(f"- {str(p).strip()}" for p in wartosc if str(p).strip())
     return str(wartosc)
+
+
+def _kwota(m: Money | None) -> int | None:
+    return None if m is None else round(m.amount)
 
 
 def _liczba_lub_none(wartosc: object) -> int | None:
@@ -339,6 +354,14 @@ class WycenaAI:
         wczesniejsze = self._wczesniejsze(wystawienia, teraz)
         if wczesniejsze:
             wejscie["wczesniejsze_wystawienia_tego_auta"] = wczesniejsze
+            # Tylko przy ponownym wystawieniu: pozostałych aut model ma oceniać
+            # bez ceny aukcji, bo ona pociągnęłaby wycenę za sobą.
+            p = dane.pozycja
+            wejscie["aktualne_wystawienie"] = {
+                "cena_wywolawcza": _kwota(p.price_start),
+                "cena_ostatnia": _kwota(p.price_current),
+                "liczba_ofert": p.bid_count,
+            }
             instrukcje += INSTRUKCJE_WYSTAWIENIA
         instrukcje += INSTRUKCJE_SILNIKA + FORMAT_UZASADNIENIA
         try:
@@ -446,15 +469,11 @@ class WycenaAI:
         w innym serwisie to nie porażka sprzedaży — pomijamy. Bez terminu
         decyduje kolejność. Bez serwisu i numeru aukcji: modelowi
         niepotrzebne."""
-
-        def kwota(m: Money | None) -> int | None:
-            return None if m is None else round(m.amount)
-
         return [
             {
                 "koniec": w.ends_at.date().isoformat() if w.ends_at else None,
-                "cena_wywolawcza": kwota(w.price_start),
-                "cena_ostatnia": kwota(w.price_current),
+                "cena_wywolawcza": _kwota(w.price_start),
+                "cena_ostatnia": _kwota(w.price_current),
                 "liczba_ofert": w.bid_count,
                 "przebieg_km": w.mileage_km,
                 "pewnosc": "VIN" if w.pewnosc is PewnoscPowiazania.VIN else "podobne",

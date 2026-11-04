@@ -11,8 +11,15 @@ from decimal import Decimal
 import httpx
 import pytest
 
-from app.application.read_models import PorownanieRynkowe, PozycjaListy, Szczegoly
-from app.domain.enums import AuctionStatus
+from app.application.read_models import (
+    PewnoscPowiazania,
+    PorownanieRynkowe,
+    PowiazaneWystawienie,
+    PozycjaListy,
+    Szczegoly,
+)
+from app.domain.enums import AuctionStatus, Currency
+from app.domain.value_objects import Money
 from app.infrastructure.ai_klienci import (
     BladModelu,
     KlientAnthropic,
@@ -691,7 +698,8 @@ async def test_wczesniejsze_niesprzedane_wystawienie_trafia_do_modelu() -> None:
     assert "wczesniejsze_wystawienia_tego_auta" in wejscie
     assert "GÓRNĄ granicę" in wejscie
     # Historyczne liczą się bez względu na status; trwające odpada.
-    assert wejscie.count("cena_wywolawcza") == 2
+    historyczne = _wejscie_modelu(zadania[0])["wczesniejsze_wystawienia_tego_auta"]
+    assert isinstance(historyczne, list) and len(historyczne) == 2
     assert "efl" not in wejscie
 
 
@@ -761,3 +769,89 @@ async def test_instrukcja_ocenia_silnik_wg_rynku_wtornego() -> None:
         await usluga.wycen(_dane(), (), teraz=TERAZ)
     wyslane = json.dumps(zadania[0], ensure_ascii=False)
     assert "awaryjność" in wyslane and "Silnik:" in wyslane
+
+
+ODPOWIEDZ_WYCENY = json.dumps(
+    {
+        "wartosc": 68000,
+        "minimum": 64000,
+        "maksimum": 70000,
+        "cena_portale": None,
+        "pewnosc": "średnia",
+        "uzasadnienie": ["Rynek: test"],
+        "zalozenia": [],
+    }
+)
+
+
+def _dane_z_cena() -> Szczegoly:
+    dane = _dane()
+    return replace(
+        dane,
+        pozycja=replace(
+            dane.pozycja,
+            price_start=Money(Decimal("55000"), Currency.PLN),
+            price_current=Money(Decimal("58000.40"), Currency.PLN),
+            bid_count=2,
+        ),
+    )
+
+
+def _wystawienie(ends_at: dt.datetime) -> PowiazaneWystawienie:
+    return PowiazaneWystawienie(
+        id=1,
+        source_key="efl",
+        external_id="1",
+        url="https://x.test/1",
+        status=AuctionStatus.ENDED,
+        pewnosc=PewnoscPowiazania.VIN,
+        pozniejsze=False,
+        ends_at=ends_at,
+        price_current=Money(Decimal("71000"), Currency.PLN),
+        price_start=Money(Decimal("71000"), Currency.PLN),
+        bid_count=0,
+    )
+
+
+def _wejscie_modelu(zadanie: dict[str, object]) -> dict[str, object]:
+    """Dane wysłane do modelu, wyjęte z treści żądania OpenAI."""
+    dane: dict[str, object] = json.loads(str(zadanie["input"]))
+    return dane
+
+
+async def test_auto_wystawione_ponownie_trafia_do_modelu_z_nowa_cena() -> None:
+    zadania: list[dict[str, object]] = []
+    usluga = _usluga_z_odpowiedzia(ODPOWIEDZ_WYCENY, zadania)
+
+    await usluga.wycen(
+        _dane_z_cena(),
+        (),
+        teraz=TERAZ,
+        wystawienia=(_wystawienie(TERAZ - dt.timedelta(days=3)),),
+    )
+
+    assert _wejscie_modelu(zadania[0])["aktualne_wystawienie"] == {
+        "cena_wywolawcza": 55000,
+        "cena_ostatnia": 58000,
+        "liczba_ofert": 2,
+    }
+    instrukcje = str(zadania[0]["instructions"])
+    assert "NOWA cena" in instrukcje
+    assert "nie przepisuj jej do `wartosc`" in instrukcje
+
+
+@pytest.mark.parametrize(
+    "wystawienia",
+    [(), (_wystawienie(TERAZ + dt.timedelta(days=3)),)],
+    ids=["bez-wystawien", "rownolegle-trwajace"],
+)
+async def test_bez_ponownego_wystawienia_model_nie_widzi_ceny_aukcji(
+    wystawienia: tuple[PowiazaneWystawienie, ...],
+) -> None:
+    zadania: list[dict[str, object]] = []
+    usluga = _usluga_z_odpowiedzia(ODPOWIEDZ_WYCENY, zadania)
+
+    await usluga.wycen(_dane_z_cena(), (), teraz=TERAZ, wystawienia=wystawienia)
+
+    assert "aktualne_wystawienie" not in _wejscie_modelu(zadania[0])
+    assert "58000" not in str(zadania[0])
