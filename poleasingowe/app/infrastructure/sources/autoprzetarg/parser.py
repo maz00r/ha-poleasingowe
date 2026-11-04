@@ -3,19 +3,20 @@
 Czyste funkcje na tekście — bez sieci, bez bazy. Selektory pochodzą z plików
 w `fixtures/autoprzetarg/` (SPEC.md §4).
 
-Dwie rzeczy wyróżniają ten serwis:
+Serwis zmienił szablon jesienią 2026 (RECON.md §4.4a): karta `div.auction-card`
+zamiast kafelka-linku, tabela zamiast par `<b>`, siatka `span.spec-*`
+w szczegółach, dziewięć pozycji na stronę. Dwie rzeczy wyróżniają ten serwis:
 
 - **VIN jest już na liście**, jako jedyny z czterech (RECON.md §4.4).
   Deduplikacja z §8.4 działa tu bez wchodzenia w szczegóły.
-- **Czas zakończenia stoi w ukrytym polu `auctionEndDate`**, renderowanym
-  serwerowo per pozycja. Widoczny licznik dorysowuje JS i jest pusty
-  w zrzucie, więc to pole jest jedynym źródłem terminu.
+- **Termin ma dwie postacie.** Lista podaje go w UTC (`data-end-time` z `Z`),
+  a szczegóły w czasie lokalnym bez strefy (`endDateServerValue` w skrypcie).
+  Mapper rozróżnia je po obecności strefy.
 
-Uwaga o parowaniu, która kosztowała mnie raz błędny wynik: ukryte pole stoi
-**wewnątrz** kafelka `<a>`, ale **po** jego atrybucie `href`. Parowanie
-„pole → następny link" przypisuje datę sąsiedniej aukcji i przesuwa cały
-wynik o jeden. Dlatego czytamy je **z zasięgu kafelka**, a nie ze
-spłaszczonej listy dopasowań po całej stronie.
+Uwaga o parowaniu, która kosztowała mnie raz błędny wynik: termin i cenę
+czytamy **z zasięgu karty**, a nie ze spłaszczonej listy dopasowań po całej
+stronie. Parowanie po kolejności przypisało kiedyś datę sąsiedniej aukcji
+i przesunęło cały wynik o jeden.
 
 Czego tu nie ma: **liczby ofert**. Serwis nie podaje jej bez zalogowania
 nawet na stronie szczegółów (RECON.md §4.4), więc `bid_count` zostaje puste,
@@ -24,6 +25,7 @@ a nie zerowe — zero znaczyłoby „nikt nie licytował".
 
 from __future__ import annotations
 
+import html as kodowanie_html
 import re
 from urllib.parse import urljoin
 
@@ -35,7 +37,8 @@ from app.domain.errors import ParseFailed
 BAZOWY_URL = "https://autoprzetarg.pl"
 SCIEZKA_LISTY = "/kategoria/Pojazdy1"
 
-KAFELEK = "a.section-list-auctions-block-item"
+SIATKA = "div.auctions-grid"
+KARTA = f"{SIATKA} div.auction-card"
 
 # `/aukcja/<TYTUL>,<ID>,<Kategoria>` — identyfikator w ŚRODKOWYM segmencie.
 # Kategoria w adresie pozwala zawęzić się do aut osobowych bez dodatkowego
@@ -48,11 +51,24 @@ _ID_Z_URL = re.compile(r"/aukcja/[^,]*,([^,/]+),")
 # nie kosztuje ani jednego żądania więcej (SPEC.md §12).
 _KATEGORIA_Z_URL = re.compile(r"/aukcja/[^,]*,[^,/]+,([^,/?#]+)")
 
-# Pary `<b>Etykieta:</b> wartość<br>`. Wartość bywa pusta — „Przebieg:" bez
-# liczby to normalny stan w tym serwisie i musi zostać pusty, a nie zerowy.
-_PARA = re.compile(r"<b>\s*([^<:]{1,60}?)\s*:\s*</b>\s*([^<]{0,120})")
+# Szczegóły: `<span class="spec-label">Etykieta</span>` i tuż za nią wartość.
+# Pusta wartość to normalny stan tego serwisu (brak przebiegu) i musi zostać
+# pusta, a nie zerowa.
+_PARA = re.compile(
+    r'class="spec-label">\s*([^<]{1,60}?)\s*</span>\s*'
+    r'<span class="spec-value"[^>]*>\s*([^<]{0,160}?)\s*</span>'
+)
 
-_END_DATE = re.compile(r'auctionEndDate[^>]*?value="([^"]*)"')
+# Czas lokalny serwisu, ten sam, którym skrypt strony odlicza do końca.
+_END_DATE = re.compile(r"endDateServerValue\s*=\s*'([^']+)'")
+
+# Etykiety różnią się między listą a szczegółami. Mapper zna jedną nazwę pola.
+_ALIASY = {
+    "Pojemność": "Pojemność silnika",
+    "Silnik i Moc": "Pojemność silnika",
+    "Przebieg pojazdu": "Przebieg",
+    "Numer VIN": "VIN",
+}
 
 
 def _tekst(wezel: Node | None) -> str:
@@ -70,41 +86,39 @@ def kategoria_z_url(url: str) -> str | None:
     return trafienie.group(1) if trafienie else None
 
 
+def _pole(etykieta: str) -> str:
+    nazwa = etykieta.strip().rstrip(":").strip()
+    return _ALIASY.get(nazwa, nazwa)
+
+
 def _pary_etykiet(html: str) -> dict[str, str]:
+    """Pary ze szczegółów, z rozkodowaniem: serwis koduje polskie znaki encjami."""
     return {
-        m.group(1).strip(): m.group(2).strip()
+        _pole(m.group(1)): kodowanie_html.unescape(m.group(2)).strip()
         for m in _PARA.finditer(html)
         if m.group(2).strip()
     }
 
 
-# Cena ma osobne klasy na liście i w szczegółach, ale w obu wypadkach jest
-# to `<div>` z identyfikatorem albo klasą kończącą się na `-price`.
-_CENA_SZCZEGOLY = "div#currentPrice"
-_CENA_LISTA_TYTUL = "div.section-list-auctions-title"
-_CENA_LISTA_WARTOSC = "div.section-list-auctions-price"
+_CENA_LISTA = "span.price-value"
+_CENA_SZCZEGOLY = "div#currentPriceDisplay"
+_NAPIS_Z_ETYKIETA = "div.vin-box, div.highlight-box > div, div.location-info"
 
 
-def _cena_i_koniec(korzen: Node) -> dict[str, str]:
-    """Wyciąga cenę — z listy i ze szczegółów, bo mają różne klasy.
-
-    Na liście etykieta i wartość to dwa sąsiednie `<div>`-y, w szczegółach
-    wartość ma własny `id="currentPrice"`. Jeden selektor na oba nie istnieje,
-    a zgadywanie po pozycji w drzewie byłoby kruche.
-    """
+def _pola_karty(karta: Node) -> dict[str, str]:
+    """Dane z jednej karty listy: tabela plus napisy `Etykieta: wartość`."""
     pola: dict[str, str] = {}
-
-    etykiety = korzen.css(_CENA_LISTA_TYTUL)
-    wartosci = korzen.css(_CENA_LISTA_WARTOSC)
-    for etykieta, wartosc in zip(etykiety, wartosci, strict=False):
-        nazwa = _tekst(etykieta).rstrip(":").strip()
-        tresc = _tekst(wartosc)
-        if nazwa and tresc:
-            pola[nazwa] = tresc
-
-    ze_szczegolow = korzen.css_first(_CENA_SZCZEGOLY)
-    if ze_szczegolow is not None and _tekst(ze_szczegolow):
-        pola["Aktualna cena aukcji"] = _tekst(ze_szczegolow)
+    for wiersz in karta.css("table.data-table tr"):
+        etykieta = _tekst(wiersz.css_first("td.label"))
+        wartosc = _tekst(wiersz.css_first("td.value"))
+        if etykieta and wartosc:
+            pola[_pole(etykieta)] = wartosc
+    for napis in karta.css(_NAPIS_Z_ETYKIETA):
+        etykieta, dwukropek, wartosc = napis.text(separator=" ").partition(":")
+        if dwukropek and wartosc.strip():
+            pola[_pole(etykieta)] = " ".join(wartosc.split())
+    if cena := _tekst(karta.css_first(_CENA_LISTA)):
+        pola["Aktualna cena aukcji"] = cena
     return pola
 
 
@@ -113,39 +127,38 @@ def sparsuj_liste(html: str) -> list[SurowaOferta]:
 
     Najbogatsza lista z czterech serwisów: rocznik, pojemność i moc, tablice,
     VIN, przebieg, paliwo, sprzedający, lokalizacja, cena i absolutny termin.
+    Strona za ostatnią ma pustą siatkę, a strona bez siatki to nie jest lista,
+    tylko np. wyzwanie WAF.
     """
     drzewo = HTMLParser(html)
-    if not drzewo.css("section.section-list-auctions") and not any(
-        tekst in drzewo.text().lower()
-        for tekst in ("brak aukcji", "brak ofert", "nie znaleziono", "brak wyników")
-    ):
+    if drzewo.css_first(SIATKA) is None:
         raise ParseFailed("autoprzetarg: strona nie wygląda na listę aukcji")
     oferty: list[SurowaOferta] = []
     widziane: set[str] = set()
 
-    for kafelek in drzewo.css(KAFELEK):
-        url = (kafelek.attributes.get("href") or "").strip()
+    for karta in drzewo.css(KARTA):
+        link = karta.css_first("a.card-img")
+        url = ((link.attributes.get("href") if link is not None else "") or "").strip()
         external_id = id_z_url(url)
         if external_id is None or external_id in widziane:
             continue
         widziane.add(external_id)
 
-        wnetrze = kafelek.html or ""
-        pola = _pary_etykiet(wnetrze)
-        pola.update(_cena_i_koniec(kafelek))
+        pola = _pola_karty(karta)
 
         kategoria = kategoria_z_url(url)
         if kategoria:
             pola["kategoria"] = kategoria
 
-        naglowek = kafelek.css_first("h3")
+        naglowek = karta.css_first("h3")
         if naglowek is not None:
             pola["nazwa"] = _tekst(naglowek)
 
-        # Termin z zasięgu TEGO kafelka — patrz uwaga o parowaniu w docstringu.
-        termin = _END_DATE.search(wnetrze)
-        if termin is not None:
-            pola["end_date"] = termin.group(1)
+        # Termin z zasięgu TEJ karty — patrz uwaga o parowaniu w docstringu.
+        licznik = karta.css_first("div.badge-time")
+        termin = licznik.attributes.get("data-end-time") if licznik else None
+        if termin:
+            pola["end_date"] = termin
 
         oferty.append(
             SurowaOferta(
@@ -175,13 +188,15 @@ def sparsuj_szczegoly(html: str, external_id: str, url: str) -> SurowaOferta:
     """
     drzewo = HTMLParser(html)
     pola = _pary_etykiet(html)
-    pola.update(_cena_i_koniec(drzewo.body or drzewo.root))  # type: ignore[arg-type]
+
+    if cena := _tekst(drzewo.css_first(_CENA_SZCZEGOLY)):
+        pola["Aktualna cena aukcji"] = cena
 
     termin = _END_DATE.search(html)
     if termin is not None:
         pola["end_date"] = termin.group(1)
 
-    naglowek = drzewo.css_first("h1")
+    naglowek = drzewo.css_first("h1.auction-title")
     if naglowek is not None:
         pola["nazwa"] = re.sub(r"\s+", " ", _tekst(naglowek))
 
@@ -197,8 +212,7 @@ def sparsuj_szczegoly(html: str, external_id: str, url: str) -> SurowaOferta:
     return SurowaOferta(external_id=external_id, url=url, pola=pola)
 
 
-# Cena w szczegolach ma wlasny identyfikator; na liscie klase.
-_CENA_ID = re.compile(r'id="currentPrice"[^>]*>\s*([^<]*)')
+_CENA_ID = re.compile(r'id="currentPriceDisplay"[^>]*>\s*([^<]*)')
 
 
 def odcisk_aukcji(html: str) -> str:
@@ -247,20 +261,20 @@ def zdjecia(html: str) -> list[str]:
 
 
 def dokumenty(html: str) -> list[Dokument]:
-    """Sekcja „DOKUMENTY:" — pliki z `/uploads/attachements/<id>/`.
+    """Sekcja „Pliki i dokumentacja" — pliki z `/uploads/attachements/<id>/`.
 
     W tej samej sekcji stoi link do ogólnej instrukcji serwisu; to nie jest
     plik aukcji, więc bierzemy wyłącznie załączniki.
     """
     drzewo = HTMLParser(html)
     wynik: list[Dokument] = []
-    for link in drzewo.css("a.section-auction-column-left-info-download[href]"):
+    for link in drzewo.css("a.doc-button[href]"):
         href = link.attributes.get("href") or ""
         if "/uploads/attachements/" not in href:
             continue
         wynik.append(
             Dokument(
-                nazwa=_tekst(link) or href.rsplit("/", 1)[-1],
+                nazwa=_tekst(link.css_first("strong")) or href.rsplit("/", 1)[-1],
                 url=urljoin(BAZOWY_URL, href),
             )
         )

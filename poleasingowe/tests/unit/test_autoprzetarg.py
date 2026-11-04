@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import datetime as dt
 import pathlib
+import re
 from decimal import Decimal
 
 import httpx
@@ -20,7 +21,10 @@ from app.domain.value_objects import Money
 from app.infrastructure.sources.autoprzetarg import mapper, parser, source
 
 FIXTURES = pathlib.Path(__file__).resolve().parents[3] / "fixtures" / "autoprzetarg"
-TERAZ = dt.datetime(2026, 9, 8, 12, 0, tzinfo=dt.UTC)
+TERAZ = dt.datetime(2026, 11, 4, 12, 0, tzinfo=dt.UTC)
+LISTA = "lista-2026-11.html"
+ID_AUKCJI = "c2Q99rY13wg"
+SZCZEGOLY = f"szczegoly-2026-11-{ID_AUKCJI}.html"
 
 
 def html(nazwa: str) -> str:
@@ -32,11 +36,17 @@ def html(nazwa: str) -> str:
 # --------------------------------------------------------------------------
 
 
-def test_lista_daje_dwanascie_pozycji_na_strone() -> None:
-    """RECON.md §4.4 — 12 pozycji na stronę, paginacja `?page=N` od 1."""
-    pozycje = parser.sparsuj_liste(html("lista-01.html"))
-    assert len(pozycje) == 12
-    assert parser.numery_stron(html("lista-01.html"))[:3] == [2, 3, 4]
+def test_lista_daje_dziewiec_pozycji_na_strone() -> None:
+    """RECON.md §4.4a — 9 pozycji na stronę, paginacja `?page=N` od 1."""
+    pozycje = parser.sparsuj_liste(html(LISTA))
+    assert len(pozycje) == 9
+    assert parser.numery_stron(html(LISTA)) == [2, 3, 32]
+
+
+def test_strona_za_ostatnia_jest_pusta_a_nie_bledna() -> None:
+    """Pusta siatka kończy przemiat. Błąd zrobiłby z niego przemiat częściowy."""
+    pusta = '<html><body><div class="auctions-grid"></div></body></html>'
+    assert parser.sparsuj_liste(pusta) == []
 
 
 def test_strona_waf_nie_jest_pusta_lista() -> None:
@@ -48,7 +58,7 @@ async def test_zapetlona_paginacja_przerywa_przemiat() -> None:
     """Powtórzona strona nie może udawać drugiej pełnej listy."""
 
     def obsluz(_: httpx.Request) -> httpx.Response:
-        return httpx.Response(200, text=html("lista-01.html"))
+        return httpx.Response(200, text=html(LISTA))
 
     klient = httpx.AsyncClient(
         base_url=parser.BAZOWY_URL, transport=httpx.MockTransport(obsluz)
@@ -60,9 +70,10 @@ async def test_zapetlona_paginacja_przerywa_przemiat() -> None:
 
 def test_identyfikator_to_srodkowy_segment_adresu() -> None:
     """`/aukcja/<TYTUL>,<ID>,<Kategoria>` — nie liczba, nie sekwencyjny."""
-    pozycje = parser.sparsuj_liste(html("lista-01.html"))
-    assert pozycje[0].external_id == "LmDE4GUH3wg"
-    assert "Samochody-dostawcze" in pozycje[0].url
+    pozycje = parser.sparsuj_liste(html(LISTA))
+    assert pozycje[0].external_id == ID_AUKCJI
+    assert pozycje[0].url.startswith("https://autoprzetarg.pl/aukcja/")
+    assert pozycje[0].pola["kategoria"] == "Samochody-osobowe"
 
 
 def test_vin_jest_juz_na_liscie() -> None:
@@ -71,37 +82,38 @@ def test_vin_jest_juz_na_liscie() -> None:
     Deduplikacja po VIN z §8.4 może tu działać bez wchodzenia w szczegóły,
     czyli bez ani jednego dodatkowego żądania.
     """
-    pozycje = parser.sparsuj_liste(html("lista-01.html"))
-    assert pozycje[0].pola["VIN"] == "VF30JTGK24ZNZKP5R"
+    pozycje = parser.sparsuj_liste(html(LISTA))
+    assert pozycje[0].pola["VIN"] == "VSSNB8XHA1KCGXREN"
     assert all("VIN" in p.pola for p in pozycje), "VIN ma być na każdym kafelku"
 
 
-def test_termin_czytamy_z_zasiegu_kafelka_a_nie_z_calej_strony() -> None:
+def test_termin_czytamy_z_zasiegu_karty_a_nie_z_calej_strony() -> None:
     """To jest ten błąd, który raz przesunął mi cały wynik o jeden.
 
-    Ukryte `auctionEndDate` stoi **wewnątrz** kafelka, ale **po** jego
-    `href`. Parowanie „pole → następny link" przypisuje datę sąsiedniej
-    aukcji: lista dawała 10:05, a strona szczegółów tej samej aukcji 10:10.
+    Parowanie po kolejności przypisuje datę sąsiedniej aukcji: lista dawała
+    10:05, a strona szczegółów tej samej aukcji 10:10.
 
     Test przypina konkretną datę do konkretnego identyfikatora, więc
     przesunięcie o jeden natychmiast go wywala.
     """
-    pozycje = parser.sparsuj_liste(html("lista-01.html"))
+    pozycje = parser.sparsuj_liste(html(LISTA))
     po_id = {p.external_id: p.pola.get("end_date") for p in pozycje}
-    assert po_id["LmDE4GUH3wg"] == "2026-09-07 08:00:00"
+    assert po_id[ID_AUKCJI] == "2026-11-05T08:00:00.000Z"
 
     terminy = [p.pola["end_date"] for p in pozycje]
     assert terminy == sorted(terminy), "lista jest posortowana po terminie"
 
 
-def test_kafelek_niesie_komplet_danych_technicznych() -> None:
-    pola = parser.sparsuj_liste(html("lista-01.html"))[0].pola
-    assert pola["Rok produkcji"] == "2013"
-    assert pola["Pojemność silnika"] == "2198,00 ccm / 110 KM"
-    assert pola["Rodzaj paliwa"] == "Diesel"
-    assert pola["Sprzedający"] == "Poczta Polska"
-    assert pola["Lokalizacja"] == "Bydgoszcz, ul. Gajowa 99"
-    assert pola["Aktualna cena aukcji"] == "2989,76 zł"
+def test_karta_niesie_komplet_danych_technicznych() -> None:
+    pola = parser.sparsuj_liste(html(LISTA))[0].pola
+    assert pola["nazwa"] == "SEAT IBIZA 999,00 cm3 / 75 KM"
+    assert pola["Rok produkcji"] == "2017"
+    assert pola["Pojemność silnika"] == "999,00 ccm / 75 KM"
+    assert pola["Rodzaj paliwa"] == "Benzyna"
+    assert pola["Przebieg"] == "463465"
+    assert pola["Sprzedający"] == "ING LEASING"
+    assert pola["Lokalizacja"] == "Warszawa, ul. Zatorze 1"
+    assert pola["Aktualna cena aukcji"] == "6\xa0625,00 PLN"
 
 
 def test_pusty_przebieg_zostaje_pusty() -> None:
@@ -110,7 +122,7 @@ def test_pusty_przebieg_zostaje_pusty() -> None:
     Zero znaczyłoby „przejechał zero kilometrów", a to co innego niż
     „serwis nie podał".
     """
-    pozycja = parser.sparsuj_liste(html("lista-01.html"))[0]
+    pozycja = parser.sparsuj_liste(html(LISTA))[6]
     assert "Przebieg" not in pozycja.pola
     assert mapper.na_aukcje(pozycja, source_id=1, teraz=TERAZ).mileage is None
 
@@ -121,13 +133,23 @@ def test_pusty_przebieg_zostaje_pusty() -> None:
 
 
 def test_szczegoly_daja_cene_i_termin() -> None:
-    pola = parser.sparsuj_szczegoly(
-        html("szczegoly-bFhGo2gH3wg.html"), "bFhGo2gH3wg", "u"
-    ).pola
-    assert pola["Aktualna cena aukcji"] == "11579,31 zł"
-    assert pola["end_date"] == "2026-09-07 08:10:00"
-    assert pola["VIN"] == "VF7EYUUNRGS8J1XZD"
-    assert pola["Przebieg"] == "506382"
+    pola = parser.sparsuj_szczegoly(html(SZCZEGOLY), ID_AUKCJI, "u").pola
+    assert pola["Aktualna cena aukcji"] == "6\xa0625,00 PLN"
+    assert pola["end_date"] == "2026-11-05 09:00:00.000"
+    assert pola["VIN"] == "VSSNB8XHA1KCGXREN"
+    assert pola["Przebieg"] == "463465"
+    assert pola["Pojemność silnika"] == "999,00 ccm / 75 KM"
+    assert pola["nazwa"] == "SEAT IBIZA"
+
+
+def test_szczegoly_rozkodowuja_polskie_znaki() -> None:
+    """Serwis koduje wartości encjami: `&#x141;&#xF3;d&#x17A;`, nie `Łódź`."""
+    strona = (
+        '<span class="spec-label">Lokalizacja</span>\n'
+        '<span class="spec-value">&#x141;&#xF3;d&#x17A;</span>\n'
+        '<div class="price" id="currentPriceDisplay">1 000,00 PLN</div>'
+    )
+    assert parser.sparsuj_szczegoly(strona, "x", "u").pola["Lokalizacja"] == "Łódź"
 
 
 def test_liczby_ofert_nie_ma_bez_zalogowania() -> None:
@@ -138,9 +160,7 @@ def test_liczby_ofert_nie_ma_bez_zalogowania() -> None:
     sesji niewykonalny.
     """
     aukcja = mapper.na_aukcje(
-        parser.sparsuj_szczegoly(
-            html("szczegoly-bFhGo2gH3wg.html"), "bFhGo2gH3wg", "u"
-        ),
+        parser.sparsuj_szczegoly(html(SZCZEGOLY), ID_AUKCJI, "u"),
         source_id=1,
         teraz=TERAZ,
     )
@@ -158,21 +178,35 @@ def test_strona_bez_aukcji_jest_bledem_parsowania() -> None:
 
 
 def test_nazwa_jest_odklejana_od_danych_technicznych() -> None:
-    """Nagłówek skleja markę, model, rocznik i silnik **bez spacji**:
+    """Nagłówek bywa sklejony z rocznikiem **bez spacji**:
     `CITROEN JUMPER2018 / 1997,00 ccm / 131 KM`.
 
     Bez obcięcia ogona rocznik wszedłby w model.
     """
     aukcja = mapper.na_aukcje(
-        parser.sparsuj_szczegoly(
-            html("szczegoly-bFhGo2gH3wg.html"), "bFhGo2gH3wg", "u"
+        SurowaOferta(
+            external_id="x",
+            url="u",
+            pola={"nazwa": "CITROEN JUMPER2018 / 1997,00 ccm / 131 KM"},
         ),
         source_id=1,
         teraz=TERAZ,
     )
     # `CITROEN` bez diakrytyku i wersalikami to ta sama marka co `Citroën`.
     assert (aukcja.make, aukcja.model) == ("Citroën", "JUMPER")
-    assert aukcja.year == 2018
+
+
+def test_szczegoly_mapuja_sie_na_aukcje() -> None:
+    aukcja = mapper.na_aukcje(
+        parser.sparsuj_szczegoly(html(SZCZEGOLY), ID_AUKCJI, "u"),
+        source_id=1,
+        teraz=TERAZ,
+    )
+    assert (aukcja.make, aukcja.model) == ("SEAT", "IBIZA")
+    assert aukcja.year == 2017
+    assert aukcja.mileage is not None and aukcja.mileage.km == 463_465
+    assert (aukcja.engine_ccm, aukcja.engine_hp) == (999, 75)
+    assert aukcja.seller == "ING LEASING"
 
 
 @pytest.mark.parametrize(
@@ -194,40 +228,53 @@ def test_nazwa_odcina_nowsze_warianty_danych_technicznych(
 
 
 def test_pojemnosc_i_moc_z_jednego_pola() -> None:
-    """`2198,00 ccm / 110 KM` — przecinek jest tu separatorem dziesiętnym."""
+    """`999,00 ccm / 75 KM` — przecinek jest tu separatorem dziesiętnym."""
     aukcja = mapper.na_aukcje(
-        parser.sparsuj_liste(html("lista-01.html"))[0], source_id=1, teraz=TERAZ
+        parser.sparsuj_liste(html(LISTA))[0], source_id=1, teraz=TERAZ
     )
-    assert aukcja.engine_ccm == 2198, "część całkowita, nie 219800"
-    assert aukcja.engine_hp == 110
+    assert aukcja.engine_ccm == 999, "część całkowita, nie 99900"
+    assert aukcja.engine_hp == 75
 
 
-def test_czas_konca_idzie_do_bazy_w_utc() -> None:
-    """SPEC.md §8.2. Strefa nie jest podana, zakładamy Europe/Warsaw (§4.4).
-
-    7 września to czas letni, więc 08:00 lokalnie to 06:00 UTC.
-    """
+@pytest.mark.parametrize(
+    "termin",
+    [
+        pytest.param("2026-11-05T08:00:00.000Z", id="lista-w-utc"),
+        pytest.param("2026-11-05 09:00:00.000", id="szczegoly-lokalnie"),
+    ],
+)
+def test_czas_konca_idzie_do_bazy_w_utc(termin: str) -> None:
+    """SPEC.md §8.2. Bez strefy to Europe/Warsaw, czyli w listopadzie UTC+1."""
     aukcja = mapper.na_aukcje(
-        parser.sparsuj_liste(html("lista-01.html"))[0], source_id=1, teraz=TERAZ
+        SurowaOferta(external_id="x", url="u", pola={"end_date": termin}),
+        source_id=1,
+        teraz=TERAZ,
     )
-    assert aukcja.ends_at == dt.datetime(2026, 9, 7, 6, 0, tzinfo=dt.UTC)
+    assert aukcja.ends_at == dt.datetime(2026, 11, 5, 8, 0, tzinfo=dt.UTC)
+
+
+def test_nieznany_format_czasu_jest_bledem_parsowania() -> None:
+    with pytest.raises(ParseFailed, match="format czasu"):
+        mapper.na_aukcje(
+            SurowaOferta(external_id="x", url="u", pola={"end_date": "jutro"}),
+            source_id=1,
+            teraz=TERAZ,
+        )
 
 
 def test_cena_z_przecinkiem_dziesietnym() -> None:
     aukcja = mapper.na_aukcje(
-        parser.sparsuj_szczegoly(
-            html("szczegoly-bFhGo2gH3wg.html"), "bFhGo2gH3wg", "u"
-        ),
+        parser.sparsuj_szczegoly(html(SZCZEGOLY), ID_AUKCJI, "u"),
         source_id=1,
         teraz=TERAZ,
     )
-    assert aukcja.price_current == Money(Decimal("11579.31"), Currency.PLN)
+    assert aukcja.price_current == Money(Decimal("6625.00"), Currency.PLN)
 
 
 def test_cala_lista_mapuje_sie_bez_wyjatku() -> None:
-    pozycje = parser.sparsuj_liste(html("lista-01.html"))
+    pozycje = parser.sparsuj_liste(html(LISTA))
     aukcje = [mapper.na_aukcje(p, source_id=1, teraz=TERAZ) for p in pozycje]
-    assert len(aukcje) == 12
+    assert len(aukcje) == 9
     assert all(a.ends_at is not None for a in aukcje)
 
 
@@ -272,19 +319,16 @@ def test_zniknieta_aukcja_mapuje_sie_na_status_bez_danych() -> None:
 
 
 def test_odcisk_ignoruje_szum_otoczki_strony() -> None:
-    """Zmierzone 2026-09-08: cztery niezależne fragmenty zmieniane per żądanie.
+    """Zmierzone 2026-09-08: fragmenty otoczki zmieniane przy każdym żądaniu.
 
     Znacznik odświeżania cache przy CSS-ach, token CSRF wyszukiwarki, link
     Cloudflare `cdn-cgi/content` i obfuskacja adresu e-mail. Żaden nie ma nic
     wspólnego z aukcją, a każdy sam wystarczał, żeby hash całej odpowiedzi
     był za każdym razem inny — czyli żeby §11.3 krok 2 nie oszczędzał nic.
     """
-    surowy = html("szczegoly-bFhGo2gH3wg.html")
-    zaszumiony = (
-        surowy.replace("?639244770886855807", "?639299999999999999")
-        .replace('data-cfemail="', 'data-cfemail="ff')
-        .replace("__RequestVerificationToken", "__RequestVerificationToken")
-    )
+    surowy = html(SZCZEGOLY)
+    zaszumiony = surowy.replace('data-cfemail="', 'data-cfemail="ff')
+    zaszumiony = re.sub(r"\.css\?v=[^\"]+", ".css?v=INNY", zaszumiony)
     zaszumiony += "<!-- cdn-cgi/content?id=INNY-ZA-KAZDYM-RAZEM -->"
 
     assert zaszumiony != surowy
@@ -293,20 +337,32 @@ def test_odcisk_ignoruje_szum_otoczki_strony() -> None:
 
 def test_odcisk_reaguje_na_zmiane_ceny_i_terminu() -> None:
     """Odcisk ma być czuły na to, co nas obchodzi — inaczej gubi zmiany."""
-    surowy = html("szczegoly-bFhGo2gH3wg.html")
+    surowy = html(SZCZEGOLY)
     bazowy = parser.odcisk_aukcji(surowy)
 
-    drozej = surowy.replace("11579,31 zł", "11679,31 zł", 1)
+    drozej = re.sub(
+        r'(id="currentPriceDisplay"[^>]*>\s*)6&#xA0;625', r"\g<1>6&#xA0;725", surowy
+    )
     assert drozej != surowy
     assert parser.odcisk_aukcji(drozej) != bazowy
 
-    przesuniety = surowy.replace("2026-09-07 08:10:00", "2026-09-07 08:12:00")
+    przesuniety = surowy.replace(
+        "endDateServerValue = '2026-11-05 09:00:00.000'",
+        "endDateServerValue = '2026-11-05 09:02:00.000'",
+    )
     assert przesuniety != surowy
     assert parser.odcisk_aukcji(przesuniety) != bazowy
 
 
 def test_zdjecia_sa_rozwijane_do_adresow_bezwzglednych() -> None:
     """W HTML-u stoją jako `/uploads/photos/<id>/N.jpg` — bez hosta."""
-    adresy = parser.zdjecia(html("szczegoly-bFhGo2gH3wg.html"))
+    adresy = parser.zdjecia(html(SZCZEGOLY))
     assert adresy
     assert all(u.startswith("https://autoprzetarg.pl/uploads/photos/") for u in adresy)
+
+
+def test_dokumenty_to_tylko_zalaczniki_aukcji() -> None:
+    assert [d.nazwa for d in parser.dokumenty(html(SZCZEGOLY))] == [
+        "HISTORIA.POJAZDU.NU7E617.pdf",
+        "KARTA.INFORMACYJNA.NU7E617.pdf",
+    ]

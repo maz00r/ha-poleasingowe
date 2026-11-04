@@ -1,0 +1,4527 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title> - AutoPrzetarg.pl</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/Content/NewThemeV3/css/style.css?639294170146736873" type="text/css">
+    <link rel="stylesheet" href="/Content/UserMobileLayout.css?639294170146736944" type="text/css">
+    <link rel="shortcut icon" href="/Content/NewThemeV3/images/favicon.ico" type="image/x-icon">
+
+<style>
+/* ---------- TEMPLATE CSS ---------- */
+:root {
+    --primary: #0052cc;
+    --primary-dark: #003d99;
+    --accent-red: #e11d48;
+    --dark: #0f172a;
+    --light: #f4f7fa;
+    --white: #ffffff;
+    --gray: #64748b;
+    --footer-bg: #263a43;
+
+    --base-navy: #003399;
+    --text-main: #0f172a;
+    --text-muted: #64748b;
+    --card-radius: 24px;
+    --shadow-premium: 0 25px 50px -12px rgba(0,0,0,0.08);
+}
+ * { margin: 0; padding: 0; box-sizing: border-box; }
+        html { scroll-behavior: smooth; }
+        body { font-family: 'Montserrat', sans-serif; background: var(--light); color: #222; }
+
+/* RESPONSIVE */
+@media(max-width:992px){ .footer-grid{ grid-template-columns:1fr 1fr; } .help-box{ flex-direction:column; text-align:center; } .glass-info-section{ flex-direction:column; text-align:center; padding:40px; } }
+@media(max-width:600px){ .footer-grid{ grid-template-columns:1fr; } nav{ display:none; } }
+</style>
+    
+</head>
+<body><a href="https://autoprzetarg.pl/cdn-cgi/content?id=RR6hGtMMHUjlrzvmLHo8YJ81ExZ8dsFInUxEKqQSngw-1793816614.2214658-1.2.1.1-yCUoyVLhNdhRM._GDy8WmeTZx6xd0Ad3yzofzLIXlaDsz9X3g0EA1EX3pxmBVdsi" aria-hidden="true" rel="nofollow noopener" style="display: none !important; visibility: hidden !important"></a>
+    
+    <link rel="stylesheet" href="/Content/PortalHeader.css?v=pTKK_i8P-fsG0-BnEDGSZ6i0eVhh9c02yXvsd43hYL0" />
+
+<header id="portal-header" class="portal-header-solid">
+    <div class="header-container">
+        <a href="/" class="logo-link">
+            <img src="/Content/NewThemeV3/images/logo-3.png?v=6-otSaV_l5as4Hs_1O6B7zqfJDvjEjnu9lLlR_E944c" alt="AutoPrzetarg.pl" class="main-logo">
+        </a>
+        
+        <button class="menu-toggle" aria-label="Toggle navigation" aria-expanded="false" aria-controls="main-nav">
+            <span></span>
+            <span></span>
+            <span></span>
+        </button>
+
+        <nav id="main-nav">
+            <a href="/">Start</a>
+            <a href="/o-nas">O nas</a>
+            <div class="dropdown2">
+                <a href="#">Aukcje ▾</a>
+                <div class="dropdown2-menu">
+                    <a href="/kategoria/Wszystko0">Wszystkie aukcje</a>
+                            <a href="/kategoria/Pojazdy1">POJAZDY</a>
+                            <a href="/kategoria/Maszyny5">MASZYNY</a>
+                            <a href="/kategoria/Nieruchomo%C5%9Bci6">NIERUCHOMO&#x15A;CI</a>
+                            <a href="/kategoria/Inne22">INNE</a>
+                </div>
+            </div>
+
+            <a href="/jak-to-dziala">Jak to działa?</a>
+            <a href="/finansowanie">Finansowanie</a>            
+            <a href="/kontakt">Kontakt</a>
+
+                <a class="btn-login" href="/uzytkownik/logowanie">ZALOGUJ</a>
+                <a class="btn-register" href="/uzytkownik/rejestracja">ZAREJESTRUJ SIĘ</a>
+        </nav>
+    </div>
+</header>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    const userMenu = document.getElementById("user-menu");
+    const userMenuTrigger = document.getElementById("user-menu-trigger-button");
+    const menuToggle = document.querySelector('.menu-toggle');
+    const mainNav = document.getElementById('main-nav');
+
+    // --- User-menu dropdown (Desktop) ---
+if (userMenu && userMenuTrigger) {
+    userMenuTrigger.addEventListener("click", function (e) {
+        e.stopPropagation();
+        const isExpanded = userMenu.classList.toggle("show");
+        userMenuTrigger.setAttribute("aria-expanded", isExpanded);
+        
+        // Check for overflow and adjust positioning
+        if (isExpanded) {
+            const dropdownMenu = userMenu.querySelector('.dropdown-menu');
+            if (dropdownMenu) {
+                setTimeout(() => {
+                    const rect = dropdownMenu.getBoundingClientRect();
+                    const viewportWidth = window.innerWidth;
+                    
+                    if (rect.right > viewportWidth) {
+                        dropdownMenu.classList.add('left-aligned');
+                    } else {
+                        dropdownMenu.classList.remove('left-aligned');
+                    }
+                }, 10);
+            }
+        }
+    });
+
+    document.addEventListener("click", function () {
+        if (userMenu.classList.contains("show")) {
+            userMenu.classList.remove("show");
+            userMenuTrigger.setAttribute("aria-expanded", "false");            
+            const dropdownMenu = userMenu.querySelector('.dropdown-menu');
+            if (dropdownMenu) {
+                dropdownMenu.classList.remove('left-aligned');
+            }
+        }
+    });
+}
+    
+    if (menuToggle && mainNav) {
+        menuToggle.addEventListener('click', function (e) {
+            e.stopPropagation();
+            const isActive = mainNav.classList.toggle('active');
+            menuToggle.classList.toggle('active');
+            menuToggle.setAttribute('aria-expanded', isActive);            
+            document.body.style.overflow = isActive ? 'hidden' : '';
+        });
+        
+        document.addEventListener('click', function (e) {
+            if (mainNav.classList.contains('active') && !mainNav.contains(e.target)) {
+                mainNav.classList.remove('active');
+                menuToggle.classList.remove('active');
+                menuToggle.setAttribute('aria-expanded', 'false');
+                document.body.style.overflow = '';
+            }
+        });
+    }
+
+    const mobileDropdowns = document.querySelectorAll('nav .dropdown, nav .dropdown2');
+    mobileDropdowns.forEach(function(dropdown) {
+        const trigger = dropdown.querySelector('a, button');
+        if (trigger) {
+            trigger.addEventListener('click', function(e) {
+                if (window.innerWidth <= 992) {
+                    if (dropdown.querySelector('.dropdown-menu, .dropdown2-menu')) {
+                        e.preventDefault();
+                    }
+                    e.stopPropagation();
+                    mobileDropdowns.forEach(d => {
+                        if (d !== dropdown) d.classList.remove('active');
+                    });
+
+                    // Toggle the current one
+                    dropdown.classList.toggle('active');
+                }
+            });
+        }
+    });
+});
+</script>
+
+    
+
+
+<link rel="stylesheet" type="text/css" href="/Content/photoswipe.css" />
+<link rel="stylesheet" type="text/css" href="/Content/360view.css?9" />
+<link rel="stylesheet" type="text/css" href="/Content/default-skin/default-skin.css" />
+<style>
+    .red {
+        color: red;
+    }
+
+    .page-button-one.disabled {
+        pointer-events: none;
+        opacity: 0.5;
+    }
+
+    .consent-content {
+        margin-bottom: 20px;
+    }
+
+    .consent-title {
+        font-size: 14px;
+        font-weight: 700;
+        color: #111827;
+        margin: 8px 0 6px 0;
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+    }
+
+    .consent-row {
+        display: flex;
+        align-items: flex-start;
+        gap: 8px;
+        margin: 6px 0;
+    }
+
+        .consent-row input {
+            margin-top: 2px;
+        }
+
+    .page-window-content-agreement-pdf {
+        width: 100%;
+        height: 600px;
+        margin-top: 6px;
+    }
+
+    .page-window-content-agreement-pdf-no-saport {
+        font-size: 13px;
+        padding: 10px;
+    }
+</style>
+
+<script src="/Scripts/360/panolens/three.js"></script>
+<script src="/Scripts/360/panolens/panolens.js"></script>
+<script type="text/javascript" src="/Scripts/Helpers.js"></script>
+
+
+<script src="/Scripts/ServerClock.js"></script>
+
+
+
+<script>
+    var approvalNeeded = true;
+</script>
+
+
+<style>
+    :root {
+        --primary: #0052cc;
+        --primary-dark: #003d99;
+        --accent-red: #e11d48;
+        --accent-red-dark: #8a0c25;
+        --dark: #0f172a;
+        --light: #f4f7fa;
+        --white: #ffffff;
+        --gray: #64748b;
+        --premium-1: #263a43;
+        --premium-2: #162227;
+    }
+
+    * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+    }
+
+    body {
+        font-family: "Montserrat", sans-serif;
+        background: var(--light);
+        color: #111827;
+    }
+
+    .offer-input-wrapper {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-top: 12px;
+    }
+
+    .offer-price-input {
+        background: rgba(255, 255, 255, 0.15);
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        border-radius: 12px;
+        padding: 10px 16px;
+        color: #fff;
+        width: 200px;
+        text-align: right;
+        transition: all 0.2s ease;
+        outline: none;
+        margin-bottom: 14px;
+        font-size: 34px;
+        font-weight: 800;
+        width: 100%;
+    }
+
+        .offer-price-input:focus {
+            border-color: rgba(255, 255, 255, 0.6);
+            background: rgba(255, 255, 255, 0.2);
+            box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.1);
+        }
+
+        .offer-price-input::placeholder {
+            color: rgba(255, 255, 255, 0.5);
+            font-weight: 400;
+        }
+
+    .offer-input-suffix {
+        color: rgba(255, 255, 255, 0.8);
+        font-size: 34px;
+        font-weight: 800;
+        margin-bottom: 16px;
+    }
+
+    header {
+        position: sticky;
+        top: 0;
+        z-index: 999;
+        backdrop-filter: blur(14px);
+        background: rgba(15, 23, 42, 0.82);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+
+    .logo img {
+        height: 42px;
+    }
+
+    .btn-login {
+        border: 1px solid rgba(255, 255, 255, 0.25);
+        padding: 11px 18px;
+        border-radius: 8px;
+    }
+
+    .btn-register {
+        background: var(--accent-red);
+        padding: 12px 22px;
+        border-radius: 8px;
+    }
+
+    .auction-page {
+        max-width: 1450px;
+        margin: 50px auto;
+        padding: 0 20px;
+        display: grid;
+        grid-template-columns: minmax(0, 1.2fr) 460px;
+        gap: 35px;
+    }
+
+    /* Scrollable thumbnails must not set the minimum width of the page column. */
+    .auction-page > * {
+        min-width: 0;
+    }
+
+    .auction-gallery {
+        position: relative;
+        margin-bottom: 35px;
+        width: 100%;
+        max-width: 915px;
+    }
+
+    .main-image-viewport {
+        width: 100%;
+        height: 580px;
+        border-radius: 24px;
+        background-color: #000;
+        overflow: hidden;
+        position: relative;
+        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.08);
+    }
+
+        .main-image-viewport img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transition: opacity 0.4s ease;
+        }
+
+    /* ---------- Fullscreen image viewer (lightbox) ---------- */
+    .image-viewer-overlay {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.92);
+        backdrop-filter: blur(4px);
+        z-index: 20000;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+    }
+
+        .image-viewer-overlay.active {
+            display: flex;
+        }
+
+    .image-viewer-container {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 60px;
+    }
+
+    .image-viewer-img {
+        display: block;
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+        border-radius: 8px;
+        box-shadow: 0 25px 60px -12px rgba(0, 0, 0, 0.8);
+        user-select: none;
+    }
+
+    .image-viewer-close {
+        position: absolute;
+        top: 20px;
+        right: 30px;
+        background: rgba(255, 255, 255, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.25);
+        color: #fff;
+        width: 48px;
+        height: 48px;
+        border-radius: 50%;
+        font-size: 28px;
+        line-height: 1;
+        cursor: pointer;
+        z-index: 10;
+        transition: 0.3s;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+        .image-viewer-close:hover {
+            background: #e11d48;
+            border-color: #e11d48;
+        }
+
+    .image-viewer-nav {
+        position: absolute;
+        top: 50%;
+        transform: translateY(-50%);
+        background: rgba(255, 255, 255, 0.12);
+        border: 1px solid rgba(255, 255, 255, 0.25);
+        color: #fff;
+        width: 56px;
+        height: 56px;
+        border-radius: 50%;
+        font-size: 26px;
+        cursor: pointer;
+        z-index: 10;
+        transition: 0.3s;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+        .image-viewer-nav:hover {
+            background: #003399;
+        }
+
+    .image-viewer-prev {
+        left: 30px;
+    }
+
+    .image-viewer-next {
+        right: 30px;
+    }
+
+    .image-viewer-counter {
+        position: absolute;
+        bottom: 25px;
+        left: 50%;
+        transform: translateX(-50%);
+        color: #fff;
+        background: rgba(0, 0, 0, 0.55);
+        padding: 8px 18px;
+        border-radius: 30px;
+        font-size: 15px;
+        font-weight: 600;
+        letter-spacing: 0.5px;
+        pointer-events: none;
+        z-index: 10;
+    }
+
+    @media (max-width: 768px) {
+        .image-viewer-container {
+            padding: 15px;
+        }
+
+        .image-viewer-close {
+            top: 12px;
+            right: 15px;
+            width: 40px;
+            height: 40px;
+            font-size: 22px;
+        }
+
+        .image-viewer-nav {
+            width: 44px;
+            height: 44px;
+            font-size: 20px;
+        }
+
+        .image-viewer-prev {
+            left: 10px;
+        }
+
+        .image-viewer-next {
+            right: 10px;
+        }
+    }
+
+    .nav-arrow {
+        position: absolute;
+        top: 50%;
+        transform: translateY(-50%);
+        background: rgba(0, 0, 0, 0.3);
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        color: white;
+        width: 56px;
+        height: 56px;
+        border-radius: 50%;
+        cursor: pointer;
+        font-size: 24px;
+        z-index: 5;
+        transition: 0.3s;
+    }
+
+        .nav-arrow:hover {
+            background: #003399;
+        }
+
+    .arrow-left {
+        left: 25px;
+    }
+
+    .arrow-right {
+        right: 25px;
+    }
+
+    .image-viewer-open-btn {
+        position: absolute;
+        bottom: 20px;
+        right: 20px;
+        background: rgba(0, 0, 0, 0.35);
+        backdrop-filter: blur(8px);
+        border: 1px solid rgba(255, 255, 255, 0.25);
+        color: #fff;
+        width: 46px;
+        height: 46px;
+        border-radius: 50%;
+        cursor: pointer;
+        z-index: 6;
+        transition: 0.3s;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+        .image-viewer-open-btn:hover {
+            background: #003399;
+            border-color: #003399;
+        }
+
+    .thumb-slider {
+        display: flex;
+        gap: 14px;
+        overflow-x: auto;
+        padding: 15px 0 25px;
+        scroll-behavior: smooth;
+    }
+
+    .thumb {
+        min-width: 140px;
+        height: 90px;
+        border-radius: 14px;
+        cursor: pointer;
+        border: 3px solid transparent;
+        overflow: hidden;
+        flex-shrink: 0;
+        transition: 0.3s;
+    }
+
+        .thumb img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .thumb.active {
+            border-color: #003399;
+            transform: scale(1.05);
+        }
+
+    .action-bar-left {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 15px;
+        margin-top: 25px;
+        margin-bottom: 35px;
+    }
+
+    .btn-secondary-action {
+        display: flex;
+        flex: 1 1 140px;
+        min-width: 0;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        padding: 18px;
+        background: #fff;
+        border: 1px solid transparent;
+        border-radius: 16px;
+        text-decoration: none;
+        color: #111827;
+        font-size: 14px;
+        font-weight: 600;
+        text-align: center;
+        overflow-wrap: anywhere;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+    }
+
+        .btn-secondary-action:hover {
+            transform: translateY(-3px);
+            border-color: #e2e8f0;
+        }
+
+    .btn-finance {
+        border: 2px solid #003399;
+        color: #003399;
+    }
+
+    .auction-sidebar {
+        display: flex;
+        flex-direction: column;
+        gap: 24px;
+    }
+
+    .auction-card {
+        background: #fff;
+        border-radius: 28px;
+        padding: 35px;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.06);
+    }
+
+    .auction-title {
+        font-size: 25px;
+        line-height: 1.15;
+        font-weight: 800;
+        margin-bottom: 18px;
+        color: #111827;
+    }
+
+    .auction-subtitle {
+        color: var(--gray);
+        line-height: 1.7;
+        margin-bottom: 24px;
+        font-weight: normal;
+    }
+
+    .offer-status {
+        width: 100%;
+        background: rgba(225, 29, 72, 0.08);
+        border: 1px solid rgba(225, 29, 72, 0.18);
+        color: var(--accent-red-dark);
+        border-radius: 18px;
+        padding: 18px 22px;
+        font-size: 15px;
+        font-weight: 800;
+        text-transform: uppercase;
+        text-align: center;
+        margin-top: 20px;
+    }
+
+    .price-wrapper {
+        background: linear-gradient(135deg, rgba(255, 255, 255, 0.12), transparent), linear-gradient(135deg, #263a43, #162227);
+        border-radius: 24px;
+        padding: 28px;
+        color: #fff;
+        margin-top: 16px;
+        margin-bottom: 16px;
+    }
+
+    .price-label {
+        display: block;
+        opacity: 0.75;
+        font-size: 15px;
+        margin-bottom: 10px;
+        line-height: 1.6;
+        width: 100%;
+    }
+
+    .price {
+        font-size: 34px;
+        font-weight: 800;
+        margin-bottom: 16px;
+    }
+
+    .timer {
+        margin-top: 20px;
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        background: rgba(255, 255, 255, 0.1);
+        padding: 12px 18px;
+        border-radius: 50px;
+        font-size: 15px;
+        font-weight: 700;
+    }
+
+    /* =========================================================
+            BUTTONS
+            ========================================================= */
+    .bid-button {
+        width: 100%;
+        height: 68px;
+        border: none;
+        border-radius: 18px;
+        cursor: pointer;
+        font-family: inherit;
+        font-size: 16px;
+        font-weight: 800;
+        color: #fff;
+        background: linear-gradient(135deg, rgba(255, 255, 255, 0.12), transparent), linear-gradient(135deg, var(--primary), var(--primary-dark));
+        transition: 0.35s;
+        box-shadow: 0 15px 30px rgba(0, 82, 204, 0.25);
+        margin-top: 20px;
+    }
+
+        .bid-button:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 20px 40px rgba(0, 82, 204, 0.35);
+        }
+
+    /* =========================================================
+            DETAILS
+            ========================================================= */
+    .specs-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 18px;
+    }
+
+    .spec {
+        background: #f8fafc;
+        border-radius: 18px;
+        padding: 22px;
+    }
+
+    .spec-label {
+        display: block;
+        color: #94a3b8;
+        font-size: 12px;
+        font-weight: 700;
+        text-transform: uppercase;
+        margin-bottom: 10px;
+    }
+
+    .spec-value {
+        font-size: 18px;
+        font-weight: 700;
+        color: #111827;
+    }
+
+    .description-card {
+        margin-top: 35px;
+        background: #fff;
+        border-radius: 28px;
+        padding: 40px;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.06);
+    }
+
+    .section-title {
+        font-size: 13px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 2px;
+        color: #003399;
+        margin-bottom: 25px;
+        display: flex;
+        align-items: center;
+        gap: 15px;
+    }
+
+        .section-title::after {
+            content: "";
+            flex: 1;
+            height: 1px;
+            background: #f1f5f9;
+        }
+
+    .description-box {
+        font-size: 16px;
+        color: #475569;
+        border-left: 5px solid #003399;
+        padding: 10px 0 10px 25px;
+        overflow: auto;
+    }
+
+    .docs-container {
+        display: grid;
+        gap: 12px;
+        margin-top: 25px;
+    }
+
+    .doc-button {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 22px 30px;
+        border-radius: 18px;
+        background: #fff;
+        border: 1px solid #f1f5f9;
+        text-decoration: none;
+        color: inherit;
+        transition: 0.3s;
+    }
+
+        .doc-button:hover {
+            background: #f8fafc;
+            border-color: #003399;
+        }
+
+    .doc-info {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+    }
+
+    .pdf-icon {
+        width: 44px;
+        height: 44px;
+        background: #fff1f2;
+        color: #be123c;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 12px;
+        font-weight: 800;
+        font-size: 10px;
+    }
+
+    .offers-list {
+        background: #fff;
+        border-radius: 28px;
+        overflow: hidden;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.06);
+    }
+
+    .offers-header {
+        font-size: 13px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 2px;
+        color: #003399;
+        margin-bottom: 25px;
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        padding-top: 30px;
+        padding-left: 30px;
+    }
+
+        .offers-header::after {
+            content: "";
+            flex: 1;
+            height: 1px;
+            background: #f1f5f9;
+        }
+
+    .offers-columns {
+        display: grid;
+        grid-template-columns: 1fr 1.6fr 1fr;
+        gap: 20px;
+        padding: 18px 30px;
+        background: #f8fafc;
+        border-bottom: 1px solid #edf2f7;
+    }
+
+    .column-title {
+        font-size: 11px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.8px;
+        color: #94a3b8;
+    }
+
+    .offer-row {
+        padding: 18px 30px;
+        border-bottom: 1px solid #edf2f7;
+        transition: 0.3s;
+    }
+
+        .offer-row:hover {
+            background: #f8fafc;
+        }
+
+    .offer-grid {
+        display: grid;
+        grid-template-columns: 1fr 1.6fr 1fr;
+        gap: 20px;
+        align-items: center;
+    }
+
+    .offer-value {
+        font-size: 15px;
+        font-weight: 700;
+        color: #111827;
+    }
+
+    .offer-price {
+        font-size: 15px;
+        font-weight: 800;
+        color: var(--primary);
+    }
+
+    .alert-box {
+        background: var(--accent-red);
+        color: white;
+        padding: 15px;
+        border-radius: 14px;
+        text-align: center;
+        margin-bottom: 25px;
+        font-weight: 700;
+        font-size: 13px;
+    }
+
+    .info-box {
+        border-color: var(--accent-red);
+        border-radius: 14px;
+        padding: 20px;
+        background: #fff;
+        border: 1px solid var(--accent-red);
+    }
+
+    .section-auction-bid-top {
+        background: var(--accent-red);
+        color: white;
+        padding: 15px;
+        border-radius: 14px;
+        text-align: center;
+        margin-bottom: 25px;
+        font-weight: 700;
+        font-size: 14px;
+    }
+
+    .section-auction-bid-form {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        margin-bottom: 20px;
+    }
+
+    .section-auction-bid-form-label {
+        font-size: 12px;
+        font-weight: 800;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
+
+    .section-auction-bid-form-info {
+        background: transparent;
+        margin-top: 16px;
+        color: var(--accent-red);
+        font-size: 14px;
+        font-weight: 600;
+        text-align: center;
+    }
+
+    .section-auction-bid-form-down {
+        display: flex;
+        gap: 15px;
+        margin-top: 20px;
+    }
+
+    .page-button-one {
+        flex: 1;
+        background: linear-gradient(135deg, #003399, #0044cc);
+        color: white;
+        padding: 22px;
+        border-radius: 16px;
+        border: none;
+        font-weight: 800;
+        font-size: 18px;
+        cursor: pointer;
+        text-transform: uppercase;
+        transition: all 0.3s ease;
+        text-align: center;
+    }
+
+        .page-button-one.hidden {
+            display: none;
+        }
+
+    .auction-offers-section {
+        margin-bottom: 30px;
+    }
+
+    .section-auction-list-top-con {
+        padding: 15px;
+        background: #f8fafc;
+        border-radius: 12px;
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr auto;
+        gap: 10px;
+        align-items: center;
+        border: 1px solid #e2e8f0;
+    }
+
+    .agreement-overlay {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(15, 23, 42, 0.7);
+        backdrop-filter: blur(8px);
+        z-index: 9999;
+        align-items: center;
+        justify-content: center;
+        animation: fadeIn 0.2s ease;
+    }
+
+        .agreement-overlay.active {
+            display: flex;
+        }
+
+    @keyframes fadeIn {
+        from {
+            opacity: 0;
+        }
+
+        to {
+            opacity: 1;
+        }
+    }
+
+    @keyframes slideUp {
+        from {
+            opacity: 0;
+            transform: translateY(30px) scale(0.95);
+        }
+
+        to {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+        }
+    }
+
+    .agreement-dialog {
+        background: #fff;
+        border-radius: 24px;
+        width: 90%;
+        max-width: 900px;
+        max-height: 85vh;
+        display: flex;
+        flex-direction: column;
+        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+        animation: slideUp 0.3s ease;
+        overflow: hidden;
+    }
+
+    .agreement-dialog-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 24px 30px;
+        border-bottom: 1px solid #f1f5f9;
+        background: #fafbfc;
+    }
+
+    .agreement-dialog-title {
+        font-size: 20px;
+        font-weight: 800;
+        color: var(--dark);
+        margin: 0;
+    }
+
+    .agreement-close-btn {
+        width: 40px;
+        height: 40px;
+        border-radius: 12px;
+        border: 1px solid #e2e8f0;
+        background: #fff;
+        color: #64748b;
+        font-size: 24px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.2s ease;
+    }
+
+        .agreement-close-btn:hover {
+            background: #fee2e2;
+            color: var(--accent-red);
+            border-color: #fecaca;
+        }
+
+    .agreement-dialog-body {
+        flex: 1;
+        overflow-y: auto;
+        padding: 30px;
+    }
+
+    .agreement-section {
+        margin-bottom: 25px;
+    }
+
+        .agreement-section:last-child {
+            margin-bottom: 0;
+        }
+
+    .agreement-section-title {
+        font-size: 16px;
+        font-weight: 700;
+        color: var(--dark);
+        margin-bottom: 15px;
+        padding-bottom: 10px;
+        border-bottom: 2px solid #e2e8f0;
+    }
+
+    .agreement-consent-title {
+        font-size: 14px;
+        font-weight: 700;
+        color: var(--dark);
+        margin-top: 10px;
+        margin-bottom: 8px;
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+    }
+
+    .agreement-checkbox-item {
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+        margin-bottom: 15px;
+        padding: 15px;
+        background: #f8fafc;
+        border-radius: 12px;
+        border: 1px solid #f1f5f9;
+        transition: all 0.2s ease;
+    }
+
+        .agreement-checkbox-item:hover {
+            background: #f1f5f9;
+            border-color: #e2e8f0;
+        }
+
+        .agreement-checkbox-item input[type="checkbox"] {
+            width: 20px;
+            height: 20px;
+            margin-top: 2px;
+            cursor: pointer;
+            accent-color: var(--primary);
+        }
+
+        .agreement-checkbox-item label {
+            font-size: 14px;
+            line-height: 1.6;
+            color: #334155;
+            cursor: pointer;
+            flex: 1;
+        }
+
+            .agreement-checkbox-item label a {
+                color: var(--primary);
+                text-decoration: none;
+                font-weight: 600;
+            }
+
+                .agreement-checkbox-item label a:hover {
+                    text-decoration: underline;
+                }
+
+    .agreement-pdf-container {
+        margin-top: 15px;
+        margin-bottom: 15px;
+        border-radius: 12px;
+        overflow: hidden;
+        border: 1px solid #e2e8f0;
+    }
+
+        .agreement-pdf-container object {
+            width: 100%;
+            height: 400px;
+            display: block;
+        }
+
+    .agreement-pdf-fallback {
+        padding: 20px;
+        text-align: center;
+        background: #f8fafc;
+        font-size: 14px;
+        color: #64748b;
+    }
+
+        .agreement-pdf-fallback a {
+            color: var(--primary);
+            text-decoration: none;
+            font-weight: 600;
+        }
+
+            .agreement-pdf-fallback a:hover {
+                text-decoration: underline;
+            }
+
+    .agreement-text-content {
+        font-size: 14px;
+        line-height: 1.8;
+        color: #334155;
+        background: #f8fafc;
+        padding: 20px;
+        border-radius: 12px;
+        border: 1px solid #e2e8f0;
+        margin-bottom: 15px;
+    }
+
+    .agreement-dialog-footer {
+        padding: 20px 30px;
+        border-top: 1px solid #f1f5f9;
+        background: #fafbfc;
+        display: flex;
+        gap: 12px;
+        justify-content: flex-end;
+    }
+
+    .agreement-btn {
+        padding: 14px 28px;
+        border-radius: 12px;
+        font-size: 15px;
+        font-weight: 700;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        border: none;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .agreement-btn-secondary {
+        background: #fff;
+        color: #64748b;
+        border: 1px solid #e2e8f0;
+    }
+
+        .agreement-btn-secondary:hover {
+            background: #f8fafc;
+            border-color: #cbd5e1;
+        }
+
+    .agreement-btn-primary {
+        background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+        color: #fff;
+        box-shadow: 0 4px 12px rgba(0, 82, 204, 0.25);
+    }
+
+        .agreement-btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0, 82, 204, 0.35);
+        }
+
+        .agreement-btn-primary:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+    /* Tablet breakpoint */
+    @media (max-width: 1150px) {
+        .auction-page {
+            grid-template-columns: minmax(0, 1fr);
+            gap: 30px;
+        }
+
+        .offers-columns,
+        .offer-grid {
+            grid-template-columns: minmax(0, 1fr) minmax(0, 1.6fr) minmax(0, 1fr);
+            gap: 10px;
+        }
+    }
+
+    /* Mobile breakpoint - Large phones */
+    @media (max-width: 992px) {
+
+        .logo img {
+            height: 38px;
+        }
+
+        .auction-page {
+            margin: 30px auto;
+            padding: 0 15px;
+        }
+
+        .main-image-viewport {
+            height: 400px;
+        }
+
+        .thumb-slider {
+            padding: 12px 0 20px;
+        }
+
+        .thumb {
+            min-width: 90px;
+            height: 65px;
+        }
+
+        .offer-price-input {
+            font-size: 28px;
+        }
+
+        .offer-input-suffix {
+            font-size: 28px;
+        }
+
+        .bid-button {
+            height: 58px;
+            font-size: 14px;
+        }
+
+        .action-bar-left {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 12px;
+        }
+
+        .btn-secondary-action {
+            padding: 14px;
+            font-size: 13px;
+        }
+    }
+
+    /* Mobile breakpoint - Medium phones */
+    @media (max-width: 768px) {
+        .auction-page .description-box,
+        .auction-page .spec-value,
+        .auction-page .doc-info {
+            min-width: 0;
+            overflow-wrap: anywhere;
+        }
+
+        .auction-page .doc-info > div {
+            min-width: 0;
+        }
+
+        .auction-page .doc-button {
+            gap: 8px;
+        }
+
+        .auction-page .pdf-icon,
+        .auction-page .offer-input-suffix {
+            flex-shrink: 0;
+        }
+
+        .auction-page .offer-price-input {
+            min-width: 0;
+            flex: 1;
+        }
+
+        .auction-page .timer {
+            flex-wrap: wrap;
+        }
+
+
+        nav {
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 12px;
+        }
+
+            nav a {
+                font-size: 13px;
+                padding: 8px 14px;
+            }
+
+        .btn-login,
+        .btn-register {
+            padding: 10px 16px;
+            font-size: 13px;
+        }
+
+        .auction-page {
+            margin: 20px auto;
+            padding: 0 12px;
+        }
+
+        .main-image-viewport {
+            height: 320px;
+            border-radius: 18px;
+        }
+
+        .nav-arrow {
+            width: 48px;
+            height: 48px;
+            font-size: 20px;
+        }
+
+        .arrow-left {
+            left: 15px;
+        }
+
+        .arrow-right {
+            right: 15px;
+        }
+
+        .thumb-slider {
+            gap: 6px;
+            padding: 10px 0 18px;
+        }
+
+        .thumb {
+            min-width: 80px;
+            height: 55px;
+            border-radius: 12px;
+        }
+
+        .auction-card {
+            padding: 25px;
+            border-radius: 20px;
+        }
+
+        .auction-title {
+            font-size: 20px;
+            line-height: 1.2;
+        }
+
+        .auction-subtitle {
+            font-size: 14px;
+            line-height: 1.5;
+        }
+
+        .price-wrapper {
+            padding: 22px;
+            border-radius: 18px;
+        }
+
+        .price-label {
+            font-size: 14px;
+        }
+
+        .price {
+            font-size: 28px;
+        }
+
+        .timer {
+            font-size: 13px;
+            padding: 10px 14px;
+        }
+
+        .specs-grid {
+            grid-template-columns: 1fr;
+            gap: 12px;
+        }
+
+        .spec {
+            padding: 16px;
+            border-radius: 14px;
+        }
+
+        .spec-label {
+            font-size: 11px;
+            margin-bottom: 8px;
+        }
+
+        .spec-value {
+            font-size: 16px;
+        }
+
+        .description-card {
+            padding: 28px 20px;
+            border-radius: 20px;
+        }
+
+        .section-title {
+            font-size: 12px;
+            margin-bottom: 18px;
+        }
+
+        .description-box {
+            font-size: 14px;
+            padding-left: 20px;
+        }
+
+        .docs-container {
+            gap: 10px;
+        }
+
+        .doc-button {
+            padding: 16px 20px;
+        }
+
+        .pdf-icon {
+            width: 36px;
+            height: 36px;
+            font-size: 9px;
+        }
+
+        .offers-list {
+            border-radius: 20px;
+        }
+
+        .offers-header {
+            padding: 20px 18px 14px;
+            font-size: 16px;
+        }
+
+        .offers-columns,
+        .offer-grid {
+            padding: 14px 18px;
+            gap: 8px;
+        }
+
+        .column-title {
+            font-size: 10px;
+            letter-spacing: 0.5px;
+        }
+
+        .offer-row {
+            padding: 14px 18px;
+        }
+
+        .offer-value,
+        .offer-price {
+            font-size: 13px;
+        }
+
+        .alert-box,
+        .info-box,
+        .section-auction-bid-top {
+            padding: 12px;
+            font-size: 12px;
+            border-radius: 12px;
+        }
+
+        .page-button-one {
+            padding: 18px;
+            font-size: 16px;
+        }
+    }
+
+    /* Mobile breakpoint - Small phones */
+    @media (max-width: 576px) {
+
+        .logo img {
+            height: 32px;
+        }
+
+        nav a {
+            font-size: 12px;
+            padding: 6px 12px;
+        }
+
+        .btn-login,
+        .btn-register {
+            padding: 8px 14px;
+            font-size: 12px;
+        }
+
+        .auction-page {
+            margin: 15px auto;
+            padding: 0 10px;
+        }
+
+        .main-image-viewport {
+            height: 280px;
+            border-radius: 16px;
+        }
+
+        .nav-arrow {
+            width: 42px;
+            height: 42px;
+            font-size: 18px;
+        }
+
+        .arrow-left {
+            left: 12px;
+        }
+
+        .arrow-right {
+            right: 12px;
+        }
+
+        .thumb-slider {
+            gap: 4px;
+            padding: 8px 0 15px;
+        }
+
+        .thumb {
+            min-width: 70px;
+            height: 48px;
+            border-radius: 10px;
+        }
+
+        .auction-card {
+            padding: 20px;
+            border-radius: 16px;
+        }
+
+        .auction-title {
+            font-size: 18px;
+        }
+
+        .auction-subtitle {
+            font-size: 13px;
+            line-height: 1.4;
+        }
+
+        .price-wrapper {
+            padding: 18px;
+            border-radius: 16px;
+        }
+
+        .price-label {
+            font-size: 13px;
+        }
+
+        .price {
+            font-size: 24px;
+        }
+
+        .timer {
+            font-size: 12px;
+            padding: 8px 12px;
+        }
+
+        .specs-grid {
+            grid-template-columns: 1fr;
+            gap: 10px;
+        }
+
+        .spec {
+            padding: 14px;
+            border-radius: 12px;
+        }
+
+        .spec-label {
+            font-size: 10px;
+            margin-bottom: 6px;
+        }
+
+        .spec-value {
+            font-size: 15px;
+        }
+
+        .description-card {
+            padding: 20px 16px;
+            border-radius: 16px;
+        }
+
+        .section-title {
+            font-size: 11px;
+            margin-bottom: 14px;
+        }
+
+        .description-box {
+            font-size: 13px;
+            padding-left: 18px;
+        }
+
+        .docs-container {
+            gap: 8px;
+        }
+
+        .doc-button {
+            padding: 14px 16px;
+        }
+
+        .pdf-icon {
+            width: 32px;
+            height: 32px;
+            font-size: 8px;
+        }
+
+        .offers-list {
+            border-radius: 16px;
+        }
+
+        .offers-header {
+            padding: 16px 14px 12px;
+            font-size: 15px;
+        }
+
+        .offers-columns,
+        .offer-grid {
+            padding: 12px 14px;
+            gap: 6px;
+        }
+
+        .column-title {
+            font-size: 9px;
+            letter-spacing: 0.3px;
+        }
+
+        .offer-row {
+            padding: 12px 14px;
+        }
+
+        .offer-value,
+        .offer-price {
+            font-size: 12px;
+        }
+
+        .alert-box,
+        .info-box,
+        .section-auction-bid-top {
+            padding: 10px;
+            font-size: 11px;
+            border-radius: 10px;
+        }
+
+        .page-button-one {
+            padding: 16px;
+            font-size: 14px;
+        }
+    }
+
+    /* Extra small devices */
+    @media (max-width: 480px) {
+
+        nav a {
+            font-size: 11px;
+            padding: 5px 10px;
+        }
+
+        .btn-login,
+        .btn-register {
+            padding: 6px 12px;
+            font-size: 11px;
+        }
+
+        .auction-page {
+            margin: 12px auto;
+            padding: 0 8px;
+        }
+
+        .main-image-viewport {
+            height: 240px;
+            border-radius: 14px;
+        }
+
+        .nav-arrow {
+            width: 38px;
+            height: 38px;
+            font-size: 16px;
+        }
+
+        .arrow-left {
+            left: 10px;
+        }
+
+        .arrow-right {
+            right: 10px;
+        }
+
+        .thumb-slider {
+            gap: 3px;
+            padding: 6px 0 12px;
+        }
+
+        .thumb {
+            min-width: 60px;
+            height: 40px;
+            border-radius: 8px;
+        }
+
+        .auction-card {
+            padding: 18px;
+            border-radius: 14px;
+        }
+
+        .auction-title {
+            font-size: 16px;
+        }
+
+        .auction-subtitle {
+            font-size: 12px;
+            line-height: 1.3;
+        }
+
+        .price-wrapper {
+            padding: 14px;
+            border-radius: 14px;
+        }
+
+        .price-label {
+            font-size: 12px;
+        }
+
+        .price {
+            font-size: 22px;
+        }
+
+        .timer {
+            font-size: 11px;
+            padding: 6px 10px;
+        }
+
+        .specs-grid {
+            grid-template-columns: 1fr;
+            gap: 8px;
+        }
+
+        .spec {
+            padding: 12px;
+            border-radius: 10px;
+        }
+
+        .spec-label {
+            font-size: 9px;
+            margin-bottom: 5px;
+        }
+
+        .spec-value {
+            font-size: 14px;
+        }
+
+        .description-card {
+            padding: 16px 14px;
+            border-radius: 14px;
+        }
+
+        .section-title {
+            font-size: 10px;
+            margin-bottom: 12px;
+        }
+
+        .description-box {
+            font-size: 12px;
+            padding-left: 16px;
+        }
+
+        .docs-container {
+            gap: 6px;
+        }
+
+        .doc-button {
+            padding: 12px 14px;
+        }
+
+        .pdf-icon {
+            width: 28px;
+            height: 28px;
+            font-size: 7px;
+        }
+
+        .offers-list {
+            border-radius: 14px;
+        }
+
+        .offers-header {
+            padding: 14px 12px 10px;
+            font-size: 14px;
+        }
+
+        .offers-columns,
+        .offer-grid {
+            padding: 10px 12px;
+            gap: 5px;
+        }
+
+        .column-title {
+            font-size: 8px;
+            letter-spacing: 0.2px;
+        }
+
+        .offer-row {
+            padding: 10px 12px;
+        }
+
+        .offer-value,
+        .offer-price {
+            font-size: 11px;
+        }
+
+        .alert-box,
+        .info-box,
+        .section-auction-bid-top {
+            padding: 8px;
+            font-size: 10px;
+            border-radius: 8px;
+        }
+
+        .page-button-one {
+            padding: 14px;
+            font-size: 13px;
+        }
+    }
+
+    /* Landscape mobile optimization */
+    @media (max-width: 768px) and (orientation: landscape) {
+        .main-image-viewport {
+            height: 280px;
+        }
+
+        .auction-card {
+            padding: 20px;
+        }
+
+        .price-wrapper {
+            padding: 20px;
+        }
+    }
+
+    /* Print styles */
+    @media print {
+        header,
+        .nav-arrow,
+        .btn-secondary-action,
+        .bid-button,
+        .doc-button,
+        .agreement-overlay {
+            display: none !important;
+        }
+
+        .auction-page {
+            grid-template-columns: 1fr;
+            margin: 0;
+            padding: 0;
+        }
+
+        .main-image-viewport {
+            height: auto;
+            border-radius: 0;
+        }
+
+        .description-card,
+        .auction-card {
+            box-shadow: none;
+            border: 1px solid #ddd;
+        }
+    }
+
+    .specs-responsive-list {
+        margin-top: 20px;
+    }
+
+    .responsive-section-header {
+        font-size: 16px;
+        font-weight: 800;
+        color: #111827;
+        margin-bottom: 15px;
+        border-bottom: 2px solid #e2e8f0;
+        padding-bottom: 10px;
+    }
+
+    .specs-list-wrapper {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+    }
+
+    /* Category Headers (e.g., "Wyposazenie") */
+    .spec-category-header {
+        font-size: 14px;
+        font-weight: 700;
+        color: #64748b;
+        margin-top: 15px;
+        margin-bottom: 8px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    /* Individual Spec Items */
+    .spec-item {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 20px;
+        padding: 10px 0;
+        border-bottom: 1px solid #f1f5f9;
+    }
+
+        .spec-item:last-child {
+            border-bottom: none;
+        }
+
+    /* Groups within an item */
+    .spec-group {
+        display: flex;
+        flex-direction: row;
+        gap: 4px;
+    }
+
+    .spec-label {
+        font-size: 14px;
+        color: #64748b;
+    }
+
+    .spec-value {
+        font-size: 16px;
+        font-weight: 700;
+        color: #0f172a;
+    }
+
+    @media (max-width: 768px) {
+        .spec-item {
+            grid-template-columns: 1fr; /* Stack vertically on mobile */
+            gap: 8px;
+            padding: 12px 0;
+        }
+
+        .spec-label {
+            font-size: 13px;
+        }
+
+        .spec-value {
+            font-size: 15px;
+        }
+    }
+
+    .price-with-commission {
+        margin-top: 15px;
+        background: transparent;
+        margin-top: 16px;
+        color: var(--accent-red);
+        font-size: 14px;
+        font-weight: 600;
+        text-align: center;
+    }
+
+    /* Keep the bidding controls and the first offer together on phone screens. */
+    @media (max-width: 768px) {
+        .auction-sidebar {
+            gap: 12px;
+        }
+
+        .auction-sidebar .auction-card {
+            padding: 12px;
+        }
+
+        .auction-sidebar .auction-title {
+            font-size: 16px;
+            margin-bottom: 6px;
+        }
+
+        .auction-sidebar .auction-subtitle {
+            font-size: 13px;
+            line-height: 1.3;
+            margin-bottom: 8px;
+        }
+
+        .auction-sidebar .offer-status {
+            padding: 8px 10px;
+            margin-top: 8px;
+            font-size: 13px;
+            line-height: 1.3;
+        }
+
+        .auction-sidebar .price-wrapper {
+            padding: 12px;
+            margin: 8px 0;
+        }
+
+        .auction-sidebar .price-label {
+            font-size: 13px;
+            line-height: 1.3;
+            margin-bottom: 6px;
+        }
+
+        .auction-sidebar .offer-input-wrapper {
+            margin-top: 6px;
+        }
+
+        .auction-sidebar .offer-price-input,
+        .auction-sidebar .offer-input-suffix,
+        .auction-sidebar .price {
+            font-size: clamp(16px, 5vw, 26px);
+            line-height: 1.2;
+            margin-bottom: 8px;
+        }
+
+        .auction-sidebar .offer-price-input {
+            padding: 8px;
+        }
+
+        .auction-sidebar .timer {
+            margin-top: 6px;
+            padding: 6px 10px;
+            gap: 4px 8px;
+            font-size: 11px;
+            line-height: 1.3;
+        }
+
+        .auction-sidebar .timer-auction-label {
+            display: none;
+        }
+
+        .auction-sidebar .bid-button {
+            height: auto;
+            min-height: 44px;
+            padding: 10px;
+            margin-top: 8px;
+            font-size: 14px;
+            line-height: 1.3;
+        }
+
+        .auction-sidebar .auction-card > form {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .auction-sidebar .auction-card > form .bid-button {
+            flex: 1 1 0;
+            width: auto;
+            margin-top: 0 !important;
+        }
+
+        .auction-sidebar #revertLastOffer {
+            flex-basis: 100%;
+        }
+
+        .auction-sidebar .price-with-commission {
+            flex-basis: 100%;
+            order: -1;
+            margin: 2px 0;
+            font-size: 13px;
+            line-height: 1.3;
+        }
+
+        .auction-sidebar #errorMessage {
+            padding: 0;
+            min-height: 0;
+            margin-top: 8px !important;
+        }
+
+        .auction-sidebar #errorMessage.is-empty {
+            display: none;
+        }
+
+        .auction-sidebar .offers-header {
+            margin-bottom: 0;
+            padding: 12px;
+            font-size: 14px;
+            line-height: 1.3;
+            letter-spacing: 1px;
+        }
+
+        .auction-sidebar .offers-columns,
+        .auction-sidebar .offer-grid {
+            grid-template-columns: minmax(0, .7fr) minmax(0, 1.3fr) minmax(0, 1.3fr);
+            gap: 4px;
+        }
+
+        .auction-sidebar .offers-columns,
+        .auction-sidebar .offer-row {
+            padding: 8px 12px;
+        }
+
+        .auction-sidebar .offer-grid {
+            padding: 0;
+        }
+
+        .auction-sidebar .column-title {
+            min-width: 0;
+            font-size: 10px;
+            line-height: 1.3;
+            letter-spacing: 0;
+            white-space: nowrap;
+        }
+
+        .auction-sidebar .offer-value,
+        .auction-sidebar .offer-price {
+            min-width: 0;
+            overflow-wrap: anywhere;
+            font-size: 12px;
+            line-height: 1.2;
+        }
+    }
+
+    @media (max-width: 768px) and (max-height: 700px) {
+        .auction-sidebar {
+            gap: 6px;
+        }
+
+        .auction-sidebar .auction-card,
+        .auction-sidebar .price-wrapper {
+            padding: 8px;
+        }
+
+        .auction-sidebar .price-label,
+        .auction-sidebar .price-with-commission,
+        .auction-sidebar .auction-subtitle,
+        .auction-sidebar .offer-status {
+            font-size: 12px;
+        }
+
+        .auction-sidebar .offers-header {
+            padding: 4px 10px;
+            font-size: 12px;
+            letter-spacing: 0;
+            gap: 8px;
+        }
+
+        .auction-sidebar .offers-columns,
+        .auction-sidebar .offer-row {
+            padding: 4px 10px;
+        }
+    }
+
+    .buy-now-overlay {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.8);
+        backdrop-filter: blur(5px);
+        z-index: 10000;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+    }
+
+        .buy-now-overlay.active {
+            display: flex;
+        }
+
+    .buy-now-dialog {
+        background: #fff;
+        border-radius: 20px;
+        width: 100%;
+        max-width: 500px;
+        max-height: 90vh;
+        overflow-y: auto;
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+        animation: slideUp 0.3s ease;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .buy-now-header {
+        padding: 20px 25px;
+        border-bottom: 1px solid #e2e8f0;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .buy-now-title {
+        font-size: 18px;
+        font-weight: 800;
+        color: var(--dark);
+        margin: 0;
+    }
+
+    .buy-now-close-btn {
+        width: 36px;
+        height: 36px;
+        border-radius: 8px;
+        border: none;
+        background: #f1f5f9;
+        color: #64748b;
+        font-size: 20px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+        .buy-now-close-btn:hover {
+            background: #e2e8f0;
+        }
+
+    .buy-now-body {
+        padding: 25px;
+        flex: 1;
+    }
+
+    .buy-now-confirm-text {
+        font-size: 15px;
+        line-height: 1.6;
+        color: #334155;
+        margin-bottom: 20px;
+        text-align: center;
+    }
+
+    .buy-now-highlight {
+        font-weight: 700;
+        color: #003399;
+        font-size: 24px;
+        display: block;
+        margin: 8px 0;
+    }
+
+    .buy-now-amount {
+        font-size: 22px;
+        font-weight: 800;
+        color: var(--accent-red);
+        display: block;
+        margin: 12px 0;
+        text-align: center;
+    }
+
+    .buy-now-warning {
+        background: #fef2f2;
+        border: 1px solid #fecaca;
+        border-radius: 12px;
+        padding: 15px;
+        font-size: 13px;
+        color: #991b1b;
+        margin: 20px 0;
+        text-align: center;
+        font-weight: 500;
+    }
+
+    .buy-now-footer {
+        padding: 20px 25px;
+        border-top: 1px solid #e2e8f0;
+        display: flex;
+        gap: 12px;
+        justify-content: center;
+    }
+
+    .btn-confirm-purchase {
+        flex: 1;
+        padding: 16px;
+        background: linear-gradient(135deg, #003399, #0044cc);
+        color: white;
+        border: none;
+        border-radius: 12px;
+        font-size: 16px;
+        font-weight: 700;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+        .btn-confirm-purchase:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 15px rgba(0, 51, 153, 0.3);
+        }
+
+    .btn-cancel-purchase {
+        flex: 1;
+        padding: 16px;
+        background: #f8fafc;
+        color: #64748b;
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        font-size: 16px;
+        font-weight: 700;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        text-transform: uppercase;
+    }
+
+        .btn-cancel-purchase:hover {
+            background: #f1f5f9;
+            border-color: #cbd5e1;
+        }
+
+    @media (max-width: 768px) {
+        .buy-now-overlay {
+            padding: 8px;
+            height: 100dvh;
+        }
+
+        .buy-now-dialog {
+            max-width: 500px;
+            max-height: 100%;
+            overflow: hidden;
+            border-radius: 16px;
+        }
+
+        .buy-now-header,
+        .buy-now-footer {
+            flex-shrink: 0;
+            padding: 12px;
+            gap: 8px;
+        }
+
+        .buy-now-title {
+            min-width: 0;
+            font-size: 15px;
+            line-height: 1.3;
+            overflow-wrap: anywhere;
+        }
+
+        .buy-now-close-btn {
+            flex-shrink: 0;
+            width: 44px;
+            height: 44px;
+        }
+
+        .buy-now-body {
+            min-height: 0;
+            padding: 12px;
+            overflow-y: auto;
+            overflow-wrap: anywhere;
+            overscroll-behavior: contain;
+        }
+
+        .buy-now-confirm-text {
+            display: block;
+            font-size: 13px;
+            line-height: 1.4;
+            margin-bottom: 10px;
+        }
+
+        .buy-now-highlight,
+        .buy-now-amount {
+            font-size: clamp(16px, 5vw, 20px);
+            line-height: 1.3;
+            margin: 8px 0;
+        }
+
+        .buy-now-warning {
+            padding: 10px;
+            margin: 10px 0 0;
+            font-size: 12px;
+            line-height: 1.4;
+        }
+
+        .btn-confirm-purchase,
+        .btn-cancel-purchase {
+            min-width: 0;
+            min-height: 44px;
+            padding: 10px 8px;
+            font-size: 13px;
+            line-height: 1.3;
+            letter-spacing: 0;
+            white-space: normal;
+            overflow-wrap: anywhere;
+        }
+    }
+
+    @media (max-width: 768px) and (max-height: 700px) {
+        .buy-now-header,
+        .buy-now-body,
+        .buy-now-footer {
+            padding: 8px;
+        }
+
+        .buy-now-confirm-text {
+            margin-bottom: 8px;
+        }
+
+        .buy-now-warning {
+            padding: 8px;
+            margin-top: 8px;
+        }
+    }
+</style>
+
+<div id="agreementOverlay" class="agreement-overlay">
+    <div class="agreement-dialog">
+        <div class="agreement-dialog-header">
+            <h3 class="agreement-dialog-title">Zgody i oświadczenia</h3>
+            <button type="button" class="agreement-close-btn" onclick="closeAgreementDialog()" aria-label="Zamknij">×</button>
+        </div>
+
+        <div class="agreement-dialog-body">
+            <form id="agreement-form">
+                <div class="agreement-section">
+                    <div class="agreement-section-title">Wyrażenie chęci udziału w aukcji</div>
+
+
+                </div>
+
+            </form>
+        </div>
+
+        <div class="agreement-dialog-footer">
+            <button type="button" class="agreement-btn agreement-btn-secondary" onclick="closeAgreementDialog()">Brak zgody</button>
+            <button type="button" id="approveAgreementBtn" class="agreement-btn agreement-btn-primary disabled" onclick="approveAgreement()">Przejdź dalej</button>
+        </div>
+    </div>
+</div>
+<div id="buyNowConfirmOverlay" class="buy-now-overlay">
+    <div class="buy-now-dialog">
+        <div class="buy-now-header">
+            <h3 class="buy-now-title">Potwierdzenie złożenia oferty KUP TERAZ</h3>
+            <button type="button" class="buy-now-close-btn" onclick="closeBuyNowConfirm()">×</button>
+        </div>
+
+        <div class="buy-now-body">
+            <p class="buy-now-confirm-text">
+                Potwierdzenie poniższej oferty w cenie KUP TERAZ jest równoznaczne z zawarciem transakcji i spowoduje automatyczne zakończenie aukcji.
+            </p>
+
+            <span class="buy-now-highlight" id="buyNowModalNetto">
+                Twoja oferta NETTO: 0,00 zł
+            </span>
+            <span class="buy-now-confirm-text" id="buyNowModalBrutto">
+                Twoja oferta BRUTTO:  0,00 zł (w tym prowizja 0,00 zł)
+            </span>
+
+            <div class="buy-now-warning">
+                Prosimy o zweryfikowanie danych przed potwierdzeniem.
+            </div>
+        </div>
+
+        <div class="buy-now-footer">
+            <button type="button" class="btn-cancel-purchase" onclick="closeBuyNowConfirm()">Rezygnuję</button>
+            <button type="button" class="btn-confirm-purchase" onclick="confirmBuyNow()">Potwierdzam zakup</button>
+        </div>
+    </div>
+</div>
+
+<div id="imageViewerOverlay" class="image-viewer-overlay" onclick="closeImageViewerOnBackground(event)">
+    <div class="image-viewer-container">
+        <button class="image-viewer-close" onclick="closeImageViewer()" aria-label="Zamknij podgląd" title="Zamknij (Esc)">&times;</button>
+        <button class="image-viewer-nav image-viewer-prev" onclick="changeViewerImage(-1)" aria-label="Poprzednie zdjęcie">&#10094;</button>
+        <img id="imageViewerImg" class="image-viewer-img" src="" alt="SEAT IBIZA 999,00 cm3 / 75 KM" onclick="closeImageViewer()" />
+        <button class="image-viewer-nav image-viewer-next" onclick="changeViewerImage(1)" aria-label="Następne zdjęcie">&#10095;</button>
+        <div class="image-viewer-counter" id="imageViewerCounter"></div>
+    </div>
+</div>
+
+<section class="auction-page">
+    <!-- LEFT -->
+    <div>
+        <!-- GALERIA -->
+        <div class="auction-gallery">
+            <div class="main-image-viewport">
+                <button class="nav-arrow arrow-left" onclick="changeImage(-1)" aria-label="Previous Image">&#10094;</button>
+                <img id="mainImg"
+                     src="/uploads/attachements/c2Q99rY13wg/HISTORIA.POJAZDU.NU7E617.pdf"
+                     alt="SEAT IBIZA 999,00 cm3 / 75 KM" />
+                <button class="nav-arrow arrow-right" onclick="changeImage(1)" aria-label="Next Image">&#10095;</button>
+                <button class="image-viewer-open-btn" onclick="openImageViewer()" aria-label="Powiększ zdjęcie" title="Powiększ">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="22" height="22" fill="currentColor">
+                        <path d="M416 208c0 45.9-14.9 88.3-40 122.7L502.6 457.4c12.5 12.5 12.5 32.8 0 45.3s-32.8 12.5-45.3 0L330.7 376c-34.4 25.2-76.8 40-122.7 40C93.1 416 0 322.9 0 208S93.1 0 208 0S416 93.1 416 208zM208 352a144 144 0 1 0 0-288 144 144 0 1 0 0 288zm16-176v-32c0-8.8-7.2-16-16-16s-16 7.2-16 16v32H160c-8.8 0-16 7.2-16 16s7.2 16 16 16h32v32c0 8.8 7.2 16 16 16s16-7.2 16-16v-32h32c8.8 0 16-7.2 16-16s-7.2-16-16-16h-32z"/>
+                    </svg>
+                </button>
+            </div>
+
+            <div class="thumb-slider" id="thumbSlider">
+                    <div class="thumb active"
+                         onclick="setMainImage(0, this)">
+                        <img src="/uploads/photos/c2Q99rY13wg/DSCF6713.JPG" alt="SEAT IBIZA 999,00 cm3 / 75 KM" />
+                    </div>
+                    <div class="thumb "
+                         onclick="setMainImage(1, this)">
+                        <img src="/uploads/photos/c2Q99rY13wg/DSCF6714.JPG" alt="SEAT IBIZA 999,00 cm3 / 75 KM" />
+                    </div>
+                    <div class="thumb "
+                         onclick="setMainImage(2, this)">
+                        <img src="/uploads/photos/c2Q99rY13wg/DSCF6715.JPG" alt="SEAT IBIZA 999,00 cm3 / 75 KM" />
+                    </div>
+                    <div class="thumb "
+                         onclick="setMainImage(3, this)">
+                        <img src="/uploads/photos/c2Q99rY13wg/DSCF6716.JPG" alt="SEAT IBIZA 999,00 cm3 / 75 KM" />
+                    </div>
+                    <div class="thumb "
+                         onclick="setMainImage(4, this)">
+                        <img src="/uploads/photos/c2Q99rY13wg/DSCF6717.JPG" alt="SEAT IBIZA 999,00 cm3 / 75 KM" />
+                    </div>
+                    <div class="thumb "
+                         onclick="setMainImage(5, this)">
+                        <img src="/uploads/photos/c2Q99rY13wg/DSCF6718.JPG" alt="SEAT IBIZA 999,00 cm3 / 75 KM" />
+                    </div>
+                    <div class="thumb "
+                         onclick="setMainImage(6, this)">
+                        <img src="/uploads/photos/c2Q99rY13wg/DSCF6719.JPG" alt="SEAT IBIZA 999,00 cm3 / 75 KM" />
+                    </div>
+                    <div class="thumb "
+                         onclick="setMainImage(7, this)">
+                        <img src="/uploads/photos/c2Q99rY13wg/DSCF6720.JPG" alt="SEAT IBIZA 999,00 cm3 / 75 KM" />
+                    </div>
+                    <div class="thumb "
+                         onclick="setMainImage(8, this)">
+                        <img src="/uploads/photos/c2Q99rY13wg/DSCF6721.JPG" alt="SEAT IBIZA 999,00 cm3 / 75 KM" />
+                    </div>
+                    <div class="thumb "
+                         onclick="setMainImage(9, this)">
+                        <img src="/uploads/photos/c2Q99rY13wg/DSCF6722.JPG" alt="SEAT IBIZA 999,00 cm3 / 75 KM" />
+                    </div>
+                    <div class="thumb "
+                         onclick="setMainImage(10, this)">
+                        <img src="/uploads/photos/c2Q99rY13wg/DSCF6723.JPG" alt="SEAT IBIZA 999,00 cm3 / 75 KM" />
+                    </div>
+                    <div class="thumb "
+                         onclick="setMainImage(11, this)">
+                        <img src="/uploads/photos/c2Q99rY13wg/DSCF6724.JPG" alt="SEAT IBIZA 999,00 cm3 / 75 KM" />
+                    </div>
+                    <div class="thumb "
+                         onclick="setMainImage(12, this)">
+                        <img src="/uploads/photos/c2Q99rY13wg/DSCF6725.JPG" alt="SEAT IBIZA 999,00 cm3 / 75 KM" />
+                    </div>
+                    <div class="thumb "
+                         onclick="setMainImage(13, this)">
+                        <img src="/uploads/photos/c2Q99rY13wg/DSCF6726.JPG" alt="SEAT IBIZA 999,00 cm3 / 75 KM" />
+                    </div>
+                    <div class="thumb "
+                         onclick="setMainImage(14, this)">
+                        <img src="/uploads/photos/c2Q99rY13wg/DSCF6727.JPG" alt="SEAT IBIZA 999,00 cm3 / 75 KM" />
+                    </div>
+                    <div class="thumb "
+                         onclick="setMainImage(15, this)">
+                        <img src="/uploads/photos/c2Q99rY13wg/DSCF6728.JPG" alt="SEAT IBIZA 999,00 cm3 / 75 KM" />
+                    </div>
+                    <div class="thumb "
+                         onclick="setMainImage(16, this)">
+                        <img src="/uploads/photos/c2Q99rY13wg/DSCF6729.JPG" alt="SEAT IBIZA 999,00 cm3 / 75 KM" />
+                    </div>
+                    <div class="thumb "
+                         onclick="setMainImage(17, this)">
+                        <img src="/uploads/photos/c2Q99rY13wg/DSCF6730.JPG" alt="SEAT IBIZA 999,00 cm3 / 75 KM" />
+                    </div>
+                    <div class="thumb "
+                         onclick="setMainImage(18, this)">
+                        <img src="/uploads/photos/c2Q99rY13wg/DSCF6731.JPG" alt="SEAT IBIZA 999,00 cm3 / 75 KM" />
+                    </div>
+                    <div class="thumb "
+                         onclick="setMainImage(19, this)">
+                        <img src="/uploads/photos/c2Q99rY13wg/DSCF6732.JPG" alt="SEAT IBIZA 999,00 cm3 / 75 KM" />
+                    </div>
+                    <div class="thumb "
+                         onclick="setMainImage(20, this)">
+                        <img src="/uploads/photos/c2Q99rY13wg/DSCF6733.JPG" alt="SEAT IBIZA 999,00 cm3 / 75 KM" />
+                    </div>
+                    <div class="thumb "
+                         onclick="setMainImage(21, this)">
+                        <img src="/uploads/photos/c2Q99rY13wg/DSCF6734.JPG" alt="SEAT IBIZA 999,00 cm3 / 75 KM" />
+                    </div>
+                    <div class="thumb "
+                         onclick="setMainImage(22, this)">
+                        <img src="/uploads/photos/c2Q99rY13wg/DSCF6735.JPG" alt="SEAT IBIZA 999,00 cm3 / 75 KM" />
+                    </div>
+                    <div class="thumb "
+                         onclick="setMainImage(23, this)">
+                        <img src="/uploads/photos/c2Q99rY13wg/DSCF6736.JPG" alt="SEAT IBIZA 999,00 cm3 / 75 KM" />
+                    </div>
+                    <div class="thumb "
+                         onclick="setMainImage(24, this)">
+                        <img src="/uploads/photos/c2Q99rY13wg/DSCF6737.JPG" alt="SEAT IBIZA 999,00 cm3 / 75 KM" />
+                    </div>
+            </div>
+        </div>
+
+        <!-- AKCJE -->
+        <div class="action-bar-left">
+                <a href="/uzytkownik/aukcje/obserwuj/c2Q99rY13wg"
+                   class="btn-secondary-action">⭐ Obserwuj aukcję</a>
+            <a href="#" class="btn-secondary-action" style="cursor:pointer" onclick="openInternationalClientModal()">
+                International buyers
+            </a>
+
+        </div>
+
+        <!-- SPECYFIKACJA -->
+        <section class="description-card">
+            <h2 class="section-title">Informacja o przedmiocie aukcji</h2>
+            <div class="specs-grid">
+                <div class="spec">
+                    <span class="spec-label">Rok produkcji</span>
+                    <span class="spec-value">2017</span>
+                </div>
+
+                <div class="spec">
+                    <span class="spec-label">Przebieg pojazdu</span>
+                    <span class="spec-value">463465</span>
+                </div>
+
+                <div class="spec">
+                    <span class="spec-label">Silnik i Moc</span>
+                    <span class="spec-value">999,00 ccm / 75 KM</span>
+                </div>
+
+                <div class="spec">
+                    <span class="spec-label">Rodzaj paliwa</span>
+                    <span class="spec-value">Benzyna</span>
+                </div>
+
+                <div class="spec">
+                    <span class="spec-label">Nr rejestracyjny</span>
+                    <span class="spec-value">NU7E617</span>
+                </div>
+
+                <div class="spec">
+                    <span class="spec-label">Numer VIN</span>
+                    <span class="spec-value">VSSNB8XHA1KCGXREN</span>
+                </div>
+
+                <div class="spec">
+                    <span class="spec-label">Lokalizacja</span>
+                    <span class="spec-value">Warszawa, ul. Zatorze 1</span>
+                </div>
+
+                <div class="spec">
+                    <span class="spec-label">Stawka VAT</span>
+                    <span class="spec-value">Podatek VAT 23%</span>
+                </div>
+
+                <div class="spec">
+                    <span class="spec-label">Sprzedający</span>
+                    <span class="spec-value">ING LEASING</span>
+                </div>
+
+                <div class="spec">
+                    <span class="spec-label">Data zakończenia aukcji</span>
+                    <span class="spec-value" id="auctionEndDateDisplay">05-11-2026 09:00:00</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- OPIS -->
+        <section class="description-card">
+            <h2 class="section-title">Ważne informacje</h2>
+            <div class="description-box"><span style="margin: 0px; padding: 0px; border: 0px; outline: 0px; font-size: 16px; vertical-align: baseline; background: transparent; color: rgb(0, 0, 0); font-family: Montserrat, sans-serif;">Informacje dotyczące przedmiotu sprzedaży mają jedynie charakter poglądowy.&nbsp;</span>
+<div style="margin: 0px; padding: 0px; border: 0px; outline: 0px; font-size: 16px; vertical-align: baseline; background: transparent; color: rgb(0, 0, 0); font-family: Montserrat, sans-serif;">
+	Uczestnicy są zobowiązani do weryfikacji zgodności publikowanych informacji z rzeczywistym stanem rzeczy w miejscu jej przechowania, przed złożeniem oferty zakupu.&nbsp;</div>
+</div>
+        </section>
+
+        <!-- DOKUMENTY -->
+        <section class="description-card">
+            <h2 class="section-title">Pliki i dokumentacja</h2>
+            <div class="docs-container">
+                        <a href="/uploads/attachements/c2Q99rY13wg/HISTORIA.POJAZDU.NU7E617.pdf" class="doc-button" target="_blank">
+                            <div class="doc-info">
+                                <div class="pdf-icon">PDF</div>
+                                <div><strong>HISTORIA.POJAZDU.NU7E617.pdf</strong></div>
+                            </div>
+                            <span>↓</span>
+                        </a>
+                        <a href="/uploads/attachements/c2Q99rY13wg/KARTA.INFORMACYJNA.NU7E617.pdf" class="doc-button" target="_blank">
+                            <div class="doc-info">
+                                <div class="pdf-icon">PDF</div>
+                                <div><strong>KARTA.INFORMACYJNA.NU7E617.pdf</strong></div>
+                            </div>
+                            <span>↓</span>
+                        </a>
+
+                <a href="/aukcje/instrukcja?subjectPrefix=ing" class="doc-button" target="_blank">
+                    <div class="doc-info">
+                        <div class="pdf-icon">PDF</div>
+                        <div><strong>Instrukcja po zakończonej aukcji</strong></div>
+                    </div>
+                    <span>↓</span>
+                </a>
+            </div>
+        </section>
+    </div>
+
+    <!-- RIGHT -->
+    <div class="auction-sidebar">
+            <a href="/uzytkownik/logowanie?returnUrl=https%3A%2F%2Fautoprzetarg.pl%2Faukcja%2FSEAT-IBIZA-999-00-cm3---75-KM%2Cc2Q99rY13wg%2CSamochody-osobowe" style="text-decoration:none; color:white;">
+                <div class="auction-card" style="cursor:pointer;">
+                    <div class="offer-status" style="background: rgba(225,29,72,.08); border-color: rgba(225,29,72,.18); color: var(--accent-red-dark);">
+                        Zaloguj się, aby złożyć ofertę
+                    </div>
+                </div>
+            </a>
+
+            <div class="auction-card">
+                <h1 class="auction-title">
+                    SEAT IBIZA
+                </h1>
+                <span class="auction-subtitle">
+                    2017 • 999,00 ccm / 75 KM
+                </span>
+
+                <div class="price-wrapper">
+                    <span class="price-label">Aktualna cena aukcji NETTO:</span>
+                    <div class="price" id="currentPriceDisplay">
+                        6&#xA0;625,00 PLN
+                    </div>
+
+                    <div class="timer">
+                        Do końca: <span id="timeRemaining">2026-11-05 09:00:00</span>
+                    </div>
+                </div>
+
+                    <div class="offer-status">
+                        OFERTA WYMAGA AKCEPTACJI
+                    </div>
+
+            </div>
+
+    </div>
+</section>
+
+<script>
+ (function() {
+        var auctionId = '96302';
+        
+        // Clear any existing auction timer interval
+        if (window.auctionTimerInterval) {
+            clearInterval(window.auctionTimerInterval);
+            window.auctionTimerInterval = null;
+        }
+        
+        // Clear any existing offers refresh interval
+        if (window.offersRefreshInterval) {
+            clearInterval(window.offersRefreshInterval);
+            window.offersRefreshInterval = null;
+        }
+        
+        // Remove any previously attached event listeners to prevent duplicates
+        var mainImg = document.getElementById('mainImg');
+        var thumbSlider = document.getElementById('thumbSlider');
+        
+        if (mainImg) {
+            // Remove inline onclick handlers if they were added dynamically
+            mainImg.onclick = null;
+        }
+        
+        if (thumbSlider) {
+            // Clear any existing thumb slider state
+            thumbSlider.dataset.initialized = null;
+        }
+        
+        // Mark this auction as initialized to prevent re-initialization
+        if (!window.auctionDetailsInitialized) {
+            window.auctionDetailsInitialized = {};
+        }
+        window.auctionDetailsInitialized[auctionId] = true;
+    })();
+
+    /* ---------- GALLERY JS ---------- */
+    let currentIndex = 0;
+    const mainImg = document.getElementById('mainImg');
+    const thumbs = document.querySelectorAll('.thumb');
+    let imageUrls = [
+  "/uploads/photos/c2Q99rY13wg/DSCF6713.JPG",
+  "/uploads/photos/c2Q99rY13wg/DSCF6714.JPG",
+  "/uploads/photos/c2Q99rY13wg/DSCF6715.JPG",
+  "/uploads/photos/c2Q99rY13wg/DSCF6716.JPG",
+  "/uploads/photos/c2Q99rY13wg/DSCF6717.JPG",
+  "/uploads/photos/c2Q99rY13wg/DSCF6718.JPG",
+  "/uploads/photos/c2Q99rY13wg/DSCF6719.JPG",
+  "/uploads/photos/c2Q99rY13wg/DSCF6720.JPG",
+  "/uploads/photos/c2Q99rY13wg/DSCF6721.JPG",
+  "/uploads/photos/c2Q99rY13wg/DSCF6722.JPG",
+  "/uploads/photos/c2Q99rY13wg/DSCF6723.JPG",
+  "/uploads/photos/c2Q99rY13wg/DSCF6724.JPG",
+  "/uploads/photos/c2Q99rY13wg/DSCF6725.JPG",
+  "/uploads/photos/c2Q99rY13wg/DSCF6726.JPG",
+  "/uploads/photos/c2Q99rY13wg/DSCF6727.JPG",
+  "/uploads/photos/c2Q99rY13wg/DSCF6728.JPG",
+  "/uploads/photos/c2Q99rY13wg/DSCF6729.JPG",
+  "/uploads/photos/c2Q99rY13wg/DSCF6730.JPG",
+  "/uploads/photos/c2Q99rY13wg/DSCF6731.JPG",
+  "/uploads/photos/c2Q99rY13wg/DSCF6732.JPG",
+  "/uploads/photos/c2Q99rY13wg/DSCF6733.JPG",
+  "/uploads/photos/c2Q99rY13wg/DSCF6734.JPG",
+  "/uploads/photos/c2Q99rY13wg/DSCF6735.JPG",
+  "/uploads/photos/c2Q99rY13wg/DSCF6736.JPG",
+  "/uploads/photos/c2Q99rY13wg/DSCF6737.JPG"
+];
+
+    if (!Array.isArray(imageUrls) || imageUrls.length === 0) {
+        imageUrls = ['/Content/brakzdjecia.png'];
+    }
+
+    function updateGallery(index) {
+        const total = thumbs.length || imageUrls.length || 1;
+        currentIndex = ((index % total) + total) % total;
+        mainImg.style.opacity = '0';
+        setTimeout(() => {
+            mainImg.src = imageUrls[currentIndex];
+            mainImg.style.opacity = '1';
+        }, 200);
+        thumbs.forEach(t => t.classList.remove('active'));
+        const activeThumb = thumbs[currentIndex];
+        if (activeThumb) {
+            activeThumb.classList.add('active');
+            activeThumb.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+        }
+    }
+
+    function changeImage(delta) {
+        updateGallery(currentIndex + delta);
+    }
+    window.changeImage = changeImage;
+
+    function setMainImage(index, element) {
+        updateGallery(index);
+    }
+    window.setMainImage = setMainImage;
+
+    thumbs.forEach((thumb, idx) => thumb.addEventListener('click', () => updateGallery(idx)));
+    updateGallery(0);
+
+    /* ---------- FULLSCREEN IMAGE VIEWER ---------- */
+    const viewerOverlay = document.getElementById('imageViewerOverlay');
+    const viewerImg = document.getElementById('imageViewerImg');
+    const viewerCounter = document.getElementById('imageViewerCounter');
+
+    function openImageViewer() {
+        if (!viewerOverlay || !viewerImg) return;
+        currentIndex = ((currentIndex % imageUrls.length) + imageUrls.length) % imageUrls.length;
+        viewerImg.src = imageUrls[currentIndex];
+        updateViewerCounter();
+        viewerOverlay.classList.add('active');
+        document.body.style.overflow = 'hidden';
+    }
+    window.openImageViewer = openImageViewer;
+
+    function closeImageViewer() {
+        if (!viewerOverlay) return;
+        viewerOverlay.classList.remove('active');
+        document.body.style.overflow = '';
+    }
+    window.closeImageViewer = closeImageViewer;
+
+    function closeImageViewerOnBackground(e) {
+        if (e && e.target === viewerOverlay) {
+            closeImageViewer();
+        }
+    }
+    window.closeImageViewerOnBackground = closeImageViewerOnBackground;
+
+    function changeViewerImage(delta) {
+        if (!viewerOverlay || !viewerImg || imageUrls.length === 0) return;
+        currentIndex = ((currentIndex + delta) % imageUrls.length + imageUrls.length) % imageUrls.length;
+        if (thumbs.length > 0) {
+            updateGallery(currentIndex); // keep main image + thumbs in sync
+        } else if (mainImg) {
+            mainImg.src = imageUrls[currentIndex];
+        }
+        viewerImg.src = imageUrls[currentIndex];
+        updateViewerCounter();
+    }
+    window.changeViewerImage = changeViewerImage;
+
+    function updateViewerCounter() {
+        if (viewerCounter) {
+            viewerCounter.textContent = (currentIndex + 1) + ' / ' + imageUrls.length;
+        }
+    }
+
+    if (viewerOverlay) {
+        document.addEventListener('keydown', function (e) {
+            if (!viewerOverlay.classList.contains('active')) return;
+            if (e.key === 'Escape' || e.key === 'Esc') {
+                closeImageViewer();
+            } else if (e.key === 'ArrowLeft') {
+                changeViewerImage(-1);
+            } else if (e.key === 'ArrowRight') {
+                changeViewerImage(1);
+            }
+        });
+    }
+
+    /* ---------- COUNTDOWN ---------- */
+    // Licznik opieramy na czasie SERWERA, a nie na zegarze komputera uzytkownika.
+    // Powod: zegar klienta bywa przestawiony, a uzytkownik moze byc w innej strefie czasowej.
+    // Data konca aukcji i czas serwera sa w tej samej, strefowo-neutralnej ramie (Data końca
+    // przekazujemy w formacie "yyyy-MM-dd HH:mm:ss"), dzieki czemu porownanie jest zawsze
+    // poprawne — niezaleznie od strefy i od tego, czy zegar klienta jest dokladny.
+    const endDateServerValue = '2026-11-05 09:00:00.000';
+    const timeRemainingSpan = document.getElementById('timeRemaining');
+    const timeRemainingSpan2 = document.getElementById('timeRemaining2');
+
+    function updateCountdown() {
+        const diff = window.ServerClock.remainingMs(endDateServerValue);
+
+        if (isNaN(diff) || diff <= 0) {
+            if (timeRemainingSpan) timeRemainingSpan.textContent = 'Zakończona';
+            if (timeRemainingSpan2) timeRemainingSpan2.textContent = 'Zakończona';
+            clearInterval(countdownTimerId);
+            return;
+        }
+
+        const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+        const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+        const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+        const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+
+        let display = '';
+        if (days > 0) display += days + 'd ';
+        display += hours.toString().padStart(2, '0') + ':'
+            + minutes.toString().padStart(2, '0') + ':'
+            + seconds.toString().padStart(2, '0');
+
+        if (timeRemainingSpan) timeRemainingSpan.textContent = display;
+        if (timeRemainingSpan2) timeRemainingSpan2.textContent = display;
+    }
+
+    const countdownTimerId = setInterval(updateCountdown, 1000);
+    updateCountdown();
+
+
+    function base64Encode(str) {
+        return btoa(
+            encodeURIComponent(str).replace(
+                /%([0-9A-F]{2})/g,
+                function toSolidBytes(match, p1) {
+                    return String.fromCharCode("0x" + p1);
+                },
+            ),
+        );
+    }
+
+    /// <summary>
+    /// Wysyła na serwer wszystkie zaznaczone zgody (domyślne i podmiotowe) w jednym żądaniu.
+    /// Nazwy checkboxów przekazywane są w polu `form` (base64), a kontroler zapisuje każdą zgodę
+    /// jako osobny rekord — wcześniej wysyłane były tylko 4 parametry, przez co zgody
+    /// SecondAuctionApproval, TechnicalItemApproval, SendInvoiceApproval i inne nie zapisywały się.
+    /// </summary>
+    function approveAuction() {
+        var baseUrl = "/aukcja/potwierdz/" + 'c2Q99rY13wg';
+        var form = document.getElementById("agreement-form");
+        if (!form) {
+            return;
+        }
+
+        var checkboxes = [];
+        form
+            .querySelectorAll('input[type="checkbox"]:checked')
+            .forEach(function (checkbox) {
+                checkboxes.push(encodeURIComponent(checkbox.name) + "=on");
+            });
+
+        // Parametry zachowane dla zgodności ze starszymi widokami i filtrami.
+        var params = [
+            "ApprovedAuction=false",
+            "ApprovedPhoneCallForAuction=false",
+            "Quotation=false",
+            "AuctionRegulations=false",
+            "SubjectCustomConsents=true",
+        ];
+
+        window.location.href =
+            baseUrl +
+            "?" +
+            params.join("&") +
+            "&form=" +
+            base64Encode(checkboxes.join("&"));
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        var form = document.getElementById('agreement-form');
+        if (form) {
+            var button = form.querySelector('.page-button-one');
+            var checkboxes = form.querySelectorAll('input[type="checkbox"]');
+            if (checkboxes.length === 0 && button) {
+                button.classList.remove('disabled');
+            }
+        }
+    });
+</script>
+<script src="/Scripts/AuctionPrices.js?v=xjW3xjsbQMTnTs-vB9DLdGpTnsWb3oJ3VI-WaXQzYbQ"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.0/signalr.min.js"></script>
+
+<script>
+    var hasApproved = "False";
+    var buyNowPrice = 0;
+    var buyNowPriceWithCommission = buyNowPrice;
+    var buyNowGross = parseFloat("0".replace(",", "."));
+    var buyNowComissionChargeGross = parseFloat(
+        "0".replace(",", "."),
+    );
+    var isConnected = false;
+    var isFinished = "False" == "True" ? true : false;
+    let approvalStatus = false;
+    let lastBidTimestamp = null;
+    let addOfferButton = null;
+    let buyNowButton = null;
+    let revertLastOfferButton = null;
+    let offerValueInput = null;
+    let errorMessageDiv = null;
+    let offersListDiv = null;
+    let timeToEndSpan = null;
+    let auctionId = 0;
+    let userId = null;
+    let isBuyNowPending = false;
+    let lastNetOffer = null;
+    let lastGrossOffer = null;
+    let lastCommission = null;
+
+    const formatNumber = (number) => {
+        if (typeof $.number === "function") {
+            return $.number(number, 2, ",", " ");
+        }
+        return new Intl.NumberFormat("pl-PL", {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+        }).format(number);
+    };
+
+    function auctionHasEnded() {
+        return isFinished || (timeToEndSpan && timeToEndSpan.textContent.trim() === "Zakończona");
+    }
+
+    const setErrorMessage = (message) => {
+        if (errorMessageDiv) {
+            errorMessageDiv.innerHTML = message || "&nbsp;";
+            errorMessageDiv.classList.toggle("is-empty", !message || message === "&nbsp;");
+        }
+    };
+    const clearErrorMessage = () => setErrorMessage("&nbsp;");
+
+    const hideBuyNowButton = () => {
+        if (buyNowButton) {
+            buyNowButton.style.display = "none";
+            buyNowButton.classList.add("hidden");
+        }
+        const container = document.getElementById("buyNowPriceContainer");
+        if (container) {
+            container.style.display = "none";
+        }
+    };
+
+    const toggleBidButtons = (enable) => {
+        if (enable && (auctionHasEnded() || isFinished)) {
+            enable = false;
+        }
+        if (addOfferButton) {
+            addOfferButton.disabled = !enable;
+            addOfferButton.style.pointerEvents = enable ? "auto" : "none";
+            addOfferButton.style.opacity = enable ? "1" : "0.6";
+            addOfferButton.style.cursor = enable ? "pointer" : "not-allowed";
+        }
+        if (buyNowButton) {
+            buyNowButton.disabled = !enable;
+            buyNowButton.style.pointerEvents = enable ? "auto" : "none";
+            buyNowButton.style.opacity = enable ? "1" : "0.6";
+            buyNowButton.style.cursor = enable ? "pointer" : "not-allowed";
+        }
+    };
+
+    const openBuyNowConfirm = () => {
+        if (auctionHasEnded() || isFinished) {
+            setErrorMessage("Aukcja została już zakończona. Nie można złożyć oferty.");
+            toggleBidButtons(false);
+            return;
+        }
+
+        if (buyNowPrice <= 0 || (lastNetOffer !== null && lastNetOffer >= buyNowPrice)) {
+            hideBuyNowButton();
+            setErrorMessage("Opcja KUP TERAZ nie jest już dostępna – aktualna oferta osiągnęła lub przekroczyła cenę Kup Teraz.");
+            return;
+        }
+
+        if (buyNowPrice > 0) {
+            const nettoElement = document.getElementById("buyNowModalNetto");
+            const bruttoElement = document.getElementById("buyNowModalBrutto");
+
+            if (nettoElement && bruttoElement) {
+                var displayBuyNowNetto = buyNowPriceWithCommission > 0 ? buyNowPriceWithCommission : buyNowPrice;
+                var displayBuyNowGross = buyNowGross;
+                nettoElement.textContent = "Twoja oferta NETTO: " + formatNumber(displayBuyNowNetto) + " zł";
+                bruttoElement.textContent = "Twoja oferta BRUTTO: " + formatNumber(displayBuyNowGross) + " zł" + (buyNowComissionChargeGross > 0 ? (" (w tym prowizja " + formatNumber(buyNowComissionChargeGross) + " zł)") : "");
+            }
+
+            const overlay = document.getElementById("buyNowConfirmOverlay");
+            if (overlay) {
+                overlay.classList.add("active");
+            }
+            isBuyNowPending = true;
+        }
+    };
+
+    const closeBuyNowConfirm = () => {
+        const overlay = document.getElementById("buyNowConfirmOverlay");
+        if (overlay) {
+            overlay.classList.remove("active");
+        }
+        isBuyNowPending = false;
+        if (!auctionHasEnded() && !isFinished) {
+            toggleBidButtons(true);
+        } else {
+            toggleBidButtons(false);
+        }
+    };
+
+    const confirmBuyNow = () => {
+        if (auctionHasEnded() || isFinished) {
+            closeBuyNowConfirm();
+            setErrorMessage("Aukcja została już zakończona. Nie można złożyć oferty.");
+            toggleBidButtons(false);
+            return;
+        }
+
+        if (buyNowPrice <= 0 || (lastNetOffer !== null && lastNetOffer >= buyNowPrice)) {
+            closeBuyNowConfirm();
+            hideBuyNowButton();
+            setErrorMessage("Opcja KUP TERAZ nie jest już dostępna – aktualna oferta osiągnęła lub przekroczyła cenę Kup Teraz.");
+            return;
+        }
+
+        var buyNowBasePrice = parseFloat("0,00".replace(",", "."));
+
+        if (buyNowBasePrice > 0) {
+            toggleBidButtons(false);
+            const confirmBtn = document.querySelector(".btn-confirm-purchase");
+            if (confirmBtn) {
+                confirmBtn.disabled = true;
+                confirmBtn.textContent = "Składanie oferty...";
+            }
+
+            connection
+                .invoke(
+                    "AuctionNewOffer",
+                    auctionId,
+                    userId,
+                    buyNowBasePrice,
+                    1,
+                    new Date().toISOString()
+                )
+                .then(function () {
+                    closeBuyNowConfirm();
+                })
+                .catch(function (err) {
+                    closeBuyNowConfirm();
+                    setErrorMessage("Błąd podczas zakupu. Spróbuj ponownie.");
+                    toggleBidButtons(true);
+                })
+                .finally(function () {
+                    if (confirmBtn) {
+                        confirmBtn.disabled = false;
+                        confirmBtn.textContent = "Potwierdzam zakup";
+                    }
+                });
+        }
+    };
+
+    document.addEventListener("DOMContentLoaded", async () => {
+        // Only initialize if user is authenticated and has access
+        if (!document.getElementById("AuctionId")) return;
+
+        auctionId = parseInt(document.getElementById("AuctionId").value);
+        userId = document.getElementById("UserId").value;
+        const username = document.getElementById("Username").value;
+        const endDateHidden = document.getElementById("EndDate");
+        let revertOfferTimerId = null;
+        let countdownTimerId = null;
+
+        addOfferButton = document.getElementById("addOfferButton");
+        buyNowButton = document.getElementById("buyNowButton");
+        revertLastOfferButton = document.getElementById("revertLastOffer");
+        offerValueInput = document.getElementById("OfferValue");
+        errorMessageDiv = document.getElementById("errorMessage");
+        offersListDiv = document.getElementById("offersList");
+        timeToEndSpan = document.getElementById("TimeToEnd");
+        lastNetOffer = null;
+        lastGrossOffer = null;
+        lastCommission = null;
+
+        const setPriceLabelMessage = (message) => {
+            const priceLabel = document.getElementById("priceLabel");
+            if (priceLabel) {
+                priceLabel.innerHTML = message || "&nbsp;";
+            }
+        };
+
+        const hideRevertOfferButton = () => {
+            if (revertOfferTimerId) clearInterval(revertOfferTimerId);
+            if (revertLastOfferButton) {
+                revertLastOfferButton.style.display = "none";
+                revertLastOfferButton.classList.add("hidden");
+            }
+        };
+
+        const showRevertOfferButton = () => {
+            if (revertLastOfferButton) {
+                revertLastOfferButton.classList.remove("hidden");
+            }
+        };
+
+        const updateCountdown = () => {
+            // Liczymy wzgledem czasu SERWERA (window.ServerClock), a nie zegara przegladarki.
+            // Dzieki temu licznik jest zgodny z serwerem takze przy przestawionym zegarze
+            // klienta albo gdy klient jest w innej strefie czasowej.
+            const diff = window.ServerClock.remainingMs(endDateHidden.value);
+
+            if (isFinished || isNaN(diff) || diff <= 0) {
+                // Tekst musi być identyczny z porównaniem w auctionHasEnded() ("Zakończona"),
+                // inaczej warunek zakończenia aukcji nigdy nie był spełniony.
+                timeToEndSpan.textContent = "Zakończona";
+                clearInterval(countdownTimerId);
+                toggleBidButtons(false);
+                if (offerValueInput) {
+                    offerValueInput.readOnly = true;
+                    offerValueInput.style.opacity = "0.6";
+                }
+                priceDisplay.setFinished(true);
+                closeBuyNowConfirm();
+
+                return;
+            }
+            priceDisplay.setFinished(false);
+
+            const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+            const remainingHours = Math.floor(
+                (diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60),
+            );
+            const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+            const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+
+            let timeString = "";
+
+            if (days > 0) {
+                timeString += `${days}d `;
+            }
+
+            if (remainingHours > 0 || days > 0) {
+                timeString += `${remainingHours}g `;
+            }
+
+            if (minutes > 0 || remainingHours > 0 || days > 0) {
+                timeString += `${minutes}m `;
+            }
+
+            timeString += `${seconds}s`;
+            timeToEndSpan.textContent = timeString;
+        };
+
+        const startCountdown = () => {
+            if (countdownTimerId) clearInterval(countdownTimerId);
+            if (offerValueInput) {
+                offerValueInput.readOnly = false;
+                offerValueInput.style.opacity = "1";
+            }
+            updateCountdown();
+            countdownTimerId = setInterval(updateCountdown, 1000);
+        };
+
+        // Synchronizacja zegara JUZ NA STARCIE — z czasu serwera zapisanego przy renderowaniu
+        // strony. Bez tego licznik liczylby wedlug zegara klienta az do pierwszego zdarzenia
+        // z SignalR (a przy nieaktywnej aukcji mogloby ono nie nadejsc przez dluzszy czas).
+        const serverTimeOnRender = document.getElementById("ServerTimeOnRender");
+        if (serverTimeOnRender && serverTimeOnRender.value) {
+            window.ServerClock.updateServerTime(serverTimeOnRender.value);
+        } else {
+            console.warn("[ServerClock] Brak poczatkowego czasu serwera — licznik ruszy po pierwszym zdarzeniu z serwera.");
+        }
+
+        const Base64 = {
+            _keyStr:
+                "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=",
+            encode: function (e) {
+                let t = "";
+                let n, r, i, s, o, u, a;
+                let f = 0;
+                e = Base64._utf8_encode(e);
+                while (f < e.length) {
+                    n = e.charCodeAt(f++);
+                    r = e.charCodeAt(f++);
+                    i = e.charCodeAt(f++);
+                    s = n >> 2;
+                    o = ((n & 3) << 4) | (r >> 4);
+                    u = ((r & 15) << 2) | (i >> 6);
+                    a = i & 63;
+                    if (isNaN(r)) {
+                        u = a = 64;
+                    } else if (isNaN(i)) {
+                        a = 64;
+                    }
+                    t +=
+                        this._keyStr.charAt(s) +
+                        this._keyStr.charAt(o) +
+                        this._keyStr.charAt(u) +
+                        this._keyStr.charAt(a);
+                }
+                return t;
+            },
+            decode: function (e) {
+                let t = "";
+                let n, r, i;
+                let s, o, u, a;
+                let f = 0;
+                e = e.replace(/[^A-Za-z0-9\+\/\=]/g, "");
+                while (f < e.length) {
+                    s = this._keyStr.indexOf(e.charAt(f++));
+                    o = this._keyStr.indexOf(e.charAt(f++));
+                    u = this._keyStr.indexOf(e.charAt(f++));
+                    a = this._keyStr.indexOf(e.charAt(f++));
+                    n = (s << 2) | (o >> 4);
+                    r = ((o & 15) << 4) | (u >> 2);
+                    i = ((u & 3) << 6) | a;
+                    t += String.fromCharCode(n);
+                    if (u != 64) {
+                        t += String.fromCharCode(r);
+                    }
+                    if (a != 64) {
+                        t += String.fromCharCode(i);
+                    }
+                }
+                t = Base64._utf8_decode(t);
+                return t;
+            },
+            _utf8_encode: function (e) {
+                e = e.replace(/\r\n/g, "\n");
+                let t = "";
+                for (let n = 0; n < e.length; n++) {
+                    const r = e.charCodeAt(n);
+                    if (r < 128) {
+                        t += String.fromCharCode(r);
+                    } else if (r > 127 && r < 2048) {
+                        t += String.fromCharCode((r >> 6) | 192);
+                        t += String.fromCharCode((r & 63) | 128);
+                    } else {
+                        t += String.fromCharCode((r >> 12) | 224);
+                        t += String.fromCharCode(((r >> 6) & 63) | 128);
+                        t += String.fromCharCode((r & 63) | 128);
+                    }
+                }
+                return t;
+            },
+            _utf8_decode: function (e) {
+                let t = "";
+                let n = 0;
+                let r = 0,
+                    c1 = 0,
+                    c2 = 0;
+                while (n < e.length) {
+                    r = e.charCodeAt(n);
+                    if (r < 128) {
+                        t += String.fromCharCode(r);
+                        n++;
+                    } else if (r > 191 && r < 224) {
+                        c2 = e.charCodeAt(n + 1);
+                        t += String.fromCharCode(((r & 31) << 6) | (c2 & 63));
+                        n += 2;
+                    } else {
+                        c2 = e.charCodeAt(n + 1);
+                        const c3 = e.charCodeAt(n + 2);
+                        t += String.fromCharCode(
+                            ((r & 15) << 12) | ((c2 & 63) << 6) | (c3 & 63),
+                        );
+                        n += 3;
+                    }
+                }
+                return t;
+            },
+        };
+        const updateOffersList = (offersList) => {
+            if (!offersListDiv) return;
+
+            hideRevertOfferButton();
+
+            const headerHTML =
+                offersListDiv.querySelector(".offers-header")?.outerHTML ?? "";
+            const offerColumns =
+                offersListDiv.querySelector(".offers-columns")?.outerHTML ?? "";
+            if (!headerHTML) {
+                return;
+            }
+            offersListDiv.innerHTML = headerHTML + offerColumns;
+
+            if (!offersList || offersList.length === 0) {
+                return;
+            }
+
+            offersList.slice(0, 6).forEach((item, index) => {
+                const itemUsername = Base64.decode(item.userName);
+                let displayUsername = itemUsername;
+
+                if (itemUsername !== username) {
+                    displayUsername =
+                        itemUsername.length > 2
+                            ? itemUsername[0] +
+                                "*".repeat(itemUsername.length - 2) +
+                                itemUsername[itemUsername.length - 1]
+                            : "***";
+                }
+
+                const offerElement = document.createElement("div");
+                offerElement.className = "offer-row";
+                offerElement.innerHTML = `
+                        <div class="offer-grid">
+                            <div class="offer-value">${displayUsername}</div>
+                            <div class="offer-value">${item.dateAdded}</div>
+                            <div class="offer-price">
+                                ${window.AuctionPrices.offerAmount(item)}<br>PLN netto
+                            </div>
+                        </div>
+                    `;
+                offersListDiv.appendChild(offerElement);
+
+                if (index === 0 && itemUsername === username) {
+                    const offerDate = new Date(item.dateAdded.replace(" ", "T"));
+                    const now = new Date();
+
+                    if (lastBidTimestamp && now.getTime() - lastBidTimestamp < 60000) {
+                        showRevertOfferButton();
+                        if (revertLastOfferButton) {
+                            revertLastOfferButton.style.display = "flex";
+                            revertLastOfferButton.style.justifyContent = "center";
+                            revertLastOfferButton.style.alignItems = "center";
+                            revertLastOfferButton.style.marginTop = "14px";
+                            revertLastOfferButton.style.backgroundColor = "#E11D48";
+
+                            let timeLeft = Math.floor(
+                                (lastBidTimestamp + 60000 - now.getTime()) / 1000,
+                            );
+                            revertLastOfferButton.textContent = `Wycofaj (${timeLeft})`;
+
+                            revertOfferTimerId = setInterval(() => {
+                                if (timeLeft <= 0 || timeToEndSpan.textContent === "Zakończona") {
+                                    hideRevertOfferButton();
+                                } else {
+                                    revertLastOfferButton.textContent = `Wycofaj (${timeLeft})`;
+                                    timeLeft--;
+                                }
+                            }, 1000);
+                        }
+                    }
+                }
+            });
+        };
+        //setGrossMessageInBuyNow();
+
+        addOfferButton.addEventListener("click", () => {
+            if (auctionHasEnded() || isFinished) {
+                setErrorMessage("Aukcja została już zakończona. Nie można złożyć oferty.");
+                toggleBidButtons(false);
+                return;
+            }
+            if (!document.getElementById("OfferValue")) {
+                return;
+            }
+            const offerValue = document
+                .getElementById("OfferValue")
+                .value.replace(",", ".")
+                .replace(/\s/g, "");
+            const offer = parseFloat(offerValue);
+
+            if (isNaN(offer) || offer <= 0) {
+                setErrorMessage("Wpisana wartosc jest nieprawidlowa");
+                return;
+            }
+            lastBidTimestamp = new Date().getTime();
+            clearErrorMessage();
+            toggleBidButtons(false);
+            connection
+                .invoke(
+                    "AuctionNewOffer",
+                    auctionId,
+                    userId,
+                    offer,
+                    0,
+                    new Date().toISOString(),
+                )
+                .catch((err) => {
+                    setErrorMessage("Błąd wysyłania oferty. Spróbuj ponownie.");
+                    toggleBidButtons(true);
+                });
+        });
+
+        if (revertLastOfferButton) {
+            revertLastOfferButton.addEventListener("click", () => {
+                toggleBidButtons(false);
+                if (revertLastOfferButton) {
+                    revertLastOfferButton.style.pointerEvents = "none";
+                    revertLastOfferButton.style.opacity = "0.6";
+                }
+                connection.invoke("RevertLastOffer", auctionId, userId).catch((err) => {
+                    setErrorMessage("Błąd podczas cofania oferty.");
+                    toggleBidButtons(true);
+                    if (revertLastOfferButton) {
+                        revertLastOfferButton.style.pointerEvents = "auto";
+                        revertLastOfferButton.style.opacity = "1";
+                    }
+                });
+            });
+            revertLastOfferButton.addEventListener("click", () => {
+                toggleBidButtons(false);
+                connection.invoke("RevertLastOffer", auctionId, userId).catch((err) => {
+                    setErrorMessage("Błąd podczas cofania oferty.");
+                    toggleBidButtons(true);
+                });
+            });
+        }
+
+        function auctionHasEnded() {
+            return isFinished || (timeToEndSpan && timeToEndSpan.textContent.trim() === "Zakończona");
+        }
+
+        // Aktualizuje widoczną datę zakończenia aukcji w sekcji specyfikacji.
+        // Aukcja jest automatycznie wydłużana przy ofercie złożonej w ostatnich minutach,
+        // dlatego etykieta musi być odświeżana razem z licznikiem czasu.
+        // endDateValue — data zakończenia w formacie ISO.
+        function updateEndDateDisplay(endDateValue) {
+            const display = document.getElementById("auctionEndDateDisplay");
+            if (!display || !endDateValue) return;
+
+            const parsedDate = new Date(endDateValue);
+            if (isNaN(parsedDate.getTime())) return;
+
+            const pad = (value) => String(value).padStart(2, "0");
+            display.textContent =
+                pad(parsedDate.getDate()) + "-" +
+                pad(parsedDate.getMonth() + 1) + "-" +
+                parsedDate.getFullYear() + " " +
+                pad(parsedDate.getHours()) + ":" +
+                pad(parsedDate.getMinutes()) + ":" +
+                pad(parsedDate.getSeconds());
+        }
+        const priceDisplay = window.AuctionPrices.bind(connection, auctionId, offerValueInput,
+            {"Start":{"Net":6625.00,"Gross":8148.75,"SellerNet":5925.00,"SellerGross":7287.75,"CommissionNet":700,"CommissionGross":861.00,"PolicyId":null,"Direction":0},"Current":{"Net":6625.00,"Gross":8148.75,"SellerNet":5925.00,"SellerGross":7287.75,"CommissionNet":700,"CommissionGross":861.00,"PolicyId":null,"Direction":0},"Final":null,"BuyNow":null,"NextOffer":{"Net":6625.00,"Gross":8148.75,"SellerNet":5925.00,"SellerGross":7287.75,"CommissionNet":700,"CommissionGross":861.00,"PolicyId":null,"Direction":0},"IncrementNet":0.00,"IncrementGross":0.00,"HasOffers":false,"RemainingMilliseconds":null,"NextOffers":[{"Net":6625.00,"Gross":8148.75,"SellerNet":5925.00,"SellerGross":7287.75,"CommissionNet":700,"CommissionGross":861.00,"PolicyId":null,"Direction":0},{"Net":6757.50,"Gross":8311.73,"SellerNet":6057.50,"SellerGross":7450.73,"CommissionNet":700,"CommissionGross":861.00,"PolicyId":null,"Direction":0},{"Net":6892.65,"Gross":8477.96,"SellerNet":6192.65,"SellerGross":7616.96,"CommissionNet":700,"CommissionGross":861.00,"PolicyId":null,"Direction":0}]});
+        priceDisplay.setFinished(isFinished);
+        connection.on(
+            "AuctionNewOffer",
+            (
+                resAuctionId,
+                resUserId,
+                newOffer,
+                currentOffer,
+                offersList,
+                serverTime,
+                endDate,
+                newOfferGross,
+                newComissionChargeGross,
+                currentOfferGrossAndCommissionCharge,
+            ) => {
+                if (resAuctionId !== auctionId) return;
+
+                // Kazde zdarzenie z serwera niesie jego aktualny czas — odswiezamy korekty zegara,
+                // dzieki czemu licznik pozostaje zgodny z serwerem przez cala aukcje.
+                window.ServerClock.updateServerTime(serverTime);
+
+                var currentOfferGross = parseFloat(
+                    currentOfferGrossAndCommissionCharge.split("`")[0],
+                );
+                var currentComissionChargeGross = parseFloat(
+                    currentOfferGrossAndCommissionCharge.split("`")[1],
+                );
+
+                endDateHidden.value = endDate;
+                startCountdown();
+
+                // Aukcja mogła zostać wydłużona — aktualizujemy także widoczną datę zakończenia,
+                // aby była zgodna z licznikiem i stanem zapisanym na serwerze.
+                updateEndDateDisplay(endDate);
+
+                if (auctionHasEnded() || isFinished) {
+                    lastNetOffer = currentOffer;
+                    lastGrossOffer = currentOfferGross;
+                    lastCommission = currentComissionChargeGross;
+                    priceDisplay.setFinished(true);
+                } else {
+                    lastNetOffer = newOffer;
+                    lastGrossOffer = parseFloat(newOfferGross);
+                    lastCommission = parseFloat(newComissionChargeGross);
+                    const newOfferGrossNum = parseFloat(newOfferGross);
+                    offerValueInput.value = newOffer;
+                    if (!isNaN(newOfferGrossNum)) {
+                        let message = `Twoja oferta brutto ${formatNumber(newOfferGrossNum)} zł`;
+                        const comNum = parseFloat(newComissionChargeGross);
+                        if (!isNaN(comNum)) {
+                            message += ` (w tym prowizja ${formatNumber(comNum)} zł)`;
+                        }
+                        setPriceLabelMessage(message);
+                    }
+                }
+                updateOffersList(offersList);
+
+                if (auctionHasEnded() || isFinished) {
+                    toggleBidButtons(false);
+                } else {
+                    if (buyNowPrice && currentOffer >= buyNowPrice) {
+                        hideBuyNowButton();
+                    }
+                    toggleBidButtons(true);
+                }
+            },
+        );
+
+        connection.on(
+            "NextAuctionOffer",
+            (
+                resAuctionId,
+                nextOffer,
+                currentOffer,
+                serverTime,
+                newOfferGross,
+                newComissionChargeGross,
+                currentOfferGross,
+                currentComissionChargeGross,
+            ) => {
+                if (resAuctionId !== auctionId) return;
+
+                // Czas serwera z kazdego zdarzenia utrzymuje korekty zegara w aktualnym stanie.
+                window.ServerClock.updateServerTime(serverTime);
+
+                if (offerValueInput) {
+                    if (auctionHasEnded() || isFinished) {
+                        priceDisplay.setFinished(true);
+                    } else {
+                        offerValueInput.value = nextOffer;
+                        const newOfferGrossNum = parseFloat(newOfferGross);
+                        if (!isNaN(newOfferGrossNum)) {
+                            let message = `Twoja oferta brutto ${formatNumber(newOfferGrossNum)} zł`;
+                            const comNum = parseFloat(newComissionChargeGross);
+                            if (!isNaN(comNum)) {
+                                message += ` (w tym prowizja ${formatNumber(comNum)} zł)`;
+                            }
+                            setPriceLabelMessage(message);
+                        }
+                    }
+                }
+
+                if (buyNowPrice && currentOffer >= buyNowPrice) {
+                    hideBuyNowButton();
+                }
+                if (auctionHasEnded() || isFinished) {
+                    toggleBidButtons(false);
+                } else {
+                    toggleBidButtons(true);
+                }
+            },
+        );
+
+        connection.on("RefreshAuctionOffer", (resAuctionId, offersList) => {
+            if (resAuctionId !== auctionId) return;
+            updateOffersList(offersList);
+        });
+
+        connection.on("AuctionEnded", (resAuctionId, serverTime) => {
+            if (resAuctionId !== auctionId) return;
+            isFinished = true;
+            window.ServerClock.updateServerTime(serverTime);
+            // Serwer przysyla swoj czas — po nim licznik pokaze "Zakonczona" (czas minal).
+            endDateHidden.value = serverTime;
+            startCountdown();
+            if (offerValueInput) {
+                offerValueInput.setAttribute("readonly", true);
+                offerValueInput.style.opacity = "0.6";
+            }
+            toggleBidButtons(false);
+            closeBuyNowConfirm();
+            setErrorMessage("Aukcja została zakończona. Składanie ofert nie jest już możliwe.");
+        });
+
+        connection.on("OfferRejectedAuctionEnded", (resAuctionId, serverTime) => {
+            if (resAuctionId !== auctionId) return;
+            isFinished = true;
+            endDateHidden.value = serverTime;
+            window.ServerClock.updateServerTime(serverTime);
+            startCountdown();
+            toggleBidButtons(false);
+            closeBuyNowConfirm();
+            setErrorMessage("Nie można złożyć oferty – aukcja została już zakończona.");
+        });
+
+        connection.on("AuctionUnavailable", (resAuctionId) => {
+            if (resAuctionId !== auctionId) return;
+            toggleBidButtons(false);
+            closeBuyNowConfirm();
+            setErrorMessage("Aukcja jest aktualnie niedostępna.");
+        });
+
+        connection.on("BuyNowNotAvailable", () => {
+            hideBuyNowButton();
+            closeBuyNowConfirm();
+            setErrorMessage("Opcja KUP TERAZ nie jest już dostępna – aktualna oferta osiągnęła lub przekroczyła cenę Kup Teraz.");
+            if (!auctionHasEnded() && !isFinished) {
+                toggleBidButtons(true);
+            }
+        });
+
+        // Serwer odmówił zakupu, bo cena KUP TERAZ jest niższa od ceny wywoławczej.
+        // Pokazujemy dokładny powód przesłany przez serwer zamiast ogólnego komunikatu
+        // o zbyt niskiej ofercie, który sugerowałby, że użytkownik podał złą kwotę.
+        connection.on("BuyNowNotAllowed", (resAuctionId, reason) => {
+            if (resAuctionId !== auctionId) return;
+            hideBuyNowButton();
+            closeBuyNowConfirm();
+            setErrorMessage(reason || "Zakup w trybie KUP TERAZ nie jest możliwy dla tej aukcji.");
+            if (!auctionHasEnded() && !isFinished) {
+                toggleBidButtons(true);
+            }
+        });
+
+        connection.on("OfferIsToLow", () => {
+            setErrorMessage("Podana oferta jest za niska!");
+            toggleBidButtons(true);
+        });
+
+        connection.on("DuplicateOfferRejected", () => {
+            setErrorMessage("Taka oferta została już złożona. Podaj wyższą kwotę.");
+            toggleBidButtons(true);
+        });
+
+        connection.on(
+            "ShowCommision",
+            (resAuctionId, apCommisionValue, buyerGross, name, maxOffer) => {
+                if (resAuctionId !== auctionId) return;
+                priceDisplay.setFinalPrice({ Net: maxOffer, Gross: buyerGross, CommissionGross: apCommisionValue }, name, formatNumber);
+                isFinished = true;
+                startCountdown();
+                closeBuyNowConfirm();
+            },
+        );
+
+        connection.on("OfferIsHighest", () => {
+            setErrorMessage("Twoja oferta jest najwyzsza i nie możesz jej przebic");
+            toggleBidButtons(true);
+        });
+
+        connection.on("OfferWasBroke", (resAuctionId) => {
+            if (resAuctionId !== auctionId) return;
+            setErrorMessage("Twoja oferta zostala przebita");
+            toggleBidButtons(true);
+            if (buyNowButton) {
+                buyNowButton.style.pointerEvents = "auto";
+                buyNowButton.style.opacity = "1";
+            }
+        });
+
+        connection.on("TimeForRevertOfferExpired", (resAuctionId) => {
+            if (resAuctionId !== auctionId) return;
+            setErrorMessage("Czas na cofnięcie oferty minął");
+            hideRevertOfferButton();
+        });
+
+        connection.on("AccountBanned", () => {
+            window.location.href = "/uzytkownik/konto_zbanowane";
+        });
+
+        connection.onreconnecting((error) => {
+            setErrorMessage("Utracono połączenie, próba ponownego polaczenia...");
+            toggleBidButtons(false);
+        });
+
+        connection.onreconnected((connectionId) => {
+            clearErrorMessage();
+            if (!auctionHasEnded() && !isFinished) {
+                toggleBidButtons(true);
+            } else {
+                toggleBidButtons(false);
+            }
+            if (buyNowButton && !auctionHasEnded() && !isFinished && !(lastNetOffer && lastNetOffer >= buyNowPrice)) {
+                buyNowButton.style.pointerEvents = "auto";
+                buyNowButton.style.opacity = "1";
+            }
+            connection
+                .invoke("GetAuctionOffers", auctionId)
+                .catch((err) => console.error("GetAuctionOffers failed", err));
+            connection
+                .invoke("GetNextOffer", auctionId)
+                .catch((err) => console.error("GetNextOffer failed", err));
+        });
+
+        connection.onclose((error) => {
+            setErrorMessage("Rozłączono. Odswież stronę, aby połączyć ponownie.");
+            toggleBidButtons(false);
+        });
+
+        connection.on("UpdateOnlineUsers", (count) => {
+            const el = document.getElementById("onlineUsersCount");
+            if (el) el.textContent = count;
+        });
+
+        connection.on("updateonlineusers", (count) => {
+            const el = document.getElementById("onlineUsersCount");
+            if (el) el.textContent = count;
+        });
+
+        connection.on("MinimalPrice", (hasMinimalPrice, auctionId) => {
+            if (auctionId !== auctionId) return;
+            if (hasMinimalPrice) {
+                setErrorMessage("Minimalna cena została osiagnięta!");
+            } else {
+                clearErrorMessage();
+            }
+        });
+
+        connection.on("minimalprice", (hasMinimalPrice, auctionId) => {
+            if (auctionId !== auctionId) return;
+            if (hasMinimalPrice) {
+                setErrorMessage("Minimalna cena została osiagnięta!");
+            } else {
+                clearErrorMessage();
+            }
+        });
+
+        connection.on("RefreshAuctionList", (resAuctionId, offersList) => {
+            if (resAuctionId !== auctionId) return;
+            console.log("Received RefreshAuctionList");
+            updateOffersList(offersList);
+        });
+
+        connection.on("AuctionIsFinished", (resAuctionId, serverTime) => {
+            if (resAuctionId !== auctionId) return;
+            isFinished = true;
+            endDateHidden.value = serverTime;
+            window.ServerClock.updateServerTime(serverTime);
+            startCountdown();
+            if (offerValueInput) {
+                offerValueInput.setAttribute("readonly", true);
+                offerValueInput.style.opacity = "0.6";
+            }
+            toggleBidButtons(false);
+            closeBuyNowConfirm();
+            setErrorMessage("Aukcja została zakończona. Składanie ofert nie jest już możliwe.");
+            if (buyNowButton) {
+                buyNowButton.style.pointerEvents = "none";
+                buyNowButton.style.opacity = "0.6";
+            }
+        });
+
+        function setGrossMessageInBuyNow() {
+            if (!auctionHasEnded() && !isFinished) {
+                const bnGrossNum = parseFloat(buyNowGross);
+                if (!isNaN(bnGrossNum)) {
+                    var text = "Twoja oferta brutto " + formatNumber(bnGrossNum) + " zł";
+                    const bnComNum = parseFloat(buyNowComissionChargeGross);
+                    if (!isNaN(bnComNum)) {
+                        text += " (w tym prowizja " + formatNumber(bnComNum) + " zł)";
+                    }
+                    setPriceLabelMessage(text);
+                }
+            }
+        }
+        async function start() {
+            if (connection.state !== signalR.HubConnectionState.Disconnected) {
+                console.log("Connection is already in state:", connection.state);
+                return;
+            }
+
+            try {
+                await connection.start();
+                if (!auctionHasEnded() && !isFinished) {
+                    toggleBidButtons(true);
+                } else {
+                    toggleBidButtons(false);
+                }
+                startCountdown();
+                connection
+                    .invoke("GetAuctionOffers", auctionId)
+                    .catch((err) => console.error("GetAuctionOffers failed", err));
+                connection
+                    .invoke("GetNextOffer", auctionId)
+                    .catch((err) => console.error("GetNextOffer failed", err));
+            } catch (err) {
+                setErrorMessage("Nie udalo sie polaczyc z serwerem aukcji.");
+                toggleBidButtons(false);
+                if (connection.state === signalR.HubConnectionState.Disconnected) {
+                    setTimeout(start, 5000);
+                }
+            }
+        }
+
+        await start();
+    });
+
+    function addOffer() {
+        if (auctionHasEnded() || isFinished) {
+            setErrorMessage("Aukcja została już zakończona. Nie można złożyć oferty.");
+            toggleBidButtons(false);
+            return;
+        }
+        const offerValue = document
+            .getElementById("OfferValue")
+            .value.replace(",", ".")
+            .replace(/\s/g, "");
+        const offer = parseFloat(offerValue);
+
+        if (isNaN(offer) || offer <= 0) {
+            setErrorMessage("Wpisana wartość jest nieprawidłowa");
+            return;
+        }
+        lastBidTimestamp = new Date().getTime();
+        clearErrorMessage();
+        toggleBidButtons(false);
+        connection
+            .invoke(
+                "AuctionNewOffer",
+                auctionId,
+                userId,
+                offer,
+                0,
+                new Date().toISOString(),
+            )
+            .catch((err) => {
+                setErrorMessage("Błąd wysyłania oferty. Spróbuj ponownie.");
+                toggleBidButtons(true);
+            });
+    }
+    const connection = new signalR.HubConnectionBuilder()
+        .withUrl("/auctionHub")
+        .withAutomaticReconnect()
+        .configureLogging(signalR.LogLevel.Information)
+        .build();
+
+    connection.keepAliveIntervalMs = 15000;
+    connection.serverTimeoutMs = 300000;
+
+    function openAgreementDialog() {
+        if (!approvalNeeded) {
+            return;
+        }
+        const overlay = document.getElementById("agreementOverlay");
+        overlay.style.display = "flex";
+        document.body.style.overflow = "hidden";
+        centerDialog();
+        adjustDialogHeight();
+        updateAgreementState();
+    }
+
+    function closeAgreementDialog() {
+        const overlay = document.getElementById("agreementOverlay");
+        if (overlay) {
+            overlay.classList.remove("active");
+            overlay.style.display = "none";
+            document.body.style.overflow = "";
+        }
+    }
+
+    function centerDialog() {
+        const overlay = document.getElementById("agreementOverlay");
+        if (overlay) {
+            overlay.classList.add("active");
+        }
+    }
+
+    function adjustDialogHeight() {
+        const dialog = document.querySelector(".agreement-dialog");
+        if (dialog) {
+            const viewportHeight = window.innerHeight;
+            const maxHeight = viewportHeight * 0.85;
+            dialog.style.maxHeight = maxHeight + "px";
+        }
+    }
+
+    /**
+     * Sprawdza, czy zaznaczono wszystkie checkboxy zgód w oknie akceptacji.
+     * Okno zawiera obecnie jeden formularz ze zgodami domyślnymi oraz podmiotowymi,
+     * dlatego walidacja obejmuje cały zestaw. Brak checkboxów (np. podmiot z samymi
+     * oświadczeniami informacyjnymi) nie blokuje przejścia dalej.
+     */
+    function areAllAgreementConsentsChecked() {
+        const form = document.getElementById("agreement-form");
+        if (!form) {
+            return false;
+        }
+
+        const checkboxes = form.querySelectorAll('input[type="checkbox"]');
+        if (checkboxes.length === 0) {
+            return true;
+        }
+
+        return Array.from(checkboxes).every((cb) => cb.checked);
+    }
+
+    /** Ustawia stan przycisku „Przejdź dalej" na podstawie zaznaczonych zgód. */
+    function setAgreementButtonState() {
+        const btn = document.getElementById("approveAgreementBtn");
+        const addOfferBtn = document.getElementById("addOfferButton");
+        if (!btn) return false;
+
+        const allOk = areAllAgreementConsentsChecked();
+
+        if (allOk) {
+            btn.classList.remove("disabled");
+            btn.disabled = false;
+            if (addOfferBtn) addOfferBtn.textContent = 'LICYTUJ';
+        } else {
+            btn.classList.add("disabled");
+            btn.disabled = true;
+            if (addOfferBtn) addOfferBtn.textContent = 'WYRAŻAM CHĘĆ UDZIAŁU W AUKCJI';
+        }
+
+        return allOk;
+    }
+
+    function checkAgreementValidity() {
+        setAgreementButtonState();
+    }
+
+    function approveAgreement() {
+        const btn = document.getElementById("approveAgreementBtn");
+
+        const approved = areAllAgreementConsentsChecked();
+        approvalStatus = approved;
+        if (approvalStatus) {
+            closeAgreementDialog();
+            approveAuction();
+
+            if (btn) {
+                btn.classList.remove("disabled");
+                btn.disabled = false;
+            }
+        } else {
+            if (btn) {
+                btn.classList.add("disabled");
+                btn.disabled = true;
+            }
+        }
+    }
+
+    document.addEventListener("DOMContentLoaded", function () {
+        document.addEventListener("keydown", function (e) {
+            if (e.key === "Escape" || e.key === "Esc") {
+                closeAgreementDialog();
+            }
+        });
+
+        const overlay = document.getElementById("agreementOverlay");
+        if (overlay) {
+            overlay.addEventListener("click", function (e) {
+                if (e.target === overlay) {
+                    closeAgreementDialog();
+                }
+            });
+        }
+
+        setTimeout(function () {
+            // Zdarzenia walidacji podpinane są pod wszystkie checkboxy w jednym formularzu zgód.
+            const form = document.getElementById("agreement-form");
+            if (form) {
+                const checkboxes = form.querySelectorAll('input[type="checkbox"]');
+                checkboxes.forEach(function (checkbox) {
+                    checkbox.addEventListener("change", checkAgreementValidity);
+                });
+            }
+        }, 100);
+    });
+
+    /**
+     * Aktualizuje stan przycisku po zmianie zgody.
+     * Zostało zachowane jako alias — wcześniej obsługiwało osobno formularz podmiotowy.
+     */
+    function updateAgreementState() {
+        setAgreementButtonState();
+        approvalStatus = areAllAgreementConsentsChecked();
+    }
+
+    function openInternationalClientModal() {
+        var auctionData = {
+            auctionId: "96302",
+            title: 'SEAT IBIZA 999,00 cm3 / 75 KM',
+            currentPrice: "6625,00",
+            startPrice: "5925,00",
+            purchaseYear: "2017",
+            engineCapacity: "999,00 ccm / 75 KM",
+            brand: "SEAT",
+            model: "IBIZA",
+            buyNowNetto:
+                "0,00",
+            endDate: '2026-11-05T09:00:00',
+            subjectName: 'ING LEASING',
+            backUrl: window.location.href,
+        };
+
+        var jsonStr = JSON.stringify(auctionData);
+
+        var encrypted = btoa(encodeURIComponent(jsonStr));
+
+        var settingsUrl = "https://international.autoprzetarg.pl";
+
+        var fullUrl = settingsUrl + "?data=" + encrypted;
+        window.open(fullUrl, "_blank");
+    }
+
+</script>
+<script>
+    /*document.addEventListener("DOMContentLoaded", function () {
+
+        const tables = document.querySelectorAll('.description-box table');
+
+        tables.forEach(table => {
+            const sectionTitle = table.closest('.description-card').querySelector('.section-title');
+            const containerTitle = sectionTitle ? sectionTitle.textContent.trim() : 'Informacje';
+
+            const newListContainer = document.createElement('div');
+            newListContainer.className = 'specs-responsive-list';
+
+            const sectionHeader = document.createElement('h3');
+            sectionHeader.className = 'responsive-section-header';
+            sectionHeader.textContent = containerTitle;
+            newListContainer.appendChild(sectionHeader);
+
+            const listWrapper = document.createElement('div');
+            listWrapper.className = 'specs-list-wrapper';
+
+            const rows = Array.from(table.querySelectorAll('tbody tr'));
+
+            rows.forEach(row => {
+                const tds = Array.from(row.querySelectorAll('td'));
+
+                if (tds.length === 0) return;
+
+                const isHeader = tds[0].colSpan === 4;
+                const isSpacer = tds.every(td => td.textContent.trim() === '' || td.innerHTML.includes('&nbsp;'));
+
+                if (isHeader) {
+                    const categoryHeader = document.createElement('div');
+                    categoryHeader.className = 'spec-category-header';
+                    categoryHeader.textContent = tds[0].textContent.trim();
+                    listWrapper.appendChild(categoryHeader);
+                } else if (!isSpacer) {
+
+                    const specItem = document.createElement('div');
+                    specItem.className = 'spec-item';
+
+                    const createGroup = (index) => {
+                        const group = document.createElement('div');
+                        group.className = 'spec-group';
+
+                        const value = tds[index].textContent.trim()  + '.';
+                        const label = tds[index + 1].textContent.trim();
+
+                        const valSpan = document.createElement('span');
+                        valSpan.className = 'spec-value';
+                        valSpan.textContent = value;
+
+                        const lblSpan = document.createElement('span');
+                        lblSpan.className = 'spec-label';
+                        lblSpan.textContent = label;
+
+                        group.appendChild(valSpan);
+                        group.appendChild(lblSpan);
+
+                        return group;
+                    };
+
+                    const leftGroup = createGroup(0);
+                    const rightGroup = createGroup(2);
+
+                    specItem.appendChild(leftGroup);
+                    specItem.appendChild(rightGroup);
+                    listWrapper.appendChild(specItem);
+                }
+            });
+
+            newListContainer.appendChild(listWrapper);
+
+            table.parentNode.replaceChild(newListContainer, table);
+        });
+    });*/
+
+
+
+</script>
+
+    
+    <style>
+    footer {
+        background: #263a43;
+        color: #fff;
+        padding: 80px 20px 30px;
+        width: 100%;
+    }
+    footer .faq {
+        color: rgba(255, 255, 255, 0.7);
+        text-decoration: none;
+        transition: 0.3s;
+    }
+    
+    footer .faq a:hover {
+        color: #fff;
+    }
+
+    .footer-container {
+        max-width: 1450px;
+        margin: auto;
+    }
+
+    .footer-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 50px;
+        margin-bottom: 60px;
+    }
+
+    .footer-col h4 {
+        margin-bottom: 24px;
+        font-size: 17px;
+        text-transform: uppercase;
+    }
+
+    .footer-col p,
+    .footer-col li {
+        color: rgba(255, 255, 255, 0.7);
+        line-height: 1.9;
+        font-size: 14px;
+    }
+
+    .footer-col ul {
+        list-style: none;
+    }
+
+        .footer-col ul li a {
+            color: rgba(255, 255, 255, 0.7);
+            text-decoration: none;
+            transition: 0.3s;
+        }
+
+            .footer-col ul li a:hover {
+                color: #fff;
+            }
+
+    .socials {
+        display: flex;
+        gap: 15px;
+    }
+
+    .social-icon {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 40px;
+        height: 40px;
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 50%;
+        color: #fff;
+        transition: all 0.3s ease;
+        text-decoration: none;
+    }
+
+        .social-icon:hover {
+            background: #263a43;
+            transform: translateY(-5px);
+            color: #fff;
+        }
+
+    .footer-bottom {
+        border-top: 1px solid rgba(255, 255, 255, 0.1);
+        padding-top: 25px;
+        text-align: center;
+        color: rgba(255, 255, 255, 0.45);
+        font-size: 13px;
+    }
+
+    .btn-read-more {
+        background: #ffffff;
+        color: #000000;
+        padding: 10px 25px;
+        text-decoration: none;
+        display: inline-block;
+        margin-top: 15px;
+        font-weight: bold;
+        font-size: 14px;
+        border-radius: 50px;
+        transition: all 0.3s ease;
+    }
+
+        .btn-read-more:hover {
+            background: #263a43;
+            color: #ffffff;
+            transform: translateY(-2px);
+        }
+
+    @media (max-width:1200px) {
+        .search-box {
+            grid-template-columns: 1fr 1fr;
+        }
+
+        .search-btn {
+            height: 55px;
+        }
+
+        .auctions-grid {
+            grid-template-columns: repeat(2, 1fr);
+        }
+
+        .footer-grid {
+            grid-template-columns: repeat(2, 1fr);
+        }
+
+        .hero-text h1 {
+            font-size: 54px;
+        }
+    }
+
+    @media (max-width:768px) {
+        nav {
+            gap: 14px;
+        }
+
+        .hero-text h1 {
+            font-size: 42px;
+        }
+
+        .hero-text p {
+            font-size: 18px;
+        }
+
+        .search-box {
+            grid-template-columns: 1fr;
+        }
+
+        .auctions-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .footer-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .help-box {
+            padding: 40px 30px;
+        }
+
+            .help-box h3 {
+                font-size: 30px;
+            }
+    }
+
+    .wcag-block {
+        position: relative !important;
+        margin-top: 15px
+    }
+    
+</style>
+
+
+<footer>
+    <div class="footer-container">
+
+        <div class="footer-grid">
+
+            <!-- COLUMN 1: DANE FIRMY -->
+            <div class="footer-col">
+                <h4>Auto Przetarg</h4>
+                <p>
+                    <strong>Paweł Owczarek</strong><br>
+                    NIP: 951 148 33 98<br>
+                    KRS: 0000965874
+                </p>
+                <p>
+                    <strong>Oddział Warszawa</strong><br>
+                    Zatorze 1,<br>
+                    02-852 Warszawa
+                </p>
+                <p>
+                    <strong>Oddział Łyszkowice</strong><br>
+                    ul. Targowa 15<br>
+                    99-420 Łyszkowice<br>
+                    <small>przy trasie A2 zjazd Łowicz w pobliżu trasy A1</small>
+                </p>
+            </div>
+
+            <!-- COLUMN 2: NAWIGACJA -->
+            <div class="footer-col">
+                <h4>Nawigacja</h4>
+                <ul>
+                    <li><a href="/kategoria/Wszystko0">Aukcje</a></li>
+                    <li><a href="/jak-to-dziala">Jak to działa?</a></li>
+                    <li><a href="/finansowanie">Finansowanie</a></li>                    
+                    <li><a href="/o-nas">O nas</a></li>
+                    <li><a href="/kontakt">Kontakt</a></li>
+                    <li><a href="/regulamin">Regulamin</a></li>
+                </ul>
+            </div>
+
+            <!-- COLUMN 3: GODZINY -->
+            <div class="footer-col">
+                <h4>Godziny otwarcia</h4>
+                <p>Pon.–Pt.: 8:30–17:00</p>
+                <p> Sob.: 8:00–14:00 (po wcześniejszym umówieniu prezentacji pojazdu)</p>
+               
+            </div>
+
+            <!-- COLUMN 4: KONTAKT I SOCIALS -->
+            <div class="footer-col">
+                <h4>Skontaktuj się z nami</h4>
+                <p><strong>+48 792 222 255</strong></p>
+                <p><a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="395b504c4b5679584c4d56494b435c4d584b5e174955">[email&#160;protected]</a></p>
+                <br>
+                <div class="socials">
+                    <a href="https://www.facebook.com/autoprzetarg" class="social-icon">
+                        <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" /></svg>
+                    </a>
+                    <a href="https://www.instagram.com/autoprzetarg" class="social-icon">
+                        <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z" /></svg>
+                    </a>
+                </div>
+
+                <div style="margin-top: 20px;">
+                    <p><small><a class="faq" href="/jak-to-dziala#faq">Wirtualne biuro</a></small><br>Masz pytania? Odpowiemy na nie.</small></p>
+                    
+                      <div class="wcag-block">
+                        <a href="#start" tabindex="0" rel="nofollow" aria-label="Początek strony"></a>
+                        <a href="" class="wcag-block-icon" tabindex="0" rel="nofollow" aria-label="Wcag"></a>
+                    </div>
+                
+                    <div class="wcag-block-item">
+            <a href="" class="wcag-button-1" rel="nofollow">
+                <div class="wcag-block-item-icon icon-wcag-a"></div>
+                <span>Wysoki kontrast</span>
+            </a>
+            <a href="" class="wcag-button-2" rel="nofollow">
+                <div class="wcag-block-item-icon icon-wcag-b"></div>
+                <span>Żółty kontrast</span>
+            </a>
+            <a href="" class="wcag-button-3" rel="nofollow">
+                <div class="wcag-block-item-icon icon-wcag-c"></div>
+                <span>Większa czcionka</span>
+            </a>
+            <a href="" class="wcag-button-4" rel="nofollow">
+                <div class="wcag-block-item-icon icon-wcag-d"></div>
+                <span>Mniejsza czcionka</span>
+            </a>
+            <a href="" class="wcag-button-5" rel="nofollow">
+                <div class="wcag-block-item-icon icon-wcag-e"></div>
+                <span>Szersze odstępy</span>
+            </a>
+            <a href="" class="wcag-button-6" rel="nofollow">
+                <div class="wcag-block-item-icon icon-wcag-f"></div>
+                <span>Wyższa interlinia</span>
+            </a>
+            <a href="" id="_ttsplay" class="wcag-button-7" rel="nofollow">
+                <div class="wcag-block-item-icon icon-wcag-g"></div>
+                <span>Czytaj tekst</span>
+            </a>
+            <a href="" id="_ttspause" class="wcag-button-8" rel="nofollow">
+                <div class="wcag-block-item-icon icon-wcag-h"></div>
+                <span>Przestań czytać</span>
+            </a>
+            <a href="" class="wcag-button-9" rel="nofollow">
+                <div class="wcag-block-item-icon icon-wcag-i"></div>
+                <span>Resetuj</span>
+            </a>
+        </div>      
+        
+                </div>
+            </div>
+
+        </div>
+
+        <div class="footer-bottom">
+            
+            © 2026 AutoPrzetarg.pl. Wszystkie prawa zastrzeżone.
+        </div>
+    </div>
+</footer>
+<script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script src="/Scripts/NewThemeV3/wcag.js?639294170146739975"></script>
+<script>
+    
+</script>    
+    <script src="/Scripts/jquery-3.6.0.js"></script>
+    <script src="/Scripts/jquery-ui.js"></script>
+    <script src="/Scripts/bootstrap.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.0/signalr.min.js"></script>
+
+    
+</body>
+</html>

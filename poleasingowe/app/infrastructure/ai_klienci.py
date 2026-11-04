@@ -175,6 +175,13 @@ class KlientModelu(Protocol):
     async def zamknij(self) -> None: ...
 
 
+LIMIT_ODPOWIEDZI_S = 300.0
+"""Wycena z raportem historii to kilkadziesiąt tysięcy znaków wejścia. 60 s nie
+wystarczało (`ReadTimeout` z 2026-11-04), a czekanie nikogo nie blokuje: praca
+idzie w tle, a pracownik wycenia pojedynczo."""
+LIMIT_POLACZENIA_S = 15.0
+
+
 class _Bazowy:
     """Wspólny kawałek: leniwy klient HTTP i jego domykanie.
 
@@ -189,7 +196,7 @@ class _Bazowy:
         model: str,
         base_url: str,
         klient: httpx.AsyncClient | None = None,
-        timeout: float = 60.0,
+        timeout: float = LIMIT_ODPOWIEDZI_S,
     ) -> None:
         self._api_key = api_key
         self.model = model
@@ -200,7 +207,9 @@ class _Bazowy:
 
     async def _http(self) -> httpx.AsyncClient:
         if self._klient is None:
-            self._klient = httpx.AsyncClient(timeout=self._timeout)
+            self._klient = httpx.AsyncClient(
+                timeout=httpx.Timeout(self._timeout, connect=LIMIT_POLACZENIA_S)
+            )
         return self._klient
 
     async def zamknij(self) -> None:

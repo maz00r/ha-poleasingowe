@@ -21,6 +21,20 @@ BMW = PojazdDoPorownania(
 )
 
 
+FORD = PojazdDoPorownania(
+    "Ford", "TRANSIT", 2019, 150_000, "Diesel", "Manualna", True, "2.0 EcoBlue L3H2"
+)
+
+MARKI = {
+    "filterId": "filter_enum_make",
+    "__typename": "OpenForInputFilterState",
+    "values": [
+        {"values": [{"id": "ford", "name": "Ford"}]},
+        {"values": [{"id": "fiat", "name": "Fiat"}, "śmieć"]},
+    ],
+}
+
+
 def _strona(stany: list[dict[str, Any]]) -> str:
     """Strona Otomoto w kształcie zmierzonym 2026-10-26: `__NEXT_DATA__`
     → `props.pageProps.urqlState` → wpisy z polem `data` (JSON w napisie)."""
@@ -161,6 +175,66 @@ def test_adres_z_modelem_taksonomii_bez_przebiegu() -> None:
     assert adres.endswith("&page=2")
 
 
+def test_adres_dostawczego_ma_fraze_za_rocznikiem() -> None:
+    """Fraza przed `od-2018` kasuje filtr roku: 972 trafienia zamiast 470."""
+    adres = otomoto.adres_wyszukiwania(FORD, "transit", strona=2)
+    assert adres.startswith("https://www.otomoto.pl/dostawcze/ford/od-2018/q-transit?")
+    assert "filter_enum_fuel_type" in adres and "page=2" in adres
+
+
+def test_adres_dostawczego_bez_rocznika() -> None:
+    pojazd = PojazdDoPorownania("Fiat", "DUCATO", dostawczy=True)
+    adres = otomoto.adres_wyszukiwania(pojazd, "ducato")
+    assert adres.startswith("https://www.otomoto.pl/dostawcze/fiat/q-ducato?")
+
+
+def test_marki_z_filtra_kategorii() -> None:
+    assert otomoto.marki(_strona([MARKI])) == {"ford", "fiat"}
+
+
+@pytest.mark.parametrize(
+    ("model", "wersja", "fraza"),
+    [
+        ("TRANSIT", "2.0 EcoBlue L3H2", "transit"),
+        ("TRANSIT", None, "transit"),
+        ("TRANSIT", "CUSTOM 2.0 L2", "transit-custom"),
+        ("TRANSIT", "Connect", "transit-connect"),
+        ("DUCATO", "Custom", "ducato"),
+    ],
+)
+def test_fraza_dostawczego(model: str, wersja: str | None, fraza: str) -> None:
+    pojazd = PojazdDoPorownania("Ford", model, dostawczy=True, wersja=wersja)
+    assert otomoto.model_dostawczego(pojazd) == fraza
+
+
+@pytest.mark.parametrize(
+    ("tytul", "model", "fraza", "pasuje"),
+    [
+        ("Ford Transit Kasten Trend", "Transit Kasten", "transit", True),
+        ("Ford transit-connect 8 SPD", "transit-connect", "transit", False),
+        ("Ford Custom Transit DCIV", "Custom Transit", "transit", False),
+        ("Ford Connect", "Connect", "transit", False),
+        ("Ford Transit Custom", "TRANSIT CUSTOM", "transit-custom", True),
+        ("Ford Transit", "Transit", "transit-custom", False),
+        ("Fiat Ducato L3H2", "Ducato L3H2", "ducato", True),
+        ("Fiat Scudo", "Scudo", "ducato", False),
+    ],
+)
+def test_ogloszenie_dostawczego_wg_slow(
+    tytul: str, model: str, fraza: str, pasuje: bool
+) -> None:
+    rekord = otomoto.Rekord(
+        tytul=tytul,
+        opis="",
+        url="https://x",
+        cena=1,
+        is_gross=True,
+        odznaki=(),
+        parametry={"model": (model, model)},
+    )
+    assert otomoto.ten_sam_dostawczy(rekord, fraza) is pasuje
+
+
 def test_strona_bez_danych_to_blad() -> None:
     with pytest.raises(BladOtomoto):
         otomoto.wyniki("<html></html>")
@@ -217,6 +291,46 @@ async def test_bez_dopasowanego_modelu_nie_szuka_po_calej_marce() -> None:
     usluga = Otomoto(klient=httpx.AsyncClient(transport=httpx.MockTransport(obsluz)))
     with pytest.raises(BladOtomoto, match="dopasować modelu"):
         await usluga.porownaj(BMW, wybieracz=ai)
+
+
+async def test_dostawczy_bez_taksonomii_i_bez_pytania_modelu_ai() -> None:
+    """Strona `/dostawcze` nie ma modeli, a `model` ogłoszenia to wolny tekst."""
+
+    def transit(i: int, tytul: str = "Ford Transit Kasten") -> dict[str, Any]:
+        return _ogloszenie(i, 60_000 + 500 * i, model=tytul, rok=2019, tytul=tytul)
+
+    krawedzie = [transit(i) for i in range(10)]
+    krawedzie += [transit(50, "Ford Transit Connect"), transit(51, "Ford Ranger")]
+    zadania: list[str] = []
+
+    def obsluz(zadanie: httpx.Request) -> httpx.Response:
+        zadania.append(zadanie.url.path)
+        if zadanie.url.path == "/dostawcze":
+            return httpx.Response(200, text=_strona([MARKI]))
+        return httpx.Response(200, text=_wyniki(krawedzie))
+
+    async def ai(pojazd: PojazdDoPorownania, modele: Any) -> str | None:
+        raise AssertionError("dostawcze nie mają listy modeli do wyboru")
+
+    usluga = Otomoto(klient=httpx.AsyncClient(transport=httpx.MockTransport(obsluz)))
+    wynik = await usluga.porownaj(FORD, wybieracz=ai)
+    await usluga.porownaj(FORD, wybieracz=ai)
+
+    assert wynik.liczba == 10
+    assert wynik.mediana is not None
+    assert wynik.model_otomoto == "Transit"
+    assert zadania.count("/dostawcze") == 1, "marki są pamiętane jak taksonomia"
+    assert "/dostawcze/ford/od-2018/q-transit" in zadania
+
+
+async def test_nieznana_marka_dostawcza_nie_szuka_po_calej_kategorii() -> None:
+    def obsluz(zadanie: httpx.Request) -> httpx.Response:
+        assert zadanie.url.path == "/dostawcze", "nie wolno szukać bez marki"
+        return httpx.Response(200, text=_strona([MARKI]))
+
+    usluga = Otomoto(klient=httpx.AsyncClient(transport=httpx.MockTransport(obsluz)))
+    with pytest.raises(BladOtomoto, match="nie zna marki Informujemy,"):
+        await usluga.porownaj(PojazdDoPorownania("Informujemy,", "że", dostawczy=True))
 
 
 def _usluga_odpowiadajaca(kod: int) -> Otomoto:

@@ -19,6 +19,10 @@ Potrzebne do domknięcia rekonesansu (SPEC.md §4):
 Wersje po zalogowaniu nazywaj z sufiksem `-auth-`
 (np. `szczegoly-auth-123.html`). Są objęte `.gitignore` i nie trafią do repo.
 
+**Zrzuty z 2026-11-04** (`lista-2026-11.html`, `szczegoly-2026-11-*.html`) to
+nowy szablon serwisu i tylko na nich opierają się testy parsera. Starsze pliki
+zostają jako dowody pomiarów z RECON.md. VIN-y i tablice są zredagowane.
+
 Czego nie da się odtworzyć ze statycznego zrzutu, a czego wymaga §4:
 
 - **(b)** jak długo cena jest widoczna po wygaśnięciu — wymaga odpytania

@@ -18,6 +18,12 @@ nazwa modelu Otomoto), a gdy się nie uda — model AI wybiera id z ZAMKNIĘTEJ
 listy modeli tej marki (`WybieraczModelu`). Nieznany model w ścieżce Otomoto
 po cichu cofa do całej marki, więc bez trafionego id nie szukamy wcale.
 
+**Dostawcze nie mają taksonomii** (zmierzone 2026-11-04). Strona kategorii ma
+tylko filtr marek, a `model` ogłoszenia to wolny tekst sprzedawcy („Transit
+Kasten Trend"), więc adres `/dostawcze/ford/transit` pokazuje wszystkie Fordy.
+Tu model jest frazą wyszukiwania `q-…`, a o trafieniu decydują słowa w tytule.
+Model AI nie ma wtedy z czego wybierać, więc nie jest pytany.
+
 **Netto: wszystkie ÷1,23, faktura jako informacja** (decyzja właściciela repo,
 2026-10-27). Kwota w wynikach jest ZAWSZE brutto — `isGross = false` mówi
 tylko, że sprzedawca wpisał ją jako netto (strona ogłoszenia: 164 700 brutto
@@ -83,6 +89,10 @@ VAT = Decimal("1.23")
 
 KODY_BLOKADY = frozenset({403, 429})
 """Poza 5xx: Otomoto nas odcięło albo każe zwolnić."""
+
+ODMIANY_DOSTAWCZYCH = {"transit": frozenset({"custom", "connect", "courier"})}
+"""Różne auta pod jedną nazwą modelu. Bez tego Transit Connect wchodziłby do
+mediany Transita, choć kosztuje połowę tego."""
 
 KRAJE_ODRZUCANE = frozenset({"usa", "us", "ca", "stany zjednoczone", "kanada"})
 
@@ -228,9 +238,12 @@ def _przejdz(obiekt: Any) -> Any:
             yield from _przejdz(wartosc)
 
 
-def taksonomia(html: str) -> dict[str, tuple[tuple[str, str], ...]]:
+Taksonomia = dict[str, tuple[tuple[str, str], ...]]
+
+
+def taksonomia(html: str) -> Taksonomia:
     """Marka (id Otomoto) → [(id modelu, nazwa)], bez generacji `gen-*`."""
-    wynik: dict[str, tuple[tuple[str, str], ...]] = {}
+    wynik: Taksonomia = {}
     for stan in _stany(html):
         for wezel in _przejdz(stan):
             if (
@@ -256,6 +269,20 @@ def taksonomia(html: str) -> dict[str, tuple[tuple[str, str], ...]]:
                 if isinstance(marka, str) and modele:
                     wynik[marka] = modele
     return wynik
+
+
+def marki(html: str) -> frozenset[str]:
+    """Identyfikatory marek z filtra `filter_enum_make`."""
+    return frozenset(
+        str(m["id"])
+        for stan in _stany(html)
+        for wezel in _przejdz(stan)
+        if wezel.get("filterId") == "filter_enum_make"
+        and wezel.get("__typename") == "OpenForInputFilterState"
+        for grupa in wezel.get("values") or []
+        for m in grupa.get("values") or []
+        if isinstance(m, dict) and m.get("id")
+    )
 
 
 @dataclass(slots=True, frozen=True)
@@ -362,6 +389,23 @@ def dopasuj_model(
     return None
 
 
+def model_dostawczego(pojazd: PojazdDoPorownania) -> str:
+    """Fraza wyszukiwania: `Transit` z wersją `Custom L2` → `transit-custom`."""
+    model = slug(pojazd.model)
+    odmiana = slug(pojazd.wersja or "").partition("-")[0]
+    if odmiana in ODMIANY_DOSTAWCZYCH.get(model, frozenset()):
+        return f"{model}-{odmiana}"
+    return model
+
+
+def ten_sam_dostawczy(rekord: Rekord, model: str) -> bool:
+    """Czy ogłoszenie dotyczy tego modelu. Fraza `q-…` oddaje też podobne auta."""
+    slowa = set(slug(f"{rekord.tytul} {rekord.parametr('model')}").split("-"))
+    wymagane = set(model.split("-"))
+    odmiany = ODMIANY_DOSTAWCZYCH.get(model.partition("-")[0], frozenset())
+    return wymagane <= slowa and (slowa & odmiany) <= wymagane
+
+
 # --------------------------------------------------------------------------
 # Wyszukiwanie
 # --------------------------------------------------------------------------
@@ -370,12 +414,17 @@ def dopasuj_model(
 def adres_wyszukiwania(
     pojazd: PojazdDoPorownania, model_id: str, *, strona: int = 1
 ) -> str:
-    kategoria = "dostawcze" if pojazd.dostawczy else "osobowe"
-    sciezka = f"/{kategoria}/{slug(pojazd.marka)}/{model_id}"
+    if pojazd.dostawczy:
+        sciezka = f"/dostawcze/{slug(pojazd.marka)}"
+    else:
+        sciezka = f"/osobowe/{slug(pojazd.marka)}/{model_id}"
     parametry: list[tuple[str, str]] = []
     if pojazd.rok is not None:
         sciezka += f"/od-{pojazd.rok - 1}"
         parametry.append(("search[filter_float_year:to]", str(pojazd.rok + 1)))
+    # Fraza musi stać ZA rocznikiem. Przed nim Otomoto gubi `od-…` po cichu.
+    if pojazd.dostawczy:
+        sciezka += f"/q-{model_id}"
     # Bez filtra przebiegu — różnicę koryguje model AI (decyzja 2026-10-26).
     for numer, wartosc in enumerate(PALIWA.get(pojazd.paliwo or "", ())):
         parametry.append((f"search[filter_enum_fuel_type][{numer}]", wartosc))
@@ -493,9 +542,8 @@ class Otomoto:
     ) -> None:
         self._klient = klient
         self._timeout = timeout
-        self._taksonomia: dict[
-            str, tuple[float, dict[str, tuple[tuple[str, str], ...]]]
-        ] = {}
+        self._taksonomia: tuple[float, Taksonomia] | None = None
+        self._marki_dostawcze: tuple[float, frozenset[str]] | None = None
 
     async def zamknij(self) -> None:
         if self._klient is not None:
@@ -522,15 +570,53 @@ class Otomoto:
         return odpowiedz.text
 
     async def modele(self, pojazd: PojazdDoPorownania) -> tuple[tuple[str, str], ...]:
-        """Modele marki z taksonomii Otomoto (pamięć 24 h na kategorię)."""
-        kategoria = "dostawcze" if pojazd.dostawczy else "osobowe"
-        wpis = self._taksonomia.get(kategoria)
+        """Modele marki osobowej z taksonomii Otomoto (pamięć 24 h)."""
+        wpis = self._taksonomia
         if wpis is None or time.monotonic() - wpis[0] > WAZNOSC_TAKSONOMII_S:
-            mapa = taksonomia(await self._pobierz(f"{BAZOWY_URL}/{kategoria}"))
-            self._taksonomia[kategoria] = (time.monotonic(), mapa)
+            mapa = taksonomia(await self._pobierz(f"{BAZOWY_URL}/osobowe"))
+            self._taksonomia = (time.monotonic(), mapa)
         else:
             mapa = wpis[1]
         return mapa.get(slug(pojazd.marka), ())
+
+    async def marki_dostawcze(self) -> frozenset[str]:
+        """Marki z filtra kategorii dostawczej (pamięć 24 h)."""
+        wpis = self._marki_dostawcze
+        if wpis is not None and time.monotonic() - wpis[0] <= WAZNOSC_TAKSONOMII_S:
+            return wpis[1]
+        znane = marki(await self._pobierz(f"{BAZOWY_URL}/dostawcze"))
+        self._marki_dostawcze = (time.monotonic(), znane)
+        return znane
+
+    async def _model_z_taksonomii(
+        self,
+        pojazd: PojazdDoPorownania,
+        wybieracz: WybieraczModelu | None,
+        krok: Postep,
+    ) -> tuple[str, str]:
+        """Id modelu osobowego i jego nazwa w Otomoto."""
+        modele = await self.modele(pojazd)
+        if not modele:
+            raise BladOtomoto(f"Otomoto nie zna marki {pojazd.marka}")
+        model_id = dopasuj_model(pojazd, modele)
+        if model_id is None and wybieracz is not None:
+            krok("Model AI ustala model w taksonomii Otomoto", 0.1)
+            wybrany = await wybieracz(pojazd, modele)
+            model_id = wybrany if wybrany in {i for i, _ in modele} else None
+        if model_id is None:
+            raise BladOtomoto(
+                f"nie udało się dopasować modelu „{pojazd.model}” do Otomoto"
+            )
+        return model_id, dict(modele).get(model_id, model_id)
+
+    async def _fraza_dostawczego(self, pojazd: PojazdDoPorownania) -> tuple[str, str]:
+        """Fraza wyszukiwania dostawczego i jej postać do wyświetlenia."""
+        if slug(pojazd.marka) not in await self.marki_dostawcze():
+            raise BladOtomoto(f"Otomoto nie zna marki {pojazd.marka}")
+        model = model_dostawczego(pojazd)
+        if not model:
+            raise BladOtomoto(f"model „{pojazd.model}” nie daje frazy do szukania")
+        return model, model.replace("-", " ").title()
 
     async def porownaj(
         self,
@@ -544,19 +630,12 @@ class Otomoto:
                 postep(opis, udzial)
 
         krok("Ustalanie modelu w Otomoto", 0.05)
-        modele = await self.modele(pojazd)
-        if not modele:
-            raise BladOtomoto(f"Otomoto nie zna marki {pojazd.marka}")
-        model_id = dopasuj_model(pojazd, modele)
-        if model_id is None and wybieracz is not None:
-            krok("Model AI ustala model w taksonomii Otomoto", 0.1)
-            wybrany = await wybieracz(pojazd, modele)
-            model_id = wybrany if wybrany in {i for i, _ in modele} else None
-        if model_id is None:
-            raise BladOtomoto(
-                f"nie udało się dopasować modelu „{pojazd.model}” do Otomoto"
+        if pojazd.dostawczy:
+            model_id, nazwa_modelu = await self._fraza_dostawczego(pojazd)
+        else:
+            model_id, nazwa_modelu = await self._model_z_taksonomii(
+                pojazd, wybieracz, krok
             )
-        nazwa_modelu = dict(modele).get(model_id, model_id)
 
         rekordy: list[Rekord] = []
         adres = adres_wyszukiwania(pojazd, model_id)
@@ -575,7 +654,10 @@ class Otomoto:
         widziane: dict[str, Ogloszenie] = {}
         usa = cesje = 0
         for rekord in rekordy:
-            if rekord.parametr("model") and rekord.parametr("model") != model_id:
+            if pojazd.dostawczy:
+                if not ten_sam_dostawczy(rekord, model_id):
+                    continue
+            elif rekord.parametr("model") and rekord.parametr("model") != model_id:
                 continue
             rok = _liczba(rekord.parametr("year"))
             if pojazd.rok is not None and rok is not None and abs(rok - pojazd.rok) > 1:

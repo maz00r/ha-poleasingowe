@@ -29,8 +29,8 @@ from app.infrastructure.sources.pliki import pobierz_pdf
 
 KLUCZ = "autoprzetarg"
 
-MAKS_STRON = 40
-"""Bezpiecznik pętli. 244 oferty po 12 na stronę to ~21 stron (RECON.md §2.1)."""
+MAKS_STRON = 80
+"""Bezpiecznik pętli. 285 ofert po 9 na stronę to 32 strony (RECON.md §4.4a)."""
 
 
 def hash_tresci(bajty: bytes) -> str:

@@ -908,6 +908,10 @@ w postaci odciętej paginacji zniknął wraz z decyzją z §3.3.
 
 ### 4.4 autoprzetarg.pl
 
+Szablon strony zmienił się jesienią 2026. Opis układu poniżej jest historyczny,
+aktualny stan jest w §4.4a. Zasady działania serwisu (znikanie aukcji, VIN na
+liście, brak liczby ofert bez logowania) pozostały takie same.
+
 Zbadany normalnie, tak jak pozostałe (decyzja z 2026-09-06). Uwaga
 o `robots.txt` — patrz koniec sekcji.
 
@@ -1102,6 +1106,38 @@ dwóch minutach" — **pozostaje niezweryfikowana w praktyce**. Trafiłem na
 aukcję bez licytacji w końcówce.
 
 **Nie zmierzone:** punkt (f) — czas życia sesji (wymaga zalogowania).
+
+### 4.4a autoprzetarg.pl po zmianie szablonu (pomiar 2026-11-04)
+
+Serwis przebudował strony. Dowód: `fixtures/autoprzetarg/lista-2026-11.html`
+i `szczegoly-2026-11-c2Q99rY13wg.html`. Stary parser zgłaszał `ParseFailed`,
+a sukcesy odpytów dawały tylko aukcje zakończone, stąd powtarzające się serie
+otwarć bezpiecznika od trzeciego błędu.
+
+**Lista.** Nadal `/kategoria/Pojazdy1?page=N`, ale 9 pozycji na stronę, a parametr
+`pageSize` nie działa. W pomiarze 281 ofert na 32 stronach. Strona za ostatnią
+ma odpowiedź 200 i pustą `div.auctions-grid`. Pozycja to `div.auction-card`:
+adres w `a.card-img`, nazwa w `h3`, dane w `table.data-table`, a VIN, sprzedający
+i lokalizacja w napisach `Etykieta: wartość`. Cena stoi w `span.price-value`.
+
+**Termin.** Lista podaje `data-end-time` w UTC (`2026-11-05T08:00:00.000Z`).
+Szczegóły podają czas lokalny bez strefy w skrypcie
+(`endDateServerValue = '2026-11-05 09:00:00.000'`). Oba wskazują tę samą chwilę.
+
+**Szczegóły.** Pary `span.spec-label` i `span.spec-value`, cena w
+`div#currentPriceDisplay`, nazwa w `h1.auction-title`, dokumenty w `a.doc-button`.
+Wartości mają polskie znaki zakodowane encjami. Odcisk z tych pól jest stabilny:
+drugi odczyt tej samej aukcji daje ten sam hash.
+
+**Bez zmian.** Aukcja po terminie odpowiada 302 na `/`. Adres
+`/aukcja/x,<id>,x` działa. Liczby ofert nadal nie ma bez logowania, za to skrypt
+strony podaje `startPrice`, którego na razie nie czytamy.
+
+**Otomoto, dostawcze (ten sam dzień).** `/dostawcze` ma filtr marek (306), ale nie
+ma filtra modelu, a parametr `model` ogłoszenia to wolny tekst. Adres
+`/dostawcze/ford/transit` zwraca wszystkie Fordy. Działa fraza
+`/dostawcze/ford/od-2018/q-transit`. Kolejność ma znaczenie: przy
+`/dostawcze/ford/q-transit/od-2018` filtr roku znika (972 trafienia zamiast 470).
 
 ### 4.5 dawro.pl — piąte źródło, dodane 2026-09-10
 

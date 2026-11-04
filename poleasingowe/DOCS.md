@@ -272,6 +272,9 @@ Pomija duplikaty, aukcje bez marki albo modelu oraz pojazdy inne niż osobowe,
 dostawcze i nierozpoznane. Wyceny idą pojedynczo, z 45-sekundową przerwą:
 najpierw obserwowane, potem najbliższe końca.
 
+Dostawcze nie mają na Otomoto listy modeli. Dla nich aplikacja szuka po nazwie
+modelu i bierze ogłoszenia, które mają ją w tytule.
+
 | Opcja | Domyślnie | Znaczenie |
 |---|---|---|
 | `wycena_auto` | `true` | Włącza automat. Bez klucza AI nic nie robi. |

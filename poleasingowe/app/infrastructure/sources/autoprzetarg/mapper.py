@@ -29,11 +29,10 @@ from app.infrastructure.sources.marki import podziel_marke_model
 from app.infrastructure.sources.paliwa import kanoniczne_paliwo
 from app.infrastructure.sources.rodzaje import rozpoznaj
 
-# RECON.md §4.4: strefa nie jest podana przy `auctionEndDate`. Zakładamy czas
-# lokalny Polski, bo taki serwis pokazuje użytkownikowi. Do bazy idzie UTC.
+# RECON.md §4.4a: termin ze szczegółów nie ma strefy i jest czasem lokalnym
+# Polski, a ten z listy ma `Z`. Do bazy idzie UTC.
 STREFA_SERWISU = zoneinfo.ZoneInfo("Europe/Warsaw")
 
-_KONIEC = re.compile(r"^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2}):(\d{2})$")
 _POJEMNOSC = re.compile(r"([\d\s\xa0]+(?:,\d+)?)\s*(?:ccm|cm3)", re.I)
 _MOC = re.compile(r"(\d+)\s*KM", re.I)
 # Wszystko od rocznika, pojemności albo paliwa w prawo to już dane techniczne,
@@ -54,11 +53,13 @@ def _liczba(tekst: str | None) -> int | None:
 
 
 def _koniec_na_utc(wartosc: str) -> dt.datetime:
-    dopasowanie = _KONIEC.match(wartosc.strip())
-    if dopasowanie is None:
-        raise ParseFailed(f"autoprzetarg: nieznany format czasu: {wartosc!r}")
-    r, m, d, gg, mm, ss = (int(x) for x in dopasowanie.groups())
-    return dt.datetime(r, m, d, gg, mm, ss, tzinfo=STREFA_SERWISU).astimezone(dt.UTC)
+    try:
+        czas = dt.datetime.fromisoformat(wartosc.strip())
+    except ValueError as exc:
+        raise ParseFailed(f"autoprzetarg: nieznany format czasu: {wartosc!r}") from exc
+    if czas.tzinfo is None:
+        czas = czas.replace(tzinfo=STREFA_SERWISU)
+    return czas.astimezone(dt.UTC)
 
 
 def _nazwa_pojazdu(surowa: str) -> str:
@@ -75,7 +76,7 @@ def _cena(pola: dict[str, str]) -> Money | None:
     if not surowa:
         return None
     try:
-        return Money.z_tekstu(surowa.replace("zł", "").strip(), Currency.PLN)
+        return Money.z_tekstu(surowa, Currency.PLN)
     except NieprawidlowaWartosc:
         return None
 

@@ -1,7 +1,12 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 
+import pytest
+
+from app.infrastructure.otomoto import BladOtomoto
+from app.infrastructure.wycena_ai import BladDostawcyAI
 from app.infrastructure.zadania_wyceny import Postep, ZadaniaWyceny
 
 
@@ -47,3 +52,39 @@ async def test_blad_pracy_trafia_do_stanu_i_postep_nie_cofa_sie() -> None:
         return None
 
     assert zadania.uruchom(1, druga) is not stan  # po końcu wolno od nowa
+
+
+@pytest.mark.parametrize(
+    "blad",
+    [BladOtomoto("Otomoto nie zna marki X"), BladDostawcyAI("przekroczony czas")],
+)
+async def test_przewidziana_porazka_bez_sladu_stosu(
+    blad: Exception, caplog: pytest.LogCaptureFixture
+) -> None:
+    async def praca(postep: Postep) -> None:
+        raise blad
+
+    stan = ZadaniaWyceny().uruchom(1, praca)
+    assert stan.zadanie is not None
+    with caplog.at_level(logging.WARNING):
+        await stan.zadanie
+
+    assert stan.wyjatek is blad
+    (wpis,) = caplog.records
+    assert wpis.levelno == logging.WARNING and wpis.exc_info is None
+    assert str(blad) in wpis.getMessage()
+
+
+async def test_awaria_programu_ma_slad_stosu(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    async def praca(postep: Postep) -> None:
+        raise KeyError("to jest błąd w kodzie")
+
+    stan = ZadaniaWyceny().uruchom(1, praca)
+    assert stan.zadanie is not None
+    with caplog.at_level(logging.WARNING):
+        await stan.zadanie
+
+    (wpis,) = caplog.records
+    assert wpis.levelno == logging.ERROR and wpis.exc_info is not None

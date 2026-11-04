@@ -1,5 +1,25 @@
 # Historia zmian
 
+## 0.35.1 — w przygotowaniu
+
+**Autoprzetarg znowu działa.** Serwis zmienił układ stron i parser przestał
+rozpoznawać listę oraz szczegóły aukcji, przez co bezpiecznik źródła otwierał
+się raz za razem. Parser czyta teraz nowy układ, także dokumenty aukcji, które
+od zmiany nie trafiały do wyceny. Lista ma 9 ofert na stronę i około 32 strony.
+
+**Otomoto wycenia samochody dostawcze.** Kategoria dostawcza nie ma tam listy
+modeli, więc każda taka aukcja kończyła się błędem „Otomoto nie zna marki”.
+Teraz szukamy po nazwie modelu i sprawdzamy słowa w tytule ogłoszenia.
+Transit, Transit Custom i Transit Connect liczą się osobno. Aukcje z tym
+błędem automat ponowi sam, po 6 godzinach.
+
+**Dłuższe czekanie na model AI.** Limit oczekiwania na odpowiedź wzrósł z 60 do
+300 sekund, bo wycena z raportem historii potrafiła go przekroczyć, a to
+wstrzymywało automat na godzinę.
+
+**Czytelniejszy log.** Przewidziane porażki wyceny mają jedną linię ostrzeżenia
+zamiast śladu stosu. Ślad zostaje dla błędów w kodzie.
+
 ## 0.35.0 — w przygotowaniu
 
 **Wycena AI czyta raport autoDNA.** Jeśli aukcja ma taki raport, model dostaje

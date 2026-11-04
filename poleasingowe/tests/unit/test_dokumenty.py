@@ -86,9 +86,9 @@ def test_poleasingowe_czyta_pliki_do_pobrania() -> None:
 def test_autoprzetarg_pomija_instrukcje_serwisu() -> None:
     strona = """
     <a href="/uploads/attachements/1kX/KARTA.INFORMACYJNA.GDA7RN8.pdf"
-       class="section-auction-column-left-info-download">KARTA.INFORMACYJNA.GDA7RN8.pdf</a>
+       class="doc-button"><div><strong>KARTA.INFORMACYJNA.GDA7RN8.pdf</strong></div></a>
     <a href="/aukcje/instrukcja?subjectPrefix=poczta"
-       class="section-auction-column-left-info-download">Instrukcja</a>"""
+       class="doc-button"><div><strong>Instrukcja</strong></div></a>"""
     assert [d.nazwa for d in autoprzetarg.dokumenty(strona)] == [
         "KARTA.INFORMACYJNA.GDA7RN8.pdf"
     ]

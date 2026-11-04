@@ -16,6 +16,9 @@ import logging
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 
+from app.infrastructure.otomoto import BladOtomoto
+from app.infrastructure.wycena_ai import BladWyceny
+
 log = logging.getLogger(__name__)
 
 Postep = Callable[[str, float], None]
@@ -65,7 +68,19 @@ class ZadaniaWyceny:
             try:
                 await praca(postep)
             except Exception as exc:
-                log.exception("wycena z Otomoto aukcji %s nie powiodła się", auction_id)
+                if isinstance(exc, BladOtomoto | BladWyceny):
+                    # Aukcji nie da się wycenić albo dostawca nie odpowiedział.
+                    # To przewidziany wynik, a ślad stosu tylko zasłania log.
+                    log.warning(
+                        "wycena z Otomoto aukcji %s nie powiodła się: %s (%r)",
+                        auction_id,
+                        exc,
+                        exc.__cause__,
+                    )
+                else:
+                    log.exception(
+                        "wycena z Otomoto aukcji %s nie powiodła się", auction_id
+                    )
                 stan.blad = str(exc) or type(exc).__name__
                 stan.wyjatek = exc
             finally:
