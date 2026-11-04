@@ -1,9 +1,9 @@
 """Wycena jednej aukcji z Otomoto — wspólna dla przycisku i automatu (0.34.0).
 
 Wycena jest ta sama bez względu na to, kto ją zlecił: taksonomia i ogłoszenia
-Otomoto, ekspertyza z dokumentów aukcji, model AI, zapis. Dwie kopie tej
-ścieżki rozjechałyby się po cichu i ranking okazji porównywałby kwoty
-policzone inaczej niż te na karcie.
+Otomoto, ekspertyza i raport autoDNA z dokumentów aukcji, model AI, zapis.
+Dwie kopie tej ścieżki rozjechałyby się po cichu i ranking okazji porównywałby
+kwoty policzone inaczej niż te na karcie.
 
 Połączenie z bazą jest oddawane na czas Otomoto i modelu AI — to minuty,
 a pula ma cztery połączenia (`persistence/pula.py`).
@@ -13,17 +13,11 @@ from __future__ import annotations
 
 import asyncio
 import datetime as dt
-from dataclasses import replace
 
 from app.application.ports import FabrykaKontekstu
 from app.domain.enums import RodzajPojazdu
 from app.infrastructure.dokumenty import Dokumenty
-from app.infrastructure.ekspertyza import (
-    OcenionyDokument,
-    tekst_pdf,
-    wybierz,
-    zredaguj,
-)
+from app.infrastructure.ekspertyza import OcenionyDokument, tekst_pdf, wybierz
 from app.infrastructure.otomoto import BladOtomoto, Otomoto, PojazdDoPorownania
 from app.infrastructure.wycena_ai import WycenaAI
 from app.infrastructure.zadania_wyceny import Postep
@@ -73,10 +67,7 @@ async def wycen_z_otomoto(
             (plik.nazwa, await asyncio.to_thread(tekst_pdf, plik.dane))
             for plik in pliki
         ]
-        wybrane = tuple(
-            replace(d, tekst=zredaguj(d.tekst, dane.vin))
-            for d in wybierz(teksty, dane.vin)
-        )
+        wybrane = wybierz(teksty, dane.vin)
     postep(f"Model AI liczy wycenę ({rynek.liczba} ogłoszeń)", 0.75)
     nowa = await usluga.wycen(
         dane,

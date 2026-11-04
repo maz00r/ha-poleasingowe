@@ -27,6 +27,7 @@ from app.infrastructure.ai_klienci import (
     KlientZgodnyZOpenAI,
     utworz_klienta,
 )
+from app.infrastructure.ekspertyza import OcenionyDokument
 from app.infrastructure.otomoto import PojazdDoPorownania
 from app.infrastructure.wycena_ai import BladDostawcyAI, BladWyceny, WycenaAI
 
@@ -57,7 +58,7 @@ def _dane() -> Szczegoly:
     )
 
 
-async def test_wycena_ma_strukturalny_wynik_i_nie_wysyla_vin(
+async def test_wycena_ma_strukturalny_wynik_i_wysyla_vin(
     tmp_path: pathlib.Path,
 ) -> None:
     zadania: list[dict[str, object]] = []
@@ -111,7 +112,7 @@ async def test_wycena_ma_strukturalny_wynik_i_nie_wysyla_vin(
     # jej nie ma (`test_interfejs_e2e.py`).
     assert len(zadania) == 1
     wyslane = json.dumps(zadania, ensure_ascii=False)
-    assert "TMBTA7NE0N0123456" not in wyslane
+    assert "TMBTA7NE0N0123456" in wyslane
     assert "Jan Kowalski" not in wyslane
     assert zadania[0]["store"] is False
     assert zadania[0]["text"]["format"]["type"] == "json_schema"  # type: ignore[index]
@@ -180,7 +181,7 @@ async def test_anthropic_wymusza_strukture_narzedziem(
     tresc = json.loads(zadanie.content)
     assert tresc["tool_choice"] == {"type": "tool", "name": "wycena_pojazdu"}
     assert tresc["tools"][0]["input_schema"]["required"]
-    assert "TMBTA7NE0N0123456" not in zadanie.content.decode()
+    assert "TMBTA7NE0N0123456" in zadanie.content.decode()
 
     await klient.aclose()
 
@@ -539,7 +540,7 @@ async def test_wycena_z_otomoto_i_ekspertyza() -> None:
 
     wejscie = json.dumps(zadania[0], ensure_ascii=False)
     assert "uszkodzony zderzak" in wejscie and "ogloszenia_otomoto" in wejscie
-    assert "TMBTA7NE0N0123456" not in wejscie
+    assert "TMBTA7NE0N0123456" in wejscie
     assert wynik.zrodlo == "OTOMOTO"
     assert wynik.cena_portale is not None and wynik.cena_portale.amount == 80_010
     assert wynik.otomoto_liczba == 20
@@ -855,3 +856,54 @@ async def test_bez_ponownego_wystawienia_model_nie_widzi_ceny_aukcji(
 
     assert "aktualne_wystawienie" not in _wejscie_modelu(zadania[0])
     assert "58000" not in str(zadania[0])
+
+
+async def test_raport_autodna_idzie_osobno_od_ekspertyzy() -> None:
+    zadania: list[dict[str, object]] = []
+    usluga = _usluga_z_odpowiedzia(ODPOWIEDZ_WYCENY, zadania)
+
+    wynik = await usluga.wycen(
+        _dane(),
+        (),
+        teraz=TERAZ,
+        ekspertyzy=(
+            OcenionyDokument("Opinia.pdf", "Stan techniczny dobry", 12, True),
+            OcenionyDokument(
+                "raport-autodna.pdf",
+                "Stan drogomierza 108 791 km",
+                12,
+                True,
+                raport_historii=True,
+            ),
+        ),
+    )
+
+    wejscie = _wejscie_modelu(zadania[0])
+    assert wejscie["ekspertyza"] == [
+        {"dokument": "Opinia.pdf", "tekst": "Stan techniczny dobry"}
+    ]
+    assert wejscie["raport_historii"] == [
+        {"dokument": "raport-autodna.pdf", "tekst": "Stan drogomierza 108 791 km"}
+    ]
+    instrukcje = str(zadania[0]["instructions"])
+    assert "cofnięty licznik" in instrukcje and "„Historia: …”" in instrukcje
+    assert wynik.zrodlo == "OTOMOTO"
+    assert wynik.ekspertyzy == ("Opinia.pdf", "raport-autodna.pdf")
+
+
+async def test_sam_raport_autodna_tez_trafia_do_modelu() -> None:
+    zadania: list[dict[str, object]] = []
+    usluga = _usluga_z_odpowiedzia(ODPOWIEDZ_WYCENY, zadania)
+
+    await usluga.wycen(
+        _dane(),
+        (),
+        teraz=TERAZ,
+        ekspertyzy=(
+            OcenionyDokument("r.pdf", "wpisy", 2, False, raport_historii=True),
+        ),
+    )
+
+    wejscie = _wejscie_modelu(zadania[0])
+    assert "ekspertyza" not in wejscie
+    assert wejscie["raport_historii"] == [{"dokument": "r.pdf", "tekst": "wpisy"}]

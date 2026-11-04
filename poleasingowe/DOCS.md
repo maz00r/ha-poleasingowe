@@ -228,9 +228,13 @@ ogłoszeniu status faktury: faktura VAT 23% (odznaka Otomoto albo „FV 23%"
 w opisie), VAT-marża albo brak informacji (zwykle prywatny, bez faktury)
 i uwzględnia go w ocenie ceny. Wycena jest w netto.
 
-Ekspertyzę aukcji add-on wybiera po treści, nie po nazwie pliku, i przed
-wysłaniem zasłania w niej VIN, numer rejestracyjny, nazwiska, telefony
-i adresy e-mail. Po kliknięciu karta pokazuje pasek postępu z etapami
+Ekspertyzę aukcji add-on wybiera po treści, nie po nazwie pliku. Jeśli aukcja
+ma raport autoDNA (dziś poleasingowe.pl), model dostaje go osobno: odczyty
+drogomierza, szkody, rejestracje i dawne ogłoszenia. Odczyty porównuje
+z przebiegiem z aukcji, a uzasadnienie zyskuje punkt „Historia”. Raport musi
+zawierać VIN aukcji, jeśli go znamy. Ekspertyza i raport idą do dostawcy modelu
+w całości, razem z VIN-em, numerem rejestracyjnym i danymi osób. Po kliknięciu
+karta pokazuje pasek postępu z etapami
 (Otomoto, dokumenty, ekspertyza, model AI, zapis); ponowne kliknięcie w trakcie
 pokazuje ten sam pasek. Ceny z Otomoto są ofertowe, zwykle wyższe od
 uzyskiwanych na aukcjach; karta pokazuje liczbę ogłoszeń, przedział cen, link
@@ -257,8 +261,8 @@ z odpytania portali — dodatek do nich nie sięga — więc jest podpisana jako
 szacunek i bywa pusta, gdy model nie potrafi jej rozsądnie podać. Wynik jest zapisywany w lokalnym cache'u, więc
 ponowne otwarcie tej samej wyceny nie wykonuje kolejnego płatnego żądania.
 Zmiana danych auta, lokalnych porównań albo modelu automatycznie unieważnia
-cache. Do dostawcy nie są wysyłane VIN, identyfikator aukcji ani dane
-sprzedającego. Wycena jest orientacyjna i nie zastępuje oględzin ani opinii
+cache. Do dostawcy trafia VIN, ale nie identyfikator aukcji ani nazwa
+sprzedającego z karty. Wycena jest orientacyjna i nie zastępuje oględzin ani opinii
 rzeczoznawcy.
 
 ### Automatyczna wycena i okazje

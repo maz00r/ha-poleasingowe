@@ -10,6 +10,13 @@ rzeczoznawcy, które stały we WSZYSTKICH trzech zmierzonych próbkach
 Najmocniejszy sygnał to VIN tej aukcji w tekście — wtedy wiemy, że raport
 dotyczy tego auta. Inny VIN to dyskwalifikacja: ekspertyza cudzego pojazdu
 jest gorsza niż żadna, bo wygląda jak dowód.
+
+**Raport autoDNA to osobny rodzaj dokumentu** (0.35.0). Mówi o historii auta,
+nie o jego stanie, więc nie konkuruje z ekspertyzą o miejsce ani o limit
+tekstu: wcześniej ekspertyza zjadała cały limit i raport nie docierał do
+modelu. Przebiegi i szkody leżą w nim daleko od początku, stąd duży limit.
+Zmierzone 2026-11-04 na trzech raportach z poleasingowe.pl: 9-18 tys. znaków,
+VIN na każdej stronie, nazwa pliku `raport-autodna-<vin>-<skrót>.pdf`.
 """
 
 from __future__ import annotations
@@ -17,7 +24,7 @@ from __future__ import annotations
 import io
 import logging
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 from pypdf import PdfReader
 from pypdf.errors import PdfReadError
@@ -47,7 +54,9 @@ PREMIA_VIN = 10
 KARA_OBCY_VIN = -100
 MAKS_STRON = 40
 MAKS_ZNAKOW = 12_000
+MAKS_ZNAKOW_HISTORII = 30_000
 
+_TYTUL_HISTORII = re.compile(r"(?i)raport\s+historii\s+pojazdu\s+autodna")
 _VIN_PRZY_ETYKIECIE = re.compile(
     r"\bVIN\b[\s:.]{0,8}((?:[A-HJ-NPR-Z0-9][ \t]?){17})(?![A-Z0-9])"
 )
@@ -59,6 +68,7 @@ class OcenionyDokument:
     tekst: str
     punkty: int
     vin_zgodny: bool
+    raport_historii: bool = False
 
 
 def tekst_pdf(dane: bytes) -> str:
@@ -92,25 +102,49 @@ def ocen_dokument(nazwa: str, tekst: str, vin: str | None) -> OcenionyDokument:
             punkty += PREMIA_VIN
         elif znalezione:
             punkty += KARA_OBCY_VIN
-    return OcenionyDokument(nazwa=nazwa, tekst=tekst, punkty=punkty, vin_zgodny=zgodny)
+    return OcenionyDokument(
+        nazwa=nazwa,
+        tekst=tekst,
+        punkty=punkty,
+        vin_zgodny=zgodny,
+        raport_historii=_jest_raportem_historii(nazwa, tekst),
+    )
+
+
+def _jest_raportem_historii(nazwa: str, tekst: str) -> bool:
+    """Po nazwie albo tytule: samo słowo „autoDNA" bywa i w ekspertyzie."""
+    return "autodna" in nazwa.lower() or _TYTUL_HISTORII.search(tekst) is not None
 
 
 def wybierz(
     pliki: list[tuple[str, str]], vin: str | None
 ) -> tuple[OcenionyDokument, ...]:
-    """Najlepiej oceniony dokument powyżej progu, plus drugi o tym samym VIN-ie.
+    """Ekspertyza i raport autoDNA tego auta, każde z własnym limitem tekstu.
 
-    Łączna długość tekstu ograniczona do `MAKS_ZNAKOW` — model ma dostać
-    raport, nie trzydzieści stron tabel wyposażenia.
+    Ekspertyza to najlepiej oceniony dokument powyżej progu plus drugi o tym
+    samym VIN-ie, razem do `MAKS_ZNAKOW` — model ma dostać raport, nie
+    trzydzieści stron tabel wyposażenia.
+
+    Raport autoDNA drukuje VIN na każdej stronie, więc przy znanym VIN-ie
+    aukcji musi go zawierać: historia cudzego auta wyglądałaby jak dowód.
     """
     ocenione = sorted(
         (ocen_dokument(nazwa, tekst, vin) for nazwa, tekst in pliki if tekst),
         key=lambda d: d.punkty,
         reverse=True,
     )
+    wynik = _ekspertyzy([d for d in ocenione if not d.raport_historii])
+    for dokument in ocenione:
+        if dokument.raport_historii and (dokument.vin_zgodny or not vin):
+            wynik.append(replace(dokument, tekst=dokument.tekst[:MAKS_ZNAKOW_HISTORII]))
+            break
+    return tuple(wynik)
+
+
+def _ekspertyzy(ocenione: list[OcenionyDokument]) -> list[OcenionyDokument]:
     wybrane = [d for d in ocenione if d.punkty >= PROG]
     if not wybrane:
-        return ()
+        return []
     wynik = [wybrane[0]]
     if len(wybrane) > 1 and wybrane[1].vin_zgodny:
         wynik.append(wybrane[1])
@@ -119,55 +153,7 @@ def wybierz(
     for dokument in wynik:
         tekst = dokument.tekst[:zostalo]
         zostalo -= len(tekst)
-        przyciete.append(
-            OcenionyDokument(
-                dokument.nazwa, tekst, dokument.punkty, dokument.vin_zgodny
-            )
-        )
+        przyciete.append(replace(dokument, tekst=tekst))
         if zostalo <= 0:
             break
-    return tuple(przyciete)
-
-
-_TABLICA = re.compile(
-    r"(?i)(nr\.?\s*rej(?:estracyjny)?\.?\s*:?\s*)((?:[A-Z0-9][ \t]?){4,9})"
-)
-_RZECZOZNAWCA = re.compile(r"(?im)^(\s*rzeczoznawca\s*:?)[^\n]*(\n[^\n]*)?")
-# Polska tablica: 2-3 litery wyróżnika i 4-5 znaków, w tym co najmniej
-# jedna cyfra. Czasem złapie kod modelu — to tania pomyłka w tę stronę.
-_TABLICA_DOWOLNA = re.compile(
-    r"(?<![A-Z0-9])[A-Z]{2,3} ?(?=[A-Z]*\d)[0-9A-Z]{4,5}(?![A-Z0-9])"
-)
-# Nazwiska rzeczoznawców stoją przy etykietach i w stopce każdej strony
-# („/ SRTSiRD 11013 Albert Kalużny System INFO-EKSPERT"). Zbieramy je stamtąd
-# i zasłaniamy WSZYSTKIE wystąpienia — warstwa tekstowa rozrzuca podpis
-# daleko od etykiety.
-_IMIE_NAZWISKO = r"([A-ZŁŚŻŹĆŃÓĘĄ][a-ząćęłńóśżź]+[ \t]+[A-ZŁŚŻŹĆŃÓĘĄ][a-ząćęłńóśżź-]+)"
-_OSOBA_PRZY_ETYKIECIE = re.compile(
-    r"(?i:rzeczoznawca|ogl[eę]dziny wykona[lł]|wycen[aę] wykona(?:[lł]a?|na)|"
-    r"SRTSiRD[ \t]+\d+)[ \t]*:?[ \t]*\n?[ \t]*" + _IMIE_NAZWISKO
-)
-_TELEFON = re.compile(r"(?<!\d)(?:\+?48[ \-]?)?(?:\d[ \-]?){9}(?!\d)")
-_EMAIL = re.compile(r"[\w.+-]+@[\w-]+\.[\w.-]+")
-
-
-def zredaguj(tekst: str, vin: str | None) -> str:
-    """Zdejmuje z tekstu identyfikatory, zanim trafi do dostawcy modelu.
-
-    Wycena z założenia nie wysyła VIN-u ani danych osób (`wycena_ai.py`).
-    Ekspertyza niesie VIN (czasem z odstępami między znakami), numer
-    rejestracyjny, nazwisko rzeczoznawcy, telefony i adresy e-mail — model
-    potrzebuje stanu auta i wartości, nie tego.
-    """
-    osoby = {m.group(1) for m in _OSOBA_PRZY_ETYKIECIE.finditer(tekst)}
-    for osoba in sorted(osoby, key=len, reverse=True):
-        tekst = tekst.replace(osoba, "[osoba]")
-    if vin:
-        wzor_vin = r"\s?".join(re.escape(znak) for znak in vin.upper())
-        tekst = re.sub(wzor_vin, "[VIN]", tekst, flags=re.I)
-    tekst = _VIN_PRZY_ETYKIECIE.sub("VIN: [VIN]", tekst)
-    tekst = _TABLICA.sub(r"\1[nr rej.]", tekst)
-    tekst = _TABLICA_DOWOLNA.sub("[nr rej.]", tekst)
-    tekst = _RZECZOZNAWCA.sub(r"\1 [rzeczoznawca]", tekst)
-    tekst = _EMAIL.sub("[e-mail]", tekst)
-    return _TELEFON.sub("[telefon]", tekst)
+    return przyciete

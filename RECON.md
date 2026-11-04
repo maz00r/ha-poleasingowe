@@ -718,6 +718,11 @@ ofert) i `Disallow:/pl/auctions/calc-commission/*`. Patrz §7.
   `bid-details` zostają w HTML (wygaszane po stronie Alpine). Drugi, uboczny
   sygnał: przy zamknięciu z DOM znika sekcja z linkami do PDF-ów
   (opinia rzeczoznawcy, raport autoDNA) — strona traci ~22 kB.
+  Raport autoDNA (pomiar 2026-11-04, trzy aukcje): `file_type:
+  darmowy_raport`, nazwa `raport-autodna-<vin>-<skrót>.pdf`, ścieżka
+  `/files/doc/<id>` (poza `Disallow:/autodna/*` z `robots.txt`), do 24 stron,
+  warstwa tekstowa 9-18 tys. znaków, VIN na każdej stronie, wpisy historii
+  zdublowane. Pierwszy przebieg w raporcie to średnia wyliczona przez autoDNA.
 - **(b) cena: widoczna bez limitu.** `current_price` w bloku Alpine trzyma
   się po zamknięciu bezterminowo (≥15 min, brak zaniku). Dla §11.5 faza 2
   nie ma tu wyścigu z zegarem — jak w EFL, inaczej niż w autoprzetarg.

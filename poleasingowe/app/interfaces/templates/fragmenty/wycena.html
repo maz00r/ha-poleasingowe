@@ -50,9 +50,9 @@
       {% endif %}
       {% if wycena.otomoto_adres %}<a href="{{ wycena.otomoto_adres }}" target="_blank" rel="noopener noreferrer">Zobacz wyszukiwanie</a>.{% endif %}
       {% if wycena.ekspertyzy %}
-        Uwzględniono ekspertyzę: {{ wycena.ekspertyzy | join(', ') }}.
+        Uwzględniono dokumenty: {{ wycena.ekspertyzy | join(', ') }}.
       {% else %}
-        Nie znaleziono ekspertyzy w dokumentach aukcji.
+        Nie znaleziono ekspertyzy ani raportu autoDNA w dokumentach aukcji.
       {% endif %}
     </p>
     {% if wycena.otomoto_ogloszenia %}

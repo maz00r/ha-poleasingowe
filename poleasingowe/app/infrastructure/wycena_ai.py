@@ -1,8 +1,8 @@
 """Wycena pojazdu przez model językowy, z lokalnym cache'em.
 
-Model dostaje wyłącznie techniczne dane pojazdu i zagregowane ceny z naszej
-bazy, a przy aucie wystawionym ponownie także jego nową cenę. Nie wysyłamy
-VIN-u, identyfikatora aukcji ani danych sprzedającego.
+Model dostaje dane pojazdu z VIN-em, ceny z naszej bazy, a przy aucie
+wystawionym ponownie także jego nową cenę. Ekspertyza i raport autoDNA idą bez
+zasłaniania (decyzja właściciela repo, 2026-11-04).
 Wynik jest pomocą przy analizie, nie opinią rzeczoznawcy.
 
 **Dostawca jest wyborem użytkownika** (`ai_provider`): OpenAI, Anthropic albo
@@ -40,7 +40,7 @@ from app.infrastructure.otomoto import Ogloszenie, PojazdDoPorownania, WynikOtom
 
 log = logging.getLogger(__name__)
 
-WERSJA_PROMPTU = 14
+WERSJA_PROMPTU = 15
 """Podbij, gdy zmienisz `INSTRUKCJE` albo `SCHEMAT`.
 
 Zapisana wycena niesie wersję, którą policzono — dzięki temu widać, że
@@ -60,7 +60,8 @@ powstała starym poleceniem, i można ją świadomie przeliczyć.
 11: każde wcześniejsze wystawienie = niesprzedane, bez względu na status.
 12: uzasadnienie jako tablica punktów (linie w napisie psuły JSON).
 13: silnik wg rynku wtórnego — renoma, awaryjność, koszty, popyt.
-14: nowa cena auta wystawionego ponownie (`aktualne_wystawienie`)."""
+14: nowa cena auta wystawionego ponownie (`aktualne_wystawienie`).
+15: raport autoDNA (`raport_historii`) i VIN w danych pojazdu."""
 
 MAKS_OGLOSZEN_NA_KARCIE = 15
 
@@ -123,6 +124,16 @@ INSTRUKCJE_OTOMOTO = (
     "rzeczoznawcę; w uzasadnieniu napisz, co z ekspertyzy wpłynęło na kwotę. "
     "Kwoty z ekspertyz bywają brutto albo netto — sprawdź, co mówi raport, "
     "i przelicz na netto.\n"
+    # Zmierzone na prawdziwym raporcie: pierwsza liczba kilometrów jest tam
+    # szacunkiem autoDNA, a nie odczytem — model brałby ją za przebieg.
+    "- `raport_historii`: raport autoDNA TEGO auta: odczyty drogomierza, "
+    "badania techniczne, szkody, rejestracje i dawne ogłoszenia z cenami. "
+    "Porównaj odczyty z przebiegiem z aukcji i sprawdź, czy przebieg nie "
+    "maleje (cofnięty licznik). Uwzględnij szkody, kraj pochodzenia i liczbę "
+    "zmian właściciela. Dawne ceny to ceny ofertowe sprzed lat, często brutto: "
+    "nie opieraj na nich wyceny. Przebieg oznaczony jako obliczony średni "
+    "to szacunek autoDNA, a nie odczyt. Duplikaty wpisów traktuj jak jeden "
+    "wpis. W uzasadnieniu dodaj punkt „Historia: …” z wpływem na cenę.\n"
     "Jeśli któregoś bloku brak, napisz o tym w założeniach."
 )
 
@@ -310,11 +321,7 @@ class WycenaAI:
         ekspertyzy: tuple[OcenionyDokument, ...] = (),
         wystawienia: tuple[PowiazaneWystawienie, ...] = (),
     ) -> WycenaAukcji:
-        """`otomoto` i `ekspertyzy` tylko z przycisku „Wycena z Otomoto".
-
-        Tekst ekspertyz musi być już zredagowany (`ekspertyza.zredaguj`) —
-        ta klasa nie wysyła VIN-u ani danych osób.
-        """
+        """`otomoto` i `ekspertyzy` tylko przy wycenie z Otomoto."""
         wejscie = self._wejscie(dane, porownania)
         rozszerzona = otomoto is not None or bool(ekspertyzy)
         if otomoto is not None:
@@ -346,10 +353,14 @@ class WycenaAI:
                     for o in self._najblizsze(dane, otomoto.ogloszenia, 25)
                 ],
             }
-        if ekspertyzy:
-            wejscie["ekspertyza"] = [
-                {"dokument": d.nazwa, "tekst": d.tekst} for d in ekspertyzy
+        for klucz, historia in (("ekspertyza", False), ("raport_historii", True)):
+            dokumenty = [
+                {"dokument": d.nazwa, "tekst": d.tekst}
+                for d in ekspertyzy
+                if d.raport_historii is historia
             ]
+            if dokumenty:
+                wejscie[klucz] = dokumenty
         instrukcje = INSTRUKCJE_OTOMOTO if rozszerzona else INSTRUKCJE
         wczesniejsze = self._wczesniejsze(wystawienia, teraz)
         if wczesniejsze:
@@ -443,6 +454,7 @@ class WycenaAI:
             "pojazd": {
                 "marka": p.make,
                 "model": p.model,
+                "vin": dane.vin,
                 "wariant": p.variant,
                 "rok": p.year,
                 "przebieg_km": p.mileage_km,

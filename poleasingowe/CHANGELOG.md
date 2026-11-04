@@ -1,5 +1,17 @@
 # Historia zmian
 
+## 0.35.0 — w przygotowaniu
+
+**Wycena AI czyta raport autoDNA.** Jeśli aukcja ma taki raport, model dostaje
+go osobno, z własnym limitem tekstu, bo wcześniej ekspertyza zwykle zajmowała
+cały limit. Sprawdza odczyty drogomierza, szkody, pochodzenie i zmiany
+właściciela, a w uzasadnieniu dodaje punkt „Historia”. Raport z innym VIN-em
+odpada. Instrukcja modelu AI w wersji 15.
+
+**VIN i pełne dokumenty idą do modelu.** Decyzja właściciela: dane pojazdu
+zawierają VIN, a ekspertyzy i raporty nie są już zasłaniane, także numer
+rejestracyjny i dane osób. Zapisane wyceny się nie zmieniają.
+
 ## 0.34.1 — w przygotowaniu
 
 **Wycena auta wystawionego ponownie uwzględnia nową cenę.** Obok wcześniejszych
