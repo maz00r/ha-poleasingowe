@@ -11,7 +11,6 @@ a pula ma cztery połączenia (`persistence/pula.py`).
 
 from __future__ import annotations
 
-import asyncio
 import datetime as dt
 import logging
 import time
@@ -20,7 +19,7 @@ from collections.abc import Awaitable, Callable, Sequence
 from app.application.ports import FabrykaKontekstu
 from app.domain.enums import RodzajPojazdu
 from app.infrastructure.dokumenty import Dokumenty
-from app.infrastructure.ekspertyza import OcenionyDokument, tekst_pdf, wybierz
+from app.infrastructure.ekspertyza import OcenionyDokument, czytaj_pdfy, wybierz
 from app.infrastructure.otomoto import (
     BladOtomoto,
     Otomoto,
@@ -145,10 +144,13 @@ async def _wycen(
             auction_id, p.source_key, p.external_id, p.url
         )
         postep("Czytanie ekspertyzy", 0.65)
-        teksty = [
-            (plik.nazwa, await asyncio.to_thread(tekst_pdf, plik.dane))
-            for plik in pliki
-        ]
+        teksty = list(
+            zip(
+                (plik.nazwa for plik in pliki),
+                await czytaj_pdfy([plik.dane for plik in pliki]),
+                strict=True,
+            )
+        )
         wybrane = wybierz(teksty, dane.vin)
     postep(f"Model AI liczy wycenę ({rynek.liczba} ogłoszeń)", 0.75)
     nowa = await usluga.wycen(

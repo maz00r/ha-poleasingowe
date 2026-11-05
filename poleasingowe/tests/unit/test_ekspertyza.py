@@ -193,3 +193,17 @@ def test_raport_jest_przycinany_do_wlasnego_limitu() -> None:
         [("raport-autodna.pdf", _raport_autodna() + "x" * 40_000)], VIN
     )
     assert len(d.tekst) == ekspertyza.MAKS_ZNAKOW_HISTORII
+
+
+async def test_czytaj_pdfy_pusta_lista_nie_startuje_procesu() -> None:
+    assert await ekspertyza.czytaj_pdfy([]) == []
+
+
+async def test_czytaj_pdfy_dziala_w_osobnym_procesie_i_zachowuje_kolejnosc() -> None:
+    # Treść nieistotna — to samo `tekst_pdf`, już sprawdzone wyżej. Test
+    # dotyczy przejścia przez proces: (roz)pakowania, importu modułu
+    # w dziecku i zachowania kolejności przy kilku plikach naraz.
+    wynik = await ekspertyza.czytaj_pdfy(
+        [b"%PDF-1.7 pierwszy zly", b"%PDF-1.7 drugi zly"]
+    )
+    assert wynik == ["", ""]

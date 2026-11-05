@@ -27,9 +27,13 @@ Oba źródła się uzupełniają, więc aukcja z dwoma raportami przekazuje oba.
 
 from __future__ import annotations
 
+import asyncio
 import io
 import logging
+import multiprocessing
 import re
+from collections.abc import Sequence
+from concurrent.futures import ProcessPoolExecutor
 from dataclasses import dataclass, replace
 
 from pypdf import PdfReader
@@ -81,7 +85,11 @@ class OcenionyDokument:
 
 
 def tekst_pdf(dane: bytes) -> str:
-    """Warstwa tekstowa PDF-a; pusty napis, gdy jej nie ma albo plik jest zły."""
+    """Warstwa tekstowa PDF-a; pusty napis, gdy jej nie ma albo plik jest zły.
+
+    Funkcja na szczycie modułu, nie zamknięcie — `czytaj_pdfy` przekazuje ją
+    do osobnego procesu, a to wymaga, żeby dało się ją zaimportować po nazwie.
+    """
     try:
         czytnik = PdfReader(io.BytesIO(dane))
         strony = [strona.extract_text() or "" for strona in czytnik.pages[:MAKS_STRON]]
@@ -89,6 +97,36 @@ def tekst_pdf(dane: bytes) -> str:
         log.warning("nie udało się odczytać PDF-a: %s", exc)
         return ""
     return re.sub(r"[ \t]+", " ", "\n".join(strony)).strip()
+
+
+async def czytaj_pdfy(dane: Sequence[bytes]) -> list[str]:
+    """Jak `tekst_pdf`, ale poza wątkiem strony — w osobnym procesie.
+
+    `pypdf` parsuje drzewo PDF-a w czystym Pythonie i trzyma GIL na długo —
+    zmierzone 45 s na jednym dokumencie (2026-11-05). `asyncio.to_thread` nie
+    pomaga: wątek i strona dzielą ten sam GIL, więc strona dalej nie
+    odpowiada. Osobny proces faktycznie zwalnia procesor głównego procesu.
+
+    Proces startuje i kończy się z KAŻDĄ wyceną, a nie żyje między nimi —
+    stały proces złamałby budżet RSS w spoczynku (< 170 MB, SPEC.md §1.1).
+    `spawn`, nie `fork`: w procesie są już wątki (`asyncio.to_thread` gdzie
+    indziej), a fork wielowątkowego procesu bywa niebezpieczny.
+    """
+    if not dane:
+        return []
+    petla = asyncio.get_running_loop()
+    pula = ProcessPoolExecutor(
+        max_workers=1, mp_context=multiprocessing.get_context("spawn")
+    )
+    try:
+        wyniki = await asyncio.gather(
+            *(petla.run_in_executor(pula, tekst_pdf, plik) for plik in dane)
+        )
+    finally:
+        # `shutdown` czeka na zejście procesu — w wątku puli domyślnej,
+        # żeby nie blokować pętli zdarzeń strony.
+        await petla.run_in_executor(None, pula.shutdown)
+    return list(wyniki)
 
 
 def _vin_w_tekscie(tekst: str) -> set[str]:

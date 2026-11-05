@@ -1,5 +1,13 @@
 # Historia zmian
 
+## 0.37.4 — w przygotowaniu
+
+**Czytanie PDF-ów nie blokuje już strony.** `pypdf` parsuje dokument w czystym
+Pythonie i trzyma GIL na długo — zmierzone 45 s na jednej ekspertyzie
+(2026-11-05), co na tyle długo blokowało stronę, że wyglądało na zawieszenie.
+Czytanie przeniosło się do osobnego procesu, startowanego i kończonego z każdą
+wyceną — stały proces złamałby budżet RSS w spoczynku.
+
 ## 0.37.3 — w przygotowaniu
 
 **Krótsza, konfigurowalna pauza po awarii dostawcy AI.** Automat czekał po takiej
