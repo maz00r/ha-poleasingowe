@@ -29,6 +29,7 @@ from fastapi.responses import (
     StreamingResponse,
 )
 from fastapi.templating import Jinja2Templates
+from starlette.background import BackgroundTask
 
 from app.application.read_models import (
     ETYKIETY_RODZAJU,
@@ -52,6 +53,13 @@ from app.domain.logowanie import (
 )
 from app.infrastructure import dziennik
 from app.infrastructure.dokumenty import BrakMiejscaArchiwum, nazwa_pliku
+from app.infrastructure.sources.registry import REJESTR
+from app.infrastructure.supervisor.options import (
+    BladKonfiguracji,
+    OpcjeZrodla,
+    zapisz_nadpisania,
+    zastosuj_zmiany,
+)
 from app.infrastructure.supervisor.proces import rss_bajty
 from app.infrastructure.wycena_ai import BladWyceny
 from app.infrastructure.wycena_otomoto import wycen_z_otomoto
@@ -62,6 +70,7 @@ from app.interfaces.web.formularze import (
     kursor_z_parametrow,
     na_parametry,
     zbuduj_kryteria,
+    zmiany_konfiguracji,
 )
 from app.wersja import WERSJA
 
@@ -1360,7 +1369,7 @@ async def diagnostyka(request: Request) -> Response:
             False if statystyki_zdjec is None else statystyki_zdjec.zapis_wstrzymany
         ),
     )
-    if fabryka is not None:
+    if fabryka is not None and fabryka.stan_puli() is not None:
         async with fabryka() as kontekst:
             zrodla = await kontekst.zapytania.diagnostyka()
             rozmiar = await kontekst.zapytania.rozmiar_bazy()
@@ -1399,8 +1408,68 @@ async def diagnostyka(request: Request) -> Response:
                 "ostatni_blad": (None if eksporter is None else eksporter.ostatni_blad),
                 "pakiet": ostatni_pakiet,
             },
+            "konfiguracja": _konfiguracja(request),
         },
     )
+
+
+def _konfiguracja(request: Request) -> dict[str, Any]:
+    """Dane formularza. Klucz API zostaje poza nim, jest tylko informacja."""
+    opcje = _stan(request).opcje
+    sciezka_pliku = getattr(request.app.state, "sciezka_nadpisan", None)
+    obecne = {z.key: z for z in opcje.sources}
+    return {
+        "dostepna": sciezka_pliku is not None,
+        "nadpisana": sciezka_pliku is not None and sciezka_pliku.exists(),
+        "opcje": opcje,
+        "ma_klucz": bool(opcje.klucz_ai),
+        "zrodla": [
+            obecne.get(key, OpcjeZrodla(key=key, enabled=False))
+            for key in sorted({*REJESTR, *obecne})
+        ],
+        "blad": request.query_params.get("blad_konfiguracji"),
+    }
+
+
+def _ekran_restartu(request: Request) -> HTMLResponse:
+    """Strona czekająca na powrót aplikacji; restart rusza po jej wysłaniu."""
+    restart = getattr(request.app.state, "restart", None)
+    return SZABLONY.TemplateResponse(
+        request=request,
+        name="restart.html",
+        context=_kontekst_bazowy(request),
+        background=None if restart is None else BackgroundTask(restart),
+    )
+
+
+@router.post("/diagnostyka/konfiguracja", response_class=HTMLResponse)
+async def zapisz_konfiguracje(request: Request) -> Response:
+    """Zapisuje zmiany i restartuje proces: opcje są czytane tylko przy starcie."""
+    sciezka_pliku = getattr(request.app.state, "sciezka_nadpisan", None)
+    if sciezka_pliku is None:
+        return Response("Zapis konfiguracji niedostępny", status_code=409)
+    formularz = {k: str(v) for k, v in (await request.form()).items()}
+    opcje = _stan(request).opcje
+    try:
+        nowe = zastosuj_zmiany(opcje, zmiany_konfiguracji(formularz, opcje, REJESTR))
+        zapisz_nadpisania(nowe, sciezka_pliku)
+    except (BladKonfiguracji, ValueError, OSError) as exc:
+        log.warning("konfiguracja nie została zapisana: %s", exc)
+        parametry = urlencode({"blad_konfiguracji": str(exc)})
+        return RedirectResponse(f"../diagnostyka?{parametry}", status_code=303)
+    log.warning("konfiguracja zmieniona w Diagnostyce — restart")
+    return _ekran_restartu(request)
+
+
+@router.post("/diagnostyka/konfiguracja/przywroc", response_class=HTMLResponse)
+async def przywroc_konfiguracje(request: Request) -> Response:
+    """Usuwa zmiany z Diagnostyki, żeby znów rządził `options.json`."""
+    sciezka_pliku = getattr(request.app.state, "sciezka_nadpisan", None)
+    if sciezka_pliku is None:
+        return Response("Zapis konfiguracji niedostępny", status_code=409)
+    sciezka_pliku.unlink(missing_ok=True)
+    log.warning("konfiguracja przywrócona z options.json — restart")
+    return _ekran_restartu(request)
 
 
 @router.post("/diagnostyka/eksport-migracji")

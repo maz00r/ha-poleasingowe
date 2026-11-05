@@ -292,6 +292,10 @@ docker compose logs app | grep 'wycena AI'
 
 Blokada droższych godzin DeepSeeka zależy od adresu API, więc tu nie obowiązuje.
 
+Od wersji 0.36.0 te same pola ustawisz też w Diagnostyce, w sekcji Konfiguracja.
+Zmiany z ekranu trafiają do `/data/konfiguracja.json` i mają pierwszeństwo przed
+`options.json`, dopóki nie klikniesz „Wróć do options.json”.
+
 Dlaczego tak:
 
 - Claude w kontenerze działa z `--dangerously-skip-permissions`, a użytkownik

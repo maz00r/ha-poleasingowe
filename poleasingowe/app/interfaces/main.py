@@ -38,6 +38,7 @@ from app.infrastructure.scheduler.dispatcher import Dispatcher
 from app.infrastructure.sources import registry
 from app.infrastructure.sources.parametry import zbuduj_source
 from app.infrastructure.supervisor.options import (
+    SCIEZKA_NADPISAN,
     SCIEZKA_OPCJI,
     BladKonfiguracji,
     Opcje,
@@ -75,6 +76,10 @@ class _FiltrRedakcji(logging.Filter):
         record.msg = self._redakcja.zastosuj(record.getMessage())
         record.args = ()
         return True
+
+
+LIMIT_ZAMKNIECIA_S = 5
+"""Ile czekamy na otwarte połączenia przy restarcie z Diagnostyki."""
 
 
 def _skonfiguruj_logi(opcje: Opcje) -> None:
@@ -157,7 +162,7 @@ def _auto_wycena(
 def main() -> int:
     sciezka = pathlib.Path(os.environ.get("POLEASINGOWE_OPTIONS", SCIEZKA_OPCJI))
     try:
-        opcje = wczytaj_opcje(sciezka)
+        opcje = wczytaj_opcje(sciezka, SCIEZKA_NADPISAN)
     except BladKonfiguracji as exc:
         logging.basicConfig(level=logging.ERROR, stream=sys.stdout)
         log.error("%s", exc)
@@ -281,15 +286,33 @@ def main() -> int:
     aplikacja.state.auto_wycena = auto_wycena
     aplikacja.state.szczyt_dostawcy = szczyt
 
-    uvicorn.run(
-        aplikacja,
-        # Tylko siec dodatkow: `ports` w config.yaml jest puste, wiec nic nie
-        # jest publikowane poza Home Assistant (SPEC.md §7.1).
-        host="0.0.0.0",
-        port=PORT_INGRESS,
-        log_config=None,
-        access_log=False,
+    serwer = uvicorn.Server(
+        uvicorn.Config(
+            aplikacja,
+            # Tylko siec dodatkow: `ports` w config.yaml jest puste, wiec nic nie
+            # jest publikowane poza Home Assistant (SPEC.md §7.1).
+            host="0.0.0.0",
+            port=PORT_INGRESS,
+            log_config=None,
+            access_log=False,
+            timeout_graceful_shutdown=LIMIT_ZAMKNIECIA_S,
+        )
     )
+    restart_zadany = False
+
+    def _zadaj_restartu() -> None:
+        nonlocal restart_zadany
+        restart_zadany = True
+        serwer.should_exit = True
+
+    aplikacja.state.restart = _zadaj_restartu
+    aplikacja.state.sciezka_nadpisan = SCIEZKA_NADPISAN
+    serwer.run()
+    if restart_zadany:
+        # W tym samym procesie: w HA wyjście kończy się `halt` w skrypcie
+        # `finish`, czyli zatrzymaniem dodatku, a nie jego restartem.
+        log.info("restart po zmianie konfiguracji")
+        os.execv(sys.executable, [sys.executable, "-m", "app.interfaces.main"])
     return 0
 
 

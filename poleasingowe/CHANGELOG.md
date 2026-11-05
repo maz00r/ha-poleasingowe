@@ -1,5 +1,17 @@
 # Historia zmian
 
+## 0.36.0 — w przygotowaniu
+
+**Konfiguracja w Diagnostyce.** Dostawcę, adres, model i klucz wyceny AI,
+automatyczną wycenę oraz źródła ustawisz teraz na ekranie. Zapis restartuje
+aplikację na kilka sekund i przerywa trwającą wycenę. Zmiany trafiają do
+`/data/konfiguracja.json` i mają pierwszeństwo przed opcjami add-onu, dopóki nie
+użyjesz przycisku „Wróć do options.json”. Klucz nie wraca na ekran, a zmiana
+dostawcy lub adresu wymaga wpisania go od nowa.
+
+**Diagnostyka bez bazy.** Strona zwracała błąd 500, gdy baza była niedostępna.
+Teraz się otwiera i pokazuje powód.
+
 ## 0.35.4 — w przygotowaniu
 
 **Rzadziej ponawiana wycena przez zepsuty JSON.** Log z fragmentem odpowiedzi

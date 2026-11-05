@@ -412,6 +412,16 @@ Twojego konta w serwisie — dlatego reset jest świadomą decyzją, a nie
 automatem. Po odblokowaniu stan to `EXPIRED`, nie `OK`: sesji jeszcze nie ma,
 dodatek zaloguje się przy najbliższej okazji.
 
+Sekcja **Konfiguracja** zmienia wycenę AI i źródła bez edycji opcji add-onu:
+
+- Zapis restartuje aplikację na kilka sekund i przerywa trwającą wycenę.
+- Zmiany trafiają do `/data/konfiguracja.json` (tryb 0600) i mają pierwszeństwo
+  przed opcjami add-onu. Przycisk **Wróć do options.json** usuwa ten plik.
+- Plik nie wchodzi do pakietu migracyjnego.
+- Klucz API nie wraca na ekran. Puste pole zostawia obecny, a zmiana dostawcy
+  lub adresu wymaga wpisania go od nowa.
+- Hasła do serwisów i dane bazy zostają w opcjach add-onu.
+
 ## Gdzie leżą dane — przeczytaj przed pierwszym backupem
 
 ### Pakiet migracyjny

@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block tytul %}Restart{% endblock %}
+{% block tresc %}
+{# Adres względny zachowuje prefiks Ingressu HA i działa bezpośrednio w Compose. #}
+<meta http-equiv="refresh" content="8;url=../diagnostyka">
+<section class="karta">
+  <h1>Konfiguracja zapisana</h1>
+  <p>Aplikacja uruchamia się ponownie. Za chwilę wrócisz do
+    <a href="../diagnostyka">Diagnostyki</a>.</p>
+</section>
+{% endblock %}

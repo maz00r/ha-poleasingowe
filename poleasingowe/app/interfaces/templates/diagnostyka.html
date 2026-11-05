@@ -40,6 +40,79 @@
   {% endif %}
 </section>
 
+{% if konfiguracja.dostepna %}
+<section class="karta" id="konfiguracja">
+  <h2>Konfiguracja</h2>
+  <p class="uwaga">Zapis restartuje aplikację na kilka sekund i przerywa trwającą
+    wycenę. Hasła do serwisów i dane bazy zmienia się w opcjach add-onu.</p>
+  {% if konfiguracja.blad %}
+    <p class="ostrzezenie-inline">Nie zapisano: {{ konfiguracja.blad }}</p>
+  {% endif %}
+  <form method="post" action="{{ sciezka(request, 'zapisz_konfiguracje') }}">
+    <h3>Wycena AI</h3>
+    <div class="pole">
+      <label for="ai_provider">Dostawca</label>
+      <select id="ai_provider" name="ai_provider">
+        {% for wartosc, opis in [('openai', 'OpenAI'), ('anthropic', 'Anthropic'), ('zgodny_z_openai', 'Zgodny z OpenAI')] %}
+          <option value="{{ wartosc }}" {% if konfiguracja.opcje.ai_provider == wartosc %}selected{% endif %}>{{ opis }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="pole">
+      <label for="ai_base_url">Adres API</label>
+      <input id="ai_base_url" name="ai_base_url" value="{{ konfiguracja.opcje.ai_base_url }}"
+             placeholder="http://claudebox:3000/v1">
+    </div>
+    <div class="pole">
+      <label for="ai_model">Model</label>
+      <input id="ai_model" name="ai_model" value="{{ konfiguracja.opcje.ai_model }}"
+             placeholder="sonnet">
+    </div>
+    <div class="pole">
+      <label for="ai_api_key">Klucz API</label>
+      <input id="ai_api_key" name="ai_api_key" type="password" autocomplete="new-password"
+             placeholder="{{ 'ustawiony — wpisz nowy, aby zmienić' if konfiguracja.ma_klucz else 'brak' }}">
+    </div>
+    {% if konfiguracja.ma_klucz %}
+      <label><input type="checkbox" name="ai_usun_klucz"> Usuń klucz (wyłącza wycenę AI)</label>
+    {% endif %}
+    <label><input type="checkbox" name="wycena_auto"
+      {% if konfiguracja.opcje.wycena_auto %}checked{% endif %}> Automatyczna wycena z Otomoto</label>
+    <div class="pole">
+      <label for="wycena_auto_limit_dzienny">Limit wycen na dobę</label>
+      <input id="wycena_auto_limit_dzienny" name="wycena_auto_limit_dzienny" type="number"
+             min="1" max="5000" value="{{ konfiguracja.opcje.wycena_auto_limit_dzienny }}">
+    </div>
+
+    <h3>Źródła</h3>
+    <table>
+      <thead><tr><th>Źródło</th><th>Włączone</th><th>Żądań na minutę</th><th>Odstęp [s]</th></tr></thead>
+      <tbody>
+        {% for z in konfiguracja.zrodla %}
+          <tr>
+            <td><code>{{ z.key }}</code></td>
+            <td><input type="checkbox" name="zrodlo_{{ z.key }}_wlaczone" aria-label="{{ z.key }}: włączone"
+              {% if z.enabled %}checked{% endif %}></td>
+            <td><input type="number" name="zrodlo_{{ z.key }}_limit" aria-label="{{ z.key }}: żądań na minutę"
+              min="1" max="600" value="{{ z.rate_limit_per_minute }}"></td>
+            <td><input type="number" name="zrodlo_{{ z.key }}_floor" aria-label="{{ z.key }}: odstęp w sekundach"
+              min="10" max="86400" value="{{ z.floor_seconds }}"></td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    <button type="submit">Zapisz i uruchom ponownie</button>
+  </form>
+  {% if konfiguracja.nadpisana %}
+    <p class="uwaga">Te ustawienia pochodzą z Diagnostyki i mają pierwszeństwo
+      przed <code>options.json</code>.</p>
+    <form method="post" action="{{ sciezka(request, 'przywroc_konfiguracje') }}">
+      <button type="submit">Wróć do options.json</button>
+    </form>
+  {% endif %}
+</section>
+{% endif %}
+
 <section class="karta">
   <h2>Migracja HA ↔ Proxmox</h2>
   <p class="uwaga">Pakiet zawiera świeży zrzut bazy i trwałe archiwum zdjęć.

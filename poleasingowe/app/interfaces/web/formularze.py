@@ -12,10 +12,12 @@ ma zostać zignorowany, a nie zwrócić 500.
 from __future__ import annotations
 
 import datetime as dt
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
+from typing import Any
 
 from app.application.read_models import Kryteria, Kursor, Sortowanie
 from app.domain.enums import AuctionStatus, RodzajPojazdu
+from app.infrastructure.supervisor.options import Opcje
 
 STATUS_Z_PARAMETRU = {
     "aktywne": AuctionStatus.ACTIVE,
@@ -227,3 +229,66 @@ def na_parametry(kryteria: Kryteria) -> list[tuple[str, str]]:
         wynik.append(("nowe", "1"))
     wynik.append(("sort", kryteria.sortowanie.value))
     return wynik
+
+
+def _calkowita(formularz: Mapping[str, str], pole: str, opis: str) -> int:
+    try:
+        return int(formularz.get(pole, "").strip())
+    except ValueError as exc:
+        raise ValueError(f"{opis}: wpisz liczbę całkowitą") from exc
+
+
+def zmiany_konfiguracji(
+    formularz: Mapping[str, str], opcje: Opcje, klucze_zrodel: Iterable[str]
+) -> dict[str, Any]:
+    """Pola formularza z Diagnostyki jako zmiany opcji.
+
+    Puste pole klucza znaczy „bez zmian”, bo klucz nie wraca na ekran. Inny
+    adres albo dostawca wymaga wpisania klucza od nowa: inaczej zapisany klucz
+    poleciałby pod adres, którego nikt z nim nie sprawdził. `ValueError` niesie
+    zdanie dla użytkownika.
+    """
+    dostawca = formularz.get("ai_provider", "").strip()
+    adres = formularz.get("ai_base_url", "").strip()
+    klucz = formularz.get("ai_api_key", "").strip()
+    usun_klucz = "ai_usun_klucz" in formularz
+    zmiany: dict[str, Any] = {
+        "ai_provider": dostawca,
+        "ai_base_url": adres,
+        "ai_model": formularz.get("ai_model", "").strip(),
+        "wycena_auto": "wycena_auto" in formularz,
+        "wycena_auto_limit_dzienny": _calkowita(
+            formularz, "wycena_auto_limit_dzienny", "Dzienny limit wycen"
+        ),
+    }
+    if usun_klucz:
+        zmiany |= {"ai_api_key": "", "openai_api_key": ""}
+    elif klucz:
+        zmiany["ai_api_key"] = klucz
+    elif opcje.klucz_ai and (
+        dostawca != opcje.ai_provider or adres != opcje.ai_base_url.strip()
+    ):
+        raise ValueError(
+            "Zmiana dostawcy lub adresu wymaga ponownego wpisania klucza API."
+        )
+
+    obecne = {z.key: z for z in opcje.sources}
+    zrodla = []
+    for key in sorted({*klucze_zrodel, *obecne}):
+        wlaczone = f"zrodlo_{key}_wlaczone" in formularz
+        if key not in obecne and not wlaczone:
+            continue
+        zrodla.append(
+            {
+                "key": key,
+                "enabled": wlaczone,
+                "rate_limit_per_minute": _calkowita(
+                    formularz, f"zrodlo_{key}_limit", f"{key}: limit na minutę"
+                ),
+                "floor_seconds": _calkowita(
+                    formularz, f"zrodlo_{key}_floor", f"{key}: odstęp w sekundach"
+                ),
+            }
+        )
+    zmiany["sources"] = zrodla
+    return zmiany

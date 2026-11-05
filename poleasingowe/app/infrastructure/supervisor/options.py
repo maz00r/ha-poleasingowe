@@ -13,13 +13,30 @@ from __future__ import annotations
 import json
 import os
 import pathlib
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 from urllib.parse import quote
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 SCIEZKA_OPCJI = pathlib.Path("/data/options.json")
 ZMIENNA_PLIKU_HASLA_BAZY = "POLEASINGOWE_DB_PASSWORD_FILE"
+SCIEZKA_NADPISAN = pathlib.Path(
+    os.environ.get("POLEASINGOWE_NADPISANIA", "/data/konfiguracja.json")
+)
+"""Zmiany z Diagnostyki. `options.json` bywa tylko do odczytu (Proxmox) albo
+należy do Supervisora, więc to osobny plik z pierwszeństwem przed nim."""
+POLA_NADPISYWANE = (
+    "ai_provider",
+    "ai_api_key",
+    "ai_base_url",
+    "ai_model",
+    "openai_api_key",
+    "wycena_auto",
+    "wycena_auto_limit_dzienny",
+    "sources",
+)
+"""Tylko to wolno zmieniać z przeglądarki. Hasła do serwisów i bazy zostają
+w opcjach add-onu."""
 
 # Twarda dolna granica interwalu (SPEC.md §11.2). Floor wylicza sie z reguly —
 # polowa okna dogrywki serwisu — ale nizej niz 10 s nie schodzimy nigdy.
@@ -134,8 +151,57 @@ def _komunikat(blad: ValidationError) -> str:
     return "\n".join(linie)
 
 
-def wczytaj_opcje(sciezka: pathlib.Path = SCIEZKA_OPCJI) -> Opcje:
-    """Wczytuje i waliduje opcje. Rzuca `BladKonfiguracji` z czytelnym opisem."""
+def _nadpisania(sciezka: pathlib.Path) -> dict[str, Any]:
+    """Zmiany z Diagnostyki albo pusty słownik, gdy ich nie ma."""
+    try:
+        dane = json.loads(sciezka.read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        return {}
+    except (OSError, ValueError) as exc:
+        raise BladKonfiguracji(
+            f"Nie można odczytać {sciezka}: {exc}. Usuń ten plik, a add-on "
+            "wróci do opcji z options.json."
+        ) from exc
+    if not isinstance(dane, dict) or set(dane) - set(POLA_NADPISYWANE):
+        raise BladKonfiguracji(
+            f"{sciezka} ma niepoprawną zawartość. Usuń ten plik, a add-on "
+            "wróci do opcji z options.json."
+        )
+    return dane
+
+
+def zastosuj_zmiany(opcje: Opcje, zmiany: dict[str, Any]) -> Opcje:
+    """Opcje po zmianach, sprawdzone tak samo jak przy starcie."""
+    try:
+        nowe = Opcje.model_validate({**opcje.model_dump(), **zmiany})
+    except ValidationError as exc:
+        raise BladKonfiguracji(_komunikat(exc)) from exc
+    _sprawdz_spojnosc(nowe)
+    return nowe
+
+
+def zapisz_nadpisania(opcje: Opcje, sciezka: pathlib.Path) -> None:
+    """Atomowo i z prawami 0600, bo plik zawiera klucz API."""
+    tymczasowy = sciezka.with_name(f"{sciezka.name}.tmp")
+    tresc = json.dumps(
+        opcje.model_dump(include=set(POLA_NADPISYWANE)), ensure_ascii=False
+    )
+    deskryptor = os.open(tymczasowy, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(deskryptor, "w", encoding="utf-8") as plik:
+        plik.write(tresc)
+        plik.flush()
+        os.fsync(plik.fileno())
+    tymczasowy.replace(sciezka)
+
+
+def wczytaj_opcje(
+    sciezka: pathlib.Path = SCIEZKA_OPCJI,
+    nadpisania: pathlib.Path | None = None,
+) -> Opcje:
+    """Wczytuje i waliduje opcje. Rzuca `BladKonfiguracji` z czytelnym opisem.
+
+    `nadpisania` to plik ze zmianami z Diagnostyki, ważniejszy od `sciezka`.
+    """
     try:
         surowe = sciezka.read_text(encoding="utf-8")
     except FileNotFoundError as exc:
@@ -148,6 +214,15 @@ def wczytaj_opcje(sciezka: pathlib.Path = SCIEZKA_OPCJI) -> Opcje:
         dane = json.loads(surowe)
     except json.JSONDecodeError as exc:
         raise BladKonfiguracji(f"{sciezka} nie jest poprawnym JSON-em: {exc}") from exc
+
+    if nadpisania is not None:
+        zmiany = _nadpisania(nadpisania)
+        if zmiany:
+            if not isinstance(dane, dict):
+                raise BladKonfiguracji(
+                    f"{sciezka} musi zawierać obiekt JSON, nie {type(dane).__name__}"
+                )
+            dane.update(zmiany)
 
     # Docker Compose przekazuje hasło bazy jako sekret montowany w pliku.
     # Home Assistant nie ustawia tej zmiennej i zachowuje dotychczasowe
@@ -181,6 +256,12 @@ def wczytaj_opcje(sciezka: pathlib.Path = SCIEZKA_OPCJI) -> Opcje:
             "Popraw opcje w interfejsie Home Assistant i uruchom ponownie."
         ) from exc
 
+    _sprawdz_spojnosc(opcje)
+    return opcje
+
+
+def _sprawdz_spojnosc(opcje: Opcje) -> None:
+    """Reguły obejmujące kilka pól naraz."""
     klucze = [z.key for z in opcje.sources]
     if len(klucze) != len(set(klucze)):
         raise BladKonfiguracji(
@@ -200,4 +281,3 @@ def wczytaj_opcje(sciezka: pathlib.Path = SCIEZKA_OPCJI) -> Opcje:
                 "ai_provider = 'zgodny_z_openai' wymaga ai_model — nie ma tu "
                 "modelu domyślnego, bo zależy od wybranego dostawcy"
             )
-    return opcje
