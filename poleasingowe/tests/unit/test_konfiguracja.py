@@ -6,6 +6,7 @@ import json
 import pathlib
 import stat
 from unittest.mock import MagicMock
+from urllib.parse import urljoin, urlsplit
 
 import pytest
 from fastapi.testclient import TestClient
@@ -15,7 +16,9 @@ from app.infrastructure.supervisor.options import (
     Opcje,
     OpcjeZrodla,
     Poswiadczenia,
+    ProfilAI,
     wczytaj_opcje,
+    wczytaj_profile,
     zapisz_nadpisania,
     zastosuj_zmiany,
 )
@@ -149,6 +152,7 @@ def _aplikacja(plik: pathlib.Path) -> tuple[TestClient, list[int]]:
     app = utworz_aplikacje(OPCJE)
     restarty: list[int] = []
     app.state.sciezka_nadpisan = plik
+    app.state.sciezka_profili = plik.with_name("profile.json")
     app.state.restart = lambda: restarty.append(1)
     return TestClient(app), restarty
 
@@ -184,7 +188,9 @@ def test_blad_nie_zapisuje_i_nie_restartuje(tmp_path: pathlib.Path) -> None:
     assert odpowiedz.status_code == 303
     assert not plik.exists()
     assert restarty == []
-    strona = klient.get(odpowiedz.headers["location"].replace("..", ""))
+    cel = urljoin(str(odpowiedz.url), odpowiedz.headers["location"])
+    assert urlsplit(cel).path == "/diagnostyka"
+    strona = klient.get(cel)
     assert "wymaga ponownego wpisania klucza" in strona.text
 
 
@@ -208,3 +214,98 @@ def test_diagnostyka_dziala_bez_bazy(tmp_path: pathlib.Path) -> None:
     assert strona.status_code == 200
     assert "Zapisz i uruchom ponownie" in strona.text
     fabryka.assert_not_called()
+
+
+def test_ekran_restartu_wraca_wzgledem_base(tmp_path: pathlib.Path) -> None:
+    klient, _ = _aplikacja(tmp_path / "k.json")
+    odpowiedz = klient.post("/diagnostyka/konfiguracja/przywroc")
+    assert 'content="8;url=diagnostyka"' in odpowiedz.text
+    assert "../diagnostyka" not in odpowiedz.text
+
+
+def test_profil_zapamietuje_klucz_i_przelacza_bez_wpisywania(
+    tmp_path: pathlib.Path,
+) -> None:
+    plik = tmp_path / "k.json"
+    profile = tmp_path / "profile.json"
+    klient, restarty = _aplikacja(plik)
+    zapis = klient.post(
+        "/diagnostyka/konfiguracja/profil",
+        data={"nazwa": "deepseek"},
+        follow_redirects=False,
+    )
+    assert zapis.status_code == 303
+    cel = urljoin(str(zapis.url), zapis.headers["location"])
+    assert urlsplit(cel).path == "/diagnostyka"
+    assert restarty == []
+    assert stat.S_IMODE(profile.stat().st_mode) == 0o600
+    assert wczytaj_profile(profile)[0].ai_api_key == "klucz-stary"
+
+    strona = klient.get("/diagnostyka")
+    assert "aktywny" in strona.text
+    assert "klucz-stary" not in strona.text
+
+    uzycie = klient.post(
+        "/diagnostyka/konfiguracja/profil/uzyj", data={"nazwa": "deepseek"}
+    )
+    assert uzycie.status_code == 200
+    assert restarty == [1]
+    assert json.loads(plik.read_text(encoding="utf-8"))["ai_api_key"] == "klucz-stary"
+
+
+def test_uzycie_profilu_ustawia_jego_adres_i_klucz(tmp_path: pathlib.Path) -> None:
+    plik = tmp_path / "k.json"
+    klient, _ = _aplikacja(plik)
+    (tmp_path / "profile.json").write_text(
+        json.dumps(
+            [
+                ProfilAI(
+                    nazwa="claudebox",
+                    ai_provider="zgodny_z_openai",
+                    ai_api_key="klucz-boxa",
+                    ai_base_url="http://claudebox:3000/v1",
+                    ai_model="sonnet",
+                ).model_dump()
+            ]
+        ),
+        encoding="utf-8",
+    )
+    klient.post("/diagnostyka/konfiguracja/profil/uzyj", data={"nazwa": "claudebox"})
+    zapis = json.loads(plik.read_text(encoding="utf-8"))
+    assert zapis["ai_base_url"] == "http://claudebox:3000/v1"
+    assert zapis["ai_api_key"] == "klucz-boxa"
+    assert zapis["sources"][0]["key"] == "efl"
+
+
+def test_nieznany_profil_nie_restartuje(tmp_path: pathlib.Path) -> None:
+    plik = tmp_path / "k.json"
+    klient, restarty = _aplikacja(plik)
+    odpowiedz = klient.post(
+        "/diagnostyka/konfiguracja/profil/uzyj",
+        data={"nazwa": "brak"},
+        follow_redirects=False,
+    )
+    assert odpowiedz.status_code == 303
+    assert restarty == []
+    assert not plik.exists()
+
+
+def test_usuniecie_profilu(tmp_path: pathlib.Path) -> None:
+    klient, restarty = _aplikacja(tmp_path / "k.json")
+    klient.post("/diagnostyka/konfiguracja/profil", data={"nazwa": "a"})
+    klient.post("/diagnostyka/konfiguracja/profil/usun", data={"nazwa": "a"})
+    assert wczytaj_profile(tmp_path / "profile.json") == []
+    assert restarty == []
+
+
+def test_zepsuty_plik_profili_nie_wywraca_diagnostyki(tmp_path: pathlib.Path) -> None:
+    klient, _ = _aplikacja(tmp_path / "k.json")
+    (tmp_path / "profile.json").write_text("{zepsute", encoding="utf-8")
+    strona = klient.get("/diagnostyka")
+    assert strona.status_code == 200
+    assert "Usuń ten plik" in strona.text
+
+
+def test_repr_profilu_ukrywa_klucz() -> None:
+    profil = ProfilAI(nazwa="x", ai_provider="openai", ai_api_key="tajny")
+    assert "tajny" not in repr(profil)

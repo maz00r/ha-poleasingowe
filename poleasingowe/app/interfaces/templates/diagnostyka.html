@@ -103,6 +103,51 @@
     </table>
     <button type="submit">Zapisz i uruchom ponownie</button>
   </form>
+  {% if konfiguracja.profile_dostepne %}
+    <h3>Profile wyceny AI</h3>
+    <p class="uwaga">Profil pamięta dostawcę, adres, model i klucz, więc przełączasz
+      się bez wklejania klucza. Użycie profilu restartuje aplikację.</p>
+    {% if konfiguracja.profile %}
+      <table>
+        <thead><tr><th>Profil</th><th>Adres lub dostawca</th><th>Model</th><th></th></tr></thead>
+        <tbody>
+          {% for wpis in konfiguracja.profile %}
+            <tr>
+              <td>{{ wpis.profil.nazwa }}</td>
+              <td><code>{{ wpis.profil.ai_base_url or wpis.profil.ai_provider }}</code></td>
+              <td><code>{{ wpis.profil.ai_model or 'domyślny' }}</code></td>
+              <td>
+                {% if wpis.aktywny %}
+                  <strong>aktywny</strong>
+                {% else %}
+                  <form method="post" action="{{ sciezka(request, 'uzyj_profilu') }}">
+                    <input type="hidden" name="nazwa" value="{{ wpis.profil.nazwa }}">
+                    <button type="submit">Użyj</button>
+                  </form>
+                {% endif %}
+                <form method="post" action="{{ sciezka(request, 'usun_profil') }}">
+                  <input type="hidden" name="nazwa" value="{{ wpis.profil.nazwa }}">
+                  <button type="submit" aria-label="Usuń profil {{ wpis.profil.nazwa }}">Usuń</button>
+                </form>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% endif %}
+    {% if konfiguracja.ma_klucz %}
+      <form method="post" action="{{ sciezka(request, 'zapisz_profil') }}">
+        <div class="pole">
+          <label for="nazwa_profilu">Nazwa profilu dla obecnych ustawień</label>
+          <input id="nazwa_profilu" name="nazwa" maxlength="40" required
+                 placeholder="np. claudebox">
+        </div>
+        <button type="submit">Zapisz obecne jako profil</button>
+      </form>
+    {% else %}
+      <p class="uwaga">Ustaw i zapisz klucz powyżej, a potem zapisz te ustawienia jako profil.</p>
+    {% endif %}
+  {% endif %}
   {% if konfiguracja.nadpisana %}
     <p class="uwaga">Te ustawienia pochodzą z Diagnostyki i mają pierwszeństwo
       przed <code>options.json</code>.</p>

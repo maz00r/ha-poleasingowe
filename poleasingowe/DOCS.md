@@ -421,6 +421,9 @@ Sekcja **Konfiguracja** zmienia wycenę AI i źródła bez edycji opcji add-onu:
 - Klucz API nie wraca na ekran. Puste pole zostawia obecny, a zmiana dostawcy
   lub adresu wymaga wpisania go od nowa.
 - Hasła do serwisów i dane bazy zostają w opcjach add-onu.
+- **Profile wyceny AI** pamiętają dostawcę, adres, model i klucz, więc przełączasz
+  się bez wklejania klucza. Leżą w `/data/profile-ai.json` (tryb 0600) i nie
+  wchodzą do pakietu migracyjnego.
 
 ## Gdzie leżą dane — przeczytaj przed pierwszym backupem
 

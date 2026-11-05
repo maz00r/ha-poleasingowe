@@ -1,11 +1,11 @@
 {% extends "base.html" %}
 {% block tytul %}Restart{% endblock %}
 {% block tresc %}
-{# Adres względny zachowuje prefiks Ingressu HA i działa bezpośrednio w Compose. #}
-<meta http-equiv="refresh" content="8;url=../diagnostyka">
+{# `sciezka` liczy adres względem <base>, więc działa też pod Ingressem HA. #}
+<meta http-equiv="refresh" content="8;url={{ sciezka(request, 'diagnostyka') }}">
 <section class="karta">
   <h1>Konfiguracja zapisana</h1>
   <p>Aplikacja uruchamia się ponownie. Za chwilę wrócisz do
-    <a href="../diagnostyka">Diagnostyki</a>.</p>
+    <a href="{{ sciezka(request, 'diagnostyka') }}">Diagnostyki</a>.</p>
 </section>
 {% endblock %}

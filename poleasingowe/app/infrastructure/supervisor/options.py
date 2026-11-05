@@ -25,6 +25,9 @@ SCIEZKA_NADPISAN = pathlib.Path(
 )
 """Zmiany z Diagnostyki. `options.json` bywa tylko do odczytu (Proxmox) albo
 należy do Supervisora, więc to osobny plik z pierwszeństwem przed nim."""
+SCIEZKA_PROFILI = pathlib.Path(
+    os.environ.get("POLEASINGOWE_PROFILE", "/data/profile-ai.json")
+)
 POLA_NADPISYWANE = (
     "ai_provider",
     "ai_api_key",
@@ -77,6 +80,23 @@ class OpcjeZrodla(BaseModel):
     enabled: bool = True
     rate_limit_per_minute: Annotated[int, Field(ge=1, le=600)] = 30
     floor_seconds: Annotated[int, Field(ge=MINIMALNY_FLOOR_S, le=86_400)] = 60
+
+
+class ProfilAI(BaseModel):
+    """Zapamiętany dostawca wyceny. Klucz jest na stałe sparowany z adresem."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    nazwa: Annotated[str, Field(min_length=1, max_length=40)]
+    ai_provider: Literal["openai", "anthropic", "zgodny_z_openai"]
+    ai_api_key: Annotated[str, Field(min_length=1)]
+    ai_base_url: str = ""
+    ai_model: str = ""
+
+    def __repr__(self) -> str:
+        return f"ProfilAI(nazwa={self.nazwa!r}, ai_api_key='***')"
+
+    __str__ = __repr__
 
 
 class Opcje(BaseModel):
@@ -181,11 +201,37 @@ def zastosuj_zmiany(opcje: Opcje, zmiany: dict[str, Any]) -> Opcje:
 
 
 def zapisz_nadpisania(opcje: Opcje, sciezka: pathlib.Path) -> None:
+    _zapisz_prywatnie(
+        sciezka,
+        json.dumps(opcje.model_dump(include=set(POLA_NADPISYWANE)), ensure_ascii=False),
+    )
+
+
+def wczytaj_profile(sciezka: pathlib.Path) -> list[ProfilAI]:
+    """Profile posortowane po nazwie; brak pliku to brak profili."""
+    try:
+        dane = json.loads(sciezka.read_text(encoding="utf-8"))
+        return sorted(
+            (ProfilAI.model_validate(p) for p in dane), key=lambda p: p.nazwa.lower()
+        )
+    except FileNotFoundError:
+        return []
+    except (OSError, ValueError, TypeError) as exc:
+        raise BladKonfiguracji(
+            f"Nie można odczytać {sciezka}. Usuń ten plik i zapisz profile od nowa."
+        ) from exc
+
+
+def zapisz_profile(profile: list[ProfilAI], sciezka: pathlib.Path) -> None:
+    _zapisz_prywatnie(
+        sciezka,
+        json.dumps([p.model_dump() for p in profile], ensure_ascii=False),
+    )
+
+
+def _zapisz_prywatnie(sciezka: pathlib.Path, tresc: str) -> None:
     """Atomowo i z prawami 0600, bo plik zawiera klucz API."""
     tymczasowy = sciezka.with_name(f"{sciezka.name}.tmp")
-    tresc = json.dumps(
-        opcje.model_dump(include=set(POLA_NADPISYWANE)), ensure_ascii=False
-    )
     deskryptor = os.open(tymczasowy, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
     with os.fdopen(deskryptor, "w", encoding="utf-8") as plik:
         plik.write(tresc)

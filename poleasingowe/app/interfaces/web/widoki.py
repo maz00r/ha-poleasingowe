@@ -57,7 +57,10 @@ from app.infrastructure.sources.registry import REJESTR
 from app.infrastructure.supervisor.options import (
     BladKonfiguracji,
     OpcjeZrodla,
+    ProfilAI,
+    wczytaj_profile,
     zapisz_nadpisania,
+    zapisz_profile,
     zastosuj_zmiany,
 )
 from app.infrastructure.supervisor.proces import rss_bajty
@@ -120,8 +123,12 @@ def sciezka_przekierowania(request: Request, nazwa: str, **parametry: object) ->
     """
     cel = str(request.app.url_path_for(nazwa, **parametry))
     katalog = posixpath.dirname(request.url.path)
-    wzgledna = posixpath.relpath(cel, start=katalog)
-    return f"{wzgledna}/" if cel.endswith("/") else wzgledna
+    if cel.endswith("/"):
+        return f"{posixpath.relpath(cel, start=katalog)}/"
+    # Przez katalog celu: gdy cel jest przodkiem żądania, samo `relpath` daje
+    # `..`, a przeglądarka dokleja wtedy ukośnik, którego trasa nie ma.
+    do_katalogu = posixpath.relpath(posixpath.dirname(cel), start=katalog)
+    return posixpath.normpath(posixpath.join(do_katalogu, posixpath.basename(cel)))
 
 
 # Globalne w szablonach — `url_for` jest tu nie do uzycia, patrz wyzej.
@@ -1418,7 +1425,17 @@ def _konfiguracja(request: Request) -> dict[str, Any]:
     opcje = _stan(request).opcje
     sciezka_pliku = getattr(request.app.state, "sciezka_nadpisan", None)
     obecne = {z.key: z for z in opcje.sources}
+    blad = request.query_params.get("blad_konfiguracji")
+    sciezka_profili = getattr(request.app.state, "sciezka_profili", None)
+    profile: list[ProfilAI] = []
+    if sciezka_profili is not None:
+        try:
+            profile = wczytaj_profile(sciezka_profili)
+        except BladKonfiguracji as exc:
+            blad = str(exc)
     return {
+        "profile_dostepne": sciezka_profili is not None,
+        "profile": [{"profil": p, "aktywny": _czy_aktywny(p, opcje)} for p in profile],
         "dostepna": sciezka_pliku is not None,
         "nadpisana": sciezka_pliku is not None and sciezka_pliku.exists(),
         "opcje": opcje,
@@ -1427,8 +1444,24 @@ def _konfiguracja(request: Request) -> dict[str, Any]:
             obecne.get(key, OpcjeZrodla(key=key, enabled=False))
             for key in sorted({*REJESTR, *obecne})
         ],
-        "blad": request.query_params.get("blad_konfiguracji"),
+        "blad": blad,
     }
+
+
+def _czy_aktywny(profil: ProfilAI, opcje: Any) -> bool:
+    return bool(
+        profil.ai_provider == opcje.ai_provider
+        and profil.ai_base_url == opcje.ai_base_url.strip()
+        and profil.ai_model == opcje.ai_model.strip()
+        and profil.ai_api_key == opcje.klucz_ai
+    )
+
+
+def _blad_konfiguracji(request: Request, powod: object) -> RedirectResponse:
+    log.warning("konfiguracja nie została zapisana: %s", powod)
+    cel = sciezka_przekierowania(request, "diagnostyka")
+    parametry = urlencode({"blad_konfiguracji": str(powod)})
+    return RedirectResponse(f"{cel}?{parametry}", status_code=303)
 
 
 def _ekran_restartu(request: Request) -> HTMLResponse:
@@ -1454,9 +1487,7 @@ async def zapisz_konfiguracje(request: Request) -> Response:
         nowe = zastosuj_zmiany(opcje, zmiany_konfiguracji(formularz, opcje, REJESTR))
         zapisz_nadpisania(nowe, sciezka_pliku)
     except (BladKonfiguracji, ValueError, OSError) as exc:
-        log.warning("konfiguracja nie została zapisana: %s", exc)
-        parametry = urlencode({"blad_konfiguracji": str(exc)})
-        return RedirectResponse(f"../diagnostyka?{parametry}", status_code=303)
+        return _blad_konfiguracji(request, exc)
     log.warning("konfiguracja zmieniona w Diagnostyce — restart")
     return _ekran_restartu(request)
 
@@ -1470,6 +1501,68 @@ async def przywroc_konfiguracje(request: Request) -> Response:
     sciezka_pliku.unlink(missing_ok=True)
     log.warning("konfiguracja przywrócona z options.json — restart")
     return _ekran_restartu(request)
+
+
+@router.post("/diagnostyka/konfiguracja/profil")
+async def zapisz_profil(request: Request, nazwa: str = Form("")) -> Response:
+    """Zapamiętuje działające ustawienia AI razem z ich kluczem."""
+    sciezka_profili = request.app.state.sciezka_profili
+    opcje = _stan(request).opcje
+    nazwa = nazwa.strip()
+    if not opcje.klucz_ai:
+        return _blad_konfiguracji(
+            request, "Zapisanie profilu wymaga ustawionego klucza."
+        )
+    if not 1 <= len(nazwa) <= 40:
+        return _blad_konfiguracji(request, "Nazwa profilu ma mieć od 1 do 40 znaków.")
+    try:
+        pozostale = [p for p in wczytaj_profile(sciezka_profili) if p.nazwa != nazwa]
+        nowy = ProfilAI(
+            nazwa=nazwa,
+            ai_provider=opcje.ai_provider,
+            ai_api_key=opcje.klucz_ai,
+            ai_base_url=opcje.ai_base_url.strip(),
+            ai_model=opcje.ai_model.strip(),
+        )
+        zapisz_profile([*pozostale, nowy], sciezka_profili)
+    except (BladKonfiguracji, OSError) as exc:
+        return _blad_konfiguracji(request, exc)
+    log.warning("zapisano profil AI %r", nazwa)
+    return RedirectResponse(
+        sciezka_przekierowania(request, "diagnostyka"), status_code=303
+    )
+
+
+@router.post("/diagnostyka/konfiguracja/profil/uzyj", response_class=HTMLResponse)
+async def uzyj_profilu(request: Request, nazwa: str = Form("")) -> Response:
+    """Przełącza wycenę na profil, bez wpisywania klucza."""
+    opcje = _stan(request).opcje
+    try:
+        profile = wczytaj_profile(request.app.state.sciezka_profili)
+        profil = next((p for p in profile if p.nazwa == nazwa), None)
+        if profil is None:
+            return _blad_konfiguracji(request, "Nie ma takiego profilu.")
+        nowe = zastosuj_zmiany(opcje, profil.model_dump(exclude={"nazwa"}))
+        zapisz_nadpisania(nowe, request.app.state.sciezka_nadpisan)
+    except (BladKonfiguracji, OSError) as exc:
+        return _blad_konfiguracji(request, exc)
+    log.warning("przełączono na profil AI %r — restart", nazwa)
+    return _ekran_restartu(request)
+
+
+@router.post("/diagnostyka/konfiguracja/profil/usun")
+async def usun_profil(request: Request, nazwa: str = Form("")) -> Response:
+    """Usuwa profil. Działających ustawień to nie zmienia."""
+    sciezka_profili = request.app.state.sciezka_profili
+    try:
+        pozostale = [p for p in wczytaj_profile(sciezka_profili) if p.nazwa != nazwa]
+        zapisz_profile(pozostale, sciezka_profili)
+    except (BladKonfiguracji, OSError) as exc:
+        return _blad_konfiguracji(request, exc)
+    log.warning("usunięto profil AI %r", nazwa)
+    return RedirectResponse(
+        sciezka_przekierowania(request, "diagnostyka"), status_code=303
+    )
 
 
 @router.post("/diagnostyka/eksport-migracji")

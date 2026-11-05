@@ -40,6 +40,7 @@ from app.infrastructure.sources.parametry import zbuduj_source
 from app.infrastructure.supervisor.options import (
     SCIEZKA_NADPISAN,
     SCIEZKA_OPCJI,
+    SCIEZKA_PROFILI,
     BladKonfiguracji,
     Opcje,
     wczytaj_opcje,
@@ -307,6 +308,7 @@ def main() -> int:
 
     aplikacja.state.restart = _zadaj_restartu
     aplikacja.state.sciezka_nadpisan = SCIEZKA_NADPISAN
+    aplikacja.state.sciezka_profili = SCIEZKA_PROFILI
     serwer.run()
     if restart_zadany:
         # W tym samym procesie: w HA wyjście kończy się `halt` w skrypcie

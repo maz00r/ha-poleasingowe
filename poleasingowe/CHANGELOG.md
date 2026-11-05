@@ -1,5 +1,14 @@
 # Historia zmian
 
+## 0.37.0 — w przygotowaniu
+
+**Profile wyceny AI.** W Diagnostyce zapiszesz obecnego dostawcę, adres, model
+i klucz pod nazwą, a potem przełączysz się jednym kliknięciem, bez wklejania
+klucza. Profile leżą w `/data/profile-ai.json`.
+
+**Powrót po restarcie pod Ingressem.** Strona po zapisie konfiguracji prowadziła
+w Home Assistant pod zły adres. Teraz wraca do Diagnostyki.
+
 ## 0.36.1 — w przygotowaniu
 
 **Diagnostyka bez bazy.** Poprawka z 0.36.0 nie działała i strona nadal zwracała
