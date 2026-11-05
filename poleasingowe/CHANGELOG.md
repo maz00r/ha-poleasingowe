@@ -1,5 +1,11 @@
 # Historia zmian
 
+## 0.37.2 — w przygotowaniu
+
+**Czasy etapów wyceny w logu.** Każda wycena z Otomoto, także nieudana, zapisuje
+wiersz `czasy wyceny aukcji`, w którym widać, ile trwały poszczególne etapy. Log
+znajdziesz w Diagnostyce.
+
 ## 0.37.1 — w przygotowaniu
 
 **Okazje nie pustoszeją po dużej partii aukcji.** Automat wyceniał najpierw aukcje

@@ -13,6 +13,9 @@ from __future__ import annotations
 
 import asyncio
 import datetime as dt
+import logging
+import time
+from collections.abc import Awaitable, Callable, Sequence
 
 from app.application.ports import FabrykaKontekstu
 from app.domain.enums import RodzajPojazdu
@@ -27,6 +30,65 @@ from app.infrastructure.otomoto import (
 from app.infrastructure.wycena_ai import WycenaAI
 from app.infrastructure.zadania_wyceny import Postep
 
+log = logging.getLogger(__name__)
+
+Wybieracz = Callable[
+    [PojazdDoPorownania, Sequence[tuple[str, str]]], Awaitable[str | None]
+]
+
+
+class Stoper:
+    """Mierzy etapy wyceny, które i tak przechodzą przez `postep`.
+
+    Etap trwa do początku następnego. Dopasowanie modelu przez AI dzieje się
+    wewnątrz etapu Otomoto, więc jest podawane osobno i już wliczone.
+    """
+
+    def __init__(
+        self, postep: Postep, zegar: Callable[[], float] = time.monotonic
+    ) -> None:
+        self._postep = postep
+        self._zegar = zegar
+        self._start = zegar()
+        self._etap = "Dane z bazy"
+        self._poczatek_etapu = self._start
+        self._czasy: list[tuple[str, float]] = []
+        self._dopasowanie_s = 0.0
+
+    def __call__(self, etap: str, udzial: float) -> None:
+        self._zamknij_etap()
+        self._etap = etap
+        self._postep(etap, udzial)
+
+    def _zamknij_etap(self) -> None:
+        teraz = self._zegar()
+        self._czasy.append((self._etap, teraz - self._poczatek_etapu))
+        self._poczatek_etapu = teraz
+
+    def mierz_dopasowanie(self, wybieracz: Wybieracz) -> Wybieracz:
+        async def mierzony(
+            pojazd: PojazdDoPorownania, modele: Sequence[tuple[str, str]]
+        ) -> str | None:
+            poczatek = self._zegar()
+            try:
+                return await wybieracz(pojazd, modele)
+            finally:
+                self._dopasowanie_s += self._zegar() - poczatek
+
+        return mierzony
+
+    def opis(self) -> str:
+        """Razem i etapy, także dla wyceny przerwanej błędem."""
+        self._zamknij_etap()
+        etapy = ", ".join(f"{e}: {s:.1f} s" for e, s in self._czasy)
+        razem = self._zegar() - self._start
+        dopasowanie = (
+            f" (w tym dopasowanie modelu przez AI: {self._dopasowanie_s:.1f} s)"
+            if self._dopasowanie_s
+            else ""
+        )
+        return f"razem {razem:.1f} s — {etapy}{dopasowanie}"
+
 
 async def wycen_z_otomoto(
     fabryka: FabrykaKontekstu,
@@ -37,6 +99,21 @@ async def wycen_z_otomoto(
     postep: Postep,
 ) -> None:
     """Liczy i zapisuje wycenę. Nieudana próba nie kasuje zapisanej wyceny."""
+    stoper = Stoper(postep)
+    try:
+        await _wycen(fabryka, usluga, otomoto, dokumenty, auction_id, stoper)
+    finally:
+        log.info("czasy wyceny aukcji %s: %s", auction_id, stoper.opis())
+
+
+async def _wycen(
+    fabryka: FabrykaKontekstu,
+    usluga: WycenaAI,
+    otomoto: Otomoto,
+    dokumenty: Dokumenty | None,
+    auction_id: int,
+    postep: Stoper,
+) -> None:
     async with fabryka() as kontekst:
         dane = await kontekst.zapytania.szczegoly(auction_id)
         porownania = await kontekst.zapytania.porownania_rynkowe(auction_id)
@@ -58,7 +135,7 @@ async def wycen_z_otomoto(
             wersja=p.variant,
             tytul=p.nazwa,
         ),
-        wybieracz=usluga.wybierz_model_otomoto,
+        wybieracz=postep.mierz_dopasowanie(usluga.wybierz_model_otomoto),
         postep=postep,
     )
     wybrane: tuple[OcenionyDokument, ...] = ()
