@@ -21,15 +21,21 @@
     <a class="nazwa" href="{{ sciezka(request, 'szczegoly', auction_id=p.id) }}">{{ p.nazwa }}</a>
 
     <div class="pod-nazwa">
-      {% if p.year %}<span>{{ p.year }}</span>{% endif %}
-      {% if p.mileage_km %}<span>{{ p.mileage_km | liczba }} km</span>{% endif %}
-      {% if p.fuel %}<span>{{ p.fuel }}</span>{% endif %}
-      {% if p.gearbox %}<span>{{ p.gearbox }}</span>{% endif %}
-      {% if p.location %}<span>{{ p.location }}</span>{% endif %}
+      {% if p.year %}<span class="k-rok">{{ p.year }}</span>{% endif %}
+      {% if p.mileage_km %}<span class="k-przebieg">{{ p.mileage_km | liczba }} km</span>{% endif %}
+      {% if p.fuel %}<span class="k-paliwo">{{ p.fuel }}</span>{% endif %}
+      {% if p.gearbox %}<span class="k-skrzynia">{{ p.gearbox }}</span>{% endif %}
+      {% if p.location %}<span class="k-lokalizacja">{{ p.location }}</span>{% endif %}
     </div>
 
+    {# Tylko w tabeli: na kafelku te dane stoją na zdjęciu, które tam jest ukryte. #}
+    <span class="tylko-tabela k-zrodlo">{{ p.source_key }}</span>
+    <span class="tylko-tabela k-koniec {{ pilnosc }}">
+      {%- if p.status.value == 'ACTIVE' %}{{ p.ends_at | do_konca(teraz) }}{% else %}{{ p.final_price_state.value }}{% endif -%}
+    </span>
+
     {% if p.status.value != 'ACTIVE' %}
-      <div class="pod-nazwa">
+      <div class="pod-nazwa pod-status">
         <span class="etykieta">{{ p.status.value }}</span>
         {# Znacznik pewnosci ceny koncowej (SPEC.md §11.5, §12). LAST_SEEN to
            dolne oszacowanie, nie cena koncowa — i ma tak wygladac. #}
@@ -46,11 +52,11 @@
     <div class="okazja">
       <div class="okazja-wiersz">
         <span class="etykieta-ceny">Wycena AI z Otomoto (netto)</span>
-        <span>{{ okazja.wycena | kwota }}</span>
+        <span class="okazja-wycena k-wycena">{{ okazja.wycena | kwota }}</span>
       </div>
       <div class="okazja-wiersz okazja-roznica">
-        <span class="{{ 'okazja-wyroznik' if sortowanie.value == 'kwota' else '' }}">taniej o {{ okazja.roznica_kwota | kwota }}</span>
-        <span class="{{ 'okazja-wyroznik' if sortowanie.value == 'procent' else '' }}">{{ okazja.roznica_procent | procent }}</span>
+        <span class="k-taniej {{ 'okazja-wyroznik' if sortowanie.value == 'kwota' else '' }}"><span class="slowo-taniej">taniej o </span>{{ okazja.roznica_kwota | kwota }}</span>
+        <span class="k-procent {{ 'okazja-wyroznik' if sortowanie.value == 'procent' else '' }}">{{ okazja.roznica_procent | procent }}</span>
       </div>
       <div class="drobne">Pewność wyceny: {{ okazja.pewnosc }} · z {{ okazja.wyceniono | czas_lokalny }}</div>
     </div>

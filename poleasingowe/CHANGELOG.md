@@ -1,5 +1,25 @@
 # Historia zmian
 
+## 0.39.0 — w przygotowaniu
+
+**Aukcje z Leasygroup wracają.** Serwis zmienił format linków i aplikacja po cichu
+odrzucała każdą pozycję z listy, a przemiat wyglądał na udany. Teraz czyta oba
+formaty, a gdy nie rozpozna żadnego wiersza, zgłasza błąd zamiast pustej listy.
+
+**Tytuły bez komunikatów serwisu.** Ogłoszenie o pracach na stronie nie trafia już
+do nazwy aukcji, a aktualizacja czyści je z zapisanych aukcji.
+
+**Wycena u góry karty.** Odznaka z kwotą znikała, gdy karta odświeżała dane ze
+źródła. Teraz zostaje.
+
+**Widok tabeli.** Obok kafelków i listy jest najgęstszy układ: jeden wiersz na
+aukcję, a zdjęcie pojawia się po najechaniu. Widok listy ma zdjęcie na całą
+wysokość wiersza, a w Okazjach wycena i różnica stoją w osobnej kolumnie.
+Przełącznik układu nie stoi już obok Kwotowo i Procentowo.
+
+**Tempo automatu w Diagnostyce.** Ustawisz przerwę między wycenami (domyślnie
+45 s, od 10 s) i pauzę po blokadzie Otomoto (domyślnie 60 min, od 5 min).
+
 ## 0.38.1 — w przygotowaniu
 
 **Szybsze czytanie PDF-ów.** Ekspertyzy i raporty czyta teraz PDFium, silnik

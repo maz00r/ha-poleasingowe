@@ -4,24 +4,24 @@
 
 <div class="okazje-naglowek">
   <h1>Największe okazje</h1>
-  <div class="okazje-przelaczniki">
-    <nav class="przelacznik" aria-label="Sposób liczenia okazji">
-      {% for pozycja in przelacznik %}
-        <a class="{% if pozycja.aktywny %}aktywny{% endif %}"
-           href="{{ sciezka(request, 'okazje') }}?wg={{ pozycja.wartosc }}"
-           {% if pozycja.aktywny %}aria-current="page"{% endif %}>{{ pozycja.etykieta }}</a>
-      {% endfor %}
-    </nav>
-    {% include "fragmenty/przelacznik-ukladu.html" %}
-  </div>
+  <nav class="przelacznik" aria-label="Sposób liczenia okazji">
+    {% for pozycja in przelacznik %}
+      <a class="{% if pozycja.aktywny %}aktywny{% endif %}"
+         href="{{ sciezka(request, 'okazje') }}?wg={{ pozycja.wartosc }}"
+         {% if pozycja.aktywny %}aria-current="page"{% endif %}>{{ pozycja.etykieta }}</a>
+    {% endfor %}
+  </nav>
 </div>
 
+<div class="nad-lista">
 <p class="drobne">
   {% if sortowanie.value == 'kwota' %}Różnica w złotych między wyceną a bieżącą ceną, netto.
   {% else %}O ile procent bieżąca cena jest niższa od wyceny, netto.{% endif %}
   Wycenione z Otomoto: {{ pokrycie.wycenione }} z {{ pokrycie.do_wyceny }} aktywnych aut
   · w kolejce {{ pokrycie.w_kolejce }} · nieudane {{ pokrycie.nieudane }}
 </p>
+  {% if okazje %}{% include "fragmenty/przelacznik-ukladu.html" %}{% endif %}
+</div>
 
 {# Bez tych komunikatów krótka lista wygląda jak pełna odpowiedź, a może
    znaczyć tylko, że automat stoi. #}
@@ -43,7 +43,8 @@
 {% endif %}
 
 {% if okazje %}
-<div class="lista{{ ' lista-wiersze' if uklad == 'lista' }}" id="wiersze">
+<div class="lista {{ klasa_ukladu }} z-okazjami" id="wiersze">
+  {% include "fragmenty/naglowek-tabeli.html" %}
   {% for okazja in okazje %}
     {% set p = okazja.pozycja %}
     {% include "fragmenty/oferta.html" %}

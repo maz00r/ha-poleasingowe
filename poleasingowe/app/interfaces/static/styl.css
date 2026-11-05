@@ -1961,41 +1961,51 @@ ul.uzasadnienie {
 }
 ul.uzasadnienie strong { font-weight: 700; }
 
-/* 0.38.0 — układ listy w wierszach, jak na Allegro. Ten sam znacznik co
-   kafelek, więc doładowanie kolejnej strony nie musi wiedzieć o układzie. */
-.uklad-listy { display: inline-flex; gap: 6px; }
-.uklad-listy .sortuj { min-height: 0; line-height: normal; text-transform: none; cursor: pointer; }
-.okazje-przelaczniki { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+/* 0.39.0 — układy listy. Znacznik jest wspólny (`fragmenty/oferta.html`), więc
+   doładowanie kolejnej strony nie musi wiedzieć, który układ jest włączony. */
+.uklad-listy { display: inline-flex; gap: 4px; padding: 3px; border: 1px solid var(--obramowanie-mocna); border-radius: var(--promien-maly); }
+.uklad-listy button {
+  min-height: 0;
+  padding: 5px 10px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--przygaszony);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: none;
+}
+.uklad-listy button:hover { color: var(--tekst); filter: none; }
+.uklad-listy button.aktywny { background: var(--akcent); color: var(--akcent-tekst); }
+.tylko-tabela,
+.naglowek-tabeli { display: none; }
 
-/* Proporcje z list OLX i Allegro: duże zdjęcie, tytuł i cena jako dwa główne
-   elementy, parametry przygaszone, reszta w jednej cichej linii. */
-.lista.lista-wiersze { grid-template-columns: minmax(0, 1fr); gap: 12px; }
-.lista-wiersze .oferta { flex-direction: row; gap: 18px; padding: 12px; border-radius: var(--promien-maly); }
+/* Wiersze. Zdjęcie wypełnia całą wysokość, a tę wyznacza treść: `absolute`
+   sprawia, że obraz 3:2 nie rozpycha wiersza. Plakietki i gwiazdka zostają na
+   zdjęciu jak w kafelku, więc układ różni się tylko geometrią. */
+.lista.lista-wiersze { grid-template-columns: minmax(0, 1fr); gap: 10px; }
+.lista-wiersze .oferta { flex-direction: row; gap: 0; min-height: 148px; padding: 0; border-radius: var(--promien-maly); }
 .lista-wiersze .oferta:hover { box-shadow: 0 0 0 1px var(--akcent); transform: none; }
-.lista-wiersze .oferta-zdjecie { position: static; flex: 0 0 192px; align-self: flex-start; aspect-ratio: 3 / 2; }
+.lista-wiersze .oferta-zdjecie { flex: 0 0 222px; aspect-ratio: auto; border-radius: 0; }
+.lista-wiersze .oferta-zdjecie img { position: absolute; inset: 0; }
+.lista-wiersze .gwiazdka { top: 9px; right: auto; left: 183px; width: 30px; min-height: 0; height: 30px; font-size: 15px; }
 
-/* Na miniaturze plakietki zasłoniłyby auto. `position: static` wyżej oddaje je
-   pod `.oferta`, więc stają pod parametrami, bez zmiany znacznika. */
-.lista-wiersze .plakietki { inset: auto auto 14px 222px; justify-content: flex-start; }
-.lista-wiersze .gwiazdka { top: 18px; right: auto; left: 168px; width: 30px; min-height: 0; height: 30px; font-size: 15px; }
-
-/* Cena w prawej kolumnie na całą wysokość wiersza: oko ma ją znaleźć w tym
-   samym miejscu w każdym wierszu. */
 .lista-wiersze .oferta-tresc {
   display: grid;
   flex: 1;
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: 8px 28px;
+  gap: 8px 24px;
   align-content: start;
   min-width: 0;
-  padding: 4px 6px 34px 0;
+  padding: 16px 18px;
 }
+.lista-wiersze .oferta-tresc:has(.okazja) { grid-template-columns: minmax(0, 1fr) 270px 170px; }
 .lista-wiersze .oferta-tresc > * { grid-column: 1; }
 .lista-wiersze .nazwa { min-height: 0; font-size: 16px; -webkit-line-clamp: 2; }
 .lista-wiersze .pod-nazwa { font-size: 12.5px; }
-.lista-wiersze .okazja { padding-top: 2px; }
 .lista-wiersze .oferta-stopka {
-  grid-column: 2;
+  grid-column: -2 / -1;
   grid-row: 1 / span 5;
   flex-direction: column;
   align-items: flex-end;
@@ -2007,25 +2017,175 @@ ul.uzasadnienie strong { font-weight: 700; }
   border-top: 0;
   text-align: right;
 }
-/* Tytuł i miniatura prowadzą do karty; przycisk tylko podwyższałby wiersz. */
+/* Tytuł i zdjęcie prowadzą do karty; przycisk tylko podwyższałby wiersz. */
 .lista-wiersze .link-oferta { display: none; }
 
+/* Okazja: osobna kolumna czytana z góry na dół, bez kwot rozciągniętych na
+   szerokość wiersza, które nie wiadomo czego dotyczyły. */
+.lista-wiersze .okazja {
+  grid-column: 2;
+  grid-row: 1 / span 5;
+  align-content: start;
+  gap: 3px;
+  padding: 0 0 0 20px;
+  border-left: 1px solid var(--obramowanie);
+}
+.lista-wiersze .okazja-wiersz { display: grid; justify-content: start; gap: 1px; }
+.lista-wiersze .okazja-wycena { font-size: 17px; font-weight: 800; letter-spacing: -0.03em; }
+.lista-wiersze .okazja-roznica { display: flex; flex-wrap: wrap; gap: 2px 8px; font-size: 13px; }
+.lista-wiersze .okazja .drobne { margin-top: 2px; }
+
 @media (max-width: 680px) {
-  /* Cicha linia z plakietkami idzie przez całą szerokość wiersza, więc wysokość
-     tekstu po prawej nie może jej przyciąć ani zepchnąć pod zdjęcie. */
-  .lista-wiersze .oferta { gap: 12px; padding: 10px 10px 44px; }
-  .lista-wiersze .oferta-zdjecie { flex-basis: 132px; aspect-ratio: 4 / 3; }
-  .lista-wiersze .plakietki { inset: auto auto 10px 10px; }
-  .lista-wiersze .gwiazdka { top: 15px; left: 111px; width: 26px; height: 26px; font-size: 13px; }
-  .lista-wiersze .oferta-tresc { grid-template-columns: minmax(0, 1fr); gap: 6px; padding: 0; }
+  .lista-wiersze .oferta { min-height: 150px; }
+  .lista-wiersze .oferta-zdjecie { flex-basis: 132px; }
+  .lista-wiersze .plakietki { inset: auto 6px 6px; flex-direction: column; align-items: flex-start; gap: 3px; }
+  .lista-wiersze .plakietka { font-size: 9px; }
+  .lista-wiersze .gwiazdka { top: 6px; left: 100px; width: 26px; height: 26px; font-size: 13px; }
+  .lista-wiersze .oferta-tresc,
+  .lista-wiersze .oferta-tresc:has(.okazja) { grid-template-columns: minmax(0, 1fr); gap: 6px; padding: 10px 12px; }
   .lista-wiersze .nazwa { font-size: 15px; }
   .lista-wiersze .pod-nazwa { font-size: 12px; }
-  .lista-wiersze .oferta-stopka { grid-column: 1; grid-row: auto; min-width: 0; text-align: left; align-items: flex-start; }
-  /* Sama kwota: etykieta i pełna data nie mieszczą się obok, a termin mówi plakietka. */
-  .lista-wiersze .etykieta-ceny,
+  .lista-wiersze .okazja { grid-column: 1; grid-row: auto; padding: 0; border-left: 0; }
+  .lista-wiersze .oferta-stopka { grid-column: 1; grid-row: auto; align-items: flex-start; min-width: 0; text-align: left; }
+  /* Sama kwota: pełna data nie mieści się obok, a termin mówi plakietka. */
+  .lista-wiersze .oferta-stopka .etykieta-ceny,
   .lista-wiersze .termin { display: none; }
   .lista-wiersze .kwota { font-size: 18px; }
   .uklad-listy { margin-left: auto; }
+}
+
+/* Tabela. Siatka z `subgrid` zamiast `<table>`, bo znacznik jest wspólny z
+   kafelkami. `display: contents` spłaszcza bloki pośrednie, a każda komórka ma
+   stałą kolumnę, więc brak rocznika nie przesuwa reszty wiersza. */
+.lista.lista-tabela {
+  --k-paliwo: 84px;
+  --k-skrzynia: 88px;
+  --k-lokalizacja: minmax(76px, 1fr);
+  --k-rok: 58px;
+  --k-przebieg: 98px;
+  --k-zrodlo: 112px;
+  --k-koniec: 92px;
+  grid-template-columns:
+    32px minmax(170px, 2.6fr) var(--k-rok) var(--k-przebieg) var(--k-paliwo)
+    var(--k-skrzynia) var(--k-lokalizacja) var(--k-zrodlo) var(--k-koniec)
+    124px;
+  gap: 0;
+  border: 1px solid var(--obramowanie-mocna);
+  border-radius: var(--promien-maly);
+}
+.lista.lista-tabela.z-okazjami { grid-template-columns:
+  32px minmax(170px, 2.6fr) var(--k-rok) var(--k-przebieg) var(--k-paliwo)
+  var(--k-skrzynia) var(--k-lokalizacja) var(--k-zrodlo) var(--k-koniec)
+  124px 124px 126px 66px; }
+.lista-tabela .oferta,
+.lista-tabela .naglowek-tabeli {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: subgrid;
+  align-items: center;
+  min-height: 35px;
+  padding: 0 4px;
+  border: 0;
+  border-bottom: 1px solid var(--obramowanie);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  font-size: 12.5px;
+  overflow: visible;
+}
+.lista-tabela .naglowek-tabeli {
+  position: sticky;
+  top: 64px;
+  z-index: 3;
+  background: #191e24;
+  color: var(--przygaszony);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.lista-tabela .oferta:hover { border-color: var(--obramowanie); background: #262d35; box-shadow: none; transform: none; }
+.lista-tabela .oferta-tresc,
+.lista-tabela .pod-nazwa,
+.lista-tabela .okazja,
+.lista-tabela .okazja-wiersz,
+.lista-tabela .oferta-stopka,
+.lista-tabela .oferta-stopka > div:first-child { display: contents; }
+.lista-tabela .tylko-tabela { display: block; }
+.lista-tabela .pod-status,
+.lista-tabela .oferta .etykieta-ceny,
+.lista-tabela .oferta-stopka .drobne,
+.lista-tabela .okazja .drobne,
+.lista-tabela .termin { display: none; }
+.lista-tabela .pod-nazwa > span::after { content: none; }
+
+.lista-tabela .gwiazdka { position: static; grid-column: 1; width: 24px; min-height: 0; height: 24px; border: 0; background: transparent; color: var(--przygaszony); font-size: 14px; }
+.lista-tabela .gwiazdka.wlaczona { background: transparent; color: var(--akcent); }
+.lista-tabela .nazwa { display: block; grid-column: 2; min-height: 0; overflow: hidden; font-size: 13px; font-weight: 700; letter-spacing: -0.01em; text-overflow: ellipsis; white-space: nowrap; }
+.lista-tabela [class*="k-"] { grid-row: 1; overflow: hidden; padding: 0 8px; color: var(--tekst); font-size: inherit; letter-spacing: inherit; text-overflow: ellipsis; white-space: nowrap; }
+.lista-tabela .gwiazdka,
+.lista-tabela .nazwa,
+.lista-tabela .oferta-stopka .kwota { grid-row: 1; }
+.lista-tabela .naglowek-tabeli [class*="k-"] { color: inherit; }
+.lista-tabela .k-nazwa { grid-column: 2; }
+.lista-tabela .k-rok { grid-column: 3; }
+.lista-tabela .k-przebieg { grid-column: 4; }
+.lista-tabela .k-paliwo { grid-column: 5; }
+.lista-tabela .k-skrzynia { grid-column: 6; }
+.lista-tabela .k-lokalizacja { grid-column: 7; }
+.lista-tabela .k-zrodlo { grid-column: 8; color: var(--przygaszony); text-transform: uppercase; font-size: 11px; }
+.lista-tabela .k-koniec { grid-column: 9; font-weight: 700; }
+.lista-tabela .k-koniec.konczy-sie { color: var(--akcent); }
+.lista-tabela .k-cena,
+.lista-tabela .oferta-stopka .kwota { grid-column: 10; padding: 0 8px; font-size: 13.5px; font-weight: 800; letter-spacing: -0.02em; text-align: right; }
+.lista-tabela .k-wycena { grid-column: 11; text-align: right; }
+.lista-tabela .k-taniej { grid-column: 12; text-align: right; color: var(--sukces); }
+.lista-tabela .k-procent { grid-column: 13; text-align: right; color: var(--sukces); }
+.lista-tabela .okazja-roznica { font-size: inherit; }
+.lista-tabela .slowo-taniej { display: none; }
+.lista-tabela .dalej { grid-column: 1 / -1; padding: 12px; text-align: center; }
+
+/* Zdjęcie dopiero po najechaniu: `display: none` razem z `loading="lazy"`
+   sprawia, że miniatura pobiera się przy pierwszym najechaniu. */
+.lista-tabela .oferta-zdjecie { display: none; }
+.lista-tabela .plakietki { display: none; }
+.lista-tabela .oferta:hover .oferta-zdjecie {
+  position: absolute;
+  top: 100%;
+  left: 36px;
+  z-index: 30;
+  display: block;
+  width: 270px;
+  aspect-ratio: 3 / 2;
+  border: 1px solid var(--obramowanie-mocna);
+  box-shadow: 0 10px 26px rgb(0 0 0 / 45%);
+  pointer-events: none;
+}
+.lista-tabela .oferta.podglad-gora:hover .oferta-zdjecie { top: auto; bottom: 100%; }
+
+@media (max-width: 1240px) {
+  .lista.lista-tabela { --k-paliwo: 0; --k-skrzynia: 0; }
+  .lista-tabela .k-paliwo,
+  .lista-tabela .k-skrzynia { display: none; }
+}
+@media (max-width: 900px) {
+  .lista.lista-tabela { --k-zrodlo: 0; --k-lokalizacja: 0; }
+  .lista-tabela .k-zrodlo,
+  .lista-tabela .k-lokalizacja { display: none; }
+}
+@media (max-width: 680px) {
+  .lista.lista-tabela { --k-rok: 0; --k-przebieg: 0; grid-template-columns: 28px minmax(0, 1fr) 0 0 0 0 0 0 76px 112px; }
+  .lista.lista-tabela.z-okazjami { grid-template-columns: 28px minmax(0, 1fr) 0 0 0 0 0 0 0 124px 0 0 56px; }
+  .lista-tabela .k-cena,
+  .lista-tabela .oferta-stopka .kwota,
+  .lista-tabela .k-procent { padding: 0 4px; font-size: 12.5px; }
+  .lista-tabela .k-rok,
+  .lista-tabela .k-przebieg,
+  .lista-tabela.z-okazjami .k-koniec,
+  .lista-tabela .k-wycena,
+  .lista-tabela .k-taniej { display: none; }
+  .lista-tabela .naglowek-tabeli { position: static; }
+  .lista-tabela .oferta:hover .oferta-zdjecie { display: none; }
 }
 
 /* 0.38.0 — Diagnostyka. Formularz korzysta z `.pole` z filtrów, dlatego reguły

@@ -140,6 +140,8 @@ DNI_WIZYTY = 90
 CIASTECZKO_UKLADU = "poleasingowe_uklad"
 """Układ listy. Zapisuje go `static/uklad.js`, serwer tylko czyta, dzięki czemu
 strona od razu przychodzi w wybranym układzie, bez mignięcia kafelków."""
+KLASY_UKLADU = {"kafelki": "", "lista": "lista-wiersze", "tabela": "lista-tabela"}
+"""Układ to tylko klasa kontenera, więc wszystkie używają tego samego znacznika."""
 PRZERWA_WIZYTY_S = 30 * 60
 """Po tylu sekundach bezczynności zaczyna się NOWA wizyta.
 
@@ -174,13 +176,15 @@ def _kontekst_bazowy(request: Request) -> dict[str, Any]:
         "etykiety_rodzaju": ETYKIETY_RODZAJU,
         "wersja": WERSJA,
         "zakladki": _zakladki(request),
-        "uklad": _uklad(request),
+        "uklad": (uklad := _uklad(request)),
+        "klasa_ukladu": KLASY_UKLADU[uklad],
     }
 
 
 def _uklad(request: Request) -> str:
     """Stan przeglądarki, więc w ciasteczku, tak samo jak ostatnia wizyta."""
-    return "lista" if request.cookies.get(CIASTECZKO_UKLADU) == "lista" else "kafelki"
+    uklad = request.cookies.get(CIASTECZKO_UKLADU, "")
+    return uklad if uklad in KLASY_UKLADU else "kafelki"
 
 
 def _brak_bazy(request: Request, kod: int = 503) -> Response:
@@ -728,6 +732,8 @@ async def szczegoly_fragment(request: Request, auction_id: int) -> Response:
 
     async with _fabryka(request)() as kontekst:
         dane = await kontekst.zapytania.szczegoly(auction_id)
+        async with kontekst.uow as uow:
+            wycena_zapisana = await uow.wycena.dla_aukcji(auction_id)
     if dane is None:
         return SZABLONY.TemplateResponse(
             request=request,
@@ -746,6 +752,7 @@ async def szczegoly_fragment(request: Request, auction_id: int) -> Response:
         context={
             **_kontekst_bazowy(request),
             "dane": dane,
+            "wycena_zapisana": wycena_zapisana,
             "odswiezanie": _stan_odswiezania(dane, od, proba),
         },
     )

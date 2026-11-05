@@ -77,6 +77,29 @@ def test_prawidlowa_pusta_lista_nie_udaje_waf() -> None:
     assert parser.identyfikatory_wierszy(pusta) == []
 
 
+def test_lista_z_pelnymi_adresami_daje_te_same_aukcje() -> None:
+    wzgledna = html("lista-widok-lista-01.html")
+    pelna = wzgledna.replace('href="/aukcja/', f'href="{parser.BAZOWY_URL}/aukcja/')
+    assert pelna != wzgledna
+    assert parser.sparsuj_liste(pelna) == parser.sparsuj_liste(wzgledna)
+    assert parser.identyfikatory_wierszy(pelna)
+
+
+@pytest.mark.parametrize(
+    "prefiks",
+    ["https://obcy.test/aukcja/", "/przedmiot/"],
+    ids=["obcy-host", "sciezka"],
+)
+def test_lista_bez_rozpoznanego_adresu_nie_udaje_pustego_przemiatu(
+    prefiks: str,
+) -> None:
+    lista = html("lista-widok-lista-01.html").replace(
+        'href="/aukcja/', f'href="{prefiks}'
+    )
+    with pytest.raises(ParseFailed, match="znanego adresu"):
+        parser.identyfikatory_wierszy(lista)
+
+
 def test_waf_lub_uszkodzony_html_to_blad() -> None:
     with pytest.raises(ParseFailed, match="listę aukcji"):
         parser.sparsuj_liste("<html><body>Just a moment…</body></html>")

@@ -136,6 +136,19 @@ def kanoniczna_marka(wartosc: str) -> str | None:
     return _tytulem(klucz)
 
 
+_KOMUNIKAT_SERWISU = re.compile(
+    r"\s*\b(?:"
+    r"w\s+(?:poniedziałek|wtorek|środę|czwartek|piątek|sobotę|niedzielę)\s+od\s+godz"
+    r"|na\s+stronie\s+będą"
+    r"|(?:prac|przerw)\w*\s+(?:modernizacyjn|serwisow|techniczn)"
+    r"|serwis\s+będzie\s+niedostępny"
+    r").*$",
+    re.I | re.S,
+)
+"""Ogłoszenie o przerwie doklejone przez serwis do tytułu aukcji. Ten sam wzorzec
+czyści stare wiersze w migracji 032, więc zmieniaj oba naraz."""
+
+
 def podziel_marke_model(wartosc: str) -> tuple[str | None, str | None, str | None]:
     """Rozdziela „Marka Model Wersja" na trzy części.
 
@@ -149,7 +162,7 @@ def podziel_marke_model(wartosc: str) -> tuple[str | None, str | None, str | Non
     `MINI` / `Countryman` / `Cooper S`, nie `Mini` / `[BMW]` / `Countryman…`.
     Tytuł niebędący nazwą pojazdu (`Aukcja nr …`) daje same `None`.
     """
-    tokeny = _NAWIAS.sub(" ", wartosc).split()
+    tokeny = _NAWIAS.sub(" ", _KOMUNIKAT_SERWISU.sub("", wartosc)).split()
     if not tokeny or tokeny[0].lower() in NIE_MARKA:
         return None, None, None
     if len(tokeny) >= 2 and _klucz(f"{tokeny[0]} {tokeny[1]}") in MARKI_DWUWYRAZOWE:

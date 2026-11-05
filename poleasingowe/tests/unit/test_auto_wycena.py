@@ -82,6 +82,7 @@ def _automat(
     zadania: ZadaniaWyceny | None = None,
     zegar: Zegar | None = None,
     szczyt: Szczyt | None = None,
+    pauza_otomoto_s: float = PAUZA_S,
 ) -> tuple[AutoWycena, list[int]]:
     wycenione: list[int] = []
 
@@ -96,6 +97,7 @@ def _automat(
         praca,
         limit_dzienny=limit,
         przerwa_s=PRZERWA,
+        pauza_otomoto_s=pauza_otomoto_s,
         zegar=zegar or Zegar(),
         szczyt=szczyt,
     )
@@ -322,3 +324,12 @@ def test_regula_szczytu_tylko_dla_adresu_deepseeka(
     adres: str, regula: Szczyt | None
 ) -> None:
     assert szczyt_dostawcy(adres) is regula
+
+
+async def test_pauza_po_blokadzie_otomoto_jest_konfigurowalna() -> None:
+    automat, _ = _automat(
+        Baza(kolejka=(5,)),
+        BladDostepuOtomoto("Otomoto nie odpowiada: 429"),
+        pauza_otomoto_s=300,
+    )
+    assert await automat.krok() == 300

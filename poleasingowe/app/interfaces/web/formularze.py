@@ -263,6 +263,12 @@ def zmiany_konfiguracji(
         "wycena_pauza_minuty": _calkowita(
             formularz, "wycena_pauza_minuty", "Pauza po awarii dostawcy"
         ),
+        "wycena_pauza_otomoto_minuty": _calkowita(
+            formularz, "wycena_pauza_otomoto_minuty", "Pauza po blokadzie Otomoto"
+        ),
+        "wycena_auto_przerwa_s": _calkowita(
+            formularz, "wycena_auto_przerwa_s", "Przerwa między wycenami"
+        ),
     }
     rodzaje = [
         r

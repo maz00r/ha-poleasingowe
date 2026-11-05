@@ -8,14 +8,15 @@ inny cykl życia niż aukcja, więc zmieszanie ich fałszowałoby historię cen.
 from __future__ import annotations
 
 import re
-from urllib.parse import urljoin
+from urllib.parse import urljoin, urlsplit
 
 from selectolax.parser import HTMLParser, Node
 
 from app.application.ports import Dokument, SurowaOferta
 from app.domain.errors import ParseFailed
 
-BAZOWY_URL = "https://aukcje.leasygroup.pl"
+HOST = "aukcje.leasygroup.pl"
+BAZOWY_URL = f"https://{HOST}"
 SCIEZKA_LISTY = "/aukcje/pojazdy-samochodowe-i-motocykle/widok-lista/strona-{}"
 
 _ID_STRONY_Z_URL = re.compile(r"^/aukcja/(\d+)/[^/]+/?$")
@@ -29,6 +30,18 @@ _KONTAKT = re.compile(
     r",?\s*\+?48(?:[\s-]?\d){9,})$",
     re.I,
 )
+
+
+def _id_strony(href: str) -> re.Match[str] | None:
+    """Dopasowanie adresu aukcji, względnego albo bezwzględnego.
+
+    Serwis podawał ścieżki, a później przeszedł na pełne adresy, przez co
+    parser po cichu odrzucał każdy wiersz. Obcego hosta dalej nie wpuszczamy.
+    """
+    adres = urlsplit(href)
+    if adres.netloc not in {"", HOST}:
+        return None
+    return _ID_STRONY_Z_URL.match(adres.path)
 
 
 def _tekst(element: Node | None) -> str:
@@ -90,13 +103,17 @@ def identyfikatory_wierszy(html: str) -> list[str]:
     if kontener is None:
         raise ParseFailed("Leasygroup: strona nie wygląda na listę aukcji")
     wynik: list[str] = []
-    for link in kontener.css("a.single_row_offer.offer_link"):
-        if _ID_STRONY_Z_URL.match(link.attributes.get("href") or "") is None:
+    linki = kontener.css("a.single_row_offer.offer_link")
+    for link in linki:
+        if _id_strony(link.attributes.get("href") or "") is None:
             continue
         numer_aukcji = (link.attributes.get("data-id") or "").strip()
         if not numer_aukcji.isdigit():
             raise ParseFailed("Leasygroup: wiersz bez numeru konkretnej aukcji")
         wynik.append(numer_aukcji)
+    if linki and not wynik:
+        # Pusty wynik wyglądałby jak udany przemiat bez aukcji.
+        raise ParseFailed("Leasygroup: żaden wiersz listy nie ma znanego adresu")
     return wynik
 
 
@@ -113,7 +130,7 @@ def sparsuj_liste(html: str) -> list[SurowaOferta]:
         if link is None:
             continue
         href = link.attributes.get("href") or ""
-        dopasowanie = _ID_STRONY_Z_URL.match(href)
+        dopasowanie = _id_strony(href)
         if dopasowanie is None:
             continue
 

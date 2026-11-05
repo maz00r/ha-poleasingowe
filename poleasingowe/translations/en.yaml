@@ -72,8 +72,13 @@ configuration:
   wycena_pauza_minuty:
     name: Pause after an AI provider failure (minutes)
     description: >-
-      How many minutes the worker waits after an AI provider failure. An Otomoto
-      block always pauses it for an hour.
+      How many minutes the worker waits after an AI provider failure.
+  wycena_auto_przerwa_s:
+    name: "Delay between valuations [s]"
+    description: "Seconds from the end of one valuation to the start of the next, 10 to 3600. A shorter delay raises the risk of an Otomoto block."
+  wycena_pauza_otomoto_minuty:
+    name: "Pause after an Otomoto block [min]"
+    description: "Minutes the worker waits after an Otomoto block, 5 to 1440."
   credentials:
     name: Site credentials
     description: >-

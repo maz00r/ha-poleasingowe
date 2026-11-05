@@ -190,3 +190,24 @@ def test_modele_dwuczlonowe(
 ) -> None:
     """„Model Y" to model — nie „Model" z wersją „Y Performance"."""
     assert marki.podziel_marke_model(wejscie) == oczekiwane
+
+
+KOMUNIKAT = (
+    "w piątek od godz. 20:00 na stronie będą prowadzone zaawansowane prace "
+    "modernizacyjne. Serwis będzie niedostępny, planujemy powrót w trakcie weekendu."
+)
+
+
+@pytest.mark.parametrize(
+    ("tytul", "oczekiwane"),
+    [
+        (f"Ford KUGA {KOMUNIKAT}", ("Ford", "KUGA", None)),
+        (f"Ford KUGA 2.0 TDCi {KOMUNIKAT}", ("Ford", "KUGA", "2.0 TDCi")),
+        ("Ford KUGA Serwis będzie niedostępny w nocy", ("Ford", "KUGA", None)),
+        ("Ford Transit Custom L2H1", ("Ford", "Transit", "Custom L2H1")),
+    ],
+)
+def test_komunikat_serwisu_nie_trafia_do_nazwy(
+    tytul: str, oczekiwane: tuple[str, str, str | None]
+) -> None:
+    assert marki.podziel_marke_model(tytul) == oczekiwane

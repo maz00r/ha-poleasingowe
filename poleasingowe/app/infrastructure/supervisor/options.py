@@ -37,6 +37,8 @@ POLA_NADPISYWANE = (
     "wycena_auto",
     "wycena_auto_limit_dzienny",
     "wycena_pauza_minuty",
+    "wycena_pauza_otomoto_minuty",
+    "wycena_auto_przerwa_s",
     "wycena_auto_rodzaje",
     "sources",
 )
@@ -144,8 +146,13 @@ class Opcje(BaseModel):
     `NIEZNANY` obejmuje też motocykle i ciężarówki bez rozpoznanej kategorii.
     Przycisk na karcie aukcji działa niezależnie od tego wyboru."""
     wycena_pauza_minuty: Annotated[int, Field(ge=1, le=1_440)] = 5
-    """Przerwa automatu po awarii dostawcy AI. Blokada Otomoto ma własną,
-    stałą godzinę, bo to cudzy serwis."""
+    """Przerwa automatu po awarii dostawcy AI."""
+    wycena_pauza_otomoto_minuty: Annotated[int, Field(ge=5, le=1_440)] = 60
+    """Przerwa automatu po blokadzie Otomoto. To cudzy serwis, więc poniżej
+    5 minut dalsze pytania tylko przedłużałyby blokadę."""
+    wycena_auto_przerwa_s: Annotated[int, Field(ge=10, le=3_600)] = 45
+    """Odstęp od końca jednej wyceny do startu kolejnej. Dolna granica chroni
+    przed blokadą Otomoto, które czytamy bez API."""
     credentials: list[Poswiadczenia] = Field(default_factory=list)
     sources: list[OpcjeZrodla] = Field(default_factory=list)
 

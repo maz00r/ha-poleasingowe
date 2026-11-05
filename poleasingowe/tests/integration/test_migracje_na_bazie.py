@@ -713,3 +713,38 @@ async def test_migracja_031_kasuje_tylko_wyceny_bez_otomoto(
         await cur.execute((MIGRACJE / "031_usun_wyceny_lokalne.sql").read_text())
         await cur.execute("SELECT auction_id FROM app.ai_valuation")
         assert await cur.fetchall() == [(ids["audi-za-tydzien"],)]
+
+
+@pytest.mark.parametrize(
+    "wersja",
+    [
+        "w piątek od godz. 20:00 na stronie będą prowadzone prace modernizacyjne.",
+        "2.0 TDCi w piątek od godz. 20:00 na stronie będą prowadzone prace.",
+        "Serwis będzie niedostępny w weekend",
+        "2.0 TDCi Titanium",
+        None,
+    ],
+)
+async def test_migracja_032_czysci_wersje_tak_samo_jak_python(
+    pusta_baza: psycopg.AsyncConnection, wersja: str | None
+) -> None:
+    from app.infrastructure.sources import marki
+
+    async with pusta_baza.cursor() as cur:
+        await cur.execute(
+            "INSERT INTO app.source (key, name) VALUES ('x', 'X') RETURNING id"
+        )
+        wiersz = await cur.fetchone()
+        assert wiersz is not None
+        await cur.execute(
+            "INSERT INTO app.auction (source_id, external_id, url, make, model,"
+            " variant) VALUES (%s, 'k', 'u', 'Ford', 'Kuga', %s)",
+            (wiersz[0], wersja),
+        )
+        await cur.execute((MIGRACJE / "032_komunikaty_w_tytulach.sql").read_text())
+        await cur.execute("SELECT variant FROM app.auction")
+        wynik = await cur.fetchone()
+
+    assert wynik is not None
+    oczekiwana = marki.podziel_marke_model(f"Ford Kuga {wersja or ''}")[2]
+    assert wynik[0] == oczekiwana

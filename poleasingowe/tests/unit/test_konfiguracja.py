@@ -44,6 +44,8 @@ def _formularz(**zmiany: str) -> dict[str, str]:
         "wycena_auto": "on",
         "wycena_auto_limit_dzienny": "50",
         "wycena_pauza_minuty": "7",
+        "wycena_pauza_otomoto_minuty": "15",
+        "wycena_auto_przerwa_s": "90",
         "wycena_rodzaj_OSOBOWY": "on",
         "zrodlo_efl_wlaczone": "on",
         "zrodlo_efl_limit": "20",
@@ -318,6 +320,23 @@ def test_pauza_jest_w_formularzu_i_ma_granice() -> None:
     assert zastosuj_zmiany(OPCJE, zmiany).wycena_pauza_minuty == 7
     with pytest.raises(BladKonfiguracji, match="wycena_pauza_minuty"):
         zastosuj_zmiany(OPCJE, {"wycena_pauza_minuty": 0})
+
+
+@pytest.mark.parametrize(
+    ("pole", "wartosc", "zla_dol", "zla_gora"),
+    [
+        ("wycena_pauza_otomoto_minuty", 15, 4, 1441),
+        ("wycena_auto_przerwa_s", 90, 9, 3601),
+    ],
+)
+def test_tempo_automatu_jest_w_formularzu_i_ma_granice(
+    pole: str, wartosc: int, zla_dol: int, zla_gora: int
+) -> None:
+    zmiany = zmiany_konfiguracji(_formularz(), OPCJE, ["efl"])
+    assert getattr(zastosuj_zmiany(OPCJE, zmiany), pole) == wartosc
+    for zla in (zla_dol, zla_gora):
+        with pytest.raises(BladKonfiguracji, match=pole):
+            zastosuj_zmiany(OPCJE, {pole: zla})
 
 
 def test_typy_pojazdow_z_formularza() -> None:

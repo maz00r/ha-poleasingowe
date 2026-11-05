@@ -7,8 +7,9 @@ Koszt ogranicza dobowy limit prób (`wycena_auto_limit_dzienny`).
 
 **Dwa rodzaje porażki.** Auto nieznane Otomoto dotyczy tej jednej aukcji:
 próba zostaje zapisana i kolejka idzie dalej. Blokada Otomoto albo awaria
-dostawcy AI dotyczy wszystkich — wtedy cały automat czeka (Otomoto godzinę,
-dostawca AI tyle, ile mówi `wycena_pauza_minuty`), zamiast utrwalać blokadę
+dostawcy AI dotyczy wszystkich — wtedy cały automat czeka (Otomoto
+`wycena_pauza_otomoto_minuty`, dostawca AI `wycena_pauza_minuty`), zamiast
+utrwalać blokadę
 i oznaczać kolejne auta jako nie do wyceny. Próba zapisuje
 się także wtedy: inaczej aukcja, która sama wywołuje taki błąd, stałaby na
 początku kolejki bez końca.
@@ -37,9 +38,11 @@ from app.infrastructure.zadania_wyceny import Postep, ZadaniaWyceny
 log = logging.getLogger(__name__)
 
 PRZERWA_S = 45.0
-"""Między wycenami — około 2-3 strony wyników Otomoto na minutę."""
+"""Między wycenami — około 2-3 strony wyników Otomoto na minutę. W aplikacji
+ustawiane opcją `wycena_auto_przerwa_s`."""
 PAUZA_S = 3600.0
-"""Po blokadzie Otomoto. To cudzy serwis, więc nie skracamy tego w opcjach."""
+"""Po blokadzie Otomoto; w aplikacji ustawiane opcją
+`wycena_pauza_otomoto_minuty`."""
 PAUZA_AI_S = 300.0
 """Po awarii dostawcy AI; w aplikacji ustawiane opcją `wycena_pauza_minuty`."""
 PUSTA_KOLEJKA_S = 300.0
@@ -78,6 +81,7 @@ class AutoWycena:
         limit_dzienny: int,
         przerwa_s: float = PRZERWA_S,
         pauza_ai_s: float = PAUZA_AI_S,
+        pauza_otomoto_s: float = PAUZA_S,
         rodzaje: Sequence[str] | None = None,
         zegar: Callable[[], dt.datetime] = _teraz,
         szczyt: Szczyt | None = None,
@@ -88,6 +92,7 @@ class AutoWycena:
         self._limit_dzienny = limit_dzienny
         self._przerwa_s = przerwa_s
         self._pauza_ai_s = pauza_ai_s
+        self._pauza_otomoto_s = pauza_otomoto_s
         self._rodzaje = rodzaje
         self._zegar = zegar
         self._szczyt = szczyt
@@ -162,7 +167,7 @@ class AutoWycena:
             pauza = (
                 self._pauza_ai_s
                 if isinstance(zadanie.wyjatek, BladDostawcyAI)
-                else PAUZA_S
+                else self._pauza_otomoto_s
             )
             stan.pauza_do = self._zegar() + dt.timedelta(seconds=pauza)
             stan.powod_pauzy = blad

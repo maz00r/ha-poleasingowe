@@ -243,7 +243,8 @@
   </div>
 </div>
 
-<div class="lista{{ ' lista-wiersze' if uklad == 'lista' }}" id="wiersze">
+<div class="lista {{ klasa_ukladu }}" id="wiersze">
+  {% include "fragmenty/naglowek-tabeli.html" %}
   {% include "fragmenty/karty.html" %}
 </div>
 {% else %}

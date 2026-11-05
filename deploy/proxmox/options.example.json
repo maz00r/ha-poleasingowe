@@ -14,6 +14,8 @@
   "wycena_auto": true,
   "wycena_auto_limit_dzienny": 300,
   "wycena_pauza_minuty": 5,
+  "wycena_pauza_otomoto_minuty": 60,
+  "wycena_auto_przerwa_s": 45,
   "wycena_auto_rodzaje": ["OSOBOWY", "DOSTAWCZY", "NIEZNANY"],
   "credentials": [],
   "sources": [],

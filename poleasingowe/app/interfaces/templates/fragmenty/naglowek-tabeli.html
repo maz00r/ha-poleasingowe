@@ -1,0 +1,19 @@
+{# Nagłówek kolumn. Widoczny tylko w układzie tabeli, ale renderowany zawsze, bo
+   układ przełącza się bez przeładowania. Klasy `k-*` to te same kolumny co
+   w `oferta.html`. #}
+<div class="naglowek-tabeli" aria-hidden="true">
+  <span class="k-nazwa">Pojazd</span>
+  <span class="k-rok">Rok</span>
+  <span class="k-przebieg">Przebieg</span>
+  <span class="k-paliwo">Paliwo</span>
+  <span class="k-skrzynia">Skrzynia</span>
+  <span class="k-lokalizacja">Miejsce</span>
+  <span class="k-zrodlo">Źródło</span>
+  <span class="k-koniec">Koniec</span>
+  <span class="k-cena">Cena</span>
+  {% if okazje %}
+    <span class="k-wycena">Wycena</span>
+    <span class="k-taniej">Taniej</span>
+    <span class="k-procent">%</span>
+  {% endif %}
+</div>

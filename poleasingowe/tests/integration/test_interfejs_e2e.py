@@ -810,7 +810,7 @@ async def test_okazje_przelacznik_uklada_ranking(
     assert domyslnie.status_code == 200
     assert pierwsza(domyslnie.text) and pierwsza(kwotowo.text) and pierwsza(bledny.text)
     assert not pierwsza(procentowo.text)
-    assert "taniej o 30\u00a0000,00\u00a0PLN" in domyslnie.text
+    assert "taniej o </span>30\u00a0000,00\u00a0PLN" in domyslnie.text
     assert "33,3%" in procentowo.text
     assert "20,0%" in procentowo.text
     assert 'aria-current="page">Procentowo</a>' in procentowo.text
@@ -918,21 +918,27 @@ async def test_wejscie_na_karte_w_szczycie_nie_placi_stawki_szczytowej(
 
 
 @pytest.mark.parametrize(
-    ("ciasteczko", "wiersze"),
-    [(None, False), ("kafelki", False), ("lista", True), ("<script>", False)],
+    ("ciasteczko", "klasa"),
+    [
+        (None, ""),
+        ("kafelki", ""),
+        ("lista", "lista-wiersze"),
+        ("tabela", "lista-tabela"),
+        ("<script>", ""),
+    ],
 )
 async def test_uklad_listy_przychodzi_z_ciasteczka(
     klient: httpx.AsyncClient,
     pusta_baza: psycopg.AsyncConnection,
     ciasteczko: str | None,
-    wiersze: bool,
+    klasa: str,
 ) -> None:
     await _dane(pusta_baza)
     if ciasteczko is not None:
         klient.cookies.set(CIASTECZKO_UKLADU, ciasteczko)
     odp = await klient.get("/")
-    assert ('class="lista lista-wiersze"' in odp.text) is wiersze
-    assert 'data-uklad="lista"' in odp.text
+    assert f'class="lista {klasa}" id="wiersze"' in odp.text
+    assert 'data-uklad="tabela"' in odp.text
 
 
 async def test_doladowanie_listy_nie_zalezy_od_ukladu(
@@ -946,3 +952,13 @@ async def test_doladowanie_listy_nie_zalezy_od_ukladu(
     assert 'class="oferta' in wiersze.text
     assert wiersze.text.count("<article") == kafelki.text.count("<article")
     assert "lista-wiersze" not in wiersze.text
+
+
+async def test_odznaka_wyceny_zostaje_po_odswiezeniu_karty(
+    klient: httpx.AsyncClient, pusta_baza: psycopg.AsyncConnection
+) -> None:
+    """Po wejściu na kartę fragment podmienia nagłówek razem z odznaką."""
+    ids = await _dane(pusta_baza)
+    await _wycen(pusta_baza, ids["audi-za-godzine"], "150000")
+    odp = await klient.get(f"/aukcja/{ids['audi-za-godzine']}/karta")
+    assert "Wycena AI: 150" in odp.text

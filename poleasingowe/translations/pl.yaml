@@ -73,8 +73,13 @@ configuration:
   wycena_pauza_minuty:
     name: Pauza po awarii dostawcy AI (minuty)
     description: >-
-      Ile minut automat czeka po awarii dostawcy AI. Blokada Otomoto zawsze
-      wstrzymuje go na godzine.
+      Ile minut automat czeka po awarii dostawcy AI.
+  wycena_auto_przerwa_s:
+    name: "Przerwa między wycenami [s]"
+    description: "Ile sekund mija od końca jednej wyceny do startu kolejnej, od 10 do 3600. Krótsza przerwa zwiększa ryzyko blokady Otomoto."
+  wycena_pauza_otomoto_minuty:
+    name: "Pauza po blokadzie Otomoto [min]"
+    description: "Ile minut automat czeka po blokadzie Otomoto, od 5 do 1440."
   credentials:
     name: Poswiadczenia do serwisow
     description: >-

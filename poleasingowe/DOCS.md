@@ -133,9 +133,10 @@ Lista pokazuje miniaturę pierwszego zdjęcia. Obrazy są pobierane przez add-on
 i trafiają do rotowanego cache'u `/data/cache/zdjecia` o maksymalnym rozmiarze
 100 MB — przeglądarka nie łączy się bezpośrednio z serwisem aukcyjnym. Po
 wejściu w szczegóły widoczna jest pełna galeria udostępniona przez źródło.
-Przyciski **Kafelki** i **Lista** nad wynikami zmieniają układ listy i okazji.
-Lista to gęstsze wiersze ze zdjęciem po lewej i ceną po prawej. Wybór pamięta
-przeglądarka.
+Przyciski **Kafelki**, **Lista** i **Tabela** nad wynikami zmieniają układ listy
+i okazji. Lista to wiersze ze zdjęciem po lewej i ceną po prawej, a tabela to
+najgęstszy widok, w którym zdjęcie pojawia się po najechaniu na wiersz. Wybór
+pamięta przeglądarka.
 
 Niezależnie od cache'u dodatek zapisuje w `/data/archiwum-zdjec` okładkę
 każdej aukcji do 800×600 px. Aukcje obserwowane dostają pełną galerię do
@@ -281,7 +282,9 @@ modelu i bierze ogłoszenia, które mają ją w tytule.
 | `wycena_auto` | `true` | Włącza automat. Bez klucza AI nic nie robi. |
 | `wycena_auto_limit_dzienny` | `300` | Sufit prób w ciągu 24 godzin, od 1 do 5000. |
 | `wycena_auto_rodzaje` | wszystkie trzy | Co wycenia automat: `OSOBOWY`, `DOSTAWCZY`, `NIEZNANY`. Ten ostatni obejmuje też motocykle i ciężarówki bez kategorii. Wycena z karty działa niezależnie. |
-| `wycena_pauza_minuty` | `5` | Ile minut automat czeka po awarii dostawcy AI, od 1 do 1440. Blokada Otomoto zawsze wstrzymuje go na godzinę. |
+| `wycena_auto_przerwa_s` | `45` | Ile sekund mija od końca jednej wyceny do startu kolejnej, od 10 do 3600. Krótsza przerwa to częstsze pytania do Otomoto i większe ryzyko blokady. |
+| `wycena_pauza_minuty` | `5` | Ile minut automat czeka po awarii dostawcy AI, od 1 do 1440. |
+| `wycena_pauza_otomoto_minuty` | `60` | Ile minut automat czeka po blokadzie Otomoto, od 5 do 1440. |
 
 **Koszt.** Każda próba to zwykle jedno lub dwa płatne żądania do dostawcy
 modelu, więc limit jest górną granicą wydatków. Wyceny z przycisku się do niego
@@ -291,14 +294,13 @@ nie liczą.
 czeka w godzinach szczytu DeepSeeka, w których stawki są dwukrotnie wyższe:
 od poniedziałku do piątku 01:00-04:00 i 06:00-10:00 UTC, czyli zimą 02:00-05:00
 i 07:00-11:00, a latem 03:00-06:00 i 08:00-12:00 w Polsce. Nowa wycena nie
-startuje też w ostatnich 5 minutach przed szczytem. Samo otwarcie karty aukcji
-bez wyceny również nie zleca jej w tych godzinach. Przyciski na karcie działają
+startuje też w ostatnich 5 minutach przed szczytem. Przycisk na karcie działa
 nadal, po wyższej stawce. W chińskie święta cennik nie ma szczytu, ale automat
 o nich nie wie i czeka tak samo.
 
 **Gdy się nie uda.** Aukcja wraca do kolejki po 6 godzinach, najwyżej trzy
-razy. Blokada Otomoto albo awaria dostawcy AI wstrzymuje automat na godzinę,
-a powód widać na stronie okazji.
+razy. Blokada Otomoto albo awaria dostawcy AI wstrzymuje automat na czas ustawiony
+w opcjach, a powód widać na stronie okazji.
 
 Zakładka **Okazje** pokazuje 100 aktywnych aukcji tańszych od wyceny z Otomoto.
 Przełącznik układa je według różnicy w złotych albo procentowo, czyli
