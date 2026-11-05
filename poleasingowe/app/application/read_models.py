@@ -207,6 +207,19 @@ class Kryteria:
 
 
 @dataclass(slots=True, frozen=True)
+class WycenaNaLiscie:
+    """Wycena z Otomoto przy zwykłej pozycji listy, także droższej od wyceny."""
+
+    wycena: Money
+    pewnosc: str
+    wyceniono: dt.datetime
+    roznica_kwota: Money | None = None
+    """Bez znaku; kierunek mówi `drozej`. `None`, gdy aukcja nie ma ceny."""
+    roznica_procent: Decimal | None = None
+    drozej: bool = False
+
+
+@dataclass(slots=True, frozen=True)
 class PozycjaListy:
     """Jeden wiersz listy."""
 
@@ -232,6 +245,7 @@ class PozycjaListy:
     final_price_state: FinalPriceState = FinalPriceState.UNKNOWN
     obserwowana: bool = False
     notatka: str | None = None
+    wycena_ai: WycenaNaLiscie | None = None
 
     @property
     def nazwa(self) -> str:
@@ -394,6 +408,8 @@ class Okazja:
     Zawsze 0-100: przy dzieleniu przez cenę wywoławcza 1 zł zjadłaby ranking."""
     pewnosc: str
     wyceniono: dt.datetime
+    drozej: bool = False
+    """Zawsze fałsz, ale szablon czyta to pole tak samo jak `WycenaNaLiscie`."""
 
 
 @dataclass(slots=True, frozen=True)

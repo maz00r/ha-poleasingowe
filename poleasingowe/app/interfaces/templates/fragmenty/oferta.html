@@ -45,20 +45,24 @@
       </div>
     {% endif %}
 
-    {% if okazja %}
-    {# Obie miary widać zawsze, przełącznik wyróżnia tę, po której ułożono
-       ranking. Bez drugiej nie dałoby się ocenić, czy duży procent to
-       duża kwota. #}
+    {# Ranking okazji i zwykła lista czytają te same pola. Obie miary widać
+       zawsze, przełącznik wyróżnia tę, po której ułożono ranking. Bez drugiej
+       nie dałoby się ocenić, czy duży procent to duża kwota. #}
+    {% set w = okazja or p.wycena_ai %}
+    {% set wg = sortowanie.value if sortowanie else '' %}
+    {% if w %}
     <div class="okazja">
       <div class="okazja-wiersz">
         <span class="etykieta-ceny">Wycena AI z Otomoto (netto)</span>
-        <span class="okazja-wycena k-wycena">{{ okazja.wycena | kwota }}</span>
+        <span class="okazja-wycena k-wycena">{{ w.wycena | kwota }}</span>
       </div>
-      <div class="okazja-wiersz okazja-roznica">
-        <span class="k-taniej {{ 'okazja-wyroznik' if sortowanie.value == 'kwota' else '' }}"><span class="slowo-taniej">taniej o </span>{{ okazja.roznica_kwota | kwota }}</span>
-        <span class="k-procent {{ 'okazja-wyroznik' if sortowanie.value == 'procent' else '' }}">{{ okazja.roznica_procent | procent }}</span>
+      {% if w.roznica_kwota %}
+      <div class="okazja-wiersz okazja-roznica {{ 'okazja-drozej' if w.drozej }}">
+        <span class="k-taniej {{ 'okazja-wyroznik' if wg == 'kwota' else '' }}"><span class="slowo-taniej">{{ 'drożej' if w.drozej else 'taniej' }} o </span>{{ w.roznica_kwota | kwota }}</span>
+        <span class="k-procent {{ 'okazja-wyroznik' if wg == 'procent' else '' }}">{{ '+' if w.drozej }}{{ w.roznica_procent | procent }}</span>
       </div>
-      <div class="drobne">Pewność wyceny: {{ okazja.pewnosc }} · z {{ okazja.wyceniono | czas_lokalny }}</div>
+      {% endif %}
+      <div class="drobne">Pewność wyceny: {{ w.pewnosc }} · z {{ w.wyceniono | czas_lokalny }}</div>
     </div>
     {% endif %}
 

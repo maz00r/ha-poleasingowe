@@ -2054,34 +2054,34 @@ ul.uzasadnienie strong { font-weight: 700; }
   .uklad-listy { margin-left: auto; }
 }
 
-/* Tabela. Siatka z `subgrid` zamiast `<table>`, bo znacznik jest wspólny z
-   kafelkami. `display: contents` spłaszcza bloki pośrednie, a każda komórka ma
-   stałą kolumnę, więc brak rocznika nie przesuwa reszty wiersza. */
+/* Tabela. Wspólny znacznik z kafelkami, więc nie `<table>`: każdy wiersz to
+   osobna siatka o tych samych kolumnach. Tory są stałe albo `fr` ze stałym
+   minimum, czyli nie zależą od treści i wyrównują się bez `subgrid`, który
+   rozjeżdżał wiersze. `display: contents` spłaszcza bloki pośrednie, a komórki
+   mają stałe numery kolumn, więc brak rocznika niczego nie przesuwa. */
 .lista.lista-tabela {
-  --k-paliwo: 84px;
-  --k-skrzynia: 88px;
+  --k-rok: 54px;
+  --k-przebieg: 92px;
+  --k-paliwo: 76px;
+  --k-skrzynia: 86px;
   --k-lokalizacja: minmax(76px, 1fr);
-  --k-rok: 58px;
-  --k-przebieg: 98px;
-  --k-zrodlo: 112px;
-  --k-koniec: 92px;
-  grid-template-columns:
-    32px minmax(170px, 2.6fr) var(--k-rok) var(--k-przebieg) var(--k-paliwo)
-    var(--k-skrzynia) var(--k-lokalizacja) var(--k-zrodlo) var(--k-koniec)
-    124px;
-  gap: 0;
+  --k-zrodlo: 106px;
+  --k-koniec: 88px;
+  --k-taniej: 0px;
+  display: block;
+  container-type: inline-size;
   border: 1px solid var(--obramowanie-mocna);
   border-radius: var(--promien-maly);
 }
-.lista.lista-tabela.z-okazjami { grid-template-columns:
-  32px minmax(170px, 2.6fr) var(--k-rok) var(--k-przebieg) var(--k-paliwo)
-  var(--k-skrzynia) var(--k-lokalizacja) var(--k-zrodlo) var(--k-koniec)
-  124px 124px 126px 66px; }
+.lista.lista-tabela.z-okazjami { --k-taniej: 126px; }
 .lista-tabela .oferta,
 .lista-tabela .naglowek-tabeli {
+  --kolumny:
+    32px minmax(150px, 2.6fr) var(--k-rok) var(--k-przebieg) var(--k-paliwo)
+    var(--k-skrzynia) var(--k-lokalizacja) var(--k-zrodlo) var(--k-koniec)
+    120px 120px var(--k-taniej) 66px;
   display: grid;
-  grid-column: 1 / -1;
-  grid-template-columns: subgrid;
+  grid-template-columns: var(--kolumny);
   align-items: center;
   min-height: 35px;
   padding: 0 4px;
@@ -2141,6 +2141,10 @@ ul.uzasadnienie strong { font-weight: 700; }
 .lista-tabela .k-wycena { grid-column: 11; text-align: right; }
 .lista-tabela .k-taniej { grid-column: 12; text-align: right; color: var(--sukces); }
 .lista-tabela .k-procent { grid-column: 13; text-align: right; color: var(--sukces); }
+.lista-tabela:not(.z-okazjami) .k-taniej { display: none; }
+.lista-tabela .okazja-drozej .k-taniej,
+.lista-tabela .okazja-drozej .k-procent,
+.okazja-drozej { color: var(--przygaszony); }
 .lista-tabela .okazja-roznica { font-size: inherit; }
 .lista-tabela .slowo-taniej { display: none; }
 .lista-tabela .dalej { grid-column: 1 / -1; padding: 12px; text-align: center; }
@@ -2163,27 +2167,60 @@ ul.uzasadnienie strong { font-weight: 700; }
 }
 .lista-tabela .oferta.podglad-gora:hover .oferta-zdjecie { top: auto; bottom: 100%; }
 
-@media (max-width: 1240px) {
-  .lista.lista-tabela { --k-paliwo: 0; --k-skrzynia: 0; }
-  .lista-tabela .k-paliwo,
+/* Progi liczone od szerokości samej tabeli, a nie okna: panel filtrów zabiera
+   jej 300 px i da się go zwinąć. Kolumny znikają od najmniej potrzebnych. */
+@container (max-width: 1095px) {
+  .lista-tabela .oferta,
+  .lista-tabela .naglowek-tabeli { --k-skrzynia: 0px; }
   .lista-tabela .k-skrzynia { display: none; }
 }
-@media (max-width: 900px) {
-  .lista.lista-tabela { --k-zrodlo: 0; --k-lokalizacja: 0; }
-  .lista-tabela .k-zrodlo,
-  .lista-tabela .k-lokalizacja { display: none; }
+@container (max-width: 1005px) {
+  .lista-tabela .oferta,
+  .lista-tabela .naglowek-tabeli { --k-paliwo: 0px; }
+  .lista-tabela .k-paliwo { display: none; }
+}
+@container (max-width: 925px) {
+  .lista-tabela .oferta,
+  .lista-tabela .naglowek-tabeli { --k-zrodlo: 0px; }
+  .lista-tabela .k-zrodlo { display: none; }
+}
+@container (max-width: 825px) {
+  .lista-tabela .oferta,
+  .lista-tabela .naglowek-tabeli { --k-lokalizacja: 0px; --k-rok: 0px; }
+  .lista-tabela .k-lokalizacja,
+  .lista-tabela .k-rok { display: none; }
+}
+@container (max-width: 1221px) {
+  .lista-tabela.z-okazjami .oferta,
+  .lista-tabela.z-okazjami .naglowek-tabeli { --k-skrzynia: 0px; }
+  .lista-tabela.z-okazjami .k-skrzynia { display: none; }
+}
+@container (max-width: 1131px) {
+  .lista-tabela.z-okazjami .oferta,
+  .lista-tabela.z-okazjami .naglowek-tabeli { --k-paliwo: 0px; }
+  .lista-tabela.z-okazjami .k-paliwo { display: none; }
+}
+@container (max-width: 1051px) {
+  .lista-tabela.z-okazjami .oferta,
+  .lista-tabela.z-okazjami .naglowek-tabeli { --k-zrodlo: 0px; }
+  .lista-tabela.z-okazjami .k-zrodlo { display: none; }
+}
+@container (max-width: 951px) {
+  .lista-tabela.z-okazjami .oferta,
+  .lista-tabela.z-okazjami .naglowek-tabeli { --k-lokalizacja: 0px; --k-rok: 0px; }
+  .lista-tabela.z-okazjami .k-lokalizacja,
+  .lista-tabela.z-okazjami .k-rok { display: none; }
 }
 @media (max-width: 680px) {
-  .lista.lista-tabela { --k-rok: 0; --k-przebieg: 0; grid-template-columns: 28px minmax(0, 1fr) 0 0 0 0 0 0 76px 112px; }
-  .lista.lista-tabela.z-okazjami { grid-template-columns: 28px minmax(0, 1fr) 0 0 0 0 0 0 0 124px 0 0 56px; }
+  .lista-tabela .oferta,
+  .lista-tabela .naglowek-tabeli { --kolumny: 28px minmax(0, 1fr) 0 0 0 0 0 0 0 124px 0 0 56px; }
+  .lista-tabela .k-przebieg,
+  .lista-tabela .k-koniec,
+  .lista-tabela .k-wycena,
+  .lista-tabela .k-taniej { display: none; }
   .lista-tabela .k-cena,
   .lista-tabela .oferta-stopka .kwota,
   .lista-tabela .k-procent { padding: 0 4px; font-size: 12.5px; }
-  .lista-tabela .k-rok,
-  .lista-tabela .k-przebieg,
-  .lista-tabela.z-okazjami .k-koniec,
-  .lista-tabela .k-wycena,
-  .lista-tabela .k-taniej { display: none; }
   .lista-tabela .naglowek-tabeli { position: static; }
   .lista-tabela .oferta:hover .oferta-zdjecie { display: none; }
 }

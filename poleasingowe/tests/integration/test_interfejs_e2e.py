@@ -820,17 +820,6 @@ async def test_okazje_przelacznik_uklada_ranking(
     assert f"aukcja/{ids['audi-za-godzine']}\"" in domyslnie.text
 
 
-async def test_lista_nie_pokazuje_bloku_okazji(
-    klient: httpx.AsyncClient, pusta_baza: psycopg.AsyncConnection
-) -> None:
-    ids = await _dane(pusta_baza)
-    await _wycen(pusta_baza, ids["audi-za-godzine"], "150000")
-
-    odp = await klient.get("/")
-
-    assert 'class="okazja"' not in odp.text
-
-
 async def test_okazje_mowia_dlaczego_lista_jest_pusta(
     klient: httpx.AsyncClient, pusta_baza: psycopg.AsyncConnection
 ) -> None:
@@ -962,3 +951,17 @@ async def test_odznaka_wyceny_zostaje_po_odswiezeniu_karty(
     await _wycen(pusta_baza, ids["audi-za-godzine"], "150000")
     odp = await klient.get(f"/aukcja/{ids['audi-za-godzine']}/karta")
     assert "Wycena AI: 150" in odp.text
+
+
+async def test_lista_pokazuje_wycene_we_wszystkich_ukladach(
+    klient: httpx.AsyncClient, pusta_baza: psycopg.AsyncConnection
+) -> None:
+    ids = await _dane(pusta_baza)
+    await _wycen(pusta_baza, ids["audi-za-godzine"], "150000")
+    await _wycen(pusta_baza, ids["audi-za-tydzien"], "72000")
+    for uklad in ("kafelki", "lista", "tabela"):
+        klient.cookies.set(CIASTECZKO_UKLADU, uklad)
+        odp = await klient.get("/")
+        assert 'k-wycena">150\u00a0000,00\u00a0PLN' in odp.text, uklad
+        assert "taniej o </span>30\u00a0000,00\u00a0PLN" in odp.text, uklad
+        assert "drożej o </span>18\u00a0000,00\u00a0PLN" in odp.text, uklad

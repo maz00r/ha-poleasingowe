@@ -1,5 +1,14 @@
 # Historia zmian
 
+## 0.39.1 — w przygotowaniu
+
+**Tabela się nie rozjeżdża.** Wiersze mają teraz stałe kolumny, niezależne od
+treści, więc pusta skrzynia czy długi adres niczego nie przesuwają.
+
+**Wycena AI na liście aukcji.** Kafelki, lista i tabela pokazują wycenę z Otomoto
+przy każdej wycenionej aukcji, razem z różnicą do bieżącej ceny. Dotąd widać ją
+było tylko w Okazjach. Lista pokazuje też aukcje droższe od wyceny.
+
 ## 0.39.0 — w przygotowaniu
 
 **Aukcje z Leasygroup wracają.** Serwis zmienił format linków i aplikacja po cichu

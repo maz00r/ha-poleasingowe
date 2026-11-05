@@ -1205,3 +1205,25 @@ async def test_zakonczone_nowsze_wystawienie_nie_chowa_aktywnego(
     okazje = await PgZapytania(pusta_baza).okazje(SortowanieOkazji.KWOTA, 10)
 
     assert [o.pozycja.id for o in okazje] == [stare]
+
+
+async def test_lista_niesie_wycene_z_otomoto_i_kierunek_roznicy(
+    pusta_baza: psycopg.AsyncConnection,
+) -> None:
+    ids = await _dane(pusta_baza)
+    await _wycen(pusta_baza, ids["audi-za-godzine"], "150000")  # cena 120 000
+    await _wycen(pusta_baza, ids["audi-za-tydzien"], "72000")  # cena 90 000
+    strona = await PgZapytania(pusta_baza).lista(Kryteria(), None, 50)
+    wyceny = {p.external_id: p.wycena_ai for p in strona.pozycje}
+
+    tansza = wyceny["audi-za-godzine"]
+    assert tansza is not None and not tansza.drozej
+    assert tansza.roznica_kwota == _pln("30000")
+    assert tansza.roznica_procent == Decimal("20")
+
+    drozsza = wyceny["audi-za-tydzien"]
+    assert drozsza is not None and drozsza.drozej
+    assert drozsza.roznica_kwota == _pln("18000")
+    assert drozsza.roznica_procent == Decimal("25")
+
+    assert wyceny["vw-za-dwie-godziny"] is None

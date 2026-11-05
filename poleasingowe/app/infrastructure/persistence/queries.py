@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import datetime as dt
 from collections.abc import Sequence
+from dataclasses import replace
 from decimal import Decimal
 from typing import Any, Final
 
@@ -36,6 +37,7 @@ from app.application.read_models import (
     StanZrodla,
     Strona,
     Szczegoly,
+    WycenaNaLiscie,
     Zakres,
     ZdarzenieLicytacji,
 )
@@ -100,6 +102,19 @@ ZRODLO_LISTY = sql.SQL("""
 FROM app.auction AS a
 JOIN app.source AS s ON s.id = a.source_id
 LEFT JOIN app.watchlist AS w ON w.auction_id = a.id
+""")
+
+# Tylko lista: wycena przy pozycji. Ta sama waluta i źródło co w rankingu okazji,
+# inaczej dwa miejsca pokazywałyby różne różnice dla tej samej aukcji.
+KOLUMNY_WYCENY = sql.SQL("""
+    , v.value_amount AS wycena_kwota, v.confidence AS wycena_pewnosc,
+    v.created_at AS wycena_czas
+""")
+ZRODLO_WYCENY = sql.SQL("""
+LEFT JOIN app.ai_valuation AS v
+    ON v.auction_id = a.id
+    AND v.source_kind = 'OTOMOTO'
+    AND v.currency = a.currency
 """)
 
 SQL_SZCZEGOLY = sql.SQL("""
@@ -458,6 +473,27 @@ def _money(kwota: Decimal | None, waluta: str | None) -> Money | None:
     return Money(kwota, Currency(waluta))
 
 
+def _wycena_na_liscie(w: dict[str, Any]) -> WycenaNaLiscie | None:
+    kwota = w.get("wycena_kwota")
+    if kwota is None:
+        return None
+    waluta = Currency(w["currency"])
+    wynik = WycenaNaLiscie(
+        wycena=Money(kwota, waluta),
+        pewnosc=w["wycena_pewnosc"],
+        wyceniono=w["wycena_czas"],
+    )
+    cena = w["price_current"] or w["price_start"]
+    if not cena or not kwota:
+        return wynik
+    return replace(
+        wynik,
+        roznica_kwota=Money(abs(kwota - cena), waluta),
+        roznica_procent=abs(kwota - cena) / kwota * 100,
+        drozej=cena > kwota,
+    )
+
+
 def _na_pozycje(w: dict[str, Any]) -> PozycjaListy:
     return PozycjaListy(
         id=w["id"],
@@ -482,6 +518,7 @@ def _na_pozycje(w: dict[str, Any]) -> PozycjaListy:
         final_price_state=FinalPriceState(w["final_price_state"]),
         obserwowana=w["obserwowana"],
         notatka=w["note"],
+        wycena_ai=_wycena_na_liscie(w),
     )
 
 
@@ -686,7 +723,9 @@ class PgZapytania:
             [
                 sql.SQL("SELECT"),
                 KOLUMNY_LISTY,
+                KOLUMNY_WYCENY,
                 ZRODLO_LISTY,
+                ZRODLO_WYCENY,
                 sql.SQL("WHERE"),
                 sql.SQL(" AND ").join(warunki),
                 _sortowanie(klucz),
