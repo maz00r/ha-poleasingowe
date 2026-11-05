@@ -2144,7 +2144,7 @@ ul.uzasadnienie strong { font-weight: 700; }
 .lista-tabela:not(.z-okazjami) .k-taniej { display: none; }
 .lista-tabela .okazja-drozej .k-taniej,
 .lista-tabela .okazja-drozej .k-procent,
-.okazja-drozej { color: var(--przygaszony); }
+.okazja-drozej { color: var(--alarm); }
 .lista-tabela .okazja-roznica { font-size: inherit; }
 .lista-tabela .slowo-taniej { display: none; }
 .lista-tabela .dalej { grid-column: 1 / -1; padding: 12px; text-align: center; }

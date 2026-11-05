@@ -1,5 +1,10 @@
 # Historia zmian
 
+## 0.39.2 — w przygotowaniu
+
+**Czerwone „drożej o”.** Aukcja droższa od wyceny ma różnicę na czerwono, tak jak
+tańsza ma ją na zielono.
+
 ## 0.39.1 — w przygotowaniu
 
 **Tabela się nie rozjeżdża.** Wiersze mają teraz stałe kolumny, niezależne od
