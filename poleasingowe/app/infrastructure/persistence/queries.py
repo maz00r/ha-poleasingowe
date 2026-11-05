@@ -88,6 +88,21 @@ KLUCZE: Final[dict[Sortowanie, _Klucz]] = {
     ),
 }
 
+# Dawro nie podaje licznika, ale każde nowe maksimum ceny to co najmniej jedna
+# oferta. Przy 50 wierszach listy to mało: tylko dawro i tylko bez licznika.
+DOLNA_LICZBA_OFERT = sql.SQL("""
+    CASE WHEN s.key = 'dawro' AND a.bid_count IS NULL THEN (
+        SELECT NULLIF(count(*) FILTER (WHERE price > poprzednie_maksimum), 0)
+        FROM (
+            SELECT price, max(price) OVER (
+                ORDER BY ts ROWS BETWEEN UNBOUNDED PRECEDING AND 1 PRECEDING
+            ) AS poprzednie_maksimum
+            FROM app.price_snapshot
+            WHERE auction_id = a.id
+        ) AS zmiany
+    ) END
+""")
+
 KOLUMNY_LISTY = sql.SQL("""
     a.id, s.key AS source_key, a.external_id, a.url, a.status,
     a.make, a.model, a.variant, a.year, a.mileage_km, a.fuel, a.gearbox,
@@ -95,8 +110,10 @@ KOLUMNY_LISTY = sql.SQL("""
     a.location, a.price_start, a.price_current, a.currency, a.bid_count,
     a.ends_at, a.first_seen_at, a.final_price_state,
     (w.auction_id IS NOT NULL) AS obserwowana,
-    w.note
-""")
+    w.note,
+    s.bid_count_semantics AS semantyka_licznika,
+    {dolna_liczba_ofert} AS bid_count_min
+""").format(dolna_liczba_ofert=DOLNA_LICZBA_OFERT)
 
 ZRODLO_LISTY = sql.SQL("""
 FROM app.auction AS a
@@ -130,21 +147,12 @@ SELECT
     a.bid_increment_raw, a.last_seen_at, a.next_poll_at, a.poll_tier,
     a.last_price_lead_seconds, a.duplicate_of, a.vat_info,
     s.bid_count_semantics AS semantyka_licznika,
-    CASE WHEN s.key = 'dawro' AND a.bid_count IS NULL THEN (
-        SELECT NULLIF(count(*) FILTER (WHERE price > poprzednie_maksimum), 0)
-        FROM (
-            SELECT price, max(price) OVER (
-                ORDER BY ts ROWS BETWEEN UNBOUNDED PRECEDING AND 1 PRECEDING
-            ) AS poprzednie_maksimum
-            FROM app.price_snapshot
-            WHERE auction_id = a.id
-        ) AS zmiany
-    ) END AS bid_count_min
+    {dolna_liczba_ofert} AS bid_count_min
 FROM app.auction AS a
 JOIN app.source AS s ON s.id = a.source_id
 LEFT JOIN app.watchlist AS w ON w.auction_id = a.id
 WHERE a.id = %s
-""")
+""").format(dolna_liczba_ofert=DOLNA_LICZBA_OFERT)
 
 SQL_POROWNANIA_RYNKOWE = sql.SQL("""
 WITH cel AS (
@@ -519,6 +527,8 @@ def _na_pozycje(w: dict[str, Any]) -> PozycjaListy:
         obserwowana=w["obserwowana"],
         notatka=w["note"],
         wycena_ai=_wycena_na_liscie(w),
+        semantyka_licznika=BidCountSemantics(w["semantyka_licznika"]),
+        bid_count_min=w["bid_count_min"],
     )
 
 

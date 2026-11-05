@@ -14,6 +14,8 @@ from decimal import Decimal
 from urllib.parse import urlencode
 from zoneinfo import ZoneInfo
 
+from app.application.read_models import PozycjaListy
+from app.domain.enums import BidCountSemantics
 from app.domain.value_objects import Money
 
 STREFA = ZoneInfo("Europe/Warsaw")
@@ -45,6 +47,37 @@ def kwota(wartosc: Money | None) -> str:
 def procent(wartosc: Decimal) -> str:
     """`29,5%` — jedno miejsce po przecinku, jak kwoty: z przecinkiem."""
     return f"{wartosc:.1f}".replace(".", ",") + "%"
+
+
+def odmiana(liczba: int, jeden: str, kilka: str, wiele: str) -> str:
+    """Polska odmiana: `1 oferta`, `2 oferty`, `5 ofert`, `12 ofert`, `22 oferty`."""
+    if liczba == 1:
+        return f"{liczba} {jeden}"
+    if liczba % 10 in (2, 3, 4) and liczba % 100 not in (12, 13, 14):
+        return f"{liczba} {kilka}"
+    return f"{liczba} {wiele}"
+
+
+def _oferty(liczba: int) -> str:
+    return odmiana(liczba, "oferta", "oferty", "ofert")
+
+
+def licznik_ofert(p: PozycjaListy) -> str:
+    """Pełny opis licznika. EFL liczy uczestników, a nie oferty (RECON.md §3.5)."""
+    if p.bid_count is not None:
+        if p.semantyka_licznika is BidCountSemantics.PARTICIPANTS:
+            return odmiana(p.bid_count, "uczestnik", "uczestników", "uczestników")
+        return _oferty(p.bid_count)
+    if p.bid_count_min is not None:
+        return f"min. {_oferty(p.bid_count_min)}"
+    return "liczba ofert nieznana"
+
+
+def licznik_krotki(p: PozycjaListy) -> str:
+    """Do wąskiej kolumny tabeli; pełny opis stoi w podpowiedzi."""
+    if p.bid_count is not None:
+        return str(p.bid_count)
+    return "—" if p.bid_count_min is None else f"≥{p.bid_count_min}"
 
 
 def kwota_w_polu(wartosc: Money | None) -> str:
@@ -168,6 +201,8 @@ def zarejestruj(srodowisko: object) -> None:
     filtry["kwota"] = kwota
     filtry["kwota_w_polu"] = kwota_w_polu
     filtry["procent"] = procent
+    filtry["licznik_ofert"] = licznik_ofert
+    filtry["licznik_krotki"] = licznik_krotki
     filtry["parametry_url"] = parametry_url
     filtry["liczba"] = liczba
     filtry["bajty"] = bajty

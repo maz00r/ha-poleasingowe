@@ -30,6 +30,7 @@
 
     {# Tylko w tabeli: na kafelku te dane stoją na zdjęciu, które tam jest ukryte. #}
     <span class="tylko-tabela k-zrodlo">{{ p.source_key }}</span>
+    <span class="tylko-tabela k-oferty" title="{{ p | licznik_ofert }}">{{ p | licznik_krotki }}</span>
     <span class="tylko-tabela k-koniec {{ pilnosc }}">
       {%- if p.status.value == 'ACTIVE' %}{{ p.ends_at | do_konca(teraz) }}{% else %}{{ p.final_price_state.value }}{% endif -%}
     </span>
@@ -70,9 +71,7 @@
       <div>
         <div class="etykieta-ceny">{{ 'Aktualna oferta' if p.price_current else 'Cena wywoławcza' }}</div>
         <div class="kwota">{{ cena_wyswietlana | kwota }}</div>
-        {% if p.bid_count is not none %}
-          <div class="drobne">{{ p.bid_count }} ofert</div>
-        {% endif %}
+        <div class="drobne">{{ p | licznik_ofert }}</div>
       </div>
       <div class="termin">
         {% if p.ends_at %}<div>{{ p.ends_at | czas_lokalny }}</div>{% endif %}

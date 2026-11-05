@@ -8,7 +8,7 @@ from decimal import Decimal
 import pytest
 
 from app.application.read_models import PozycjaListy
-from app.domain.enums import AuctionStatus, Currency
+from app.domain.enums import AuctionStatus, BidCountSemantics, Currency
 from app.domain.value_objects import Money
 from app.interfaces.web import eksport
 from app.interfaces.web.filtry_szablonu import (
@@ -20,6 +20,9 @@ from app.interfaces.web.filtry_szablonu import (
     kwota,
     kwota_w_polu,
     liczba,
+    licznik_krotki,
+    licznik_ofert,
+    odmiana,
     procent,
     punkty_uzasadnienia,
 )
@@ -188,3 +191,61 @@ def test_stare_uzasadnienie_dzielone_na_zdania() -> None:
 )
 def test_procent_z_przecinkiem(wartosc: Decimal, oczekiwane: str) -> None:
     assert procent(wartosc) == oczekiwane
+
+
+@pytest.mark.parametrize(
+    ("liczba", "oczekiwane"),
+    [
+        (0, "0 ofert"),
+        (1, "1 oferta"),
+        (2, "2 oferty"),
+        (4, "4 oferty"),
+        (5, "5 ofert"),
+        (11, "11 ofert"),
+        (12, "12 ofert"),
+        (14, "14 ofert"),
+        (21, "21 ofert"),
+        (22, "22 oferty"),
+        (101, "101 ofert"),
+        (112, "112 ofert"),
+        (122, "122 oferty"),
+    ],
+)
+def test_odmiana_ofert(liczba: int, oczekiwane: str) -> None:
+    assert odmiana(liczba, "oferta", "oferty", "ofert") == oczekiwane
+
+
+def _z_licznikiem(**pola: object) -> PozycjaListy:
+    return PozycjaListy(
+        id=1,
+        source_key="x",
+        external_id="1",
+        url="https://przyklad.test/",
+        status=AuctionStatus.ACTIVE,
+        **pola,  # type: ignore[arg-type]
+    )
+
+
+@pytest.mark.parametrize(
+    ("pola", "pelny", "krotki"),
+    [
+        (
+            {"bid_count": 2, "semantyka_licznika": BidCountSemantics.OFFERS},
+            "2 oferty",
+            "2",
+        ),
+        (
+            {"bid_count": 1, "semantyka_licznika": BidCountSemantics.PARTICIPANTS},
+            "1 uczestnik",
+            "1",
+        ),
+        ({"bid_count_min": 3}, "min. 3 oferty", "≥3"),
+        ({}, "liczba ofert nieznana", "—"),
+    ],
+)
+def test_licznik_mowi_co_naprawde_liczy(
+    pola: dict[str, object], pelny: str, krotki: str
+) -> None:
+    pozycja = _z_licznikiem(**pola)
+    assert licznik_ofert(pozycja) == pelny
+    assert licznik_krotki(pozycja) == krotki

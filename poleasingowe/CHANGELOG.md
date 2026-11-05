@@ -1,5 +1,12 @@
 # Historia zmian
 
+## 0.39.3 — w przygotowaniu
+
+**Liczba ofert przy każdej aukcji.** Lista i karta aukcji odmieniają ją poprawnie
+(0 ofert, 1 oferta, 2 oferty, 5 ofert), a tabela ma nową kolumnę Oferty. EFL podaje
+uczestników, więc tak jest to opisane. Przy Dawro widać dolne oszacowanie (min.),
+a gdy serwis nie podaje licznika, stoi „liczba ofert nieznana”.
+
 ## 0.39.2 — w przygotowaniu
 
 **Czerwone „drożej o”.** Aukcja droższa od wyceny ma różnicę na czerwono, tak jak

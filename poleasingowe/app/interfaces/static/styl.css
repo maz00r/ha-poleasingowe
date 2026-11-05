@@ -2079,7 +2079,7 @@ ul.uzasadnienie strong { font-weight: 700; }
   --kolumny:
     32px minmax(150px, 2.6fr) var(--k-rok) var(--k-przebieg) var(--k-paliwo)
     var(--k-skrzynia) var(--k-lokalizacja) var(--k-zrodlo) var(--k-koniec)
-    120px 120px var(--k-taniej) 66px;
+    58px 120px 120px var(--k-taniej) 66px;
   display: grid;
   grid-template-columns: var(--kolumny);
   align-items: center;
@@ -2136,11 +2136,12 @@ ul.uzasadnienie strong { font-weight: 700; }
 .lista-tabela .k-zrodlo { grid-column: 8; color: var(--przygaszony); text-transform: uppercase; font-size: 11px; }
 .lista-tabela .k-koniec { grid-column: 9; font-weight: 700; }
 .lista-tabela .k-koniec.konczy-sie { color: var(--akcent); }
+.lista-tabela .k-oferty { grid-column: 10; text-align: right; }
 .lista-tabela .k-cena,
-.lista-tabela .oferta-stopka .kwota { grid-column: 10; padding: 0 8px; font-size: 13.5px; font-weight: 800; letter-spacing: -0.02em; text-align: right; }
-.lista-tabela .k-wycena { grid-column: 11; text-align: right; }
-.lista-tabela .k-taniej { grid-column: 12; text-align: right; color: var(--sukces); }
-.lista-tabela .k-procent { grid-column: 13; text-align: right; color: var(--sukces); }
+.lista-tabela .oferta-stopka .kwota { grid-column: 11; padding: 0 8px; font-size: 13.5px; font-weight: 800; letter-spacing: -0.02em; text-align: right; }
+.lista-tabela .k-wycena { grid-column: 12; text-align: right; }
+.lista-tabela .k-taniej { grid-column: 13; text-align: right; color: var(--sukces); }
+.lista-tabela .k-procent { grid-column: 14; text-align: right; color: var(--sukces); }
 .lista-tabela:not(.z-okazjami) .k-taniej { display: none; }
 .lista-tabela .okazja-drozej .k-taniej,
 .lista-tabela .okazja-drozej .k-procent,
@@ -2169,43 +2170,43 @@ ul.uzasadnienie strong { font-weight: 700; }
 
 /* Progi liczone od szerokości samej tabeli, a nie okna: panel filtrów zabiera
    jej 300 px i da się go zwinąć. Kolumny znikają od najmniej potrzebnych. */
-@container (max-width: 1095px) {
+@container (max-width: 1153px) {
   .lista-tabela .oferta,
   .lista-tabela .naglowek-tabeli { --k-skrzynia: 0px; }
   .lista-tabela .k-skrzynia { display: none; }
 }
-@container (max-width: 1005px) {
+@container (max-width: 1063px) {
   .lista-tabela .oferta,
   .lista-tabela .naglowek-tabeli { --k-paliwo: 0px; }
   .lista-tabela .k-paliwo { display: none; }
 }
-@container (max-width: 925px) {
+@container (max-width: 983px) {
   .lista-tabela .oferta,
   .lista-tabela .naglowek-tabeli { --k-zrodlo: 0px; }
   .lista-tabela .k-zrodlo { display: none; }
 }
-@container (max-width: 825px) {
+@container (max-width: 883px) {
   .lista-tabela .oferta,
   .lista-tabela .naglowek-tabeli { --k-lokalizacja: 0px; --k-rok: 0px; }
   .lista-tabela .k-lokalizacja,
   .lista-tabela .k-rok { display: none; }
 }
-@container (max-width: 1221px) {
+@container (max-width: 1279px) {
   .lista-tabela.z-okazjami .oferta,
   .lista-tabela.z-okazjami .naglowek-tabeli { --k-skrzynia: 0px; }
   .lista-tabela.z-okazjami .k-skrzynia { display: none; }
 }
-@container (max-width: 1131px) {
+@container (max-width: 1189px) {
   .lista-tabela.z-okazjami .oferta,
   .lista-tabela.z-okazjami .naglowek-tabeli { --k-paliwo: 0px; }
   .lista-tabela.z-okazjami .k-paliwo { display: none; }
 }
-@container (max-width: 1051px) {
+@container (max-width: 1109px) {
   .lista-tabela.z-okazjami .oferta,
   .lista-tabela.z-okazjami .naglowek-tabeli { --k-zrodlo: 0px; }
   .lista-tabela.z-okazjami .k-zrodlo { display: none; }
 }
-@container (max-width: 951px) {
+@container (max-width: 1009px) {
   .lista-tabela.z-okazjami .oferta,
   .lista-tabela.z-okazjami .naglowek-tabeli { --k-lokalizacja: 0px; --k-rok: 0px; }
   .lista-tabela.z-okazjami .k-lokalizacja,
@@ -2213,9 +2214,10 @@ ul.uzasadnienie strong { font-weight: 700; }
 }
 @media (max-width: 680px) {
   .lista-tabela .oferta,
-  .lista-tabela .naglowek-tabeli { --kolumny: 28px minmax(0, 1fr) 0 0 0 0 0 0 0 124px 0 0 56px; }
+  .lista-tabela .naglowek-tabeli { --kolumny: 28px minmax(0, 1fr) 0 0 0 0 0 0 0 0 124px 0 0 56px; }
   .lista-tabela .k-przebieg,
   .lista-tabela .k-koniec,
+  .lista-tabela .k-oferty,
   .lista-tabela .k-wycena,
   .lista-tabela .k-taniej { display: none; }
   .lista-tabela .k-cena,

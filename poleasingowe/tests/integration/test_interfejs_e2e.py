@@ -309,8 +309,8 @@ async def test_dawro_pokazuje_minimum_ofert_z_wzrostow_ceny(
     odp = await klient.get(f"/aukcja/{aukcja_id}")
     fragment = await klient.get(f"/aukcja/{aukcja_id}/karta")
     assert odp.status_code == fragment.status_code == 200
-    assert "co najmniej 7 ofert" in odp.text
-    assert "co najmniej 7 ofert" in fragment.text
+    assert "min. 7 ofert" in odp.text
+    assert "min. 7 ofert" in fragment.text
     assert "Ofert co najmniej" in odp.text
 
     # Korekta w dół i powrót do wcześniejszej kwoty nie są nowymi maksimami.
@@ -323,12 +323,12 @@ async def test_dawro_pokazuje_minimum_ofert_z_wzrostow_ceny(
             )
         )
     po_korekcie = await klient.get(f"/aukcja/{aukcja_id}")
-    assert "co najmniej 7 ofert" in po_korekcie.text
+    assert "min. 7 ofert" in po_korekcie.text
 
     async with pusta_baza.cursor() as cur:
         await cur.execute("UPDATE app.source SET key = 'efl' WHERE key = 'dawro'")
     inny_serwis = await klient.get(f"/aukcja/{aukcja_id}")
-    assert "co najmniej 7 ofert" not in inny_serwis.text
+    assert "min. 7 ofert" not in inny_serwis.text
 
 
 async def test_przebieg_laczy_dokladne_oferty_ze_snapshotami(

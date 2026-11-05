@@ -246,6 +246,10 @@ class PozycjaListy:
     obserwowana: bool = False
     notatka: str | None = None
     wycena_ai: WycenaNaLiscie | None = None
+    semantyka_licznika: BidCountSemantics = BidCountSemantics.UNKNOWN
+    """Co liczy `bid_count`: oferty, uczestników czy nie wiadomo co."""
+    bid_count_min: int | None = None
+    """Dolne oszacowanie liczby ofert, gdy serwis nie podaje licznika."""
 
     @property
     def nazwa(self) -> str:

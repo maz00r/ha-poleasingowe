@@ -43,7 +43,7 @@
       <span class="kwota">{{ cena_wyswietlana | kwota }}</span>
       <div class="drobne">
         {% if p.ends_at %}{{ p.ends_at | do_konca(teraz) }} · {% endif %}
-        {% if p.bid_count is not none %}{{ p.bid_count }} {{ etykieta_licznika | lower }}{% elif dane.bid_count_min is not none %}co najmniej {{ dane.bid_count_min }} ofert{% else %}liczba ofert nieznana{% endif %}
+        {{ p | licznik_ofert }}
       </div>
       {% include "fragmenty/obserwowanie-szczegoly.html" %}
     </div>
