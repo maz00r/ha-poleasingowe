@@ -94,7 +94,8 @@ services:
     cap_add:
       - NET_ADMIN
     # Jedna wycena to do ok. 600 MiB. Przy braku pamięci ma paść ona, nie baza.
-    mem_limit: 1500m
+    # Limit musi być niższy niż RAM LXC, inaczej nie chroni bazy (dziś 1280 MiB).
+    mem_limit: 1000m
     healthcheck:
       test:
         - CMD-SHELL

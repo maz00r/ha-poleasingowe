@@ -226,8 +226,10 @@ Dockera `ai`, bez publikowania portu. Aplikacja łączy się z nią po nazwie, w
 nie potrzeba tunelu ani otwierania zapory. Usługa ma profil `ai`: wstaje tylko
 z `--profile ai`, a deploy z CI (§6) jej nie dotyka.
 
-Jedna wycena zajmuje do ok. 600 MiB, a kontener ma limit 1,5 GiB. Sprawdź
-`free -m` i w razie potrzeby zwiększ pamięć LXC do co najmniej 3 GiB.
+Jedna wycena zajmuje do ok. 600 MiB, a kontener ma limit 1000 MiB. Wewnątrz LXC
+sprawdź `free -m`: maszyna potrzebuje co najmniej 1280 MiB RAM i 1 GiB swapu
+(`pct set ID --memory 1280 --swap 1024` na hoście). Limit kontenera musi być
+niższy niż RAM LXC, inaczej przy braku pamięci może paść Postgres.
 
 Token utwórz na komputerze z przeglądarką. Nie kopiuj tokenu z pęku kluczy,
 bo szybko wygasa:
