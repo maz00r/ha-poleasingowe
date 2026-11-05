@@ -288,14 +288,20 @@ def _liczba_lub_none(wartosc: object) -> int | None:
 _KONIEC_NAPISU = re.compile(r'\s*(?:[:}\]]|$|,\s*(?:["{\[\-\d]|true\b|false\b|null\b))')
 
 
-def _napraw_cudzyslowy(tekst: str) -> str:
-    """Escapuje cudzysłowy, które model zostawił w środku napisów JSON.
+_DOMKNIECIA = {"{": "}", "[": "]"}
 
-    DeepSeek ma tylko tryb `json_object`, bez wymuszonego schematu, i cytując
-    dokument potrafi wstawić `"` do uzasadnienia. Poprawka jest zachowawcza:
-    gdy nie wystarczy, parser i tak odrzuci wynik, a wycena powtórzy żądanie.
+
+def _napraw_json(tekst: str) -> str:
+    """Naprawia dwa błędy składni, które zdarzają się w odpowiedziach modelu.
+
+    DeepSeek ma tylko tryb `json_object`, bez wymuszonego schematu. Bywa, że
+    zgubi `]` na końcu ostatniej tablicy (log z 2026-11-04: odpowiedź kończyła
+    się `…PLN."}`), a cytując dokument wstawia do napisu prosty cudzysłów.
+    Poprawka jest zachowawcza: gdy nie wystarczy, parser i tak odrzuci wynik,
+    a brak wymaganego pola wyłapie `_z_tekstu`.
     """
     wynik: list[str] = []
+    otwarte: list[str] = []
     w_napisie = False
     i = 0
     while i < len(tekst):
@@ -311,13 +317,18 @@ def _napraw_cudzyslowy(tekst: str) -> str:
                 w_napisie = False
             else:
                 wynik.append("\\")
+        elif not w_napisie and znak in _DOMKNIECIA:
+            otwarte.append(_DOMKNIECIA[znak])
+        elif not w_napisie and znak in otwarte:
+            while (domkniecie := otwarte.pop()) != znak:
+                wynik.append(domkniecie)
         wynik.append(znak)
         i += 1
     return "".join(wynik)
 
 
 def _wczytaj_json(tekst: str) -> Any:
-    """JSON modelu, w razie potrzeby po naprawie cudzysłowów.
+    """JSON modelu, w razie potrzeby po naprawie składni.
 
     Fragment wokół błędu trafia do logu, bo bez niego nie widać, co dokładnie
     zepsuło odpowiedź, a kolejne żądanie kosztuje tyle samo co pierwsze.
@@ -326,12 +337,12 @@ def _wczytaj_json(tekst: str) -> Any:
         return json.loads(tekst)
     except json.JSONDecodeError as exc:
         try:
-            dane = json.loads(_napraw_cudzyslowy(tekst))
+            dane = json.loads(_napraw_json(tekst))
         except json.JSONDecodeError:
             fragment = tekst[max(0, exc.pos - 80) : exc.pos + 80]
             log.warning("niepoprawny JSON modelu przy: %r", fragment)
             raise exc from None
-        log.info("naprawiono cudzysłowy w JSON-ie modelu")
+        log.info("naprawiono składnię JSON-u modelu (%s)", exc)
         return dane
 
 

@@ -1,5 +1,15 @@
 # Historia zmian
 
+## 0.35.4 — w przygotowaniu
+
+**Rzadziej ponawiana wycena przez zepsuty JSON.** Log z fragmentem odpowiedzi
+pokazał prawdziwą przyczynę: model potrafi zgubić `]` na końcu ostatniej tablicy.
+Aplikacja dopisuje teraz brakujący nawias sama, bez drugiego płatnego żądania.
+
+**Czytelniejsze logi.** Ostrzeżenia `pypdf` o fontach z rzadkimi znakami
+fonetycznymi nie trafiają już do logu. Nie dotyczą polskiego tekstu, a zasłaniały
+prawdziwe błędy.
+
 ## 0.35.3 — w przygotowaniu
 
 **Pełne przemiaty EFL i poleasingowe.** Strona za ostatnią stroną listy wyglądała

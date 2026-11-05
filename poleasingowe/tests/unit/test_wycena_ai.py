@@ -947,11 +947,32 @@ def test_cudzyslow_w_tekscie_nie_psuje_odpowiedzi(
     assert _wczytaj_json(zepsuty) == oczekiwane
 
 
+@pytest.mark.parametrize(
+    ("zepsuty", "oczekiwane"),
+    [
+        # Koniec odpowiedzi z logu produkcji z 2026-11-04.
+        (
+            '{"wartosc": 1, "zalozenia": ["a", "maksimum do 170 200 PLN."}',
+            {"wartosc": 1, "zalozenia": ["a", "maksimum do 170 200 PLN."]},
+        ),
+        # Nawias w tekście nie jest nawiasem JSON-u.
+        ('{"a": ["x } y", "z ] w"}', {"a": ["x } y", "z ] w"]}),
+        ('{"a": [{"b": ["c"}]}', {"a": [{"b": ["c"]}]}),
+    ],
+)
+def test_zgubiony_nawias_tablicy_nie_psuje_odpowiedzi(
+    zepsuty: str, oczekiwane: dict[str, Any]
+) -> None:
+    from app.infrastructure.wycena_ai import _wczytaj_json
+
+    assert _wczytaj_json(zepsuty) == oczekiwane
+
+
 def test_poprawny_json_nie_jest_zmieniany() -> None:
-    from app.infrastructure.wycena_ai import _napraw_cudzyslowy
+    from app.infrastructure.wycena_ai import _napraw_json
 
     tekst = '{"a": "x, y", "b": ["c", "d"], "e": {"f": -1, "g": true}}'
-    assert _napraw_cudzyslowy(tekst) == tekst
+    assert _napraw_json(tekst) == tekst
 
 
 def test_nienaprawialny_json_trafia_do_logu_i_jest_bledem(
