@@ -63,6 +63,14 @@ def test_claudebox_nie_wymaga_tokenu_poza_swoim_profilem() -> None:
     assert zmienne["CLAUDEBOX_API_KEY"] == "${CLAUDEBOX_API_KEY:-}"
 
 
+def test_claudebox_ma_dns_przy_firewallu_obrazu() -> None:
+    """Firewall obrazu odcina resolver, a bez DNS Claude wisi na żądaniu do API."""
+    claudebox = _compose()["services"]["claudebox"]
+    assert claudebox["dns"] == ["8.8.8.8"]
+    assert "-d 8.8.8.8 -p udp --dport 53 -j ACCEPT" in claudebox["command"][2]
+    assert "getent hosts api.anthropic.com" in claudebox["healthcheck"]["test"][1]
+
+
 def test_claudebox_jest_przypiety_po_digescie() -> None:
     """Obraz dostaje token konta, a `latest` zmieniłby się bez naszej wiedzy."""
     obraz = _compose()["services"]["claudebox"]["image"]

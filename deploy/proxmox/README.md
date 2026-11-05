@@ -249,7 +249,7 @@ docker compose --profile ai up -d claudebox
 docker compose --profile ai ps claudebox
 ```
 
-Stan musi przejść na `healthy`. Kontrola obejmuje też firewall: entrypoint
+Stan musi przejść na `healthy`. Kontrola obejmuje DNS i firewall: entrypoint
 obrazu startuje nawet wtedy, gdy reguły się nie założą, a w logu i tak pisze
 „Firewall rules applied”. Przy `unhealthy` zajrzyj do
 `docker compose --profile ai logs claudebox`. Błędy `iptables` zwykle oznaczają
@@ -260,8 +260,8 @@ Sprawdź izolację. Pierwsze polecenie ma zakończyć się błędem połączenia
 ma wypisać `"tools":[]`:
 
 ```bash
-docker compose --profile ai exec claudebox curl -sS -m 6 https://example.com
-docker compose --profile ai exec claudebox sh -c \
+docker compose --profile ai exec -T claudebox curl -sS -m 6 https://example.com
+docker compose --profile ai exec -T claudebox sh -c \
   'cd /workspace && claude -p --output-format stream-json --verbose --no-session-persistence --dangerously-skip-permissions --model haiku -- ok' \
   | grep -o '"tools":\[[^]]*\]'
 ```
@@ -300,6 +300,10 @@ Dlaczego tak:
   `claudebox/managed-settings.json` odbiera wszystkie narzędzia. Lista jest
   odmową nazw, a nie listą dozwolonych, więc po każdej zmianie digestu obrazu
   powtórz kontrolę `"tools":[]` i dopisz nowe narzędzia.
+- Docker na Linuksie pyta resolver z sieci kontenera, a firewall obrazu tego
+  ruchu nie przepuszcza. Dlatego `compose.yaml` ustawia resolver `8.8.8.8`
+  i wpuszcza tylko jego. Bez tego Claude wisi, choć adresy Anthropic są
+  dozwolone.
 - `/prompt` nie ma uwierzytelnienia, `CLAUDEBOX_API_KEY` chroni tylko `/v1/*`.
   Stąd brak portów. Claudebox nie jest też w sieci `backend`, więc nie widzi
   Postgresa.

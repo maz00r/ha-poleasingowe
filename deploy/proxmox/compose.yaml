@@ -78,6 +78,17 @@ services:
       # Serwer uruchamia Claude'a z --dangerously-skip-permissions, a do
       # promptu trafiają cudze dokumenty aukcji. Wycenie narzędzia są zbędne.
       - ./claudebox/managed-settings.json:/etc/claude-code/managed-settings.json:ro
+    # Docker na Linuksie pyta resolver z sieci kontenera, a firewall entrypointu
+    # przepuszcza tylko 127.0.0.11 i bramę. Bez tej reguły DNS nie działa, choć
+    # adresy Anthropic są wpuszczone. Entrypoint i tak potrzebuje 8.8.8.8 (`dig`).
+    dns:
+      - 8.8.8.8
+    command:
+      - sh
+      - -c
+      - >-
+        sudo iptables -I OUTPUT 1 -d 8.8.8.8 -p udp --dport 53 -j ACCEPT &&
+        exec node /opt/claudebox/server.js
     # Firewall wychodzący w entrypoincie. Nie zatrzymuje on startu, gdy reguły
     # się nie założą, dlatego ich obecność sprawdza healthcheck.
     cap_add:
@@ -89,6 +100,7 @@ services:
         - CMD-SHELL
         - >-
           sudo -n iptables -S OUTPUT | grep -q -- '-A OUTPUT -j DROP' &&
+          getent hosts api.anthropic.com > /dev/null &&
           node -e "fetch('http://127.0.0.1:3000/health').then(r => process.exit(r.ok ? 0 : 1), () => process.exit(1))"
       interval: 30s
       timeout: 10s
