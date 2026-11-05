@@ -239,10 +239,11 @@
     <a class="sortuj" download
        href="{{ sciezka(request, 'eksport_csv') }}?{{ parametry | parametry_url }}"
        title="Pobierz widoczną listę jako plik CSV (Excel)">CSV ↓</a>
+    {% include "fragmenty/przelacznik-ukladu.html" %}
   </div>
 </div>
 
-<div class="lista" id="wiersze">
+<div class="lista{{ ' lista-wiersze' if uklad == 'lista' }}" id="wiersze">
   {% include "fragmenty/karty.html" %}
 </div>
 {% else %}

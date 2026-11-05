@@ -29,7 +29,7 @@ from app.infrastructure.ai_klienci import (
     utworz_klienta,
 )
 from app.infrastructure.ekspertyza import OcenionyDokument
-from app.infrastructure.otomoto import PojazdDoPorownania
+from app.infrastructure.otomoto import PojazdDoPorownania, WynikOtomoto
 from app.infrastructure.wycena_ai import (
     BladDostawcyAI,
     BladWyceny,
@@ -38,6 +38,13 @@ from app.infrastructure.wycena_ai import (
 )
 
 TERAZ = dt.datetime(2026, 9, 9, 12, 0, tzinfo=dt.UTC)
+RYNEK = WynikOtomoto(
+    adres="https://otomoto.test/szukaj",
+    ogloszenia=(),
+    mediana=None,
+    p25=None,
+    p75=None,
+)
 
 
 def _dane() -> Szczegoly:
@@ -108,7 +115,7 @@ async def test_wycena_ma_strukturalny_wynik_i_wysyla_vin(
     )
     porownania = (PorownanieRynkowe(2022, 77_000, 2, None, 0),)
 
-    wynik = await usluga.wycen(_dane(), porownania, teraz=TERAZ)
+    wynik = await usluga.wycen(_dane(), porownania, teraz=TERAZ, otomoto=RYNEK)
 
     assert wynik.wartosc.amount == 78_000
     assert wynik.auction_id == 7
@@ -174,7 +181,7 @@ async def test_anthropic_wymusza_strukture_narzedziem(
         ),
     )
 
-    wynik = await usluga.wycen(_dane(), (), teraz=TERAZ)
+    wynik = await usluga.wycen(_dane(), (), teraz=TERAZ, otomoto=RYNEK)
     assert wynik.wartosc.amount == 78_000
     assert wynik.model == "claude-sonnet-5"
 
@@ -209,7 +216,7 @@ async def test_dostawca_zgodny_z_openai_uzywa_chat_completions(
         ),
     )
 
-    wynik = await usluga.wycen(_dane(), (), teraz=TERAZ)
+    wynik = await usluga.wycen(_dane(), (), teraz=TERAZ, otomoto=RYNEK)
     assert wynik.wartosc.amount == 78_000
     assert str(zadania[0].url) == "http://localhost:11434/v1/chat/completions"
     tresc = json.loads(zadania[0].content)
@@ -237,7 +244,7 @@ async def test_niespojny_przedzial_jest_odrzucany(tmp_path: pathlib.Path) -> Non
         ),
     )
     with pytest.raises(BladWyceny):
-        await usluga.wycen(_dane(), (), teraz=TERAZ)
+        await usluga.wycen(_dane(), (), teraz=TERAZ, otomoto=RYNEK)
     await klient.aclose()
 
 
@@ -305,7 +312,7 @@ async def test_odrzucony_json_schema_konczy_sie_ponowieniem_w_json_object(
         ),
     )
 
-    wynik = await usluga.wycen(_dane(), (), teraz=TERAZ)
+    wynik = await usluga.wycen(_dane(), (), teraz=TERAZ, otomoto=RYNEK)
     assert wynik.wartosc.amount == 78_000
     assert formaty == ["json_schema", "json_object"]
     await klient.aclose()
@@ -331,7 +338,7 @@ async def test_zly_klucz_nie_jest_ponawiany(tmp_path: pathlib.Path) -> None:
         ),
     )
     with pytest.raises(BladWyceny):
-        await usluga.wycen(_dane(), (), teraz=TERAZ)
+        await usluga.wycen(_dane(), (), teraz=TERAZ, otomoto=RYNEK)
     assert proby == 1
     await klient.aclose()
 
@@ -357,7 +364,7 @@ async def test_powod_odmowy_dociera_do_uzytkownika(tmp_path: pathlib.Path) -> No
         ),
     )
     with pytest.raises(BladWyceny, match="Model Not Exist"):
-        await usluga.wycen(_dane(), (), teraz=TERAZ)
+        await usluga.wycen(_dane(), (), teraz=TERAZ, otomoto=RYNEK)
     await klient.aclose()
 
 
@@ -386,7 +393,7 @@ async def test_odmowa_klucza_nie_odbija_tresci_od_dostawcy(
         ),
     )
     with pytest.raises(BladWyceny) as blad:
-        await usluga.wycen(_dane(), (), teraz=TERAZ)
+        await usluga.wycen(_dane(), (), teraz=TERAZ, otomoto=RYNEK)
     assert "odrzucił klucz" in str(blad.value)
     assert "****jne" not in str(blad.value)
     await klient.aclose()
@@ -410,25 +417,13 @@ def test_komunikat_bledu_radzi_sobie_z_roznymi_ksztaltami() -> None:
 # --------------------------------------------------------------------------
 
 
-def test_prompt_pyta_o_portale_i_zabrania_zmyslania_ogloszen() -> None:
-    """Model nie ma dostępu do sieci, więc pytanie musi to mówić wprost.
+def test_cena_portali_moze_zostac_pusta() -> None:
+    from app.infrastructure.wycena_ai import SCHEMAT
 
-    Bez tego zdania model dopisuje konkretne oferty z cenami, których nikt
-    nigdy nie widział — a one wyglądają jak dowód. Zakaz jest tu ważniejszy
-    niż samo pytanie o poziom cen.
-    """
-    from app.infrastructure.wycena_ai import INSTRUKCJE, SCHEMAT, WERSJA_PROMPTU
-
-    assert "OtoMoto" in INSTRUKCJE and "OLX" in INSTRUKCJE
-    assert "NIE MASZ dostępu do internetu" in INSTRUKCJE
-    assert "nie podawaj konkretnych ogłoszeń" in INSTRUKCJE
     # Pole musi dopuszczać `null`: „nie umiem oszacować" to poprawna
     # odpowiedź, a wymuszona liczba byłaby zmyślona.
     assert SCHEMAT["properties"]["cena_portale"]["type"] == ["integer", "null"]
     assert "cena_portale" in SCHEMAT["required"]
-    # Zmiana polecenia musi unieważnić cache, inaczej stare wyceny udawałyby
-    # nowe (i nie miałyby tego pola).
-    assert WERSJA_PROMPTU >= 2
 
 
 async def test_poziom_cen_z_portali_trafia_do_wyniku(
@@ -446,7 +441,7 @@ async def test_poziom_cen_z_portali_trafia_do_wyniku(
             "k", model="m", base_url="https://api.deepseek.com/v1", klient=klient
         ),
     )
-    wynik = await usluga.wycen(_dane(), (), teraz=TERAZ)
+    wynik = await usluga.wycen(_dane(), (), teraz=TERAZ, otomoto=RYNEK)
     assert wynik.cena_portale is not None
     assert wynik.cena_portale.amount == 91_000
     await klient.aclose()
@@ -478,7 +473,7 @@ async def test_brak_szacunku_nie_wywraca_wyceny(
             "k", model="m", base_url="https://api.deepseek.com/v1", klient=klient
         ),
     )
-    wynik = await usluga.wycen(_dane(), (), teraz=TERAZ)
+    wynik = await usluga.wycen(_dane(), (), teraz=TERAZ, otomoto=RYNEK)
     assert wynik.cena_portale is None
     assert wynik.wartosc.amount == 78_000
     await klient.aclose()
@@ -487,7 +482,7 @@ async def test_brak_szacunku_nie_wywraca_wyceny(
 async def test_wycena_z_otomoto_i_ekspertyza() -> None:
     """Mediana Otomoto zastępuje szacunek modelu; ekspertyza idzie do modelu."""
     from app.infrastructure.ekspertyza import OcenionyDokument
-    from app.infrastructure.otomoto import Ogloszenie, WynikOtomoto
+    from app.infrastructure.otomoto import Ogloszenie
 
     zadania: list[dict[str, object]] = []
 
@@ -637,13 +632,13 @@ async def test_awaria_dostawcy_to_nie_brak_modelu_otomoto() -> None:
 
 async def test_awaria_dostawcy_przy_wycenie_jest_rozpoznawalna() -> None:
     with pytest.raises(BladDostawcyAI, match="limit wyczerpany"):
-        await _usluga_z_kodem(429).wycen(_dane(), (), teraz=TERAZ)
+        await _usluga_z_kodem(429).wycen(_dane(), (), teraz=TERAZ, otomoto=RYNEK)
 
 
 async def test_zla_odpowiedz_modelu_dotyczy_tylko_tej_aukcji() -> None:
     usluga = _usluga_z_odpowiedzia("{", [])
     with pytest.raises(BladWyceny) as blad:
-        await usluga.wycen(_dane(), (), teraz=TERAZ)
+        await usluga.wycen(_dane(), (), teraz=TERAZ, otomoto=RYNEK)
     assert not isinstance(blad.value, BladDostawcyAI)
 
 
@@ -689,6 +684,7 @@ async def test_wczesniejsze_niesprzedane_wystawienie_trafia_do_modelu() -> None:
         _dane(),
         (),
         teraz=TERAZ,
+        otomoto=RYNEK,
         wystawienia=(
             wystawienie(1, AuctionStatus.ENDED),
             # Niedomknięta, termin minął — historyczna, więc niesprzedana.
@@ -714,7 +710,7 @@ async def test_bez_wczesniejszych_wystawien_prompt_bez_dopisku() -> None:
     zadania: list[dict[str, object]] = []
     usluga = _usluga_z_odpowiedzia("{", zadania)
     with pytest.raises(BladWyceny):
-        await usluga.wycen(_dane(), (), teraz=TERAZ)
+        await usluga.wycen(_dane(), (), teraz=TERAZ, otomoto=RYNEK)
     wejscie = json.dumps(zadania[0], ensure_ascii=False)
     assert "wczesniejsze_wystawienia" not in wejscie
 
@@ -763,7 +759,7 @@ async def test_uzasadnienie_jako_tablica_punktow_i_ponowienie_po_zlym_json() -> 
             klient=httpx.AsyncClient(transport=httpx.MockTransport(odpowiedz)),
         )
     )
-    wynik = await usluga.wycen(_dane(), (), teraz=TERAZ)
+    wynik = await usluga.wycen(_dane(), (), teraz=TERAZ, otomoto=RYNEK)
 
     assert len(zadania) == 2
     assert wynik.uzasadnienie == "- Rynek: mediana 80 000 zł.\n- Wniosek: 70 000 zł."
@@ -773,7 +769,7 @@ async def test_instrukcja_ocenia_silnik_wg_rynku_wtornego() -> None:
     zadania: list[dict[str, object]] = []
     usluga = _usluga_z_odpowiedzia("{", zadania)
     with pytest.raises(BladWyceny):
-        await usluga.wycen(_dane(), (), teraz=TERAZ)
+        await usluga.wycen(_dane(), (), teraz=TERAZ, otomoto=RYNEK)
     wyslane = json.dumps(zadania[0], ensure_ascii=False)
     assert "awaryjność" in wyslane and "Silnik:" in wyslane
 
@@ -834,6 +830,7 @@ async def test_auto_wystawione_ponownie_trafia_do_modelu_z_nowa_cena() -> None:
         _dane_z_cena(),
         (),
         teraz=TERAZ,
+        otomoto=RYNEK,
         wystawienia=(_wystawienie(TERAZ - dt.timedelta(days=3)),),
     )
 
@@ -858,7 +855,9 @@ async def test_bez_ponownego_wystawienia_model_nie_widzi_ceny_aukcji(
     zadania: list[dict[str, object]] = []
     usluga = _usluga_z_odpowiedzia(ODPOWIEDZ_WYCENY, zadania)
 
-    await usluga.wycen(_dane_z_cena(), (), teraz=TERAZ, wystawienia=wystawienia)
+    await usluga.wycen(
+        _dane_z_cena(), (), teraz=TERAZ, otomoto=RYNEK, wystawienia=wystawienia
+    )
 
     assert "aktualne_wystawienie" not in _wejscie_modelu(zadania[0])
     assert "58000" not in str(zadania[0])
@@ -872,6 +871,7 @@ async def test_raport_autodna_idzie_osobno_od_ekspertyzy() -> None:
         _dane(),
         (),
         teraz=TERAZ,
+        otomoto=RYNEK,
         ekspertyzy=(
             OcenionyDokument("Opinia.pdf", "Stan techniczny dobry", 12, True),
             OcenionyDokument(
@@ -905,6 +905,7 @@ async def test_sam_raport_autodna_tez_trafia_do_modelu() -> None:
         _dane(),
         (),
         teraz=TERAZ,
+        otomoto=RYNEK,
         ekspertyzy=(
             OcenionyDokument("r.pdf", "wpisy", 2, False, raport_historii=True),
         ),
@@ -916,15 +917,15 @@ async def test_sam_raport_autodna_tez_trafia_do_modelu() -> None:
 
 
 def test_instrukcja_opisuje_oba_raporty_historii() -> None:
-    from app.infrastructure.wycena_ai import INSTRUKCJE_OTOMOTO
+    from app.infrastructure.wycena_ai import INSTRUKCJE
 
-    assert "autoDNA" in INSTRUKCJE_OTOMOTO
-    assert "Historia pojazdu" in INSTRUKCJE_OTOMOTO
-    assert "taksówka" in INSTRUKCJE_OTOMOTO
-    assert "szkody istotnej" in INSTRUKCJE_OTOMOTO
-    assert "wymienionego licznika" in INSTRUKCJE_OTOMOTO
+    assert "autoDNA" in INSTRUKCJE
+    assert "Historia pojazdu" in INSTRUKCJE
+    assert "taksówka" in INSTRUKCJE
+    assert "szkody istotnej" in INSTRUKCJE
+    assert "wymienionego licznika" in INSTRUKCJE
     # Dokumenty idą bez redakcji od 0.35.0, więc model nie może tak myśleć.
-    assert "zasłonięte" not in INSTRUKCJE_OTOMOTO
+    assert "zasłonięte" not in INSTRUKCJE
 
 
 @pytest.mark.parametrize(

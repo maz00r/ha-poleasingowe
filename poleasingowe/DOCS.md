@@ -133,6 +133,9 @@ Lista pokazuje miniaturę pierwszego zdjęcia. Obrazy są pobierane przez add-on
 i trafiają do rotowanego cache'u `/data/cache/zdjecia` o maksymalnym rozmiarze
 100 MB — przeglądarka nie łączy się bezpośrednio z serwisem aukcyjnym. Po
 wejściu w szczegóły widoczna jest pełna galeria udostępniona przez źródło.
+Przyciski **Kafelki** i **Lista** nad wynikami zmieniają układ listy i okazji.
+Lista to gęstsze wiersze ze zdjęciem po lewej i ceną po prawej. Wybór pamięta
+przeglądarka.
 
 Niezależnie od cache'u dodatek zapisuje w `/data/archiwum-zdjec` okładkę
 każdej aukcji do 800×600 px. Aukcje obserwowane dostają pełną galerię do
@@ -253,24 +256,19 @@ Dopasowanie po VIN-ie jest pewne; bez VIN-u — prawdopodobne i model waży je
 słabiej.
 
 Wycena liczy się **raz na aukcję i zostaje zapisana w bazie**; karta pokazuje
-datę i model, którym ją policzono. Zmieniają ją tylko przyciski na karcie
-i jednorazowo automat, który zastępuje wycenę lokalną wyceną z Otomoto.
-Ponowne wejście na kartę nie generuje kolejnego płatnego żądania.
+datę i model, którym ją policzono. Zmienia ją tylko przycisk na karcie, a samo
+wejście na kartę niczego nie liczy i nie kosztuje. Aukcja, której nie da się
+wycenić z Otomoto, na przykład bez marki i modelu, nie ma wyceny.
 
-Po ponownym uruchomieniu szczegóły pojazdu pokażą szacowaną wartość w PLN,
-przedział, pewność i założenia, a obok **orientacyjny poziom cen ofertowych
-na OtoMoto i OLX**. Ta ostatnia liczba pochodzi z wiedzy modelu, a nie
-z odpytania portali — dodatek do nich nie sięga — więc jest podpisana jako
-szacunek i bywa pusta, gdy model nie potrafi jej rozsądnie podać. Wynik jest zapisywany w lokalnym cache'u, więc
-ponowne otwarcie tej samej wyceny nie wykonuje kolejnego płatnego żądania.
-Zmiana danych auta, lokalnych porównań albo modelu automatycznie unieważnia
-cache. Do dostawcy trafia VIN, ale nie identyfikator aukcji ani nazwa
+Karta aukcji pokazuje szacowaną wartość w PLN, przedział, pewność i założenia,
+a obok medianę ofert z Otomoto. Gdy Otomoto nie zwróci porównywalnych ogłoszeń,
+w tym miejscu stoi szacunek modelu albo nic. Do dostawcy trafia VIN, ale nie identyfikator aukcji ani nazwa
 sprzedającego z karty. Wycena jest orientacyjna i nie zastępuje oględzin ani opinii
 rzeczoznawcy.
 
 ### Automatyczna wycena i okazje
 
-Automat wycenia z Otomoto każdą aktywną aukcję, także tę z wyceną lokalną.
+Automat wycenia z Otomoto każdą aktywną aukcję, która nie ma jeszcze wyceny.
 Pomija duplikaty, aukcje bez marki albo modelu oraz pojazdy inne niż osobowe,
 dostawcze i nierozpoznane. Wyceny idą pojedynczo, z 45-sekundową przerwą:
 najpierw obserwowane, potem najbliższe końca.

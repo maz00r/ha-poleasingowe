@@ -341,11 +341,10 @@ class WycenaAukcji:
     wersja_promptu: int
     utworzono: dt.datetime
     cena_portale: Money | None = None
-    """Poziom cen ofertowych na portalach. Przy `zrodlo == "OTOMOTO"` to
-    mediana zmierzonych ogłoszeń; inaczej szacunek modelu z jego wiedzy."""
-    zrodlo: str = "LOKALNA"
-    """`LOKALNA` — porównania z naszej bazy; `OTOMOTO` — także ogłoszenia
-    pobrane przez Apify i treść ekspertyzy (przycisk na karcie, 0.31.0)."""
+    """Mediana zmierzonych ogłoszeń; bez ogłoszeń szacunek modelu."""
+    zrodlo: str = "OTOMOTO"
+    """Zawsze `OTOMOTO`: wyceny bez ogłoszeń usunięto w 0.38.0 (migracja 031).
+    Kolumna została, bo kolejka automatu i ranking okazji po niej filtrują."""
     otomoto_liczba: int | None = None
     otomoto_p25: Money | None = None
     otomoto_p75: Money | None = None

@@ -3,12 +3,28 @@
 {% block tresc %}
 
 {# SPEC.md §12. Pola bez zrodla danych pokazuja "—", nie zero: "zmierzone
-   i wyszlo zero" to co innego niz "nie ma czym zmierzyc". #}
+   i wyszlo zero" to co innego niz "nie ma czym zmierzyc".
 
-<section class="karta {{ 'ostrzezenie' if not dane.baza_dostepna }}">
-  <h1>Stan procesu</h1>
+   Kolejnosc idzie od tego, co sprawdza sie najczesciej, do rzadkich dzialan.
+   Adresy w pasku musza zawierac sciezke: `<base>` wysyla gole `#logi` na
+   strone glowna. #}
+{% set adres = sciezka(request, 'diagnostyka') %}
+
+<div class="diagnostyka">
+<div class="naglowek-diagnostyki">
+  <h1>Diagnostyka</h1>
+  <nav class="przelacznik" aria-label="Sekcje diagnostyki">
+    <a href="{{ adres }}#stan">Stan</a>
+    <a href="{{ adres }}#zrodla">Źródła</a>
+    <a href="{{ adres }}#logi">Logi</a>
+    {% if konfiguracja.dostepna %}<a href="{{ adres }}#konfiguracja">Konfiguracja</a>{% endif %}
+    <a href="{{ adres }}#migracja">Migracja</a>
+  </nav>
+</div>
+
+<section class="karta {{ 'ostrzezenie' if not dane.baza_dostepna }}" id="stan">
+  <h2>Stan procesu</h2>
   <div class="siatka">
-    <div><span>Połączenie</span><strong><code>{{ dane.polaczenie }}</code></strong></div>
     <div><span>Baza</span><strong>{{ 'dostępna' if dane.baza_dostepna else 'niedostępna' }}</strong></div>
     <div><span>Rozmiar bazy</span><strong>{{ dane.rozmiar_bazy_bajty | bajty }}</strong></div>
     <div><span>RSS procesu</span><strong>{{ dane.rss_bajty | bajty }}</strong></div>
@@ -23,9 +39,10 @@
     <div>
       <span>Ostatni pg_dump</span>
       <strong>{{ dane.ostatni_pg_dump | czas_lokalny }}</strong>
-      {% if dane.kopia_bajty %}<span>{{ dane.kopia_bajty | bajty }}</span>{% endif %}
+      {% if dane.kopia_bajty %}<small class="drobne">{{ dane.kopia_bajty | bajty }}</small>{% endif %}
     </div>
     <div><span>Zrzuty diagnostyczne</span><strong>{{ 'włączone' if dane.debug_dumps else 'wyłączone' }}</strong></div>
+    <div class="pelna"><span>Połączenie</span><strong><code class="skrot">{{ dane.polaczenie }}</code></strong></div>
   </div>
   {% if dane.ostatni_blad_bazy %}
     <p class="ostrzezenie-inline">Ostatni błąd bazy: <code>{{ dane.ostatni_blad_bazy }}</code></p>
@@ -40,6 +57,108 @@
   {% endif %}
 </section>
 
+<section class="karta" id="zrodla">
+  <h2>Źródła</h2>
+  {% if dane.zrodla %}
+  {# Czternascie kolumn nie miescilo sie na karcie, wiec dane poboczne stoja
+     pod glowna wartoscia. Nic nie zniknelo. #}
+  <div class="tabela-przewijana">
+  <table class="zestawienie">
+    <thead>
+      <tr>
+        <th>Źródło</th><th>Stan</th><th>Aktywne</th><th>Ostatni przebieg</th>
+        <th>Ostatnia próba listy</th><th>Ostatni pełny skan</th>
+        <th>Nowe / zmienione / błędy</th><th>Tempo</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for z in dane.zrodla %}
+      <tr class="{{ 'ostrzezenie' if z.zablokowane }}">
+        <td>{{ z.source_name }}<div class="drobne"><code>{{ z.source_key }}</code></div></td>
+        <td>
+          {{ 'włączone' if z.enabled else 'wyłączone' }}
+          <div class="drobne">{{ z.auth_state }}</div>
+          {% if z.consecutive_auth_failures %}
+            <span class="etykieta niepewna">{{ z.consecutive_auth_failures }} nieudanych</span>
+          {% endif %}
+          {% if z.zablokowane %}
+            {# SPEC.md §10.2 — reset jest swiadoma decyzja operatora.
+               Blokada po trzech nieudanych logowaniach istnieje po to,
+               zeby add-on nie zablokowal konta w serwisie. #}
+            <form method="post" action="{{ sciezka(request, 'odblokuj_zrodlo', key=z.source_key) }}">
+              <button type="submit">Odblokuj</button>
+            </form>
+          {% endif %}
+        </td>
+        <td>{{ z.aktywne_aukcje }}</td>
+        <td>
+          {{ z.last_run_finished_at | czas_lokalny }}
+          {% if z.last_run_duration_seconds is not none %}
+            <div class="drobne">odczyt {{ '%.1f s' | format(z.last_run_duration_seconds) }}</div>
+          {% endif %}
+        </td>
+        <td>
+          {{ z.last_sweep_attempt_at | czas_lokalny }}
+          <div class="drobne">{{ z.last_sweep_status }}</div>
+        </td>
+        <td>{{ z.last_complete_sweep_at | czas_lokalny }}</td>
+        <td>
+          {{ z.last_run_new if z.last_run_new is not none else '—' }} /
+          {{ z.last_run_changed if z.last_run_changed is not none else '—' }} /
+          {{ z.last_run_errors if z.last_run_errors is not none else '—' }}
+        </td>
+        <td>
+          {{ z.rate_limit_per_minute }}/min · floor {{ z.floor_seconds }} s
+          <div class="drobne">domknięcie: <code>{{ z.closing_ladder_seconds | join(', ') or '—' }}</code></div>
+          <div class="drobne">bid_count: {{ z.bid_count_semantics }}</div>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% else %}
+    <p class="uwaga">Żadne źródło nie jest jeszcze zarejestrowane w bazie.</p>
+  {% endif %}
+</section>
+
+<div class="karty-para">
+  <section class="karta {{ 'ostrzezenie' if dane.archiwum_zdjec_wstrzymane }}">
+    <h2>Archiwum zdjęć</h2>
+    <div class="siatka">
+      <div><span>Rozmiar</span><strong>{{ dane.archiwum_zdjec_bajty | bajty }}</strong></div>
+      <div><span>Wolne miejsce</span><strong>{{ dane.archiwum_zdjec_wolne_bajty | bajty }}</strong></div>
+      <div><span>Oczekujące</span><strong>{{ dane.archiwum_zdjec_oczekujace if dane.archiwum_zdjec_oczekujace is not none else '—' }}</strong></div>
+      <div><span>Niedostępne</span><strong>{{ dane.archiwum_zdjec_niedostepne if dane.archiwum_zdjec_niedostepne is not none else '—' }}</strong></div>
+      <div><span>Pełne galerie</span><strong>{{ dane.archiwum_zdjec_pelne if dane.archiwum_zdjec_pelne is not none else '—' }}</strong></div>
+    </div>
+    {% if dane.archiwum_zdjec_wstrzymane %}
+      <p class="ostrzezenie-inline">Mniej niż 1 GiB wolnego miejsca — nowe zdjęcia nie są zapisywane.</p>
+    {% endif %}
+  </section>
+
+  <section class="karta">
+    <h2>Pula połączeń</h2>
+    {% if dane.pula %}
+      <div class="siatka">
+        {% for nazwa, wartosc in dane.pula.items() %}
+          <div><span>{{ nazwa }}</span><strong>{{ wartosc }}</strong></div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <p class="uwaga">Pula nie jest otwarta.</p>
+    {% endif %}
+  </section>
+</div>
+
+<section class="karta" id="logi">
+  <h2>Logi aplikacji</h2>
+  <p class="drobne">Ostatnie wpisy z <code>/data/logi/aplikacja.log</code> — przeżywają restart i deploy. Sekrety są zasłonięte.</p>
+  <div hx-get="{{ sciezka(request, 'logi_aplikacji') }}?poziom=INFO" hx-trigger="load" hx-swap="innerHTML">
+    <p class="uwaga">Wczytywanie logów…</p>
+  </div>
+</section>
+
 {% if konfiguracja.dostepna %}
 <section class="karta" id="konfiguracja">
   <h2>Konfiguracja</h2>
@@ -48,57 +167,69 @@
   {% if konfiguracja.blad %}
     <p class="ostrzezenie-inline">Nie zapisano: {{ konfiguracja.blad }}</p>
   {% endif %}
-  <form method="post" action="{{ sciezka(request, 'zapisz_konfiguracje') }}">
-    <h3>Wycena AI</h3>
-    <div class="pole">
-      <label for="ai_provider">Dostawca</label>
-      <select id="ai_provider" name="ai_provider">
-        {% for wartosc, opis in [('openai', 'OpenAI'), ('anthropic', 'Anthropic'), ('zgodny_z_openai', 'Zgodny z OpenAI')] %}
-          <option value="{{ wartosc }}" {% if konfiguracja.opcje.ai_provider == wartosc %}selected{% endif %}>{{ opis }}</option>
-        {% endfor %}
-      </select>
-    </div>
-    <div class="pole">
-      <label for="ai_base_url">Adres API</label>
-      <input id="ai_base_url" name="ai_base_url" value="{{ konfiguracja.opcje.ai_base_url }}"
-             placeholder="http://claudebox:3000/v1">
-    </div>
-    <div class="pole">
-      <label for="ai_model">Model</label>
-      <input id="ai_model" name="ai_model" value="{{ konfiguracja.opcje.ai_model }}"
-             placeholder="sonnet">
-    </div>
-    <div class="pole">
-      <label for="ai_api_key">Klucz API</label>
-      <input id="ai_api_key" name="ai_api_key" type="password" autocomplete="new-password"
-             placeholder="{{ 'ustawiony — wpisz nowy, aby zmienić' if konfiguracja.ma_klucz else 'brak' }}">
-    </div>
-    {% if konfiguracja.ma_klucz %}
-      <label><input type="checkbox" name="ai_usun_klucz"> Usuń klucz (wyłącza wycenę AI)</label>
-    {% endif %}
-    <label><input type="checkbox" name="wycena_auto"
-      {% if konfiguracja.opcje.wycena_auto %}checked{% endif %}> Automatyczna wycena z Otomoto</label>
-    <div class="pole">
-      <label for="wycena_auto_limit_dzienny">Limit wycen na dobę</label>
-      <input id="wycena_auto_limit_dzienny" name="wycena_auto_limit_dzienny" type="number"
-             min="1" max="5000" value="{{ konfiguracja.opcje.wycena_auto_limit_dzienny }}">
-    </div>
+  <form class="formularz-konfiguracji" method="post" action="{{ sciezka(request, 'zapisz_konfiguracje') }}">
+    <div class="formularz-kolumny">
+      <div>
+        <h3>Wycena AI</h3>
+        <div class="pole">
+          <label for="ai_provider">Dostawca</label>
+          <select id="ai_provider" name="ai_provider">
+            {% for wartosc, opis in [('openai', 'OpenAI'), ('anthropic', 'Anthropic'), ('zgodny_z_openai', 'Zgodny z OpenAI')] %}
+              <option value="{{ wartosc }}" {% if konfiguracja.opcje.ai_provider == wartosc %}selected{% endif %}>{{ opis }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="pole">
+          <label for="ai_base_url">Adres API</label>
+          <input id="ai_base_url" name="ai_base_url" value="{{ konfiguracja.opcje.ai_base_url }}"
+                 placeholder="http://claudebox:3000/v1">
+        </div>
+        <div class="pole">
+          <label for="ai_model">Model</label>
+          <input id="ai_model" name="ai_model" value="{{ konfiguracja.opcje.ai_model }}"
+                 placeholder="sonnet">
+        </div>
+        <div class="pole">
+          <label for="ai_api_key">Klucz API</label>
+          <input id="ai_api_key" name="ai_api_key" type="password" autocomplete="new-password"
+                 placeholder="{{ 'ustawiony — wpisz nowy, aby zmienić' if konfiguracja.ma_klucz else 'brak' }}">
+        </div>
+        {% if konfiguracja.ma_klucz %}
+          <div class="pole przelaczniki">
+            <label><input type="checkbox" name="ai_usun_klucz"> Usuń klucz (wyłącza wycenę AI)</label>
+          </div>
+        {% endif %}
+      </div>
 
-    <fieldset>
-      <legend>Typy pojazdów wyceniane automatycznie</legend>
-      {% for wartosc, opis in [('OSOBOWY', 'Osobowe'), ('DOSTAWCZY', 'Dostawcze'), ('NIEZNANY', 'Nierozpoznane (także motocykle i ciężarówki bez kategorii)')] %}
-        <label><input type="checkbox" name="wycena_rodzaj_{{ wartosc }}"
-          {% if wartosc in konfiguracja.opcje.wycena_auto_rodzaje %}checked{% endif %}> {{ opis }}</label>
-      {% endfor %}
-    </fieldset>
-    <div class="pole">
-      <label for="wycena_pauza_minuty">Pauza po awarii dostawcy AI [min]</label>
-      <input id="wycena_pauza_minuty" name="wycena_pauza_minuty" type="number"
-             min="1" max="1440" value="{{ konfiguracja.opcje.wycena_pauza_minuty }}">
+      <div>
+        <h3>Automat wyceny</h3>
+        <div class="pole przelaczniki">
+          <label><input type="checkbox" name="wycena_auto"
+            {% if konfiguracja.opcje.wycena_auto %}checked{% endif %}> Automatyczna wycena z Otomoto</label>
+        </div>
+        <div class="pole">
+          <label for="wycena_auto_limit_dzienny">Limit wycen na dobę</label>
+          <input id="wycena_auto_limit_dzienny" name="wycena_auto_limit_dzienny" type="number"
+                 min="1" max="5000" value="{{ konfiguracja.opcje.wycena_auto_limit_dzienny }}">
+        </div>
+        <div class="pole">
+          <label for="wycena_pauza_minuty">Pauza po awarii dostawcy AI [min]</label>
+          <input id="wycena_pauza_minuty" name="wycena_pauza_minuty" type="number"
+                 min="1" max="1440" value="{{ konfiguracja.opcje.wycena_pauza_minuty }}">
+        </div>
+        <fieldset class="pole przelaczniki">
+          <legend class="etykieta-pola">Typy pojazdów wyceniane automatycznie</legend>
+          {% for wartosc, opis in [('OSOBOWY', 'Osobowe'), ('DOSTAWCZY', 'Dostawcze'), ('NIEZNANY', 'Nierozpoznane (także motocykle i ciężarówki bez kategorii)')] %}
+            <label><input type="checkbox" name="wycena_rodzaj_{{ wartosc }}"
+              {% if wartosc in konfiguracja.opcje.wycena_auto_rodzaje %}checked{% endif %}> {{ opis }}</label>
+          {% endfor %}
+        </fieldset>
+      </div>
     </div>
 
     <h3>Źródła</h3>
-    <table>
+    <div class="tabela-przewijana">
+    <table class="zestawienie">
       <thead><tr><th>Źródło</th><th>Włączone</th><th>Żądań na minutę</th><th>Odstęp [s]</th></tr></thead>
       <tbody>
         {% for z in konfiguracja.zrodla %}
@@ -114,14 +245,19 @@
         {% endfor %}
       </tbody>
     </table>
-    <button type="submit">Zapisz i uruchom ponownie</button>
+    </div>
+    <div class="formularz-stopka">
+      <button type="submit">Zapisz i uruchom ponownie</button>
+    </div>
   </form>
   {% if konfiguracja.profile_dostepne %}
+    <div class="profile-ai">
     <h3>Profile wyceny AI</h3>
     <p class="uwaga">Profil pamięta dostawcę, adres, model i klucz, więc przełączasz
       się bez wklejania klucza. Użycie profilu restartuje aplikację.</p>
     {% if konfiguracja.profile %}
-      <table>
+      <div class="tabela-przewijana">
+      <table class="zestawienie">
         <thead><tr><th>Profil</th><th>Adres lub dostawca</th><th>Model</th><th></th></tr></thead>
         <tbody>
           {% for wpis in konfiguracja.profile %}
@@ -130,26 +266,29 @@
               <td><code>{{ wpis.profil.ai_base_url or wpis.profil.ai_provider }}</code></td>
               <td><code>{{ wpis.profil.ai_model or 'domyślny' }}</code></td>
               <td>
-                {% if wpis.aktywny %}
-                  <strong>aktywny</strong>
-                {% else %}
-                  <form method="post" action="{{ sciezka(request, 'uzyj_profilu') }}">
+                <div class="akcje-wiersza">
+                  {% if wpis.aktywny %}
+                    <strong>aktywny</strong>
+                  {% else %}
+                    <form method="post" action="{{ sciezka(request, 'uzyj_profilu') }}">
+                      <input type="hidden" name="nazwa" value="{{ wpis.profil.nazwa }}">
+                      <button type="submit">Użyj</button>
+                    </form>
+                  {% endif %}
+                  <form method="post" action="{{ sciezka(request, 'usun_profil') }}">
                     <input type="hidden" name="nazwa" value="{{ wpis.profil.nazwa }}">
-                    <button type="submit">Użyj</button>
+                    <button type="submit" class="przycisk-lekki" aria-label="Usuń profil {{ wpis.profil.nazwa }}">Usuń</button>
                   </form>
-                {% endif %}
-                <form method="post" action="{{ sciezka(request, 'usun_profil') }}">
-                  <input type="hidden" name="nazwa" value="{{ wpis.profil.nazwa }}">
-                  <button type="submit" aria-label="Usuń profil {{ wpis.profil.nazwa }}">Usuń</button>
-                </form>
+                </div>
               </td>
             </tr>
           {% endfor %}
         </tbody>
       </table>
+      </div>
     {% endif %}
     {% if konfiguracja.ma_klucz %}
-      <form method="post" action="{{ sciezka(request, 'zapisz_profil') }}">
+      <form class="formularz-wiersz" method="post" action="{{ sciezka(request, 'zapisz_profil') }}">
         <div class="pole">
           <label for="nazwa_profilu">Nazwa profilu dla obecnych ustawień</label>
           <input id="nazwa_profilu" name="nazwa" maxlength="40" required
@@ -160,27 +299,28 @@
     {% else %}
       <p class="uwaga">Ustaw i zapisz klucz powyżej, a potem zapisz te ustawienia jako profil.</p>
     {% endif %}
+    </div>
   {% endif %}
   {% if konfiguracja.nadpisana %}
     <p class="uwaga">Te ustawienia pochodzą z Diagnostyki i mają pierwszeństwo
       przed <code>options.json</code>.</p>
     <form method="post" action="{{ sciezka(request, 'przywroc_konfiguracje') }}">
-      <button type="submit">Wróć do options.json</button>
+      <button type="submit" class="przycisk-lekki">Wróć do options.json</button>
     </form>
   {% endif %}
 </section>
 {% endif %}
 
-<section class="karta">
+<section class="karta" id="migracja">
   <h2>Migracja HA ↔ Proxmox</h2>
   <p class="uwaga">Pakiet zawiera świeży zrzut bazy i trwałe archiwum zdjęć.
     Nie zawiera haseł, opcji, sesji, zrzutów debug ani cache.</p>
   {% if migracja.pakiet %}
     <div class="siatka">
-      <div><span>Ostatni pakiet</span><strong><code>{{ migracja.pakiet.sciezka.name }}</code></strong></div>
       <div><span>Utworzono</span><strong>{{ migracja.pakiet.utworzono | czas_lokalny }}</strong></div>
       <div><span>Rozmiar</span><strong>{{ migracja.pakiet.bajtow | bajty }}</strong></div>
-      <div><span>SHA-256</span><strong><code class="skrot">{{ migracja.pakiet.sha256 }}</code></strong></div>
+      <div class="pelna"><span>Ostatni pakiet</span><strong><code class="skrot">{{ migracja.pakiet.sciezka.name }}</code></strong></div>
+      <div class="pelna"><span>SHA-256</span><strong><code class="skrot">{{ migracja.pakiet.sha256 }}</code></strong></div>
     </div>
   {% endif %}
   {% if migracja.ostatni_blad %}
@@ -191,103 +331,12 @@
     <p class="uwaga">Eksport trwa. Po zakończeniu pakiet pojawi się w
       <code>/share/poleasingowe/migracja</code>.</p>
   {% else %}
-    <form method="post" action="{{ sciezka(request, 'eksport_migracji') }}">
+    <form class="formularz-stopka" method="post" action="{{ sciezka(request, 'eksport_migracji') }}">
       <button type="submit" {% if not dane.baza_dostepna %}disabled{% endif %}>
         Utwórz pakiet migracyjny
       </button>
     </form>
   {% endif %}
 </section>
-
-<section class="karta {{ 'ostrzezenie' if dane.archiwum_zdjec_wstrzymane }}">
-  <h2>Archiwum zdjęć</h2>
-  <div class="siatka">
-    <div><span>Rozmiar</span><strong>{{ dane.archiwum_zdjec_bajty | bajty }}</strong></div>
-    <div><span>Wolne miejsce</span><strong>{{ dane.archiwum_zdjec_wolne_bajty | bajty }}</strong></div>
-    <div><span>Oczekujące</span><strong>{{ dane.archiwum_zdjec_oczekujace if dane.archiwum_zdjec_oczekujace is not none else '—' }}</strong></div>
-    <div><span>Niedostępne</span><strong>{{ dane.archiwum_zdjec_niedostepne if dane.archiwum_zdjec_niedostepne is not none else '—' }}</strong></div>
-    <div><span>Pełne galerie</span><strong>{{ dane.archiwum_zdjec_pelne if dane.archiwum_zdjec_pelne is not none else '—' }}</strong></div>
-  </div>
-  {% if dane.archiwum_zdjec_wstrzymane %}
-    <p class="ostrzezenie-inline">Mniej niż 1 GiB wolnego miejsca — nowe zdjęcia nie są zapisywane.</p>
-  {% endif %}
-</section>
-
-<section class="karta">
-  <h2>Pula połączeń</h2>
-  {% if dane.pula %}
-    <div class="siatka">
-      {% for nazwa, wartosc in dane.pula.items() %}
-        <div><span>{{ nazwa }}</span><strong>{{ wartosc }}</strong></div>
-      {% endfor %}
-    </div>
-  {% else %}
-    <p class="uwaga">Pula nie jest otwarta.</p>
-  {% endif %}
-</section>
-
-<section class="karta">
-  <h2>Źródła</h2>
-  {% if dane.zrodla %}
-  <table class="zestawienie">
-    <thead>
-      <tr>
-        <th>Źródło</th><th>Włączone</th><th>Uwierzytelnienie</th>
-        <th>Aktywne</th><th>Limit/min</th><th>Floor</th>
-        <th>Drabinka domknięcia</th><th>bid_count</th>
-        <th>Ostatni przebieg</th><th>Czas odczytu</th><th>Ostatnia próba listy</th><th>Ostatni pełny skan</th>
-        <th>Nowe / zmienione / błędy</th><th></th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for z in dane.zrodla %}
-      <tr class="{{ 'ostrzezenie' if z.zablokowane }}">
-        <td>{{ z.source_name }} <code>{{ z.source_key }}</code></td>
-        <td>{{ 'tak' if z.enabled else 'nie' }}</td>
-        <td>
-          {{ z.auth_state }}
-          {% if z.consecutive_auth_failures %}
-            <span class="etykieta niepewna">{{ z.consecutive_auth_failures }} nieudanych</span>
-          {% endif %}
-        </td>
-        <td>{{ z.aktywne_aukcje }}</td>
-        <td>{{ z.rate_limit_per_minute }}</td>
-        <td>{{ z.floor_seconds }} s</td>
-        <td><code>{{ z.closing_ladder_seconds | join(', ') or '—' }}</code></td>
-        <td>{{ z.bid_count_semantics }}</td>
-        <td>{{ z.last_run_finished_at | czas_lokalny }}</td>
-        <td>{% if z.last_run_duration_seconds is not none %}{{ '%.1f s' | format(z.last_run_duration_seconds) }}{% else %}—{% endif %}</td>
-        <td>{{ z.last_sweep_status }} · {{ z.last_sweep_attempt_at | czas_lokalny }}</td>
-        <td>{{ z.last_complete_sweep_at | czas_lokalny }}</td>
-        <td>
-          {{ z.last_run_new if z.last_run_new is not none else '—' }} /
-          {{ z.last_run_changed if z.last_run_changed is not none else '—' }} /
-          {{ z.last_run_errors if z.last_run_errors is not none else '—' }}
-        </td>
-        <td>
-          {% if z.zablokowane %}
-            {# SPEC.md §10.2 — reset jest swiadoma decyzja operatora.
-               Blokada po trzech nieudanych logowaniach istnieje po to,
-               zeby add-on nie zablokowal konta w serwisie. #}
-            <form method="post" action="{{ sciezka(request, 'odblokuj_zrodlo', key=z.source_key) }}">
-              <button type="submit">Odblokuj</button>
-            </form>
-          {% endif %}
-        </td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
-  {% else %}
-    <p class="uwaga">Żadne źródło nie jest jeszcze zarejestrowane w bazie.</p>
-  {% endif %}
-</section>
-
-<section class="karta" id="logi">
-  <h2>Logi aplikacji</h2>
-  <p class="drobne">Ostatnie wpisy z <code>/data/logi/aplikacja.log</code> — przeżywają restart i deploy. Sekrety są zasłonięte.</p>
-  <div hx-get="{{ sciezka(request, 'logi_aplikacji') }}?poziom=INFO" hx-trigger="load" hx-swap="innerHTML">
-    <p class="uwaga">Wczytywanie logów…</p>
-  </div>
-</section>
+</div>
 {% endblock %}

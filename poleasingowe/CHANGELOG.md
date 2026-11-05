@@ -1,5 +1,23 @@
 # Historia zmian
 
+## 0.38.0 — w przygotowaniu
+
+**Widok listy.** Przyciski Kafelki i Lista nad wynikami zmieniają układ listy
+i okazji. Lista to wiersze ze zdjęciem po lewej i ceną po prawej, jak na OLX czy
+Allegro. Przeglądarka pamięta wybór.
+
+**Koniec wyceny bez Otomoto.** Taka wycena opierała się na pamięci modelu, więc
+ją usunęliśmy razem z przyciskiem „Przelicz”. Wejście na kartę aukcji już nic nie
+liczy i nie kosztuje. Aukcja bez wyceny pokazuje przycisk „Wycena z Otomoto”.
+Aukcja, której nie da się wycenić z Otomoto, zostaje bez wyceny.
+
+Aktualizacja jednorazowo kasuje zapisane wyceny lokalne, także na zakończonych
+aukcjach. Wrócą tylko z kopii `pg_dump`.
+
+**Uporządkowana Diagnostyka.** Na górze są stan, źródła, logi i pasek skoków do
+sekcji, a konfiguracja i migracja niżej. Tabela źródeł nie wychodzi już poza
+kartę, a formularz konfiguracji ma dwie kolumny i spójne pola.
+
 ## 0.37.4 — w przygotowaniu
 
 **Czytanie PDF-ów nie blokuje już strony.** `pypdf` parsuje dokument w czystym

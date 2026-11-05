@@ -327,3 +327,16 @@ def test_typy_pojazdow_z_formularza() -> None:
     del formularz["wycena_rodzaj_OSOBOWY"]
     with pytest.raises(ValueError, match="co najmniej jeden typ"):
         zmiany_konfiguracji(formularz, OPCJE, ["efl"])
+
+
+def test_blad_zapisu_wraca_do_sekcji_konfiguracji(tmp_path: pathlib.Path) -> None:
+    """Konfiguracja stoi nisko, więc bez kotwicy komunikat byłby poza ekranem."""
+    klient, restarty = _aplikacja(tmp_path / "k.json")
+    odpowiedz = klient.post(
+        "/diagnostyka/konfiguracja/profil",
+        data={"nazwa": "x" * 41},
+        follow_redirects=False,
+    )
+    assert odpowiedz.status_code == 303
+    assert odpowiedz.headers["location"].endswith("#konfiguracja")
+    assert restarty == []

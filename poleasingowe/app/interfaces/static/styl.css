@@ -1935,7 +1935,7 @@ pre.logi {
   background: rgba(0, 0, 0, 0.25);
 }
 .filtr-logow { display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: end; margin-bottom: 0.75rem; }
-.wycena-postep progress, .wskaznik-wyceny progress { width: 100%; max-width: 32rem; height: 0.75rem; }
+.wycena-postep progress { width: 100%; max-width: 32rem; height: 0.75rem; }
 .odznaka-wyceny {
   display: inline-block;
   margin: 6px 0 2px;
@@ -1960,3 +1960,145 @@ ul.uzasadnienie {
   line-height: 1.55;
 }
 ul.uzasadnienie strong { font-weight: 700; }
+
+/* 0.38.0 — układ listy w wierszach, jak na Allegro. Ten sam znacznik co
+   kafelek, więc doładowanie kolejnej strony nie musi wiedzieć o układzie. */
+.uklad-listy { display: inline-flex; gap: 6px; }
+.uklad-listy .sortuj { min-height: 0; line-height: normal; text-transform: none; cursor: pointer; }
+.okazje-przelaczniki { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+
+/* Proporcje z list OLX i Allegro: duże zdjęcie, tytuł i cena jako dwa główne
+   elementy, parametry przygaszone, reszta w jednej cichej linii. */
+.lista.lista-wiersze { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+.lista-wiersze .oferta { flex-direction: row; gap: 18px; padding: 12px; border-radius: var(--promien-maly); }
+.lista-wiersze .oferta:hover { box-shadow: 0 0 0 1px var(--akcent); transform: none; }
+.lista-wiersze .oferta-zdjecie { position: static; flex: 0 0 192px; align-self: flex-start; aspect-ratio: 3 / 2; }
+
+/* Na miniaturze plakietki zasłoniłyby auto. `position: static` wyżej oddaje je
+   pod `.oferta`, więc stają pod parametrami, bez zmiany znacznika. */
+.lista-wiersze .plakietki { inset: auto auto 14px 222px; justify-content: flex-start; }
+.lista-wiersze .gwiazdka { top: 18px; right: auto; left: 168px; width: 30px; min-height: 0; height: 30px; font-size: 15px; }
+
+/* Cena w prawej kolumnie na całą wysokość wiersza: oko ma ją znaleźć w tym
+   samym miejscu w każdym wierszu. */
+.lista-wiersze .oferta-tresc {
+  display: grid;
+  flex: 1;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px 28px;
+  align-content: start;
+  min-width: 0;
+  padding: 4px 6px 34px 0;
+}
+.lista-wiersze .oferta-tresc > * { grid-column: 1; }
+.lista-wiersze .nazwa { min-height: 0; font-size: 16px; -webkit-line-clamp: 2; }
+.lista-wiersze .pod-nazwa { font-size: 12.5px; }
+.lista-wiersze .okazja { padding-top: 2px; }
+.lista-wiersze .oferta-stopka {
+  grid-column: 2;
+  grid-row: 1 / span 5;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: flex-start;
+  gap: 8px;
+  min-width: 170px;
+  margin: 0;
+  padding: 0;
+  border-top: 0;
+  text-align: right;
+}
+/* Tytuł i miniatura prowadzą do karty; przycisk tylko podwyższałby wiersz. */
+.lista-wiersze .link-oferta { display: none; }
+
+@media (max-width: 680px) {
+  /* Cicha linia z plakietkami idzie przez całą szerokość wiersza, więc wysokość
+     tekstu po prawej nie może jej przyciąć ani zepchnąć pod zdjęcie. */
+  .lista-wiersze .oferta { gap: 12px; padding: 10px 10px 44px; }
+  .lista-wiersze .oferta-zdjecie { flex-basis: 132px; aspect-ratio: 4 / 3; }
+  .lista-wiersze .plakietki { inset: auto auto 10px 10px; }
+  .lista-wiersze .gwiazdka { top: 15px; left: 111px; width: 26px; height: 26px; font-size: 13px; }
+  .lista-wiersze .oferta-tresc { grid-template-columns: minmax(0, 1fr); gap: 6px; padding: 0; }
+  .lista-wiersze .nazwa { font-size: 15px; }
+  .lista-wiersze .pod-nazwa { font-size: 12px; }
+  .lista-wiersze .oferta-stopka { grid-column: 1; grid-row: auto; min-width: 0; text-align: left; align-items: flex-start; }
+  /* Sama kwota: etykieta i pełna data nie mieszczą się obok, a termin mówi plakietka. */
+  .lista-wiersze .etykieta-ceny,
+  .lista-wiersze .termin { display: none; }
+  .lista-wiersze .kwota { font-size: 18px; }
+  .uklad-listy { margin-left: auto; }
+}
+
+/* 0.38.0 — Diagnostyka. Formularz korzysta z `.pole` z filtrów, dlatego reguły
+   siedzą w zakresie strony i nie ruszają panelu filtrów. */
+.naglowek-diagnostyki {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 20px;
+  margin-bottom: 18px;
+}
+.naglowek-diagnostyki h1 { margin: 0; }
+.naglowek-diagnostyki .przelacznik { flex-wrap: wrap; max-width: 100%; }
+/* Pasek aplikacji jest przyklejony, więc skok nie może schować nagłówka sekcji. */
+.diagnostyka [id] { scroll-margin-top: 94px; }
+
+/* Flex zamiast siatki: tutaj pól jest mało, a puste kolumny siatki urywały linie
+   wierszy w pół karty. Długi DSN i skrót dostają własny, pełny wiersz. */
+.diagnostyka .siatka { display: flex; flex-wrap: wrap; }
+.diagnostyka .siatka > div { flex: 1 1 150px; min-height: 0; }
+.diagnostyka .siatka > .pelna { flex-basis: 100%; }
+.siatka > div > small { font-size: 11px; }
+
+.karty-para {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(340px, 100%), 1fr));
+  gap: 18px;
+  margin-bottom: 18px;
+}
+.karty-para > .karta { margin-bottom: 0; }
+
+.tabela-przewijana { overflow-x: auto; }
+.filtr-logow label {
+  display: grid;
+  gap: 5px;
+  color: var(--przygaszony);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.filtr-logow select { font-size: 14px; font-weight: 400; letter-spacing: normal; text-transform: none; }
+.diagnostyka .zestawienie .drobne { margin-top: 2px; }
+.diagnostyka .zestawienie form { margin-top: 6px; }
+
+.diagnostyka h3 {
+  margin: 0 0 12px;
+  color: var(--tekst);
+  font-size: 15px;
+  font-weight: 750;
+  letter-spacing: -0.02em;
+}
+.formularz-konfiguracji { display: grid; gap: 24px; margin-top: 18px; }
+.formularz-kolumny {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(320px, 100%), 1fr));
+  gap: 24px 40px;
+}
+.formularz-kolumny > div { display: grid; gap: 14px; align-content: start; }
+.formularz-kolumny h3 { margin-bottom: 0; }
+.formularz-kolumny .pole input:not([type="checkbox"]) { width: 100%; }
+.formularz-konfiguracji fieldset { min-width: 0; margin: 0; padding: 0; border: 0; }
+.formularz-konfiguracji legend { margin-bottom: 7px; padding: 0; }
+.formularz-konfiguracji .tabela-przewijana { max-width: 760px; }
+.formularz-konfiguracji table input[type="number"] { width: 110px; }
+.formularz-stopka { display: flex; justify-content: flex-end; margin-top: 14px; }
+.formularz-konfiguracji > .formularz-stopka { margin-top: 0; }
+
+.profile-ai { margin-top: 26px; padding-top: 22px; border-top: 1px solid var(--obramowanie); }
+.profile-ai .uwaga { margin-top: 0; }
+.akcje-wiersza { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.diagnostyka .zestawienie .akcje-wiersza form { margin: 0; }
+.formularz-wiersz { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px; margin-top: 14px; }
+.formularz-wiersz .pole { flex: 0 1 340px; }
+.formularz-wiersz .pole input { width: 100%; }

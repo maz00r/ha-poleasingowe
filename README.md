@@ -55,7 +55,7 @@ Kolejność etapów jest w `SPEC.md` §14. Zrobione:
   zmierzyć dopiero po etapie 9.
 - **ETAP 7** — interfejs: lista z filtrami i paginacją keyset, szczegóły,
   watchlist, zapisane filtry, panel diagnostyczny, miniatury, pełna galeria
-  i cache'owana wycena AI na podstawie danych auta oraz lokalnych porównań.
+  i zapisywana wycena AI na podstawie ogłoszeń z Otomoto.
   ← tutaj jesteśmy.
 
 - **ETAP 8** — mechanizm logowania: port `AuthenticatedSource`, trwały

@@ -64,7 +64,6 @@ from app.infrastructure.supervisor.options import (
     zastosuj_zmiany,
 )
 from app.infrastructure.supervisor.proces import rss_bajty
-from app.infrastructure.wycena_ai import BladWyceny
 from app.infrastructure.wycena_otomoto import wycen_z_otomoto
 from app.infrastructure.zadania_wyceny import Postep, StanZadania, ZadaniaWyceny
 from app.interfaces.web import eksport, filtry_szablonu
@@ -138,6 +137,9 @@ SZABLONY.env.globals["baza_sciezek"] = baza_sciezek
 
 CIASTECZKO_WIZYTY = "poleasingowe_ostatnia_wizyta"
 DNI_WIZYTY = 90
+CIASTECZKO_UKLADU = "poleasingowe_uklad"
+"""Układ listy. Zapisuje go `static/uklad.js`, serwer tylko czyta, dzięki czemu
+strona od razu przychodzi w wybranym układzie, bez mignięcia kafelków."""
 PRZERWA_WIZYTY_S = 30 * 60
 """Po tylu sekundach bezczynności zaczyna się NOWA wizyta.
 
@@ -172,7 +174,13 @@ def _kontekst_bazowy(request: Request) -> dict[str, Any]:
         "etykiety_rodzaju": ETYKIETY_RODZAJU,
         "wersja": WERSJA,
         "zakladki": _zakladki(request),
+        "uklad": _uklad(request),
     }
+
+
+def _uklad(request: Request) -> str:
+    """Stan przeglądarki, więc w ciasteczku, tak samo jak ostatnia wizyta."""
+    return "lista" if request.cookies.get(CIASTECZKO_UKLADU) == "lista" else "kafelki"
 
 
 def _brak_bazy(request: Request, kod: int = 503) -> Response:
@@ -987,106 +995,45 @@ async def dokument_archiwalny(
 
 @router.get("/aukcja/{auction_id}/wycena", response_class=HTMLResponse)
 async def wycena_aukcji(request: Request, auction_id: int) -> Response:
-    """Pokazuje zapisaną wycenę; liczy tylko wtedy, gdy jeszcze jej nie ma.
+    """Pokazuje zapisaną wycenę. Samo wejście na kartę niczego nie liczy.
 
     Gdy wycena z Otomoto właśnie trwa (np. po powrocie na kartę) — pasek.
     """
     stan = _zadania_wyceny(request).stan(auction_id)
     if stan is not None and not stan.gotowe:
         return _postep_wyceny(request, auction_id, stan)
-    return await _wycena(request, auction_id, przelicz=False)
-
-
-@router.post("/aukcja/{auction_id}/wycena", response_class=HTMLResponse)
-async def przelicz_wycene(request: Request, auction_id: int) -> Response:
-    """Świadome przeliczenie na nowo — jedyny sposób na zmianę wyceny.
-
-    Osobne żądanie i osobny przycisk, bo każde przeliczenie kosztuje
-    u dostawcy i daje inną kwotę. Samo wejście na kartę nie ma prawa tego
-    uruchamiać.
-    """
-    return await _wycena(request, auction_id, przelicz=True)
+    return await _wycena(request, auction_id)
 
 
 async def _wycena(
-    request: Request, auction_id: int, *, przelicz: bool, blad: str | None = None
+    request: Request, auction_id: int, *, blad: str | None = None
 ) -> Response:
     usluga = getattr(request.app.state, "wycena_ai", None)
+    mozna_otomoto = (
+        usluga is not None and getattr(request.app.state, "otomoto", None) is not None
+    )
+    szczyt = getattr(request.app.state, "szczyt_dostawcy", None)
     kontekst_szablonu: dict[str, Any] = {
         **_kontekst_bazowy(request),
         "auction_id": auction_id,
         "wycena": None,
         "blad": blad,
-        "brak_konfiguracji": False,
-        # Przeliczyć da się tylko z działającym dostawcą; POKAZAĆ zapisaną
-        # wycenę można zawsze.
-        "mozna_przeliczyc": usluga is not None,
-        "mozna_otomoto": usluga is not None
-        and getattr(request.app.state, "otomoto", None) is not None,
+        # Zapisaną wycenę pokazujemy także przy wyłączonym dostawcy: raz
+        # policzona nie przestaje być prawdziwa dlatego, że ktoś usunął klucz.
+        "brak_konfiguracji": usluga is None,
+        "mozna_otomoto": mozna_otomoto,
+        # Przycisk wycenia od razu, więc o stawce mówimy, zanim ktoś kliknie.
+        "szczyt_do": (
+            szczyt(dt.datetime.now(dt.UTC))
+            if mozna_otomoto and szczyt is not None
+            else None
+        ),
     }
     if _fabryka(request) is None:
         kontekst_szablonu["blad"] = "Baza danych jest teraz niedostępna."
-        kontekst_szablonu["brak_konfiguracji"] = usluga is None
-        return SZABLONY.TemplateResponse(
-            request=request,
-            name="fragmenty/wycena.html",
-            context=kontekst_szablonu,
-        )
-
-    async with _fabryka(request)() as kontekst:
-        async with kontekst.uow as uow:
-            zapisana = await uow.wycena.dla_aukcji(auction_id)
-        # Zapisana wycena wystarcza: to jest opinia o konkretnym aucie,
-        # a nie odczyt, który trzeba odświeżać. Pokazujemy ją także wtedy,
-        # gdy dostawca jest wyłączony — raz policzona wycena nie przestaje
-        # być prawdziwa dlatego, że ktoś usunął klucz API.
-        if zapisana is not None and not (przelicz and usluga is not None):
-            kontekst_szablonu["wycena"] = zapisana
-            return SZABLONY.TemplateResponse(
-                request=request,
-                name="fragmenty/wycena.html",
-                context=kontekst_szablonu,
-            )
-        if usluga is None:
-            kontekst_szablonu["brak_konfiguracji"] = True
-            return SZABLONY.TemplateResponse(
-                request=request,
-                name="fragmenty/wycena.html",
-                context=kontekst_szablonu,
-            )
-
-        # Samo wejście na kartę nie płaci stawki szczytowej. „Przelicz" tak:
-        # to świadome kliknięcie, z pytaniem o koszt.
-        szczyt = getattr(request.app.state, "szczyt_dostawcy", None)
-        koniec_szczytu = None if szczyt is None else szczyt(dt.datetime.now(dt.UTC))
-        if koniec_szczytu is not None and not przelicz:
-            kontekst_szablonu["szczyt_do"] = koniec_szczytu
-            return SZABLONY.TemplateResponse(
-                request=request,
-                name="fragmenty/wycena.html",
-                context=kontekst_szablonu,
-            )
-
-        dane = await kontekst.zapytania.szczegoly(auction_id)
-        porownania = await kontekst.zapytania.porownania_rynkowe(auction_id)
-        wystawienia = await kontekst.zapytania.powiazane_wystawienia(auction_id)
-        if dane is None:
-            return HTMLResponse("", status_code=404)
-        try:
-            nowa = await usluga.wycen(
-                dane,
-                porownania,
-                teraz=dt.datetime.now(dt.UTC),
-                wystawienia=wystawienia,
-            )
-        except BladWyceny as exc:
-            kontekst_szablonu["blad"] = str(exc)
-            # Nieudane przeliczenie nie ma kasować tego, co już mamy.
-            kontekst_szablonu["wycena"] = zapisana
-        else:
-            async with kontekst.uow as uow:
-                kontekst_szablonu["wycena"] = await uow.wycena.zapisz(nowa)
-
+    else:
+        async with _fabryka(request)() as kontekst, kontekst.uow as uow:
+            kontekst_szablonu["wycena"] = await uow.wycena.dla_aukcji(auction_id)
     return SZABLONY.TemplateResponse(
         request=request,
         name="fragmenty/wycena.html",
@@ -1129,10 +1076,7 @@ async def wycena_otomoto(request: Request, auction_id: int) -> Response:
     fabryka = _fabryka(request)
     if usluga is None or otomoto is None or fabryka is None:
         return await _wycena(
-            request,
-            auction_id,
-            przelicz=False,
-            blad="Wycena z Otomoto wymaga klucza AI.",
+            request, auction_id, blad="Wycena z Otomoto wymaga klucza AI."
         )
 
     async def praca(postep: Postep) -> None:
@@ -1151,7 +1095,7 @@ async def wycena_otomoto_stan(request: Request, auction_id: int) -> Response:
         return _postep_wyceny(request, auction_id, stan)
     zakonczone = zadania.zakoncz(auction_id)
     blad = None if zakonczone is None else zakonczone.blad
-    return await _wycena(request, auction_id, przelicz=False, blad=blad)
+    return await _wycena(request, auction_id, blad=blad)
 
 
 @router.get("/aukcja/{auction_id}/zdjecie/{indeks}")
@@ -1463,7 +1407,7 @@ def _blad_konfiguracji(request: Request, powod: object) -> RedirectResponse:
     log.warning("konfiguracja nie została zapisana: %s", powod)
     cel = sciezka_przekierowania(request, "diagnostyka")
     parametry = urlencode({"blad_konfiguracji": str(powod)})
-    return RedirectResponse(f"{cel}?{parametry}", status_code=303)
+    return RedirectResponse(f"{cel}?{parametry}#konfiguracja", status_code=303)
 
 
 def _ekran_restartu(request: Request) -> HTMLResponse:

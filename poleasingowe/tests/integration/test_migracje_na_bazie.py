@@ -18,6 +18,7 @@ from app.infrastructure.persistence.migrations import (
     zastosuj_migracje,
 )
 from tests.conftest import MIGRACJE, wymaga_postgresa
+from tests.integration.test_zapytania import _dane, _wycen
 
 pytestmark = wymaga_postgresa
 
@@ -700,3 +701,15 @@ async def test_migracja_029_skleja_modele_dwuczlonowe(
             ("s", "Octavia", "Style"),
             ("t", "Model Y", "Performance AWD"),
         ]
+
+
+async def test_migracja_031_kasuje_tylko_wyceny_bez_otomoto(
+    pusta_baza: psycopg.AsyncConnection,
+) -> None:
+    ids = await _dane(pusta_baza)
+    await _wycen(pusta_baza, ids["audi-za-godzine"], "150000", zrodlo="LOKALNA")
+    await _wycen(pusta_baza, ids["audi-za-tydzien"], "150000")
+    async with pusta_baza.cursor() as cur:
+        await cur.execute((MIGRACJE / "031_usun_wyceny_lokalne.sql").read_text())
+        await cur.execute("SELECT auction_id FROM app.ai_valuation")
+        assert await cur.fetchall() == [(ids["audi-za-tydzien"],)]

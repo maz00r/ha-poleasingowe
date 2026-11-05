@@ -4,13 +4,16 @@
 
 <div class="okazje-naglowek">
   <h1>Największe okazje</h1>
-  <nav class="przelacznik" aria-label="Sposób liczenia okazji">
-    {% for pozycja in przelacznik %}
-      <a class="{% if pozycja.aktywny %}aktywny{% endif %}"
-         href="{{ sciezka(request, 'okazje') }}?wg={{ pozycja.wartosc }}"
-         {% if pozycja.aktywny %}aria-current="page"{% endif %}>{{ pozycja.etykieta }}</a>
-    {% endfor %}
-  </nav>
+  <div class="okazje-przelaczniki">
+    <nav class="przelacznik" aria-label="Sposób liczenia okazji">
+      {% for pozycja in przelacznik %}
+        <a class="{% if pozycja.aktywny %}aktywny{% endif %}"
+           href="{{ sciezka(request, 'okazje') }}?wg={{ pozycja.wartosc }}"
+           {% if pozycja.aktywny %}aria-current="page"{% endif %}>{{ pozycja.etykieta }}</a>
+      {% endfor %}
+    </nav>
+    {% include "fragmenty/przelacznik-ukladu.html" %}
+  </div>
 </div>
 
 <p class="drobne">
@@ -40,7 +43,7 @@
 {% endif %}
 
 {% if okazje %}
-<div class="lista" id="wiersze">
+<div class="lista{{ ' lista-wiersze' if uklad == 'lista' }}" id="wiersze">
   {% for okazja in okazje %}
     {% set p = okazja.pozycja %}
     {% include "fragmenty/oferta.html" %}

@@ -38,7 +38,7 @@ from app.infrastructure.supervisor.options import Opcje
 from app.infrastructure.wycena_ai import BladWyceny
 from app.infrastructure.zdjecia import GaleriaZdjec
 from app.interfaces.app import utworz_aplikacje
-from app.interfaces.web.widoki import CIASTECZKO_WIZYTY
+from app.interfaces.web.widoki import CIASTECZKO_UKLADU, CIASTECZKO_WIZYTY
 from tests.conftest import wymaga_postgresa
 from tests.integration.test_zapytania import _dane, _wycen
 
@@ -907,9 +907,42 @@ async def test_wejscie_na_karte_w_szczycie_nie_placi_stawki_szczytowej(
         assert "Trwają droższe godziny" in wejscie.text
         assert "Wycena z Otomoto" in wejscie.text
 
-        await http.post(adres)  # „Przelicz" to świadome kliknięcie
-        assert wycena.zadania == 1
+        assert (await http.post(adres)).status_code == 405, "nie ma przeliczania"
 
         aplikacja.state.szczyt_dostawcy = lambda _: None
-        await http.get(adres)
-        assert wycena.zadania == 2, "poza szczytem karta wycenia jak dotąd"
+        poza_szczytem = await http.get(adres)
+        assert wycena.zadania == 0, "wejście na kartę nigdy nie płaci za model"
+        assert "Trwają droższe godziny" not in poza_szczytem.text
+        assert "nie ma jeszcze wyceny" in poza_szczytem.text
+        assert "Wycena z Otomoto" in poza_szczytem.text
+
+
+@pytest.mark.parametrize(
+    ("ciasteczko", "wiersze"),
+    [(None, False), ("kafelki", False), ("lista", True), ("<script>", False)],
+)
+async def test_uklad_listy_przychodzi_z_ciasteczka(
+    klient: httpx.AsyncClient,
+    pusta_baza: psycopg.AsyncConnection,
+    ciasteczko: str | None,
+    wiersze: bool,
+) -> None:
+    await _dane(pusta_baza)
+    if ciasteczko is not None:
+        klient.cookies.set(CIASTECZKO_UKLADU, ciasteczko)
+    odp = await klient.get("/")
+    assert ('class="lista lista-wiersze"' in odp.text) is wiersze
+    assert 'data-uklad="lista"' in odp.text
+
+
+async def test_doladowanie_listy_nie_zalezy_od_ukladu(
+    klient: httpx.AsyncClient, pusta_baza: psycopg.AsyncConnection
+) -> None:
+    """Układ siedzi na kontenerze, więc kolejne strony są te same w obu."""
+    await _dane(pusta_baza)
+    kafelki = await klient.get("/lista")
+    klient.cookies.set(CIASTECZKO_UKLADU, "lista")
+    wiersze = await klient.get("/lista")
+    assert 'class="oferta' in wiersze.text
+    assert wiersze.text.count("<article") == kafelki.text.count("<article")
+    assert "lista-wiersze" not in wiersze.text

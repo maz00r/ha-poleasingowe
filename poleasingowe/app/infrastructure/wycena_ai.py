@@ -71,31 +71,6 @@ MAKS_OGLOSZEN_NA_KARCIE = 15
 NAZWA_SCHEMATU = "wycena_pojazdu"
 
 INSTRUKCJE = (
-    "Jesteś analitykiem polskiego rynku samochodów używanych. "
-    "Oszacuj uczciwą cenę detaliczną pojazdu w PLN na dziś. "
-    "WSZYSTKIE kwoty w danych i w wyniku są w PLN NETTO (bez VAT). "
-    "Największą wagę nadaj porównaniom z zakończonych aukcji, "
-    "ale uwzględnij różnice rocznika i przebiegu. Jeśli danych "
-    "jest mało, poszerz przedział i obniż pewność. Nie zakładaj "
-    "idealnego stanu technicznego; jasno wypisz założenia.\n\n"
-    # Poziom cen na portalach ogłoszeniowych — z WIEDZY modelu, nie z sieci.
-    # Reguła „nie zmyślaj ogłoszeń" jest tu najważniejszym zdaniem: bez niej
-    # model dopisuje konkretne oferty z cenami i linkami, których nikt nigdy
-    # nie widział, a wyglądają jak dowód.
-    "W polu `cena_portale` podaj orientacyjny poziom cen OFERTOWYCH "
-    "podobnego auta na polskich portalach ogłoszeniowych (OtoMoto, OLX). "
-    "NIE MASZ dostępu do internetu — to szacunek z Twojej wiedzy o rynku, "
-    "więc nie podawaj konkretnych ogłoszeń, linków, nazw sprzedających ani "
-    "liczby ofert. Jeśli nie potrafisz tego rozsądnie oszacować, wpisz null. "
-    "Pamiętaj, że ceny ofertowe na portalach są zwykle wyższe od cen "
-    "uzyskiwanych na aukcjach poleasingowych; w uzasadnieniu napisz krótko, "
-    "jak duża jest ta różnica dla tego auta."
-)
-
-INSTRUKCJE_OTOMOTO = (
-    # Osobna instrukcja, nie dopisek: bazowa mówi „nie masz internetu,
-    # `cena_portale` to szacunek" i „największą wagę aukcjom" — przy danych
-    # z Otomoto to były dwa sprzeczne polecenia naraz.
     "Jesteś analitykiem polskiego rynku samochodów używanych. Oszacuj "
     "uczciwą cenę detaliczną pojazdu w PLN na dziś. WSZYSTKIE kwoty w danych "
     "i w wyniku są w PLN NETTO (bez VAT). Nie zakładaj idealnego stanu "
@@ -402,42 +377,39 @@ class WycenaAI:
         porownania: tuple[PorownanieRynkowe, ...],
         *,
         teraz: dt.datetime,
-        otomoto: WynikOtomoto | None = None,
+        otomoto: WynikOtomoto,
         ekspertyzy: tuple[OcenionyDokument, ...] = (),
         wystawienia: tuple[PowiazaneWystawienie, ...] = (),
     ) -> WycenaAukcji:
-        """`otomoto` i `ekspertyzy` tylko przy wycenie z Otomoto."""
         wejscie = self._wejscie(dane, porownania)
-        rozszerzona = otomoto is not None or bool(ekspertyzy)
-        if otomoto is not None:
-            wejscie["ogloszenia_otomoto"] = {
-                "liczba": otomoto.liczba,
-                "mediana": otomoto.mediana,
-                "kwartyl_dolny": otomoto.p25,
-                "kwartyl_gorny": otomoto.p75,
-                "model_otomoto": otomoto.model_otomoto,
-                "odrzucone_z_usa": otomoto.odrzucone_usa,
-                "odrzucone_cesje_leasingu": otomoto.odrzucone_cesje,
-                "odrzucone_skrajne": otomoto.odrzucone_skrajne,
-                "zawezono_do_wersji": otomoto.wersja,
-                "uwaga": (
-                    None
-                    if otomoto.wersja
-                    else "porównania mogą mieszać wersje wyposażenia/silnika "
-                    "tego modelu — skoryguj o różnicę wersji"
-                ),
-                "ogloszenia": [
-                    {
-                        "tytul": o.tytul,
-                        "cena": o.cena,
-                        "rok": o.rok,
-                        "przebieg_km": o.przebieg_km,
-                        "wersja": o.wersja,
-                        "faktura": o.faktura,
-                    }
-                    for o in self._najblizsze(dane, otomoto.ogloszenia, 25)
-                ],
-            }
+        wejscie["ogloszenia_otomoto"] = {
+            "liczba": otomoto.liczba,
+            "mediana": otomoto.mediana,
+            "kwartyl_dolny": otomoto.p25,
+            "kwartyl_gorny": otomoto.p75,
+            "model_otomoto": otomoto.model_otomoto,
+            "odrzucone_z_usa": otomoto.odrzucone_usa,
+            "odrzucone_cesje_leasingu": otomoto.odrzucone_cesje,
+            "odrzucone_skrajne": otomoto.odrzucone_skrajne,
+            "zawezono_do_wersji": otomoto.wersja,
+            "uwaga": (
+                None
+                if otomoto.wersja
+                else "porównania mogą mieszać wersje wyposażenia/silnika "
+                "tego modelu — skoryguj o różnicę wersji"
+            ),
+            "ogloszenia": [
+                {
+                    "tytul": o.tytul,
+                    "cena": o.cena,
+                    "rok": o.rok,
+                    "przebieg_km": o.przebieg_km,
+                    "wersja": o.wersja,
+                    "faktura": o.faktura,
+                }
+                for o in self._najblizsze(dane, otomoto.ogloszenia, 25)
+            ],
+        }
         for klucz, historia in (("ekspertyza", False), ("raport_historii", True)):
             dokumenty = [
                 {"dokument": d.nazwa, "tekst": d.tekst}
@@ -446,7 +418,7 @@ class WycenaAI:
             ]
             if dokumenty:
                 wejscie[klucz] = dokumenty
-        instrukcje = INSTRUKCJE_OTOMOTO if rozszerzona else INSTRUKCJE
+        instrukcje = INSTRUKCJE
         wczesniejsze = self._wczesniejsze(wystawienia, teraz)
         if wczesniejsze:
             wejscie["wczesniejsze_wystawienia_tego_auta"] = wczesniejsze
@@ -477,8 +449,6 @@ class WycenaAI:
                     if proba == 2:
                         raise
                     log.warning("model zwrócił niepoprawny JSON (%s) — ponawiam", exc)
-            if not rozszerzona:
-                return wynik
             return self._z_danymi_rynku(wynik, dane, otomoto, ekspertyzy)
         except (httpx.HTTPError, BladModelu, ValueError, KeyError, TypeError) as exc:
             log.warning("wycena AI nie powiodła się: %s", exc)
@@ -597,7 +567,7 @@ class WycenaAI:
         self,
         wynik: WycenaAukcji,
         dane: Szczegoly,
-        otomoto: WynikOtomoto | None,
+        otomoto: WynikOtomoto,
         ekspertyzy: tuple[OcenionyDokument, ...],
     ) -> WycenaAukcji:
         """Zmierzone liczby z Otomoto mają pierwszeństwo przed pamięcią modelu."""
@@ -610,28 +580,22 @@ class WycenaAI:
             wynik,
             zrodlo="OTOMOTO",
             cena_portale=(
-                pln(otomoto.mediana)
-                if otomoto is not None and otomoto.mediana is not None
-                else wynik.cena_portale
+                wynik.cena_portale if otomoto.mediana is None else pln(otomoto.mediana)
             ),
-            otomoto_liczba=None if otomoto is None else otomoto.liczba,
-            otomoto_p25=None if otomoto is None else pln(otomoto.p25),
-            otomoto_p75=None if otomoto is None else pln(otomoto.p75),
-            otomoto_adres=None if otomoto is None else otomoto.adres,
-            otomoto_ogloszenia=(
-                ()
-                if otomoto is None
-                else tuple(
-                    OgloszenieRynkowe(
-                        tytul=o.tytul,
-                        cena=Money(Decimal(o.cena), waluta),
-                        rok=o.rok,
-                        przebieg_km=o.przebieg_km,
-                        url=o.url,
-                    )
-                    for o in self._najblizsze(
-                        dane, otomoto.ogloszenia, MAKS_OGLOSZEN_NA_KARCIE
-                    )
+            otomoto_liczba=otomoto.liczba,
+            otomoto_p25=pln(otomoto.p25),
+            otomoto_p75=pln(otomoto.p75),
+            otomoto_adres=otomoto.adres,
+            otomoto_ogloszenia=tuple(
+                OgloszenieRynkowe(
+                    tytul=o.tytul,
+                    cena=Money(Decimal(o.cena), waluta),
+                    rok=o.rok,
+                    przebieg_km=o.przebieg_km,
+                    url=o.url,
+                )
+                for o in self._najblizsze(
+                    dane, otomoto.ogloszenia, MAKS_OGLOSZEN_NA_KARCIE
                 )
             ),
             ekspertyzy=tuple(d.nazwa for d in ekspertyzy),

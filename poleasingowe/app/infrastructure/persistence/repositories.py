@@ -553,7 +553,7 @@ SELECT id, auction_id, note, added_at
 FROM app.watchlist WHERE auction_id = %s
 """
 
-# Wycena AI — JEDEN wiersz na aukcje. `ON CONFLICT DO UPDATE`, bo "Przelicz"
+# Wycena AI — JEDEN wiersz na aukcje. `ON CONFLICT DO UPDATE`, bo nowa wycena
 # ma nadpisac poprzednia opinie, a nie odkladac kolejna: dwie wyceny tej samej
 # aukcji roznilyby sie kwota i nie byloby wiadomo, ktora obowiazuje.
 SQL_WYCENA_ZAPISZ = """

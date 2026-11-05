@@ -1,0 +1,9 @@
+{# Kafelki albo wiersze. Przełącza `static/uklad.js`, bez przeładowania: układ
+   to tylko klasa na kontenerze, więc doładowane strony zostają na miejscu. #}
+<div class="uklad-listy" role="group" aria-label="Układ listy">
+  {% for wartosc, etykieta in [('kafelki', 'Kafelki'), ('lista', 'Lista')] %}
+    <button type="button" class="sortuj {{ 'aktywny' if uklad == wartosc }}"
+            data-uklad="{{ wartosc }}"
+            aria-pressed="{{ 'true' if uklad == wartosc else 'false' }}">{{ etykieta }}</button>
+  {% endfor %}
+</div>
