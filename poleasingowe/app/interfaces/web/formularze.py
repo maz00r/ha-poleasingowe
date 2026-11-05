@@ -260,7 +260,20 @@ def zmiany_konfiguracji(
         "wycena_auto_limit_dzienny": _calkowita(
             formularz, "wycena_auto_limit_dzienny", "Dzienny limit wycen"
         ),
+        "wycena_pauza_minuty": _calkowita(
+            formularz, "wycena_pauza_minuty", "Pauza po awarii dostawcy"
+        ),
     }
+    rodzaje = [
+        r
+        for r in ("OSOBOWY", "DOSTAWCZY", "NIEZNANY")
+        if f"wycena_rodzaj_{r}" in formularz
+    ]
+    if not rodzaje:
+        raise ValueError(
+            "Wybierz co najmniej jeden typ pojazdu albo wyłącz automatyczną wycenę."
+        )
+    zmiany["wycena_auto_rodzaje"] = rodzaje
     if usun_klucz:
         zmiany |= {"ai_api_key": "", "openai_api_key": ""}
     elif klucz:

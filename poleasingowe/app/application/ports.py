@@ -434,7 +434,9 @@ class Zapytania(Protocol):
         """
         ...
 
-    async def kolejka_wycen(self, limit: int) -> tuple[int, ...]:
+    async def kolejka_wycen(
+        self, limit: int, rodzaje: Sequence[str] = ...
+    ) -> tuple[int, ...]:
         """Następne aukcje do automatycznej wyceny z Otomoto.
 
         Obserwowane pierwsze, potem najbliższe końca. Bez aukcji, które
@@ -446,7 +448,7 @@ class Zapytania(Protocol):
         """Aukcje, które automat próbował wycenić w ostatniej dobie."""
         ...
 
-    async def pokrycie_wycen(self) -> PokrycieWycen: ...
+    async def pokrycie_wycen(self, rodzaje: Sequence[str] = ...) -> PokrycieWycen: ...
 
     async def okazje(
         self, sortowanie: SortowanieOkazji, limit: int

@@ -534,7 +534,9 @@ async def okazje(request: Request) -> Response:
 
     async with _fabryka(request)() as kontekst:
         lista_okazji = await kontekst.zapytania.okazje(sortowanie, LIMIT_OKAZJI)
-        pokrycie = await kontekst.zapytania.pokrycie_wycen()
+        pokrycie = await kontekst.zapytania.pokrycie_wycen(
+            _stan(request).opcje.wycena_auto_rodzaje
+        )
 
     return SZABLONY.TemplateResponse(
         request=request,

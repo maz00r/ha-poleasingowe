@@ -1,5 +1,18 @@
 # Historia zmian
 
+## 0.37.3 — w przygotowaniu
+
+**Krótsza, konfigurowalna pauza po awarii dostawcy AI.** Automat czekał po takiej
+awarii godzinę. Teraz czeka 5 minut, a czas zmienisz w Diagnostyce albo opcją
+`wycena_pauza_minuty`. Blokada Otomoto nadal wstrzymuje automat na godzinę.
+
+**Wybór typów pojazdów dla automatu.** W Diagnostyce wskażesz, czy automat ma
+wyceniać osobowe, dostawcze i nierozpoznane. Odznaczenie nierozpoznanych wyłącza
+też motocykle i ciężarówki bez kategorii. Wycena z karty aukcji działa jak dotąd.
+
+**Czytelniejszy powód awarii.** Zamiast ogólnego „Nie udało się teraz” zobaczysz,
+czy dostawca nie odpowiedział na czas, czy nie ma z nim połączenia.
+
 ## 0.37.2 — w przygotowaniu
 
 **Czasy etapów wyceny w logu.** Każda wycena z Otomoto, także nieudana, zapisuje

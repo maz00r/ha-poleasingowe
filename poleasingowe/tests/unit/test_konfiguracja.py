@@ -43,6 +43,8 @@ def _formularz(**zmiany: str) -> dict[str, str]:
         "ai_model": "deepseek-chat",
         "wycena_auto": "on",
         "wycena_auto_limit_dzienny": "50",
+        "wycena_pauza_minuty": "7",
+        "wycena_rodzaj_OSOBOWY": "on",
         "zrodlo_efl_wlaczone": "on",
         "zrodlo_efl_limit": "20",
         "zrodlo_efl_floor": "90",
@@ -309,3 +311,19 @@ def test_zepsuty_plik_profili_nie_wywraca_diagnostyki(tmp_path: pathlib.Path) ->
 def test_repr_profilu_ukrywa_klucz() -> None:
     profil = ProfilAI(nazwa="x", ai_provider="openai", ai_api_key="tajny")
     assert "tajny" not in repr(profil)
+
+
+def test_pauza_jest_w_formularzu_i_ma_granice() -> None:
+    zmiany = zmiany_konfiguracji(_formularz(), OPCJE, ["efl"])
+    assert zastosuj_zmiany(OPCJE, zmiany).wycena_pauza_minuty == 7
+    with pytest.raises(BladKonfiguracji, match="wycena_pauza_minuty"):
+        zastosuj_zmiany(OPCJE, {"wycena_pauza_minuty": 0})
+
+
+def test_typy_pojazdow_z_formularza() -> None:
+    zmiany = zmiany_konfiguracji(_formularz(wycena_rodzaj_DOSTAWCZY="on"), OPCJE, [])
+    assert zmiany["wycena_auto_rodzaje"] == ["OSOBOWY", "DOSTAWCZY"]
+    formularz = _formularz()
+    del formularz["wycena_rodzaj_OSOBOWY"]
+    with pytest.raises(ValueError, match="co najmniej jeden typ"):
+        zmiany_konfiguracji(formularz, OPCJE, ["efl"])

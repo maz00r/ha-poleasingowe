@@ -1,6 +1,6 @@
 # Konfiguracja add-onu (SPEC.md §7.1).
 name: Aukcje poleasingowe
-version: "0.37.2"
+version: "0.37.3"
 slug: poleasingowe
 description: >-
   Zbiera oferty z polskich serwisow aukcji samochodow poleasingowych,
@@ -56,6 +56,11 @@ options:
   # to sufit prob na dobe: kazda to platne zadanie do modelu AI.
   wycena_auto: true
   wycena_auto_limit_dzienny: 300
+  wycena_pauza_minuty: 5
+  wycena_auto_rodzaje:
+    - OSOBOWY
+    - DOSTAWCZY
+    - NIEZNANY
   credentials: []
   sources: []
   log_level: INFO
@@ -79,6 +84,9 @@ schema:
   apify_token: password?
   wycena_auto: bool?
   wycena_auto_limit_dzienny: int(1,5000)?
+  wycena_pauza_minuty: int(1,1440)?
+  wycena_auto_rodzaje:
+    - list(OSOBOWY|DOSTAWCZY|NIEZNANY)?
   credentials:
     - source: str
       username: str

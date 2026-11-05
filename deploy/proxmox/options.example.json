@@ -13,6 +13,8 @@
   "apify_token": "",
   "wycena_auto": true,
   "wycena_auto_limit_dzienny": 300,
+  "wycena_pauza_minuty": 5,
+  "wycena_auto_rodzaje": ["OSOBOWY", "DOSTAWCZY", "NIEZNANY"],
   "credentials": [],
   "sources": [],
   "log_level": "INFO",

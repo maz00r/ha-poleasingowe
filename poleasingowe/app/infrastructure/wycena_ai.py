@@ -363,6 +363,10 @@ def _komunikat_bledu(exc: Exception) -> str:
     # nie mówi, czy poprawić nazwę modelu, adres czy klucz — a to jedyne
     # trzy rzeczy, które użytkownik może tu zrobić.
     powod = exc.powod if isinstance(exc, BladOdpowiedzi) else None
+    if isinstance(exc, httpx.TimeoutException):
+        powod = "dostawca nie odpowiedział na czas"
+    elif isinstance(exc, httpx.TransportError):
+        powod = "brak połączenia z dostawcą"
     return (
         f"Wycena AI nie powiodła się: {powod}"
         if powod

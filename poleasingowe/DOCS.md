@@ -282,6 +282,8 @@ modelu i bierze ogłoszenia, które mają ją w tytule.
 |---|---|---|
 | `wycena_auto` | `true` | Włącza automat. Bez klucza AI nic nie robi. |
 | `wycena_auto_limit_dzienny` | `300` | Sufit prób w ciągu 24 godzin, od 1 do 5000. |
+| `wycena_auto_rodzaje` | wszystkie trzy | Co wycenia automat: `OSOBOWY`, `DOSTAWCZY`, `NIEZNANY`. Ten ostatni obejmuje też motocykle i ciężarówki bez kategorii. Wycena z karty działa niezależnie. |
+| `wycena_pauza_minuty` | `5` | Ile minut automat czeka po awarii dostawcy AI, od 1 do 1440. Blokada Otomoto zawsze wstrzymuje go na godzinę. |
 
 **Koszt.** Każda próba to zwykle jedno lub dwa płatne żądania do dostawcy
 modelu, więc limit jest górną granicą wydatków. Wyceny z przycisku się do niego

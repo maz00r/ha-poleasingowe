@@ -20,6 +20,7 @@ from app.infrastructure.ai_klienci import (
 )
 from app.infrastructure.auto_wycena import (
     LIMIT_WYCZERPANY_S,
+    PAUZA_AI_S,
     PAUZA_S,
     PUSTA_KOLEJKA_S,
     AutoWycena,
@@ -149,14 +150,21 @@ async def test_porazka_jednej_aukcji_nie_zatrzymuje_kolejki(blad: Exception) -> 
     assert automat.stan.pauza_do is None
 
 
-@pytest.mark.parametrize(
-    "blad",
-    [
-        BladDostepuOtomoto("Otomoto nie odpowiada: 429"),
-        BladDostawcyAI("Wycena AI nie powiodła się: dostawca odrzucił klucz API"),
-    ],
-)
-async def test_awaria_wspolna_wstrzymuje_automat(blad: Exception) -> None:
+async def test_awaria_dostawcy_ai_wstrzymuje_na_krotko() -> None:
+    blad = BladDostawcyAI("Wycena AI nie powiodła się: dostawca odrzucił klucz API")
+    baza = Baza(kolejka=(5, 6))
+    zegar = Zegar()
+    automat, wycenione = _automat(baza, blad, zegar=zegar)
+
+    assert await automat.krok() == PAUZA_AI_S
+    assert automat.stan.powod_pauzy == str(blad)
+    zegar.teraz += dt.timedelta(seconds=PAUZA_AI_S + 1)
+    await automat.krok()
+    assert wycenione == [5, 5]
+
+
+async def test_blokada_otomoto_wstrzymuje_na_godzine() -> None:
+    blad = BladDostepuOtomoto("Otomoto nie odpowiada: 429")
     baza = Baza(kolejka=(5, 6))
     zegar = Zegar()
     automat, wycenione = _automat(baza, blad, zegar=zegar)

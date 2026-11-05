@@ -64,6 +64,16 @@ configuration:
     name: Daily limit of automatic valuations
     description: >-
       Maximum valuation attempts within 24 hours. Once reached, the worker waits.
+  wycena_auto_rodzaje:
+    name: Vehicle types valued automatically
+    description: >-
+      NIEZNANY also covers motorcycles and trucks without a category. Valuing
+      from the auction card works regardless of this choice.
+  wycena_pauza_minuty:
+    name: Pause after an AI provider failure (minutes)
+    description: >-
+      How many minutes the worker waits after an AI provider failure. An Otomoto
+      block always pauses it for an hour.
   credentials:
     name: Site credentials
     description: >-

@@ -156,6 +156,8 @@ def _auto_wycena(
         zadania,
         praca,
         limit_dzienny=opcje.wycena_auto_limit_dzienny,
+        pauza_ai_s=opcje.wycena_pauza_minuty * 60,
+        rodzaje=opcje.wycena_auto_rodzaje,
         szczyt=szczyt,
     )
 

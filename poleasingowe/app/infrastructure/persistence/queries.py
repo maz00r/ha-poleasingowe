@@ -13,6 +13,7 @@ danych, które w międzyczasie się zmieniły, gubi albo powtarza pozycje.
 from __future__ import annotations
 
 import datetime as dt
+from collections.abc import Sequence
 from decimal import Decimal
 from typing import Any, Final
 
@@ -320,6 +321,8 @@ FROM app.auction
 WHERE duplicate_of IS NULL
 """)
 
+RODZAJE_DO_WYCENY: Final = ("OSOBOWY", "DOSTAWCZY", "NIEZNANY")
+"""Rodzaje, które Otomoto obsługuje."""
 ZAPAS_DO_KONCA_WYCENY_H: Final = 3
 """Aukcje kończące się szybciej idą na koniec kolejki. Inaczej partia kończąca
 się jednego dnia zużywa całą przepustowość, a jej wyceny znikają z Okazji,
@@ -355,7 +358,7 @@ DO_WYCENY = sql.SQL("""
     AND (a.ends_at IS NULL OR a.ends_at > now())
     AND NULLIF(a.make, '') IS NOT NULL
     AND NULLIF(a.model, '') IS NOT NULL
-    AND a.vehicle_kind IN ('OSOBOWY', 'DOSTAWCZY', 'NIEZNANY')
+    AND a.vehicle_kind::text = ANY(%(rodzaje)s)
     AND {najnowsze}
 """).format(najnowsze=NAJNOWSZE_WYSTAWIENIE)
 
@@ -888,7 +891,9 @@ class PgZapytania:
             for w in wiersze
         )
 
-    async def kolejka_wycen(self, limit: int) -> tuple[int, ...]:
+    async def kolejka_wycen(
+        self, limit: int, rodzaje: Sequence[str] = RODZAJE_DO_WYCENY
+    ) -> tuple[int, ...]:
         async with self._conn.cursor() as cur:
             await cur.execute(
                 SQL_KOLEJKA_WYCEN,
@@ -896,6 +901,7 @@ class PgZapytania:
                     "maks_prob": MAKS_PROB_WYCENY,
                     "odstep_h": ODSTEP_PROB_WYCENY_H,
                     "zapas_h": ZAPAS_DO_KONCA_WYCENY_H,
+                    "rodzaje": list(rodzaje),
                     "limit": limit,
                 },
             )
@@ -907,9 +913,14 @@ class PgZapytania:
             wiersz = await cur.fetchone()
         return 0 if wiersz is None else int(wiersz[0])
 
-    async def pokrycie_wycen(self) -> PokrycieWycen:
+    async def pokrycie_wycen(
+        self, rodzaje: Sequence[str] = RODZAJE_DO_WYCENY
+    ) -> PokrycieWycen:
         async with self._conn.cursor(row_factory=dict_row) as cur:
-            await cur.execute(SQL_POKRYCIE_WYCEN, {"maks_prob": MAKS_PROB_WYCENY})
+            await cur.execute(
+                SQL_POKRYCIE_WYCEN,
+                {"maks_prob": MAKS_PROB_WYCENY, "rodzaje": list(rodzaje)},
+            )
             w = await cur.fetchone()
         assert w is not None  # agregat bez GROUP BY zawsze daje wiersz
         return PokrycieWycen(

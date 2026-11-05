@@ -65,6 +65,16 @@ configuration:
     name: Limit automatycznych wycen na dobe
     description: >-
       Sufit prob wyceny w ciagu 24 godzin. Po jego osiagnieciu automat czeka.
+  wycena_auto_rodzaje:
+    name: Typy pojazdow wyceniane automatycznie
+    description: >-
+      NIEZNANY obejmuje takze motocykle i ciezarowki bez kategorii. Wycena
+      z karty aukcji dziala niezaleznie od tego wyboru.
+  wycena_pauza_minuty:
+    name: Pauza po awarii dostawcy AI (minuty)
+    description: >-
+      Ile minut automat czeka po awarii dostawcy AI. Blokada Otomoto zawsze
+      wstrzymuje go na godzine.
   credentials:
     name: Poswiadczenia do serwisow
     description: >-

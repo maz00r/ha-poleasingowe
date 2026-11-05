@@ -36,6 +36,8 @@ POLA_NADPISYWANE = (
     "openai_api_key",
     "wycena_auto",
     "wycena_auto_limit_dzienny",
+    "wycena_pauza_minuty",
+    "wycena_auto_rodzaje",
     "sources",
 )
 """Tylko to wolno zmieniać z przeglądarki. Hasła do serwisów i bazy zostają
@@ -135,6 +137,15 @@ class Opcje(BaseModel):
     nie robi."""
     wycena_auto_limit_dzienny: Annotated[int, Field(ge=1, le=5_000)] = 300
     """Sufit prób na dobę — każda to płatne żądanie do modelu."""
+    wycena_auto_rodzaje: Annotated[
+        list[Literal["OSOBOWY", "DOSTAWCZY", "NIEZNANY"]], Field(min_length=1)
+    ] = ["OSOBOWY", "DOSTAWCZY", "NIEZNANY"]
+    """Co wycenia automat. Tylko rodzaje, które da się szukać na Otomoto;
+    `NIEZNANY` obejmuje też motocykle i ciężarówki bez rozpoznanej kategorii.
+    Przycisk na karcie aukcji działa niezależnie od tego wyboru."""
+    wycena_pauza_minuty: Annotated[int, Field(ge=1, le=1_440)] = 5
+    """Przerwa automatu po awarii dostawcy AI. Blokada Otomoto ma własną,
+    stałą godzinę, bo to cudzy serwis."""
     credentials: list[Poswiadczenia] = Field(default_factory=list)
     sources: list[OpcjeZrodla] = Field(default_factory=list)
 

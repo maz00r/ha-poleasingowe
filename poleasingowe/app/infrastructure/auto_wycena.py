@@ -7,8 +7,9 @@ Koszt ogranicza dobowy limit prób (`wycena_auto_limit_dzienny`).
 
 **Dwa rodzaje porażki.** Auto nieznane Otomoto dotyczy tej jednej aukcji:
 próba zostaje zapisana i kolejka idzie dalej. Blokada Otomoto albo awaria
-dostawcy AI dotyczy wszystkich — wtedy cały automat czeka godzinę, zamiast
-utrwalać blokadę i oznaczać kolejne auta jako nie do wyceny. Próba zapisuje
+dostawcy AI dotyczy wszystkich — wtedy cały automat czeka (Otomoto godzinę,
+dostawca AI tyle, ile mówi `wycena_pauza_minuty`), zamiast utrwalać blokadę
+i oznaczać kolejne auta jako nie do wyceny. Próba zapisuje
 się także wtedy: inaczej aukcja, która sama wywołuje taki błąd, stałaby na
 początku kolejki bez końca.
 
@@ -24,7 +25,7 @@ from __future__ import annotations
 import asyncio
 import datetime as dt
 import logging
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass
 
 from app.application.ports import FabrykaKontekstu
@@ -38,7 +39,9 @@ log = logging.getLogger(__name__)
 PRZERWA_S = 45.0
 """Między wycenami — około 2-3 strony wyników Otomoto na minutę."""
 PAUZA_S = 3600.0
-"""Po awarii dotyczącej wszystkich aukcji."""
+"""Po blokadzie Otomoto. To cudzy serwis, więc nie skracamy tego w opcjach."""
+PAUZA_AI_S = 300.0
+"""Po awarii dostawcy AI; w aplikacji ustawiane opcją `wycena_pauza_minuty`."""
 PUSTA_KOLEJKA_S = 300.0
 LIMIT_WYCZERPANY_S = 900.0
 PO_AWARII_KROKU_S = 60.0
@@ -74,6 +77,8 @@ class AutoWycena:
         *,
         limit_dzienny: int,
         przerwa_s: float = PRZERWA_S,
+        pauza_ai_s: float = PAUZA_AI_S,
+        rodzaje: Sequence[str] | None = None,
         zegar: Callable[[], dt.datetime] = _teraz,
         szczyt: Szczyt | None = None,
     ) -> None:
@@ -82,6 +87,8 @@ class AutoWycena:
         self._praca = praca
         self._limit_dzienny = limit_dzienny
         self._przerwa_s = przerwa_s
+        self._pauza_ai_s = pauza_ai_s
+        self._rodzaje = rodzaje
         self._zegar = zegar
         self._szczyt = szczyt
         self.stan = StanAutoWyceny()
@@ -126,7 +133,11 @@ class AutoWycena:
             )
             if stan.limit_wyczerpany:
                 return LIMIT_WYCZERPANY_S
-            kolejka = await kontekst.zapytania.kolejka_wycen(OKNO_KOLEJKI)
+            kolejka = await (
+                kontekst.zapytania.kolejka_wycen(OKNO_KOLEJKI)
+                if self._rodzaje is None
+                else kontekst.zapytania.kolejka_wycen(OKNO_KOLEJKI, self._rodzaje)
+            )
 
         auction_id = next((i for i in kolejka if self._zadania.stan(i) is None), None)
         if auction_id is None:
@@ -148,8 +159,13 @@ class AutoWycena:
                 None if blad is None else blad[:MAKS_DLUGOSC_BLEDU],
             )
         if isinstance(zadanie.wyjatek, BladDostepuOtomoto | BladDostawcyAI):
-            stan.pauza_do = self._zegar() + dt.timedelta(seconds=PAUZA_S)
+            pauza = (
+                self._pauza_ai_s
+                if isinstance(zadanie.wyjatek, BladDostawcyAI)
+                else PAUZA_S
+            )
+            stan.pauza_do = self._zegar() + dt.timedelta(seconds=pauza)
             stan.powod_pauzy = blad
-            log.warning("automatyczna wycena wstrzymana na godzinę: %s", blad)
-            return PAUZA_S
+            log.warning("automatyczna wycena wstrzymana na %.0f s: %s", pauza, blad)
+            return pauza
         return self._przerwa_s

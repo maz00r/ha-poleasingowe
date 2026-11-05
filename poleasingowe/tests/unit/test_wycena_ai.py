@@ -30,7 +30,12 @@ from app.infrastructure.ai_klienci import (
 )
 from app.infrastructure.ekspertyza import OcenionyDokument
 from app.infrastructure.otomoto import PojazdDoPorownania
-from app.infrastructure.wycena_ai import BladDostawcyAI, BladWyceny, WycenaAI
+from app.infrastructure.wycena_ai import (
+    BladDostawcyAI,
+    BladWyceny,
+    WycenaAI,
+    _komunikat_bledu,
+)
 
 TERAZ = dt.datetime(2026, 9, 9, 12, 0, tzinfo=dt.UTC)
 
@@ -989,3 +994,14 @@ def test_instrukcja_zakazuje_prostego_cudzyslowu() -> None:
     from app.infrastructure.wycena_ai import FORMAT_UZASADNIENIA
 
     assert 'prostego cudzysłowu (")' in FORMAT_UZASADNIENIA
+
+
+@pytest.mark.parametrize(
+    ("blad", "powod"),
+    [
+        (httpx.ReadTimeout("x"), "nie odpowiedział na czas"),
+        (httpx.ConnectError("x"), "brak połączenia"),
+    ],
+)
+def test_komunikat_mowi_co_sie_stalo(blad: Exception, powod: str) -> None:
+    assert powod in _komunikat_bledu(blad)

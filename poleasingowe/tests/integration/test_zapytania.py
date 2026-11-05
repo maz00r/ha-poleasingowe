@@ -968,6 +968,17 @@ async def test_limit_okazji(pusta_baza: psycopg.AsyncConnection) -> None:
     assert [o.pozycja.id for o in okazje] == [ids["audi-za-godzine"]]
 
 
+async def test_kolejka_i_pokrycie_szanuja_wybrane_typy_pojazdow(
+    pusta_baza: psycopg.AsyncConnection,
+) -> None:
+    await _dane(pusta_baza)
+    zapytania = PgZapytania(pusta_baza)
+
+    assert await zapytania.kolejka_wycen(100, ["DOSTAWCZY"]) == ()
+    assert (await zapytania.pokrycie_wycen(["DOSTAWCZY"])).do_wyceny == 0
+    assert await zapytania.kolejka_wycen(100, ["OSOBOWY"])
+
+
 async def test_kolejka_odklada_aukcje_tuz_przed_koncem(
     pusta_baza: psycopg.AsyncConnection,
 ) -> None:

@@ -84,6 +84,19 @@
              min="1" max="5000" value="{{ konfiguracja.opcje.wycena_auto_limit_dzienny }}">
     </div>
 
+    <fieldset>
+      <legend>Typy pojazdów wyceniane automatycznie</legend>
+      {% for wartosc, opis in [('OSOBOWY', 'Osobowe'), ('DOSTAWCZY', 'Dostawcze'), ('NIEZNANY', 'Nierozpoznane (także motocykle i ciężarówki bez kategorii)')] %}
+        <label><input type="checkbox" name="wycena_rodzaj_{{ wartosc }}"
+          {% if wartosc in konfiguracja.opcje.wycena_auto_rodzaje %}checked{% endif %}> {{ opis }}</label>
+      {% endfor %}
+    </fieldset>
+    <div class="pole">
+      <label for="wycena_pauza_minuty">Pauza po awarii dostawcy AI [min]</label>
+      <input id="wycena_pauza_minuty" name="wycena_pauza_minuty" type="number"
+             min="1" max="1440" value="{{ konfiguracja.opcje.wycena_pauza_minuty }}">
+    </div>
+
     <h3>Źródła</h3>
     <table>
       <thead><tr><th>Źródło</th><th>Włączone</th><th>Żądań na minutę</th><th>Odstęp [s]</th></tr></thead>
