@@ -1,5 +1,12 @@
 # Historia zmian
 
+## 0.37.1 — w przygotowaniu
+
+**Okazje nie pustoszeją po dużej partii aukcji.** Automat wyceniał najpierw aukcje
+najbliższe końca, więc partia kończąca się jednego dnia zużywała całą dobę,
+a jej wyceny szybko znikały z listy. Teraz najpierw idą obserwowane, potem aukcje
+z co najmniej trzema godzinami do końca, a kończące się szybciej zostają na koniec.
+
 ## 0.37.0 — w przygotowaniu
 
 **Profile wyceny AI.** W Diagnostyce zapiszesz obecnego dostawcę, adres, model

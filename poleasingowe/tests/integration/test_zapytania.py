@@ -968,6 +968,37 @@ async def test_limit_okazji(pusta_baza: psycopg.AsyncConnection) -> None:
     assert [o.pozycja.id for o in okazje] == [ids["audi-za-godzine"]]
 
 
+async def test_kolejka_odklada_aukcje_tuz_przed_koncem(
+    pusta_baza: psycopg.AsyncConnection,
+) -> None:
+    ids = await _dane(pusta_baza)
+    uow = PgUnitOfWork(pusta_baza)
+    efl = await uow.source.po_kluczu("efl")
+    assert efl is not None
+    assert efl.id is not None
+    zapisana = await uow.auction.zapisz(
+        Auction(
+            source_id=efl.id,
+            external_id="za-dobe",
+            url="https://przyklad.test/za-dobe",
+            status=AuctionStatus.ACTIVE,
+            first_seen_at=TERAZ,
+            last_seen_at=TERAZ,
+            make="Kia",
+            model="Ceed",
+            price_start=_pln("30000"),
+            ends_at=dt.datetime.now(dt.UTC) + dt.timedelta(days=1),
+        )
+    )
+
+    kolejka = await PgZapytania(pusta_baza).kolejka_wycen(100)
+
+    # `vw-za-dwie-godziny` jest obserwowany, więc zostaje pierwszy.
+    assert kolejka[0] == ids["vw-za-dwie-godziny"]
+    assert kolejka[1] == zapisana.id
+    assert kolejka.index(ids["bez-terminu-b"]) < kolejka.index(ids["audi-za-godzine"])
+
+
 async def test_kolejka_wycen_obserwowane_potem_najblizsze_konca(
     pusta_baza: psycopg.AsyncConnection,
 ) -> None:
@@ -976,9 +1007,9 @@ async def test_kolejka_wycen_obserwowane_potem_najblizsze_konca(
     kolejka = await PgZapytania(pusta_baza).kolejka_wycen(4)
 
     # `vw-za-dwie-godziny` jest obserwowany, więc wyprzedza `audi-za-godzine`.
-    assert kolejka[:2] == (ids["vw-za-dwie-godziny"], ids["audi-za-godzine"])
+    assert kolejka[0] == ids["vw-za-dwie-godziny"]
     wszystkie = await PgZapytania(pusta_baza).kolejka_wycen(100)
-    assert wszystkie[-2:] == (ids["bez-terminu-a"], ids["bez-terminu-b"])
+    assert wszystkie.index(ids["bez-terminu-a"]) < wszystkie.index(ids["bez-terminu-b"])
     for odpada in ("archiwalna", "zniknieta-obserwowana", "duplikat"):
         assert ids[odpada] not in wszystkie
 

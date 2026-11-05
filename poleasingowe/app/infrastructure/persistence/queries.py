@@ -320,6 +320,11 @@ FROM app.auction
 WHERE duplicate_of IS NULL
 """)
 
+ZAPAS_DO_KONCA_WYCENY_H: Final = 3
+"""Aukcje kończące się szybciej idą na koniec kolejki. Inaczej partia kończąca
+się jednego dnia zużywa całą przepustowość, a jej wyceny znikają z Okazji,
+zanim można na nie zareagować (2026-11-05: 249 z 255 wycen). Obserwowane
+zawsze idą pierwsze."""
 MAKS_PROB_WYCENY: Final = 3
 ODSTEP_PROB_WYCENY_H: Final = 6
 """Nieudana aukcja wraca do kolejki po 6 h, najwyżej trzy razy. Odstęp sprawia,
@@ -373,7 +378,11 @@ WHERE {do_wyceny}
       AND p.last_attempt_at < now() - make_interval(hours => %(odstep_h)s)
     )
   )
-ORDER BY (w.auction_id IS NOT NULL) DESC, a.ends_at ASC NULLS LAST, a.id ASC
+ORDER BY
+    (w.auction_id IS NOT NULL) DESC,
+    (a.ends_at < now() + make_interval(hours => %(zapas_h)s)) IS TRUE ASC,
+    a.ends_at ASC NULLS LAST,
+    a.id ASC
 LIMIT %(limit)s
 """).format(zrodlo=ZRODLO_WYCEN, do_wyceny=DO_WYCENY)
 
@@ -886,6 +895,7 @@ class PgZapytania:
                 {
                     "maks_prob": MAKS_PROB_WYCENY,
                     "odstep_h": ODSTEP_PROB_WYCENY_H,
+                    "zapas_h": ZAPAS_DO_KONCA_WYCENY_H,
                     "limit": limit,
                 },
             )
