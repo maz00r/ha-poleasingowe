@@ -6,6 +6,11 @@ Teksty odtwarzają układ warstwy tekstowej trzech zmierzonych raportów
 
 from __future__ import annotations
 
+from concurrent.futures import Future
+from concurrent.futures.process import BrokenProcessPool
+
+import pytest
+
 from app.infrastructure import ekspertyza
 
 VIN = "VF3YBTMFB12A67998"
@@ -56,6 +61,37 @@ def test_bez_vin_aukcji_wystarcza_tresc_raportu() -> None:
 
 def test_regulamin_nie_jest_ekspertyza() -> None:
     assert ekspertyza.wybierz([("Ekspertyza.pdf", REGULAMIN)], VIN) == ()
+
+
+def _pdf(*wiersze: bytes) -> bytes:
+    """Najmniejszy PDF z warstwą tekstową. Polskie znaki idą przez nazwy glifów."""
+    tresc = b"BT /F 12 Tf 72 700 Td 14 TL " + b" ".join(
+        b"(" + w + b") Tj T*" for w in wiersze
+    )
+    obiekty = [
+        b"<</Type/Catalog/Pages 2 0 R>>",
+        b"<</Type/Pages/Kids[3 0 R]/Count 1>>",
+        b"<</Type/Page/Parent 2 0 R/MediaBox[0 0 612 792]/Contents 4 0 R"
+        b"/Resources<</Font<</F 5 0 R>>>>>>",
+        b"<</Length %d>>stream\n%s ET\nendstream" % (len(tresc) + 3, tresc),
+        b"<</Type/Font/Subtype/Type1/BaseFont/Helvetica/Encoding"
+        b"<</Differences[128/lslash/oacute/aogonek]>>>>",
+    ]
+    plik = b"%PDF-1.7\n"
+    pozycje = []
+    for numer, obiekt in enumerate(obiekty, 1):
+        pozycje.append(len(plik))
+        plik += b"%d 0 obj\n%s\nendobj\n" % (numer, obiekt)
+    xref = len(plik)
+    plik += b"xref\n0 %d\n0000000000 65535 f \n" % (len(obiekty) + 1)
+    plik += b"".join(b"%010d 00000 n \n" % p for p in pozycje)
+    plik += b"trailer<</Size %d/Root 1 0 R>>\n" % (len(obiekty) + 1)
+    return plik + b"startxref\n%d\n%%%%EOF\n" % xref
+
+
+def test_tekst_pdf_czyta_polskie_znaki_i_wiersze() -> None:
+    tekst = ekspertyza.tekst_pdf(_pdf(b"Stan   techniczny", b"\x80\x81d\x82"))
+    assert tekst == "Stan techniczny\nłódą"
 
 
 def test_uszkodzony_pdf_daje_pusty_tekst() -> None:
@@ -207,3 +243,22 @@ async def test_czytaj_pdfy_dziala_w_osobnym_procesie_i_zachowuje_kolejnosc() -> 
         [b"%PDF-1.7 pierwszy zly", b"%PDF-1.7 drugi zly"]
     )
     assert wynik == ["", ""]
+
+
+async def test_awaria_procesu_pomija_dokumenty_zamiast_przerywac_wycene(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class PadlaPula:
+        def __init__(self, **_: object) -> None:
+            pass
+
+        def submit(self, *_: object, **__: object) -> Future[str]:
+            wynik: Future[str] = Future()
+            wynik.set_exception(BrokenProcessPool("segfault"))
+            return wynik
+
+        def shutdown(self) -> None:
+            pass
+
+    monkeypatch.setattr(ekspertyza, "ProcessPoolExecutor", PadlaPula)
+    assert await ekspertyza.czytaj_pdfy([b"a", b"b"]) == ["", ""]

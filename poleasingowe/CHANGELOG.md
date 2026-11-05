@@ -1,5 +1,11 @@
 # Historia zmian
 
+## 0.38.1 — w przygotowaniu
+
+**Szybsze czytanie PDF-ów.** Ekspertyzy i raporty czyta teraz PDFium, silnik
+z Chrome, zamiast `pypdf`. Na próbce 40 stron wyszło to około 8 razy szybciej.
+Gdy proces czytający PDF-y padnie, wycena pomija dokument i liczy dalej.
+
 ## 0.38.0 — w przygotowaniu
 
 **Widok listy.** Przyciski Kafelki i Lista nad wynikami zmieniają układ listy

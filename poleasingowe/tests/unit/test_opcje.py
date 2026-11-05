@@ -175,13 +175,6 @@ def test_filtr_logow_zasłania_sekrety(caplog: pytest.LogCaptureFixture) -> None
     assert "abc123" not in tresc, "ciasteczko sesji nie ma prawa trafić do logu"
 
 
-def test_ostrzezenia_pypdf_nie_trafiaja_do_logu() -> None:
-    from app.interfaces.main import _skonfiguruj_logi
-
-    _skonfiguruj_logi(Opcje(db_password="haslo-testu-logow"))
-    assert logging.getLogger("pypdf._cmap").getEffectiveLevel() == logging.ERROR
-
-
 def test_dsn_sklada_sie_z_opcji(tmp_path: pathlib.Path) -> None:
     dane = {
         **MINIMALNE,

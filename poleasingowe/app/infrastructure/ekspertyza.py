@@ -28,16 +28,14 @@ Oba źródła się uzupełniają, więc aukcja z dwoma raportami przekazuje oba.
 from __future__ import annotations
 
 import asyncio
-import io
 import logging
 import multiprocessing
 import re
 from collections.abc import Sequence
-from concurrent.futures import ProcessPoolExecutor
+from concurrent.futures import BrokenExecutor, ProcessPoolExecutor
 from dataclasses import dataclass, replace
 
-from pypdf import PdfReader
-from pypdf.errors import PdfReadError
+import pypdfium2  # type: ignore[import-untyped]
 
 log = logging.getLogger(__name__)
 
@@ -91,21 +89,28 @@ def tekst_pdf(dane: bytes) -> str:
     do osobnego procesu, a to wymaga, żeby dało się ją zaimportować po nazwie.
     """
     try:
-        czytnik = PdfReader(io.BytesIO(dane))
-        strony = [strona.extract_text() or "" for strona in czytnik.pages[:MAKS_STRON]]
-    except (PdfReadError, ValueError, TypeError, KeyError, OSError) as exc:
+        dokument = pypdfium2.PdfDocument(dane)
+        try:
+            strony = [
+                dokument[numer].get_textpage().get_text_bounded()
+                for numer in range(min(len(dokument), MAKS_STRON))
+            ]
+        finally:
+            dokument.close()
+    except (pypdfium2.PdfiumError, ValueError, OSError) as exc:
         log.warning("nie udało się odczytać PDF-a: %s", exc)
         return ""
-    return re.sub(r"[ \t]+", " ", "\n".join(strony)).strip()
+    # PDFium kończy wiersze znakami CRLF, a reguły wyboru dokumentu widzą LF.
+    return re.sub(r"[ \t]+", " ", "\n".join(strony).replace("\r\n", "\n")).strip()
 
 
 async def czytaj_pdfy(dane: Sequence[bytes]) -> list[str]:
     """Jak `tekst_pdf`, ale poza wątkiem strony — w osobnym procesie.
 
-    `pypdf` parsuje drzewo PDF-a w czystym Pythonie i trzyma GIL na długo —
-    zmierzone 45 s na jednym dokumencie (2026-11-05). `asyncio.to_thread` nie
-    pomaga: wątek i strona dzielą ten sam GIL, więc strona dalej nie
-    odpowiada. Osobny proces faktycznie zwalnia procesor głównego procesu.
+    Sama szybkość PDFium (0.38.1) by tego nie wymagała, ale to kod natywny
+    czytający obce pliki. Jego awaria ma zabić proces pomocniczy, a nie całą
+    aplikację: taki dokument jest wtedy pomijany, a wycena idzie dalej. PDFium
+    nie jest też bezpieczne wątkowo, więc `max_workers=1` zostaje.
 
     Proces startuje i kończy się z KAŻDĄ wyceną, a nie żyje między nimi —
     stały proces złamałby budżet RSS w spoczynku (< 170 MB, SPEC.md §1.1).
@@ -120,13 +125,23 @@ async def czytaj_pdfy(dane: Sequence[bytes]) -> list[str]:
     )
     try:
         wyniki = await asyncio.gather(
-            *(petla.run_in_executor(pula, tekst_pdf, plik) for plik in dane)
+            *(petla.run_in_executor(pula, tekst_pdf, plik) for plik in dane),
+            return_exceptions=True,
         )
     finally:
         # `shutdown` czeka na zejście procesu — w wątku puli domyślnej,
         # żeby nie blokować pętli zdarzeń strony.
         await petla.run_in_executor(None, pula.shutdown)
-    return list(wyniki)
+    teksty: list[str] = []
+    for wynik in wyniki:
+        if isinstance(wynik, BrokenExecutor):
+            log.warning("proces czytający PDF-y padł, pomijam dokument: %s", wynik)
+            teksty.append("")
+        elif isinstance(wynik, BaseException):
+            raise wynik
+        else:
+            teksty.append(wynik)
+    return teksty
 
 
 def _vin_w_tekscie(tekst: str) -> set[str]:

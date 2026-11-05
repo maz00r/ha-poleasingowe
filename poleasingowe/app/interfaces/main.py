@@ -90,11 +90,6 @@ def _skonfiguruj_logi(opcje: Opcje) -> None:
         format=format_logu,
         stream=sys.stdout,
     )
-    # pypdf zgłasza każdy wpis fontu z mapowaniem na rzadkie znaki fonetyczne
-    # (U+10780, U+1DF00), których nie ma w polskich dokumentach. Dziesiątki
-    # linii na dokument zasłaniały prawdziwe błędy, a plik nie do odczytania
-    # i tak zgłasza `tekst_pdf`.
-    logging.getLogger("pypdf").setLevel(logging.ERROR)
     sekrety = [
         opcje.db_password,
         opcje.ai_api_key,
