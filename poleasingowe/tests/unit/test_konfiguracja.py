@@ -201,7 +201,7 @@ def test_przywrocenie_usuwa_plik_i_restartuje(tmp_path: pathlib.Path) -> None:
 def test_diagnostyka_dziala_bez_bazy(tmp_path: pathlib.Path) -> None:
     """Bez bazy konfiguracja i powód awarii mają być nadal widoczne."""
     fabryka = MagicMock()
-    fabryka.stan_puli.return_value = None
+    fabryka.stan_puli.return_value = {}  # tak odpowiada zamknięta pula
     app = utworz_aplikacje(OPCJE, fabryka=fabryka)
     app.state.sciezka_nadpisan = tmp_path / "k.json"
     strona = TestClient(app).get("/diagnostyka")

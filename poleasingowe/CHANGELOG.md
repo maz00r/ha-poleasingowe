@@ -1,5 +1,10 @@
 # Historia zmian
 
+## 0.36.1 — w przygotowaniu
+
+**Diagnostyka bez bazy.** Poprawka z 0.36.0 nie działała i strona nadal zwracała
+błąd 500, gdy pula połączeń była zamknięta. Teraz się otwiera.
+
 ## 0.36.0 — w przygotowaniu
 
 **Konfiguracja w Diagnostyce.** Dostawcę, adres, model i klucz wyceny AI,

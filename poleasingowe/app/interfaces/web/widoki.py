@@ -1369,7 +1369,7 @@ async def diagnostyka(request: Request) -> Response:
             False if statystyki_zdjec is None else statystyki_zdjec.zapis_wstrzymany
         ),
     )
-    if fabryka is not None and fabryka.stan_puli() is not None:
+    if fabryka is not None and fabryka.stan_puli():
         async with fabryka() as kontekst:
             zrodla = await kontekst.zapytania.diagnostyka()
             rozmiar = await kontekst.zapytania.rozmiar_bazy()
