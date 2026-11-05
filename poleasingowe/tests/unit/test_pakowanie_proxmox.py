@@ -43,6 +43,54 @@ def test_compose_nie_wystawia_postgresa_i_wiaze_port_vm() -> None:
     assert uslugi["app"]["depends_on"]["postgres"]["condition"] == ("service_healthy")
 
 
+def test_claudebox_jest_odciety_od_bazy_i_od_sieci_hosta() -> None:
+    """`/prompt` claudeboxa nie ma uwierzytelnienia, a Claude ma tam `sudo iptables`."""
+    uslugi = _compose()["services"]
+    claudebox = uslugi["claudebox"]
+    assert "ports" not in claudebox
+    assert claudebox["networks"] == ["ai"]
+    assert "ai" not in uslugi["postgres"]["networks"]
+    assert set(uslugi["app"]["networks"]) == {"backend", "ai"}
+
+
+def test_claudebox_nie_wymaga_tokenu_poza_swoim_profilem() -> None:
+    """Bez profilu `docker compose up` w CI i deploy aplikacji stanęłyby na tokenie."""
+    uslugi = _compose()["services"]
+    assert uslugi["claudebox"]["profiles"] == ["ai"]
+    assert "claudebox" not in uslugi["app"]["depends_on"]
+    zmienne = uslugi["claudebox"]["environment"]
+    assert zmienne["CLAUDE_CODE_OAUTH_TOKEN"] == "${CLAUDE_CODE_OAUTH_TOKEN:-}"
+    assert zmienne["CLAUDEBOX_API_KEY"] == "${CLAUDEBOX_API_KEY:-}"
+
+
+def test_claudebox_jest_przypiety_po_digescie() -> None:
+    """Obraz dostaje token konta, a `latest` zmieniłby się bez naszej wiedzy."""
+    obraz = _compose()["services"]["claudebox"]["image"]
+    assert re.fullmatch(r"ghcr\.io/armanjr/claudebox@sha256:[0-9a-f]{64}", obraz)
+
+
+def test_claudebox_nie_daje_modelowi_narzedzi_wykonawczych() -> None:
+    """Do promptu trafiają cudze dokumenty, a serwer pomija pytania o zgodę."""
+    uslugi = _compose()["services"]
+    assert (
+        "./claudebox/managed-settings.json:/etc/claude-code/managed-settings.json:ro"
+        in uslugi["claudebox"]["volumes"]
+    )
+    ustawienia = json.loads(
+        (DEPLOY / "claudebox/managed-settings.json").read_text(encoding="utf-8")
+    )
+    odmowy = set(ustawienia["permissions"]["deny"])
+    assert {
+        "Agent",
+        "Bash",
+        "Monitor",
+        "Read",
+        "WebFetch",
+        "Workflow",
+        "Write",
+    } <= odmowy
+
+
 def test_przyklad_opcji_pokrywa_model_i_ma_pusta_liste_zrodel() -> None:
     dane = json.loads((DEPLOY / "options.example.json").read_text(encoding="utf-8"))
     assert set(dane) == set(Opcje.model_fields)

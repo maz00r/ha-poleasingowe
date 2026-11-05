@@ -218,3 +218,91 @@ z forków) nie dostają sekretów środowiska i nie uruchamiają deployu.
 
 GitHub → Actions → **Deploy Proxmox** → **Run workflow**, w polu wersji np.
 `0.32.7`. Obraz tej wersji musi już być w GHCR (każdy wydany tag ma swój).
+
+## 7. Wycena AI z subskrypcji Claude (claudebox)
+
+Usługa `claudebox` wystawia Claude Code jako API zgodne z OpenAI, w sieci
+Dockera `ai`, bez publikowania portu. Aplikacja łączy się z nią po nazwie, więc
+nie potrzeba tunelu ani otwierania zapory. Usługa ma profil `ai`: wstaje tylko
+z `--profile ai`, a deploy z CI (§6) jej nie dotyka.
+
+Jedna wycena zajmuje do ok. 600 MiB, a kontener ma limit 1,5 GiB. Sprawdź
+`free -m` i w razie potrzeby zwiększ pamięć LXC do co najmniej 3 GiB.
+
+Token utwórz na komputerze z przeglądarką. Nie kopiuj tokenu z pęku kluczy,
+bo szybko wygasa:
+
+```bash
+claude setup-token
+```
+
+W LXC dopisz do `.env` wynik tego polecenia jako `CLAUDE_CODE_OAUTH_TOKEN` oraz
+wygenerowany klucz jako `CLAUDEBOX_API_KEY`:
+
+```bash
+git -C /opt/poleasingowe pull --ff-only
+cd /opt/poleasingowe/deploy/proxmox
+openssl rand -hex 32
+nano .env
+docker compose --profile ai pull claudebox
+docker compose --profile ai up -d claudebox
+docker compose --profile ai ps claudebox
+```
+
+Stan musi przejść na `healthy`. Kontrola obejmuje też firewall: entrypoint
+obrazu startuje nawet wtedy, gdy reguły się nie założą, a w logu i tak pisze
+„Firewall rules applied”. Przy `unhealthy` zajrzyj do
+`docker compose --profile ai logs claudebox`. Błędy `iptables` zwykle oznaczają
+brak modułu jądra na hoście Proxmoxa. Nie włączaj wyceny, dopóki firewall nie
+działa.
+
+Sprawdź izolację. Pierwsze polecenie ma zakończyć się błędem połączenia, drugie
+ma wypisać `"tools":[]`:
+
+```bash
+docker compose --profile ai exec claudebox curl -sS -m 6 https://example.com
+docker compose --profile ai exec claudebox sh -c \
+  'cd /workspace && claude -p --output-format stream-json --verbose --no-session-persistence --dangerously-skip-permissions --model haiku -- ok' \
+  | grep -o '"tools":\[[^]]*\]'
+```
+
+Zachowaj obecne opcje na wypadek powrotu:
+
+```bash
+cp -p /etc/poleasingowe/options.json /etc/poleasingowe/options.json.przed-claudebox
+```
+
+Ustaw w `/etc/poleasingowe/options.json`:
+
+```json
+{
+  "ai_provider": "zgodny_z_openai",
+  "ai_api_key": "WARTOŚĆ_CLAUDEBOX_API_KEY",
+  "ai_base_url": "http://claudebox:3000/v1",
+  "ai_model": "sonnet"
+}
+```
+
+Odtwórz aplikację i sprawdź, że wybrała nowego dostawcę:
+
+```bash
+docker compose up -d --force-recreate --no-deps app
+docker compose logs app | grep 'wycena AI'
+```
+
+Blokada droższych godzin DeepSeeka zależy od adresu API, więc tu nie obowiązuje.
+
+Dlaczego tak:
+
+- Claude w kontenerze działa z `--dangerously-skip-permissions`, a użytkownik
+  `claude` może przez `sudo` zmieniać reguły `iptables`. Do promptu trafiają
+  cudze dokumenty aukcji, więc firewall nie wystarcza. Dlatego
+  `claudebox/managed-settings.json` odbiera wszystkie narzędzia. Lista jest
+  odmową nazw, a nie listą dozwolonych, więc po każdej zmianie digestu obrazu
+  powtórz kontrolę `"tools":[]` i dopisz nowe narzędzia.
+- `/prompt` nie ma uwierzytelnienia, `CLAUDEBOX_API_KEY` chroni tylko `/v1/*`.
+  Stąd brak portów. Claudebox nie jest też w sieci `backend`, więc nie widzi
+  Postgresa.
+- Limit `MAX_CONCURRENT` to 2. Trzecie równoczesne żądanie dostaje 429, co
+  automat (`auto_wycena.py`) traktuje jak awarię dostawcy i pauzuje na godzinę.
+  Wyczerpanie limitów subskrypcji działa tak samo.

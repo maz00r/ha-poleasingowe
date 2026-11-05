@@ -56,9 +56,52 @@ services:
       - no-new-privileges:true
     networks:
       - backend
+      - ai
+
+  # Wycena AI z subskrypcji Claude (README §7). Profil `ai`, bo usługa wymaga
+  # tokenu: bez `--profile ai` nie wstaje ani tu, ani w CI. Aplikacja na nią
+  # nie czeka — wycena jest dodatkiem, a nie warunkiem zbierania danych.
+  claudebox:
+    # Po digeście, nie `latest`: ten obraz dostaje token konta Claude.
+    image: ghcr.io/armanjr/claudebox@sha256:ed9d7eed71e4798f3584a82656f4c7c5127633acceb824899d264acdfc863543
+    profiles:
+      - ai
+    restart: unless-stopped
+    environment:
+      CLAUDE_CODE_OAUTH_TOKEN: ${CLAUDE_CODE_OAUTH_TOKEN:-}
+      CLAUDEBOX_API_KEY: ${CLAUDEBOX_API_KEY:-}
+      OPENAI_COMPAT: "1"
+      # Automat wycenia pojedynczo; drugie miejsce jest na kliknięcie na karcie.
+      # Ponad limit claudebox odpowiada 429, a automat pauzuje wtedy na godzinę.
+      MAX_CONCURRENT: "2"
+    volumes:
+      # Serwer uruchamia Claude'a z --dangerously-skip-permissions, a do
+      # promptu trafiają cudze dokumenty aukcji. Wycenie narzędzia są zbędne.
+      - ./claudebox/managed-settings.json:/etc/claude-code/managed-settings.json:ro
+    # Firewall wychodzący w entrypoincie. Nie zatrzymuje on startu, gdy reguły
+    # się nie założą, dlatego ich obecność sprawdza healthcheck.
+    cap_add:
+      - NET_ADMIN
+    # Jedna wycena to do ok. 600 MiB. Przy braku pamięci ma paść ona, nie baza.
+    mem_limit: 1500m
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >-
+          sudo -n iptables -S OUTPUT | grep -q -- '-A OUTPUT -j DROP' &&
+          node -e "fetch('http://127.0.0.1:3000/health').then(r => process.exit(r.ok ? 0 : 1), () => process.exit(1))"
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    # Bez portów i bez sieci `backend`: `/prompt` claudeboxa nie ma
+    # uwierzytelnienia, więc dosięga go tylko aplikacja, a Postgresa on nie.
+    networks:
+      - ai
 
 networks:
   backend:
+  ai:
 
 secrets:
   postgres_admin_password:
