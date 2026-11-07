@@ -378,6 +378,9 @@ class Dispatcher:
                         [pozycja.external_id for pozycja in pozycje],
                         teraz,
                     )
+                    await uow.wycena.przenies_na_ponowne_wystawienia(
+                        zrodlo.id, [pozycja.external_id for pozycja in pozycje]
+                    )
                     for auction_id in przeniesione:
                         # Nowa obserwacja ma dostać szczegóły w tym obrocie,
                         # aby nie czekała na następny, wielogodzinny przemiat.
@@ -611,6 +614,11 @@ class Dispatcher:
                     # włączyć harmonogram bez czekania na kolejny przemiat.
                     scalona = self._termin_po_odpycie(scalona, zrodlo, teraz, True)
                     zapisana = await uow.auction.zapisz(scalona)
+                # VIN bywa znany dopiero ze szczegółów — wtedy dopiero
+                # rozpoznajemy ponowne wystawienie i jego dawną wycenę.
+                await uow.wycena.przenies_na_ponowne_wystawienia(
+                    zrodlo.id, [zapisana.external_id]
+                )
             zmieniony = None
             nowe_oferty = 0
             if zapisana.id is not None:

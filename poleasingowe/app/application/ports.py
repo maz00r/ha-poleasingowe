@@ -155,6 +155,16 @@ class WycenaRepository(Protocol):
 
     async def zapisz(self, wycena: WycenaAukcji) -> WycenaAukcji: ...
     async def dla_aukcji(self, auction_id: int) -> WycenaAukcji | None: ...
+    async def przenies_na_ponowne_wystawienia(
+        self, source_id: int, external_ids: Sequence[str]
+    ) -> Sequence[int]:
+        """Kopiuje wycenę wcześniejszego wystawienia tego samego auta (po VIN-ie).
+
+        Nowe wystawienie z własną wyceną zostaje nietknięte. Zwraca
+        identyfikatory aukcji, które dostały wycenę.
+        """
+        ...
+
     async def zapisz_probe(
         self, auction_id: int, teraz: dt.datetime, blad: str | None
     ) -> None:

@@ -594,6 +594,42 @@ RETURNING auction_id, value_amount, min_amount, max_amount, currency,
     otomoto_search_url, otomoto_listings, appraisal_documents
 """
 
+# Ponowne wystawienie tego samego auta (po VIN-ie, jak watchlista) dziedziczy
+# ostatnią wycenę wcześniejszego wystawienia. Auto się nie zmieniło, więc
+# kwota ma zostać — nowa wycena dawałaby inną liczbę za ten sam egzemplarz
+# i kosztowała. Nowe wystawienie z własną wyceną (np. ręczną) zostaje nietknięte.
+SQL_WYCENA_PRZENIES_NA_PONOWNE_WYSTAWIENIA = """
+WITH biezace AS (
+    SELECT id, vin, first_seen_at
+    FROM app.auction
+    WHERE source_id = %s
+      AND external_id = ANY(%s)
+      AND vin IS NOT NULL
+      AND duplicate_of IS NULL
+), poprzednie AS (
+    SELECT DISTINCT ON (b.id) b.id AS nowe_id, v.*
+    FROM biezace AS b
+    JOIN app.auction AS p ON p.vin = b.vin
+                          AND p.id <> b.id
+                          AND p.duplicate_of IS NULL
+    JOIN app.ai_valuation AS v ON v.auction_id = p.id
+    WHERE (p.first_seen_at, p.id) < (b.first_seen_at, b.id)
+    ORDER BY b.id, v.created_at DESC, p.id DESC
+), dodane AS (
+    INSERT INTO app.ai_valuation (
+    auction_id, __KOL__
+    )
+    SELECT nowe_id, __KOL__
+    FROM poprzednie
+    ON CONFLICT (auction_id) DO NOTHING
+    RETURNING auction_id
+)
+SELECT auction_id FROM dodane
+""".replace("__KOL__", """value_amount, min_amount, max_amount, currency, portal_amount,
+    confidence, rationale, assumptions, model, prompt_version, created_at,
+    source_kind, otomoto_count, otomoto_p25, otomoto_p75, otomoto_search_url,
+    otomoto_listings, appraisal_documents""")
+
 SQL_WYCENA_ZAPISZ_PROBE = """
 INSERT INTO app.ai_valuation_attempt (auction_id, last_attempt_at, last_error)
 VALUES (%(auction_id)s, %(teraz)s, %(blad)s)
@@ -1459,6 +1495,18 @@ class PgWycenaRepository:
             await cur.execute(SQL_WYCENA_DLA_AUKCJI, (auction_id,))
             w = await cur.fetchone()
         return None if w is None else _na_wycene(w)
+
+    async def przenies_na_ponowne_wystawienia(
+        self, source_id: int, external_ids: Sequence[str]
+    ) -> Sequence[int]:
+        if not external_ids:
+            return ()
+        async with self._conn.cursor() as cur:
+            await cur.execute(
+                SQL_WYCENA_PRZENIES_NA_PONOWNE_WYSTAWIENIA,
+                (source_id, list(external_ids)),
+            )
+            return tuple(w[0] for w in await cur.fetchall())
 
     async def zapisz_probe(
         self, auction_id: int, teraz: dt.datetime, blad: str | None

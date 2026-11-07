@@ -1,5 +1,14 @@
 # Historia zmian
 
+## 0.39.4
+
+**Ponownie wystawione auto trzyma poprzednią wycenę.** Ten sam egzemplarz (VIN)
+pod nowym numerem aukcji przejmuje ostatnią wycenę wcześniejszego wystawienia,
+zamiast dostawać nową, inną kwotę. Dzieje się to przy przemiacie listy albo przy
+pierwszym odczycie szczegółów, gdy VIN jest znany dopiero stamtąd. Automat nie
+płaci za ponowną wycenę; ręczne przeliczenie na karcie działa jak dawniej.
+Migracja 033 robi to samo dla aut już zebranych, które nie mają jeszcze wyceny.
+
 ## 0.39.3 — w przygotowaniu
 
 **Liczba ofert przy każdej aukcji.** Lista i karta aukcji odmieniają ją poprawnie

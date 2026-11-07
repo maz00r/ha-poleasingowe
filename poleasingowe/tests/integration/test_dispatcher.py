@@ -27,6 +27,7 @@ from app.domain.entities import (
     OfertaUczestnika,
     Source,
     WatchlistEntry,
+    WycenaAukcji,
 )
 from app.domain.enums import (
     AuctionStatus,
@@ -985,6 +986,65 @@ async def test_obserwacja_przechodzi_na_ponownie_wystawiony_pojazd(
     assert druga.next_poll_at is not None
     assert druga.poll_tier is not PollTier.IDLE
     assert adapter.pobrania == 1, "przeniesiona obserwacja odpytuje się od razu"
+
+
+async def test_ponownie_wystawiony_pojazd_trzyma_poprzednia_wycene(
+    pusta_baza: psycopg.AsyncConnection,
+) -> None:
+    """To samo auto pod nowym numerem nie dostaje nowej, innej kwoty."""
+    adapter = ZrodloAtrapa()
+    vin = Vin("WVWZZZ1JZXW000002")
+    teraz = await _czas_bazy(pusta_baza)
+    adapter.vin = vin
+    adapter.na_liscie = ["drugie-podejscie"]
+    adapter.ends_at = teraz + dt.timedelta(days=3)
+
+    async with PgUnitOfWork(pusta_baza) as uow:
+        zrodlo_zapisane = await uow.source.zapisz(zrodlo(adapter.key))
+        assert zrodlo_zapisane.id is not None
+        pierwsza = await uow.auction.zapisz(
+            Auction(
+                source_id=zrodlo_zapisane.id,
+                external_id="pierwsze-podejscie",
+                url="https://atrapa.test/pierwsze-podejscie",
+                status=AuctionStatus.ENDED,
+                first_seen_at=teraz - dt.timedelta(days=7),
+                last_seen_at=teraz - dt.timedelta(days=1),
+                ends_at=teraz - dt.timedelta(days=1),
+                price_current=Money(Decimal("40000"), Currency.PLN),
+                vin=vin,
+            )
+        )
+        assert pierwsza.id is not None
+        await uow.wycena.zapisz(
+            WycenaAukcji(
+                auction_id=pierwsza.id,
+                wartosc=Money(Decimal("52000"), Currency.PLN),
+                minimum=Money(Decimal("49000"), Currency.PLN),
+                maksimum=Money(Decimal("55000"), Currency.PLN),
+                pewnosc="średnia",
+                uzasadnienie="Ogłoszenia z Otomoto.",
+                zalozenia=(),
+                model="model-testowy",
+                wersja_promptu=2,
+                utworzono=teraz - dt.timedelta(days=6),
+                zrodlo="OTOMOTO",
+            )
+        )
+
+    await dispatcher(pusta_baza, adapter).jeden_obrot()
+
+    async with PgUnitOfWork(pusta_baza) as uow:
+        druga = await uow.auction.po_kluczu_naturalnym(
+            zrodlo_zapisane.id, "drugie-podejscie"
+        )
+        assert druga is not None and druga.id is not None
+        wycena = await uow.wycena.dla_aukcji(druga.id)
+
+    assert wycena is not None
+    assert wycena.wartosc.amount == Decimal("52000.00")
+    assert wycena.zrodlo == "OTOMOTO"
+    assert wycena.utworzono == teraz - dt.timedelta(days=6)
 
 
 async def test_migracja_ujednolica_marki_juz_zebrane(
