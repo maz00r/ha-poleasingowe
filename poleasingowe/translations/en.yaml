@@ -74,8 +74,11 @@ configuration:
     description: >-
       How many minutes the worker waits after an AI provider failure.
   wycena_auto_przerwa_s:
-    name: "Delay between valuations [s]"
-    description: "Seconds from the end of one valuation to the start of the next, 10 to 3600. A shorter delay raises the risk of an Otomoto block."
+    name: "Delay between valuation starts [s]"
+    description: "Seconds from the start of one valuation to the start of the next, 10 to 3600. A shorter delay raises the risk of an Otomoto block."
+  wycena_auto_rownolegle:
+    name: "Parallel valuations"
+    description: "How many valuations the worker runs at once, 1 to 8. Speeds up waiting for the AI model, not Otomoto requests."
   wycena_pauza_otomoto_minuty:
     name: "Pause after an Otomoto block [min]"
     description: "Minutes the worker waits after an Otomoto block, 5 to 1440."

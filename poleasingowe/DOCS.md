@@ -282,7 +282,8 @@ modelu i bierze ogłoszenia, które mają ją w tytule.
 | `wycena_auto` | `true` | Włącza automat. Bez klucza AI nic nie robi. |
 | `wycena_auto_limit_dzienny` | `300` | Sufit prób w ciągu 24 godzin, od 1 do 5000. |
 | `wycena_auto_rodzaje` | wszystkie trzy | Co wycenia automat: `OSOBOWY`, `DOSTAWCZY`, `NIEZNANY`. Ten ostatni obejmuje też motocykle i ciężarówki bez kategorii. Wycena z karty działa niezależnie. |
-| `wycena_auto_przerwa_s` | `45` | Ile sekund mija od końca jednej wyceny do startu kolejnej, od 10 do 3600. Krótsza przerwa to częstsze pytania do Otomoto i większe ryzyko blokady. |
+| `wycena_auto_przerwa_s` | `45` | Ile sekund mija od startu jednej wyceny do startu kolejnej, od 10 do 3600. Krótsza przerwa to częstsze pytania do Otomoto i większe ryzyko blokady. |
+| `wycena_auto_rownolegle` | `3` | Ile wycen automat prowadzi naraz, od 1 do 8. Skraca czekanie na model AI; tempa pytań do Otomoto nie zmienia, bo to wyznacza przerwa. Dobowy limit liczy też wyceny w toku. |
 | `wycena_pauza_minuty` | `5` | Ile minut automat czeka po awarii dostawcy AI, od 1 do 1440. |
 | `wycena_pauza_otomoto_minuty` | `60` | Ile minut automat czeka po blokadzie Otomoto, od 5 do 1440. |
 

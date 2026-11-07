@@ -83,11 +83,15 @@ def _automat(
     zegar: Zegar | None = None,
     szczyt: Szczyt | None = None,
     pauza_otomoto_s: float = PAUZA_S,
+    rownolegle: int = 3,
+    blokada: asyncio.Event | None = None,
 ) -> tuple[AutoWycena, list[int]]:
     wycenione: list[int] = []
 
     async def praca(auction_id: int, postep: Postep) -> None:
         wycenione.append(auction_id)
+        if blokada is not None:
+            await blokada.wait()
         if blad is not None:
             raise blad
 
@@ -98,6 +102,7 @@ def _automat(
         limit_dzienny=limit,
         przerwa_s=PRZERWA,
         pauza_otomoto_s=pauza_otomoto_s,
+        rownolegle=rownolegle,
         zegar=zegar or Zegar(),
         szczyt=szczyt,
     )
@@ -110,6 +115,7 @@ async def test_udana_wycena_zapisuje_probe_i_zdejmuje_zadanie() -> None:
     automat, wycenione = _automat(baza, zadania=zadania)
 
     assert await automat.krok() == PRZERWA
+    await automat.dokoncz()
     assert wycenione == [5]
     assert baza.zapisane == [(5, None)]
     assert zadania.stan(5) is None
@@ -125,6 +131,7 @@ async def test_limit_zatrzymuje_wyceny_i_jest_widoczny() -> None:
 
     baza.proby_24h = 299
     assert await automat.krok() == PRZERWA
+    await automat.dokoncz()
     assert wycenione == [5]
     assert not automat.stan.limit_wyczerpany
 
@@ -148,6 +155,7 @@ async def test_porazka_jednej_aukcji_nie_zatrzymuje_kolejki(blad: Exception) -> 
     automat, _ = _automat(baza, blad)
 
     assert await automat.krok() == PRZERWA
+    await automat.dokoncz()
     assert baza.zapisane == [(5, str(blad))]
     assert automat.stan.pauza_do is None
 
@@ -158,10 +166,13 @@ async def test_awaria_dostawcy_ai_wstrzymuje_na_krotko() -> None:
     zegar = Zegar()
     automat, wycenione = _automat(baza, blad, zegar=zegar)
 
+    await automat.krok()
+    await automat.dokoncz()
     assert await automat.krok() == PAUZA_AI_S
     assert automat.stan.powod_pauzy == str(blad)
     zegar.teraz += dt.timedelta(seconds=PAUZA_AI_S + 1)
     await automat.krok()
+    await automat.dokoncz()
     assert wycenione == [5, 5]
 
 
@@ -171,6 +182,8 @@ async def test_blokada_otomoto_wstrzymuje_na_godzine() -> None:
     zegar = Zegar()
     automat, wycenione = _automat(baza, blad, zegar=zegar)
 
+    await automat.krok()
+    await automat.dokoncz()
     assert await automat.krok() == PAUZA_S
     assert automat.stan.powod_pauzy == str(blad)
     # Próba zostaje zapisana: inaczej aukcja, która sama wywołuje taki błąd,
@@ -183,6 +196,7 @@ async def test_blokada_otomoto_wstrzymuje_na_godzine() -> None:
 
     zegar.teraz += dt.timedelta(minutes=50, seconds=1)
     await automat.krok()
+    await automat.dokoncz()
     assert wycenione == [5, 5]
 
 
@@ -198,6 +212,7 @@ async def test_aukcji_wycenianej_przez_uzytkownika_nie_rusza() -> None:
     automat, wycenione = _automat(baza, zadania=zadania)
 
     assert await automat.krok() == PRZERWA
+    await automat.dokoncz()
     assert wycenione == [6]
     assert zadania.stan(5) is stan, "wyniku pilnuje karta, nie automat"
 
@@ -269,6 +284,7 @@ async def test_w_szczycie_dostawcy_nic_nie_wysyla() -> None:
 
     w_szczycie = False
     assert await automat.krok() == PRZERWA
+    await automat.dokoncz()
     assert wycenione == [5]
     assert automat.stan.szczyt_do is None
 
@@ -332,4 +348,54 @@ async def test_pauza_po_blokadzie_otomoto_jest_konfigurowalna() -> None:
         BladDostepuOtomoto("Otomoto nie odpowiada: 429"),
         pauza_otomoto_s=300,
     )
+    await automat.krok()
+    await automat.dokoncz()
     assert await automat.krok() == 300
+
+
+async def _oddaj() -> None:
+    """Kilka obrotów pętli: start wyceny to dwa zadania jedno w drugim."""
+    for _ in range(5):
+        await asyncio.sleep(0)
+
+
+async def test_kilka_wycen_idzie_naraz_z_odstepem_startow() -> None:
+    baza = Baza(kolejka=(5, 6, 7, 8))
+    zegar = Zegar()
+    blokada = asyncio.Event()
+    automat, wycenione = _automat(baza, zegar=zegar, rownolegle=3, blokada=blokada)
+
+    assert await automat.krok() == PRZERWA
+    await _oddaj()
+    assert await automat.krok() == PRZERWA, "przerwa dzieli starty wycen"
+    for _ in range(2):
+        zegar.teraz += dt.timedelta(seconds=PRZERWA)
+        assert await automat.krok() == PRZERWA
+        await _oddaj()
+
+    assert wycenione == [5, 6, 7]
+    assert automat.w_toku == 3
+    zegar.teraz += dt.timedelta(seconds=PRZERWA)
+    assert await automat.krok() == PUSTA_KOLEJKA_S, "wszystkie miejsca zajęte"
+
+    blokada.set()
+    await automat.dokoncz()
+    assert sorted(baza.zapisane) == [(5, None), (6, None), (7, None)]
+    baza.kolejka = (8,)  # wycenione schodzą z kolejki w bazie
+    assert await automat.krok() == PRZERWA
+    await automat.dokoncz()
+    assert wycenione == [5, 6, 7, 8]
+
+
+async def test_limit_liczy_wyceny_w_toku() -> None:
+    baza = Baza(kolejka=(5, 6), proby_24h=299)
+    zegar = Zegar()
+    blokada = asyncio.Event()
+    automat, wycenione = _automat(baza, limit=300, zegar=zegar, blokada=blokada)
+
+    assert await automat.krok() == PRZERWA
+    zegar.teraz += dt.timedelta(seconds=PRZERWA)
+    assert await automat.krok() == LIMIT_WYCZERPANY_S
+    blokada.set()
+    await automat.dokoncz()
+    assert wycenione == [5]

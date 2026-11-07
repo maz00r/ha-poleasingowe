@@ -152,6 +152,7 @@ def _auto_wycena(
         praca,
         limit_dzienny=opcje.wycena_auto_limit_dzienny,
         przerwa_s=opcje.wycena_auto_przerwa_s,
+        rownolegle=opcje.wycena_auto_rownolegle,
         pauza_ai_s=opcje.wycena_pauza_minuty * 60,
         pauza_otomoto_s=opcje.wycena_pauza_otomoto_minuty * 60,
         rodzaje=opcje.wycena_auto_rodzaje,

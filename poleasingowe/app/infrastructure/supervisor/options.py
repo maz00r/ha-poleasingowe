@@ -39,6 +39,7 @@ POLA_NADPISYWANE = (
     "wycena_pauza_minuty",
     "wycena_pauza_otomoto_minuty",
     "wycena_auto_przerwa_s",
+    "wycena_auto_rownolegle",
     "wycena_auto_rodzaje",
     "sources",
 )
@@ -151,8 +152,11 @@ class Opcje(BaseModel):
     """Przerwa automatu po blokadzie Otomoto. To cudzy serwis, więc poniżej
     5 minut dalsze pytania tylko przedłużałyby blokadę."""
     wycena_auto_przerwa_s: Annotated[int, Field(ge=10, le=3_600)] = 45
-    """Odstęp od końca jednej wyceny do startu kolejnej. Dolna granica chroni
-    przed blokadą Otomoto, które czytamy bez API."""
+    """Odstęp między startami kolejnych wycen. Dolna granica chroni przed
+    blokadą Otomoto, które czytamy bez API."""
+    wycena_auto_rownolegle: Annotated[int, Field(ge=1, le=8)] = 3
+    """Ile wycen automat prowadzi naraz. Więcej nie przyspiesza pytań do
+    Otomoto (te dzieli przerwa), tylko czekanie na model AI."""
     credentials: list[Poswiadczenia] = Field(default_factory=list)
     sources: list[OpcjeZrodla] = Field(default_factory=list)
 

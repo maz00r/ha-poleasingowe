@@ -269,6 +269,9 @@ def zmiany_konfiguracji(
         "wycena_auto_przerwa_s": _calkowita(
             formularz, "wycena_auto_przerwa_s", "Przerwa między wycenami"
         ),
+        "wycena_auto_rownolegle": _calkowita(
+            formularz, "wycena_auto_rownolegle", "Wyceny naraz"
+        ),
     }
     rodzaje = [
         r

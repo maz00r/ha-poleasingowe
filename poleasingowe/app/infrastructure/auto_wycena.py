@@ -1,9 +1,14 @@
 """Automatyczna wycena z Otomoto — pracownik w tle (0.34.0).
 
 Ranking okazji ma sens tylko wtedy, gdy wycenione są wszystkie aukcje, a nie
-te, na które ktoś kliknął. Pracownik bierze je pojedynczo, z przerwą: Otomoto
-to cudzy serwis czytany bez API, a każda wycena to płatne żądanie do modelu.
-Koszt ogranicza dobowy limit prób (`wycena_auto_limit_dzienny`).
+te, na które ktoś kliknął. Każda wycena to płatne żądanie do modelu, a koszt
+ogranicza dobowy limit prób (`wycena_auto_limit_dzienny`).
+
+**Równolegle (0.40.0).** Najdłużej trwa odpowiedź modelu, więc kilka wycen
+idzie naraz (`wycena_auto_rownolegle`). Otomoto to cudzy serwis czytany bez
+API, a jego strony pobiera się na początku wyceny — dlatego przerwa
+(`wycena_auto_przerwa_s`) dzieli **starty** kolejnych wycen, a nie ich końce.
+Tempo pytań do Otomoto zostaje takie, jak ustawi przerwa.
 
 **Dwa rodzaje porażki.** Auto nieznane Otomoto dotyczy tej jednej aukcji:
 próba zostaje zapisana i kolejka idzie dalej. Blokada Otomoto albo awaria
@@ -24,6 +29,7 @@ pasek postępu, a kliknięcie w trakcie nie startuje drugiej płatnej wyceny.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import datetime as dt
 import logging
 from collections.abc import Awaitable, Callable, Sequence
@@ -38,8 +44,10 @@ from app.infrastructure.zadania_wyceny import Postep, ZadaniaWyceny
 log = logging.getLogger(__name__)
 
 PRZERWA_S = 45.0
-"""Między wycenami — około 2-3 strony wyników Otomoto na minutę. W aplikacji
-ustawiane opcją `wycena_auto_przerwa_s`."""
+"""Między startami wycen — około 2-3 strony wyników Otomoto na minutę.
+W aplikacji ustawiane opcją `wycena_auto_przerwa_s`."""
+ROWNOLEGLE = 3
+"""Ile wycen naraz; w aplikacji opcja `wycena_auto_rownolegle`."""
 PAUZA_S = 3600.0
 """Po blokadzie Otomoto; w aplikacji ustawiane opcją
 `wycena_pauza_otomoto_minuty`."""
@@ -48,8 +56,9 @@ PAUZA_AI_S = 300.0
 PUSTA_KOLEJKA_S = 300.0
 LIMIT_WYCZERPANY_S = 900.0
 PO_AWARII_KROKU_S = 60.0
-OKNO_KOLEJKI = 10
-"""Ile aukcji pobrać naraz: te, które właśnie wycenia użytkownik, są pomijane."""
+OKNO_KOLEJKI = 20
+"""Ile aukcji pobrać naraz: te, które są właśnie wyceniane (przez automat albo
+z karty), są pomijane."""
 MAKS_DLUGOSC_BLEDU = 500
 
 Praca = Callable[[int, Postep], Awaitable[None]]
@@ -70,7 +79,7 @@ class StanAutoWyceny:
 
 
 class AutoWycena:
-    """Pojedynczy pracownik; startuje obok dispatchera (`main.py`)."""
+    """Pracownik w tle z kilkoma wycenami naraz; startuje obok dispatchera."""
 
     def __init__(
         self,
@@ -80,6 +89,7 @@ class AutoWycena:
         *,
         limit_dzienny: int,
         przerwa_s: float = PRZERWA_S,
+        rownolegle: int = ROWNOLEGLE,
         pauza_ai_s: float = PAUZA_AI_S,
         pauza_otomoto_s: float = PAUZA_S,
         rodzaje: Sequence[str] | None = None,
@@ -91,19 +101,31 @@ class AutoWycena:
         self._praca = praca
         self._limit_dzienny = limit_dzienny
         self._przerwa_s = przerwa_s
+        self._rownolegle = max(1, rownolegle)
         self._pauza_ai_s = pauza_ai_s
         self._pauza_otomoto_s = pauza_otomoto_s
         self._rodzaje = rodzaje
         self._zegar = zegar
         self._szczyt = szczyt
+        self._w_toku: dict[int, asyncio.Task[None]] = {}
+        self._ostatni_start: dt.datetime | None = None
+        self._zwolnione = asyncio.Event()
         self.stan = StanAutoWyceny()
 
     @property
     def limit_dzienny(self) -> int:
         return self._limit_dzienny
 
+    @property
+    def w_toku(self) -> int:
+        return len(self._w_toku)
+
     async def uruchom(self) -> None:
-        log.info("automatyczna wycena wystartowała (limit %s)", self._limit_dzienny)
+        log.info(
+            "automatyczna wycena wystartowała (limit %s, naraz %s)",
+            self._limit_dzienny,
+            self._rownolegle,
+        )
         try:
             while True:
                 try:
@@ -112,13 +134,33 @@ class AutoWycena:
                     # Awaria automatu nie może zatrzymać dispatchera ani UI.
                     log.exception("krok automatycznej wyceny nie powiódł się")
                     czekaj = PO_AWARII_KROKU_S
-                await asyncio.sleep(czekaj)
+                await self._czekaj(czekaj)
         except asyncio.CancelledError:
             log.info("automatyczna wycena zatrzymana")
+            for zadanie in self._w_toku.values():
+                zadanie.cancel()
             raise
 
+    async def _czekaj(self, sekundy: float) -> None:
+        """Śpi, ale budzi się wcześniej, gdy któraś wycena się skończy."""
+        if sekundy <= 0:
+            return
+        with contextlib.suppress(TimeoutError):
+            await asyncio.wait_for(self._zwolnione.wait(), sekundy)
+
+    async def dokoncz(self) -> None:
+        """Czeka na wyceny w toku (testy, zamknięcie)."""
+        while self._w_toku:
+            await asyncio.gather(*self._w_toku.values(), return_exceptions=True)
+
     async def krok(self) -> float:
-        """Jedna wycena. Zwraca liczbę sekund do następnego kroku."""
+        """Startuje najwyżej jedną wycenę. Zwraca sekundy do następnego kroku.
+
+        Wycena biegnie dalej w tle; jej wynik zapisuje `_wykonaj`.
+        """
+        # Czyścimy tu, nie przed snem: koniec wyceny między krokiem a snem
+        # i tak ma obudzić pętlę.
+        self._zwolnione.clear()
         stan = self.stan
         if stan.pauza_do is not None:
             zostalo = (stan.pauza_do - self._zegar()).total_seconds()
@@ -132,9 +174,21 @@ class AutoWycena:
         if stan.szczyt_do is not None:
             return (stan.szczyt_do - teraz).total_seconds()
 
+        if len(self._w_toku) >= self._rownolegle:
+            # Obudzi nas koniec którejkolwiek z nich.
+            return PUSTA_KOLEJKA_S
+        if self._ostatni_start is not None:
+            zostalo = (
+                self._ostatni_start + dt.timedelta(seconds=self._przerwa_s) - teraz
+            ).total_seconds()
+            if zostalo > 0:
+                return zostalo
+
         async with self._fabryka() as kontekst:
+            # Wyceny w toku jeszcze nie zapisały próby, a też się liczą.
             stan.limit_wyczerpany = (
-                await kontekst.zapytania.proby_wycen_24h() >= self._limit_dzienny
+                await kontekst.zapytania.proby_wycen_24h() + len(self._w_toku)
+                >= self._limit_dzienny
             )
             if stan.limit_wyczerpany:
                 return LIMIT_WYCZERPANY_S
@@ -148,18 +202,34 @@ class AutoWycena:
         if auction_id is None:
             return PUSTA_KOLEJKA_S
 
-        async def praca(postep: Postep) -> None:
-            await self._praca(auction_id, postep)
+        self._ostatni_start = teraz
+        self._w_toku[auction_id] = asyncio.create_task(
+            self._wykonaj(auction_id), name=f"auto-wycena-{auction_id}"
+        )
+        return self._przerwa_s
 
-        zadanie = self._zadania.uruchom(auction_id, praca)
+    async def _wykonaj(self, auction_id: int) -> None:
+        try:
+            await self._wycen(auction_id)
+        except Exception:
+            log.exception("automatyczna wycena aukcji %s nie powiodła się", auction_id)
+        finally:
+            self._w_toku.pop(auction_id, None)
+            self._zwolnione.set()
+
+    async def _wycen(self, id_aukcji: int) -> None:
+        async def praca(postep: Postep) -> None:
+            await self._praca(id_aukcji, postep)
+
+        zadanie = self._zadania.uruchom(id_aukcji, praca)
         assert zadanie.zadanie is not None
         await zadanie.zadanie
-        self._zadania.zakoncz(auction_id)
+        self._zadania.zakoncz(id_aukcji)
 
         blad = zadanie.blad
         async with self._fabryka() as kontekst, kontekst.uow as uow:
             await uow.wycena.zapisz_probe(
-                auction_id,
+                id_aukcji,
                 self._zegar(),
                 None if blad is None else blad[:MAKS_DLUGOSC_BLEDU],
             )
@@ -169,8 +239,7 @@ class AutoWycena:
                 if isinstance(zadanie.wyjatek, BladDostawcyAI)
                 else self._pauza_otomoto_s
             )
-            stan.pauza_do = self._zegar() + dt.timedelta(seconds=pauza)
-            stan.powod_pauzy = blad
+            # Wyceny już w toku kończą się same; nowe nie startują.
+            self.stan.pauza_do = self._zegar() + dt.timedelta(seconds=pauza)
+            self.stan.powod_pauzy = blad
             log.warning("automatyczna wycena wstrzymana na %.0f s: %s", pauza, blad)
-            return pauza
-        return self._przerwa_s

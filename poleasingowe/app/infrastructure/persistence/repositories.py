@@ -625,10 +625,13 @@ WITH biezace AS (
     RETURNING auction_id
 )
 SELECT auction_id FROM dodane
-""".replace("__KOL__", """value_amount, min_amount, max_amount, currency, portal_amount,
+""".replace(
+    "__KOL__",
+    """value_amount, min_amount, max_amount, currency, portal_amount,
     confidence, rationale, assumptions, model, prompt_version, created_at,
     source_kind, otomoto_count, otomoto_p25, otomoto_p75, otomoto_search_url,
-    otomoto_listings, appraisal_documents""")
+    otomoto_listings, appraisal_documents""",
+)
 
 SQL_WYCENA_ZAPISZ_PROBE = """
 INSERT INTO app.ai_valuation_attempt (auction_id, last_attempt_at, last_error)

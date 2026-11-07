@@ -213,9 +213,14 @@
                  min="1" max="5000" value="{{ konfiguracja.opcje.wycena_auto_limit_dzienny }}">
         </div>
         <div class="pole">
-          <label for="wycena_auto_przerwa_s">Przerwa między wycenami [s]</label>
+          <label for="wycena_auto_przerwa_s">Przerwa między startami wycen [s]</label>
           <input id="wycena_auto_przerwa_s" name="wycena_auto_przerwa_s" type="number"
                  min="10" max="3600" value="{{ konfiguracja.opcje.wycena_auto_przerwa_s }}">
+        </div>
+        <div class="pole">
+          <label for="wycena_auto_rownolegle">Wyceny naraz</label>
+          <input id="wycena_auto_rownolegle" name="wycena_auto_rownolegle" type="number"
+                 min="1" max="8" value="{{ konfiguracja.opcje.wycena_auto_rownolegle }}">
         </div>
         <div class="pole">
           <label for="wycena_pauza_otomoto_minuty">Pauza po blokadzie Otomoto [min]</label>

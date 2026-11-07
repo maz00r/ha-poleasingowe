@@ -46,6 +46,7 @@ def _formularz(**zmiany: str) -> dict[str, str]:
         "wycena_pauza_minuty": "7",
         "wycena_pauza_otomoto_minuty": "15",
         "wycena_auto_przerwa_s": "90",
+        "wycena_auto_rownolegle": "4",
         "wycena_rodzaj_OSOBOWY": "on",
         "zrodlo_efl_wlaczone": "on",
         "zrodlo_efl_limit": "20",
@@ -327,6 +328,7 @@ def test_pauza_jest_w_formularzu_i_ma_granice() -> None:
     [
         ("wycena_pauza_otomoto_minuty", 15, 4, 1441),
         ("wycena_auto_przerwa_s", 90, 9, 3601),
+        ("wycena_auto_rownolegle", 4, 0, 9),
     ],
 )
 def test_tempo_automatu_jest_w_formularzu_i_ma_granice(

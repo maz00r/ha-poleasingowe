@@ -1,5 +1,15 @@
 # Historia zmian
 
+## 0.40.0
+
+**Kilka wycen naraz.** Automat prowadzi równolegle do `wycena_auto_rownolegle`
+wycen (domyślnie 3, od 1 do 8; pole „Wyceny naraz” w Diagnostyce). Najdłużej
+trwa odpowiedź modelu AI, więc to ona się skraca. `wycena_auto_przerwa_s`
+dzieli teraz starty kolejnych wycen, a nie koniec jednej i start następnej,
+więc tempo pytań do Otomoto zostaje pod kontrolą. Dobowy limit liczy także
+wyceny w toku. Po blokadzie Otomoto albo awarii dostawcy AI nowe wyceny nie
+startują, a te w toku kończą się same.
+
 ## 0.39.4
 
 **Ponownie wystawione auto trzyma poprzednią wycenę.** Ten sam egzemplarz (VIN)
